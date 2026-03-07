@@ -1,0 +1,314 @@
+import { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../App';
+import { API } from '../App';
+
+function fmtGBP(cents) {
+  return '£' + (cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// ── SVG icons (consistent across all platforms) ──────────────
+const DrawIcon = () => (
+  <svg className="nc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+    <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+  </svg>
+);
+const HistoryIcon = () => (
+  <svg className="nc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-4H6"/><path d="M3 3v4h4"/>
+  </svg>
+);
+const LeaderboardIcon = () => (
+  <svg className="nc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10M12 20V4M6 20v-6"/>
+  </svg>
+);
+const DocsIcon = () => (
+  <svg className="nc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14,2 14,8 20,8"/>
+    <line x1="9" y1="13" x2="15" y2="13"/>
+    <line x1="9" y1="17" x2="13" y2="17"/>
+  </svg>
+);
+
+const NAV_CARDS = [
+  { to: 'draw',        Icon: DrawIcon,        title: 'View draw',    desc: 'Tournament bracket & results' },
+  { to: 'history',     Icon: HistoryIcon,     title: 'Pick history', desc: 'Your past picks' },
+  { to: 'leaderboard', Icon: LeaderboardIcon, title: 'Leaderboard',  desc: "Who's still in" },
+];
+
+export function GroupHome() {
+  const { groupId } = useParams();
+  const { userId } = useAuth();
+  const [groups, setGroups] = useState([]);
+  const [group, setGroup] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (groupId) {
+      fetch(`${API}/groups/${groupId}`)
+        .then((r) => r.json())
+        .then(setGroup)
+        .catch(() => setGroup(null))
+        .finally(() => setLoading(false));
+    } else {
+      fetch(`${API}/groups?userId=${userId}`)
+        .then((r) => r.json())
+        .then(setGroups)
+        .catch(() => setGroups([]))
+        .finally(() => setLoading(false));
+    }
+  }, [groupId, userId]);
+
+  if (loading) return <div className="page-loading">Loading…</div>;
+
+  // ── Group dashboard ──────────────────────────────────────────
+  if (groupId && group) {
+    const isMember = group.members?.some((m) => m.userId === userId);
+    const totalMembers = group.members?.length ?? 0;
+    const aliveMembers = group.members?.filter((m) => m.isAlive).length ?? 0;
+    const inviteUrl = `${window.location.origin}/join/${group.inviteCode}`;
+
+    const copyInvite = () => {
+      navigator.clipboard.writeText(inviteUrl).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    };
+
+    return (
+      <div className="page group-home">
+
+        {/* Hero banner */}
+        <div className="group-hero">
+          <div className="group-hero-court" aria-hidden="true" />
+          <div className="group-hero-inner">
+            <p className="group-hero-eyebrow">🎾 Indian Wells 2026 · Men's Main Draw</p>
+            <h1 className="group-hero-title">{group.name}</h1>
+            <div className="group-hero-stats">
+              <div className="group-hero-stat">
+                <span className="group-stat-value">{fmtGBP(group.prizePoolCents)}</span>
+                <span className="group-stat-label">Prize pool</span>
+              </div>
+              <div className="group-hero-divider" />
+              <div className="group-hero-stat">
+                <span className="group-stat-value">{fmtGBP(group.entryFeeCents)}</span>
+                <span className="group-stat-label">Entry fee</span>
+              </div>
+              {totalMembers > 0 && (
+                <>
+                  <div className="group-hero-divider" />
+                  <div className="group-hero-stat">
+                    <span className="group-stat-value">{aliveMembers}<span className="group-stat-total"> / {totalMembers}</span></span>
+                    <span className="group-stat-label">Still in</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Survivor progress meter */}
+        {totalMembers > 1 && (
+          <SurvivorMeter alive={aliveMembers} total={totalMembers} />
+        )}
+
+        {!isMember ? (
+          <div className="join-cta-section">
+            <Link to={`/join/${group.inviteCode}`} className="btn primary btn-lg">
+              Join this group
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Primary CTA */}
+            <div className="pick-cta-section">
+              <Link to={`/group/${groupId}/pick`} className="btn primary btn-lg pick-cta-btn">
+                Make your pick →
+              </Link>
+              <p className="pick-cta-hint">Round R32 is open — deadline approaching</p>
+            </div>
+
+            {/* Secondary nav cards */}
+            <div className="nav-card-row">
+              {NAV_CARDS.map(({ to, Icon, title, desc }) => (
+                <Link key={to} to={`/group/${groupId}/${to}`} className="nav-card">
+                  <span className="nav-card-icon"><Icon /></span>
+                  <span className="nav-card-title">{title}</span>
+                  <span className="nav-card-desc">{desc}</span>
+                </Link>
+              ))}
+              <Link to="/terms" className="nav-card">
+                <span className="nav-card-icon"><DocsIcon /></span>
+                <span className="nav-card-title">Terms &amp; Conditions</span>
+                <span className="nav-card-desc">Rules and entry terms</span>
+              </Link>
+            </div>
+
+            {/* Invite link */}
+            <div className="invite-box">
+              <span className="invite-box-label">Invite friends</span>
+              <div className="invite-box-row">
+                <code className="invite-box-code">{inviteUrl}</code>
+                <button className={`btn invite-copy-btn ${copied ? 'copied' : ''}`} onClick={copyInvite}>
+                  {copied ? '✓ Copied!' : 'Copy link'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (groupId && !group) {
+    return (
+      <div className="page">
+        <p>Group not found.</p>
+        <Link to="/">Back to home</Link>
+      </div>
+    );
+  }
+
+  // ── Home / group list ────────────────────────────────────────
+  return (
+    <div className="page home-page">
+      <div className="home-hero">
+        <div className="home-hero-court" aria-hidden="true" />
+        <div className="home-hero-inner">
+          <p className="home-hero-eyebrow">Grand Slam Survivor Pool</p>
+          <h1 className="home-hero-title">Tennis Last Man Standing</h1>
+          <p className="home-hero-sub">
+            Pick one player per round. If they win, you survive.<br />
+            Last one standing takes the prize.
+          </p>
+        </div>
+      </div>
+
+      {/* How it works */}
+      <section className="how-it-works">
+        <h2 className="hiw-heading">How it works</h2>
+        <div className="hiw-steps">
+          <div className="hiw-step">
+            <div className="hiw-step-num">1</div>
+            <h3 className="hiw-step-title">Join a pool</h3>
+            <p className="hiw-step-desc">Enter a friend's invite code to join their Grand Slam survivor group — or create your own.</p>
+          </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">2</div>
+            <h3 className="hiw-step-title">Pick one player</h3>
+            <p className="hiw-step-desc">Each round, pick any player you think will win. You can never pick the same player twice.</p>
+          </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">3</div>
+            <h3 className="hiw-step-title">Last one standing wins</h3>
+            <p className="hiw-step-desc">If your player loses, you're out. Outlast everyone else and you take the entire prize pool.</p>
+          </div>
+        </div>
+      </section>
+
+      {groups.length > 0 && (
+        <section className="home-section">
+          <h2 className="home-section-title">Your pools</h2>
+          <div className="group-card-list">
+            {groups.map((g) => {
+              const alive = g.members?.filter((m) => m.isAlive).length ?? 0;
+              const total = g.members?.length ?? 0;
+              return (
+                <Link key={g.id} to={`/group/${g.id}`} className="group-card-item">
+                  <div className="group-card-left">
+                    <span className="group-card-name">🎾 {g.name}</span>
+                    {total > 0 && (
+                      <span className="group-card-meta">{alive} of {total} still in · {fmtGBP(g.prizePoolCents || 0)} prize</span>
+                    )}
+                  </div>
+                  <span className="group-card-arrow">→</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="home-section join-section">
+        <h2 className="home-section-title">Join a pool</h2>
+        <p className="home-section-sub">Got an invite code? Enter it below to join your group.</p>
+        <JoinForm />
+      </section>
+    </div>
+  );
+}
+
+function SurvivorMeter({ alive, total }) {
+  const eliminated = total - alive;
+  // Fill the bar based on how many of the (total-1) needed eliminations have happened
+  const pct = total > 1 ? Math.round((eliminated / (total - 1)) * 100) : 0;
+
+  // Colour shifts from green → amber → red as the field narrows
+  let barColour = 'var(--accent)';
+  if (pct >= 80) barColour = '#dc2626';
+  else if (pct >= 50) barColour = '#d97706';
+
+  return (
+    <div className="survivor-meter">
+      <div className="survivor-meter-header">
+        <span className="survivor-meter-label">Survivor meter</span>
+        <span className="survivor-meter-counts">
+          <strong>{alive}</strong> still in &nbsp;·&nbsp; <strong>{eliminated}</strong> eliminated
+        </span>
+      </div>
+      <div className="survivor-meter-track">
+        <div
+          className="survivor-meter-fill"
+          style={{ width: `${pct}%`, background: barColour }}
+        />
+      </div>
+      <div className="survivor-meter-footer">
+        <span>{pct}% of the field eliminated</span>
+        <span>{alive === 1 ? '🏆 We have a winner!' : 'Last one standing wins the prize pool'}</span>
+      </div>
+    </div>
+  );
+}
+
+function JoinForm() {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setLoading(true);
+    setError('');
+    fetch(`${API}/groups/invite/${encodeURIComponent(code.trim().toUpperCase())}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Invalid code');
+        return r.json();
+      })
+      .then((group) => {
+        window.location.href = `/group/${group.id}`;
+      })
+      .catch(() => setError('Invalid invite code'))
+      .finally(() => setLoading(false));
+  };
+
+  return (
+    <form onSubmit={submit} className="join-form">
+      <input
+        type="text"
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        placeholder="e.g. FAMILY-SLAM-2026"
+        className="input"
+      />
+      <button type="submit" className="btn primary" disabled={loading}>
+        {loading ? 'Checking…' : 'Join'}
+      </button>
+      {error && <p className="error">{error}</p>}
+    </form>
+  );
+}
