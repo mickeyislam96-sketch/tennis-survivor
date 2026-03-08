@@ -19,7 +19,7 @@ export function Layout({ children }) {
   return (
     <div className="layout">
       <header className="header">
-        <Link to="/" className="logo">Tennis Last Man Standing</Link>
+        <Link to="/" className="logo">Final Serve-ivor</Link>
 
         <nav className="nav">
           {groupId && nav.map(({ to, label }) => (
@@ -48,17 +48,9 @@ export function Layout({ children }) {
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="footer-copy">© 2026 Tennis Last Man Standing · Private game</span>
+          <span className="footer-copy">© 2026 Final Serve-ivor · A game of skill</span>
           <div className="footer-links">
             <NavLink to="/terms" className="footer-link">Terms &amp; Conditions</NavLink>
-            <a
-              href="https://www.begambleaware.org"
-              target="_blank"
-              rel="noreferrer"
-              className="footer-link"
-            >
-              BeGambleAware.org
-            </a>
           </div>
         </div>
       </footer>

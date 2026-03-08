@@ -11,6 +11,7 @@ import { drawRouter } from './routes/draw.js';
 import { leaderboardRouter } from './routes/leaderboard.js';
 import { authRouter } from './routes/auth.js';
 import { tiebreakerRouter } from './routes/tiebreaker.js';
+import { poolsRouter } from './routes/pools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +30,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
 app.use('/api/groups', groupsRouter);
+app.use('/api/pools', poolsRouter);
 app.use('/api/picks', picksRouter);
 app.use('/api/draw', drawRouter);
 app.use('/api/leaderboard', leaderboardRouter);
@@ -38,5 +40,5 @@ app.use('/api/tiebreaker', tiebreakerRouter);
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
-  console.log(`Tennis Survivor API running on http://localhost:${PORT}`);
+  console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);
 });

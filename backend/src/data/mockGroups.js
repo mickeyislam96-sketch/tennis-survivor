@@ -8,7 +8,17 @@ export const MOCK_GROUPS = [
     tournamentId: 'indian-wells-2026',
     adminUserId: 'u1',
     createdAt: new Date().toISOString()
-  }
+  },
+  {
+    id: 'g2',
+    name: 'Miami Open 2026 Pool',
+    inviteCode: 'MIAMI-2026',
+    entryFeeCents: 0,          // Free entry for the Miami launch pool
+    prizePoolCents: 0,
+    tournamentId: 'miami-2026',
+    adminUserId: 'u1',
+    createdAt: new Date().toISOString()
+  },
 ];
 
 export const MOCK_USERS = [

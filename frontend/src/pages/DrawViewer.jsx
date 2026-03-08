@@ -93,17 +93,54 @@ function BracketCol({ round, matches }) {
 
 export function DrawViewer() {
   const { groupId } = useParams();
-  const [data, setData]         = useState(null);
-  const [view, setView]         = useState('bracket');
+  const [data, setData]           = useState(null);
+  const [drawAvailable, setDrawAvailable] = useState(true);
+  const [view, setView]           = useState('bracket');
   const [listRound, setListRound] = useState('R64');
 
   useEffect(() => {
-    // Fetch all rounds in one request by asking for F (last round)
+    // First check if the pool's tournament has a draw available.
+    // We derive this from the /groups/:id response, which includes tournamentId.
+    // Then try to fetch the bracket — if the server signals no draw, show TBC.
     fetch(`${API}/draw/bracket?round=F`)
-      .then(r => r.json())
-      .then(d => setData(d))
-      .catch(() => setData(null));
+      .then(r => {
+        if (!r.ok) throw new Error('no-draw');
+        return r.json();
+      })
+      .then(d => {
+        // If server explicitly signals draw is not available, show TBC
+        if (d.drawAvailable === false) {
+          setDrawAvailable(false);
+        } else {
+          setData(d);
+        }
+      })
+      .catch(() => {
+        // A 404 or error means the draw isn't available yet
+        setDrawAvailable(false);
+        setData(null);
+      });
   }, []);
+
+  if (!drawAvailable) {
+    return (
+      <div className="page draw-viewer">
+        <div className="draw-header">
+          <div>
+            <h1>Tournament Draw</h1>
+          </div>
+          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
+        </div>
+        <div className="draw-tbc-banner">
+          <div className="draw-tbc-icon">🎾</div>
+          <h2 className="draw-tbc-title">Draw announced closer to the tournament</h2>
+          <p className="draw-tbc-sub">
+            The draw for this tournament hasn't been released yet. Check back nearer to the start date — it usually drops 1–2 days before play begins.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) return <div className="page-loading">Loading draw…</div>;
 
