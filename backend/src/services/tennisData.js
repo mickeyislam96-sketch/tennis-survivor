@@ -46,11 +46,30 @@ function normalizeRound(apiRound) {
   if (apiRound === null || apiRound === undefined || apiRound === '') return null;
   const str = String(apiRound).toLowerCase().trim();
 
-  // Named round
+  // Named round (direct map)
   if (ROUND_MAP[str]) return ROUND_MAP[str];
 
   // Already a valid internal key (e.g. "R32")
   if (ROUNDS.includes(str.toUpperCase())) return str.toUpperCase();
+
+  // Strip "ATP [Tournament Name] - " prefix, e.g. "ATP Indian Wells - 1/64-finals"
+  const roundPart = str.replace(/^atp\s+.+?\s+-\s+/, '').trim();
+
+  // Try direct map again after stripping prefix (e.g. "final", "semifinals")
+  if (ROUND_MAP[roundPart]) return ROUND_MAP[roundPart];
+
+  // Fraction notation: "1/64-finals", "1/32-finals", "1/4-finals", etc.
+  // The denominator corresponds to the number of matches in a standard 128-draw bracket.
+  // For Indian Wells 96-draw: "1/64-finals" covers both R1 (pre-seeds) and R64 (seeds enter).
+  const fracMatch = roundPart.match(/^1\/(\d+)-finals?$/);
+  if (fracMatch) {
+    const denom = parseInt(fracMatch[1], 10);
+    if (denom >= 32) return 'R64'; // 1/64 and 1/32 both map to our R64 bucket
+    if (denom === 16) return 'R32';
+    if (denom === 8)  return 'R16';
+    if (denom === 4)  return 'QF';
+    if (denom === 2)  return 'SF';
+  }
 
   // Numeric round: "1" → ROUNDS[0], "2" → ROUNDS[1], etc.
   const num = parseInt(str, 10);
@@ -303,15 +322,20 @@ export async function getDeadlines() {
     const lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
     const isLocked   = lockAtDate ? now >= lockAtDate : false;
 
-    // Window opens 12h after the first match of the previous round starts.
+    // Window opens 12h after the first match of the nearest non-empty previous round starts.
     // This is tolerant of round overlap and doesn't require full completion.
+    // We skip over empty rounds (e.g. R1 is empty when API folds it into R64).
     let opensAt = null;
     if (index > 0) {
-      const prevMatches = matchesByRound[ROUNDS[index - 1]] || [];
-      const prevFirstStart = prevMatches
-        .map((m) => (m.startTime ? new Date(m.startTime) : null))
-        .filter((d) => d && !Number.isNaN(d.getTime()))
-        .sort((a, b) => a - b)[0] || null;
+      let prevFirstStart = null;
+      for (let pi = index - 1; pi >= 0; pi--) {
+        const prevMatches = matchesByRound[ROUNDS[pi]] || [];
+        prevFirstStart = prevMatches
+          .map((m) => (m.startTime ? new Date(m.startTime) : null))
+          .filter((d) => d && !Number.isNaN(d.getTime()))
+          .sort((a, b) => a - b)[0] || null;
+        if (prevFirstStart) break; // found a non-empty previous round
+      }
       if (prevFirstStart) {
         opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
       }
