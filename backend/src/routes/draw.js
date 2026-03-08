@@ -15,21 +15,25 @@ drawRouter.get('/debug', async (_, res) => {
     if (!raw || raw.length === 0) {
       return res.json({ message: 'No live API data — check TENNIS_API_KEY and INDIAN_WELLS_TOURNAMENT_KEY env vars', fixtures: [] });
     }
-    const sample = raw.slice(0, 3).map(f => ({
-      event_key: f.event_key,
-      event_first_player: f.event_first_player,
-      event_second_player: f.event_second_player,
-      event_date: f.event_date,
-      event_status: f.event_status,
-      event_winner: f.event_winner,
-      event_round: f.event_round,
-      tournament_round: f.tournament_round,
-      event_stage: f.event_stage,
-      round: f.round,
-      // Show all field names on the first fixture so we can see everything
-      _all_fields: Object.keys(f),
+    // Show all fixtures with the key fields we need to diagnose round splitting
+    const all = raw.map(f => ({
+      key: f.event_key,
+      p1: f.event_first_player,
+      p2: f.event_second_player,
+      date: f.event_date,
+      status: f.event_status,
+      winner: f.event_winner,
+      round: f.tournament_round,
+      qualification: f.event_qualification,
+      type: f.event_type_type,
     }));
-    res.json({ total: raw.length, sample });
+    // Group by tournament_round so we can see the split clearly
+    const byRound = {};
+    raw.forEach(f => {
+      const r = f.tournament_round || 'unknown';
+      byRound[r] = (byRound[r] || 0) + 1;
+    });
+    res.json({ total: raw.length, byRound, all_fields: Object.keys(raw[0]), fixtures: all });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
