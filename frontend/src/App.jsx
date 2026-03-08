@@ -11,24 +11,78 @@ import { TermsAndConditions } from './pages/TermsAndConditions';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 
+const STORAGE_KEY = 'fsv_user';
+
+function readStoredUser() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 export function useAuth() {
-  const [user, setUser] = useState(null);
-  const userId = localStorage.getItem('tennis_user_id') || 'u1';
+  const [user, setUserState] = useState(() => readStoredUser());
 
+  // Verify stored user against backend on mount
   useEffect(() => {
-    fetch(`${API}/auth/me?userId=${userId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setUser)
-      .catch(() => setUser(null));
-  }, [userId]);
+    const stored = readStoredUser();
+    if (!stored?.id) return;
+    fetch(`${API}/auth/me?userId=${stored.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(u => {
+        if (u) {
+          setUserState(u);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+        }
+        // If not found keep stored user (offline / Railway sleeping)
+      })
+      .catch(() => {});
+  }, []);
 
-  const login = (id) => {
-    localStorage.setItem('tennis_user_id', id);
-    setUser({ id, displayName: id });
-    window.location.reload();
+  const saveUser = (u) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+    setUserState(u);
   };
 
-  return { user, userId, login, setUser };
+  // Create account — stored in Railway DB
+  const register = async (email, displayName) => {
+    const res = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, displayName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    saveUser(data);
+    return data;
+  };
+
+  // Sign in with email
+  const login = async (email) => {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    saveUser(data);
+    return data;
+  };
+
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setUserState(null);
+  };
+
+  return {
+    user,
+    userId: user?.id || null,
+    isRegistered: !!user?.id,
+    register,
+    login,
+    logout,
+  };
 }
 
 function App() {

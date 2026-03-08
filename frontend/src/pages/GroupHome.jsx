@@ -4,6 +4,25 @@ import { useAuth } from '../App';
 import { API } from '../App';
 import { getTournament } from '../data/tournaments';
 
+// Days until a YYYY-MM-DD date (positive = future)
+function daysUntil(dateStr) {
+  if (!dateStr) return Infinity;
+  return (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24);
+}
+
+function fmtDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+}
+
+// Pre-launch = upcoming tournament more than 3 days away (no draw/picks yet)
+function isPreLaunch(tournament) {
+  if (!tournament) return false;
+  if (tournament.status === 'active') return false;
+  return daysUntil(tournament.startDate) > 3;
+}
+
 function fmtGBP(cents) {
   return '£' + (cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
@@ -42,7 +61,7 @@ const NAV_CARDS = [
 
 export function GroupHome() {
   const { groupId } = useParams();
-  const { userId } = useAuth();
+  const { userId, isRegistered, register, login, user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [allPools, setAllPools] = useState([]);
   const [group, setGroup] = useState(null);
@@ -52,6 +71,10 @@ export function GroupHome() {
   const [openRoundDeadline, setOpenRoundDeadline] = useState(null);
   const [openRoundOpensAt, setOpenRoundOpensAt] = useState(null);
   const [myCurrentPick, setMyCurrentPick] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [joinAfterAuth, setJoinAfterAuth] = useState(false); // trigger join after registration
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   useEffect(() => {
     if (groupId) {
@@ -105,6 +128,39 @@ export function GroupHome() {
       .catch(() => {});
   }, [groupId, userId, openRound]);
 
+  // Join the current group directly (used from pre-launch dashboard)
+  const joinGroup = async (uid, displayName) => {
+    if (!group) return;
+    setJoining(true);
+    setJoinError('');
+    try {
+      const res = await fetch(`${API}/groups/${group.id}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, displayName }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Could not join');
+      }
+      // Refresh group data to reflect new membership
+      const updated = await fetch(`${API}/groups/${group.id}`).then(r => r.json());
+      setGroup(updated);
+    } catch (e) {
+      setJoinError(e.message);
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  // After auth modal succeeds, trigger join if user wanted to join
+  useEffect(() => {
+    if (joinAfterAuth && isRegistered && userId && group) {
+      setJoinAfterAuth(false);
+      joinGroup(userId, user?.displayName || 'Player');
+    }
+  }, [joinAfterAuth, isRegistered, userId]);
+
   if (loading) return <div className="page-loading">Loading…</div>;
 
   // ── Group dashboard ──────────────────────────────────────────
@@ -120,6 +176,143 @@ export function GroupHome() {
         setTimeout(() => setCopied(false), 2000);
       });
     };
+
+    const tournament = getTournament(group.tournamentId);
+    const preLaunch  = isPreLaunch(tournament);
+
+    // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
+    if (preLaunch && tournament) {
+      const startDate    = tournament.startDate;
+      const drawDate     = new Date(new Date(startDate) - 3 * 24 * 60 * 60 * 1000);
+      const drawDateFmt  = fmtDate(drawDate.toISOString().slice(0, 10));
+      const startDateFmt = fmtDate(startDate);
+      const isFree       = group.entryFeeCents === 0;
+
+      const handleJoinClick = () => {
+        if (!isRegistered) {
+          setJoinAfterAuth(true);
+          setShowAuthModal(true);
+        } else {
+          joinGroup(userId, user?.displayName || 'Player');
+        }
+      };
+
+      return (
+        <div className="page group-home">
+          {showAuthModal && (
+            <AuthModal
+              onClose={() => { setShowAuthModal(false); setJoinAfterAuth(false); }}
+              onSuccess={() => setShowAuthModal(false)}
+              poolName={group.name}
+              register={register}
+              login={login}
+            />
+          )}
+
+          {/* Hero */}
+          <div className="group-hero">
+            <div className="group-hero-court" aria-hidden="true" />
+            <div className="group-hero-inner">
+              <p className="group-hero-eyebrow">
+                🎾 {tournament.name} {tournament.year} · {tournament.tourLevel}
+              </p>
+              <h1 className="group-hero-title">{group.name}</h1>
+              <div className="group-hero-stats">
+                <div className="group-hero-stat">
+                  <span className="group-stat-value">{isFree ? 'Free' : fmtGBP(group.entryFeeCents)}</span>
+                  <span className="group-stat-label">Entry</span>
+                </div>
+                <div className="group-hero-divider" />
+                <div className="group-hero-stat">
+                  <span className="group-stat-value">{startDateFmt}</span>
+                  <span className="group-stat-label">Starts</span>
+                </div>
+                <div className="group-hero-divider" />
+                <div className="group-hero-stat">
+                  <span className="group-stat-value">{totalMembers}</span>
+                  <span className="group-stat-label">Registered</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="prelaunch-timeline">
+            <div className="plt-step plt-step--done">
+              <div className="plt-dot plt-dot--done" />
+              <div className="plt-body">
+                <span className="plt-label">Registration open</span>
+                <span className="plt-sub">Join now to secure your spot</span>
+              </div>
+            </div>
+            <div className="plt-connector" />
+            <div className="plt-step">
+              <div className="plt-dot" />
+              <div className="plt-body">
+                <span className="plt-label">Draw released</span>
+                <span className="plt-sub">~{drawDateFmt} · pick window opens</span>
+              </div>
+            </div>
+            <div className="plt-connector" />
+            <div className="plt-step">
+              <div className="plt-dot" />
+              <div className="plt-body">
+                <span className="plt-label">Tournament begins</span>
+                <span className="plt-sub">{startDateFmt} · {tournament.location}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="prelaunch-cta-section">
+            {isMember ? (
+              <div className="prelaunch-registered">
+                <span className="prelaunch-registered-icon">✓</span>
+                <div>
+                  <p className="prelaunch-registered-label">You're registered</p>
+                  <p className="prelaunch-registered-sub">
+                    We'll show your pick window here once the draw is released on {drawDateFmt}.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button
+                  className="btn primary btn-lg"
+                  onClick={handleJoinClick}
+                  disabled={joining}
+                >
+                  {joining ? 'Joining…' : isFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents)} →`}
+                </button>
+                <p className="prelaunch-cta-hint">
+                  {isRegistered
+                    ? `Joining as ${user.displayName}`
+                    : 'You\'ll create a free account to join'}
+                </p>
+                {joinError && <p className="error">{joinError}</p>}
+              </>
+            )}
+          </div>
+
+          {/* Invite + T&C */}
+          {isMember && (
+            <div className="invite-box">
+              <span className="invite-box-label">Invite friends</span>
+              <div className="invite-box-row">
+                <code className="invite-box-code">{inviteUrl}</code>
+                <button className={`btn invite-copy-btn ${copied ? 'copied' : ''}`} onClick={copyInvite}>
+                  {copied ? '✓ Copied!' : 'Copy link'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="prelaunch-footer-links">
+            <Link to="/terms" className="prelaunch-footer-link">Terms &amp; Conditions</Link>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="page group-home">
@@ -398,6 +591,105 @@ function SurvivorMeter({ alive, total }) {
       <div className="survivor-meter-footer">
         <span>{pct}% of the field eliminated</span>
         <span>{alive === 1 ? '🏆 We have a winner!' : 'Last one standing wins the prize pool'}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Auth modal — create account or sign in ────────────────────────────────
+function AuthModal({ onClose, onSuccess, poolName, register, login }) {
+  const [mode, setMode] = useState('register'); // 'register' | 'login'
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      if (mode === 'register') {
+        await register(email.trim(), displayName.trim());
+      } else {
+        await login(email.trim());
+      }
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="auth-modal">
+        <button className="auth-modal-close" onClick={onClose} aria-label="Close">✕</button>
+
+        <div className="auth-modal-header">
+          <p className="auth-modal-eyebrow">🎾 {poolName}</p>
+          <h2 className="auth-modal-title">
+            {mode === 'register' ? 'Create your account' : 'Welcome back'}
+          </h2>
+          <p className="auth-modal-sub">
+            {mode === 'register'
+              ? 'A free account lets us track your picks and keep you in the game.'
+              : 'Enter your email to sign back in.'}
+          </p>
+        </div>
+
+        <form onSubmit={submit} className="auth-modal-form">
+          <label className="auth-field-label">Email address</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="input auth-input"
+            required
+            autoFocus
+          />
+
+          {mode === 'register' && (
+            <>
+              <label className="auth-field-label">Display name</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="How you'll appear on the leaderboard"
+                className="input auth-input"
+                required
+                maxLength={32}
+              />
+            </>
+          )}
+
+          {error && <p className="error auth-error">{error}</p>}
+
+          <button type="submit" className="btn primary btn-lg auth-submit-btn" disabled={loading}>
+            {loading
+              ? 'Please wait…'
+              : mode === 'register' ? 'Create account & join →' : 'Sign in →'}
+          </button>
+        </form>
+
+        <p className="auth-toggle">
+          {mode === 'register' ? (
+            <>Already have an account?{' '}
+              <button className="auth-toggle-btn" onClick={() => { setMode('login'); setError(''); }}>
+                Sign in
+              </button>
+            </>
+          ) : (
+            <>New here?{' '}
+              <button className="auth-toggle-btn" onClick={() => { setMode('register'); setError(''); }}>
+                Create account
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
