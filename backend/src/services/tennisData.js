@@ -84,84 +84,89 @@ function toFixtureDate(f) {
 
 /**
  * Build draw + results from API fixtures.
- * We do NOT rely on `tournament_round` because for many tournaments it is blank,
- * which was causing the frontend to see no players/matches.
- * Instead we:
- * - Filter to main-draw matches (exclude explicit qualifications).
- * - Sort by scheduled date/time.
- * - Assign matches to rounds sequentially using MATCHES_PER_ROUND (R1, R64, R32, R16, QF, SF, F).
+ *
+ * Strategy:
+ * 1. Try to use `tournament_round` field from the API via ROUND_MAP — this is the most
+ *    accurate approach and handles Indian Wells byes correctly (R1 and R64 overlap in dates).
+ * 2. Fall back to sequential date-based assignment only when round fields are all blank.
  */
 function buildDrawFromFixtures(fixtures) {
-  const playersMap = new Map(); // id -> { id, name, seed?, roundEliminated }
+  const playersMap = new Map();
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
 
-  // Filter out explicit qualification matches if present
+  // Filter out explicit qualification matches
   const mainFixtures = fixtures.filter((f) => {
     const q = String(f.event_qualification ?? '').toLowerCase();
     return q !== 'true' && q !== '1';
   });
 
-  const sorted = [...mainFixtures].sort((a, b) => {
-    const da = toFixtureDate(a);
-    const db = toFixtureDate(b);
-    if (!da && !db) return 0;
-    if (!da) return 1;
-    if (!db) return -1;
-    return da - db;
+  // Check whether the API provides usable round names
+  const hasRoundField = mainFixtures.some((f) => {
+    const raw = f.tournament_round || f.event_round || '';
+    return raw && normalizeRound(raw);
   });
 
-  let fixtureIndex = 0;
+  function buildMatch(f, round) {
+    const player1 = {
+      id: String(f.first_player_key ?? `${f.event_key}-p1`),
+      name: f.event_first_player || 'TBD',
+    };
+    const player2 = {
+      id: String(f.second_player_key ?? `${f.event_key}-p2`),
+      name: f.event_second_player || 'TBD',
+    };
+    playersMap.set(player1.id, playersMap.get(player1.id) ?? { ...player1, roundEliminated: null });
+    playersMap.set(player2.id, playersMap.get(player2.id) ?? { ...player2, roundEliminated: null });
 
-  for (const round of ROUNDS) {
-    const count = MATCHES_PER_ROUND[round] || 0;
-    for (let i = 0; i < count && fixtureIndex < sorted.length; i += 1, fixtureIndex += 1) {
-      const f = sorted[fixtureIndex];
+    const dt = toFixtureDate(f);
+    const startTime = dt ? dt.toISOString() : null;
 
-      const player1 = {
-        id: String(f.first_player_key ?? `${f.event_key}-p1`),
-        name: f.event_first_player || 'TBD',
-      };
-      const player2 = {
-        id: String(f.second_player_key ?? `${f.event_key}-p2`),
-        name: f.event_second_player || 'TBD',
-      };
+    let winnerId = null;
+    let winnerName = null;
+    let status = (f.event_status || '').toLowerCase().includes('finish') ? 'completed' : 'scheduled';
+    if (f.event_winner === 'First Player') { winnerId = player1.id; winnerName = player1.name; }
+    else if (f.event_winner === 'Second Player') { winnerId = player2.id; winnerName = player2.name; }
+    if (winnerId) status = 'completed';
 
-      playersMap.set(player1.id, { ...player1, roundEliminated: null });
-      playersMap.set(player2.id, { ...player2, roundEliminated: null });
+    return {
+      id: `m-${round}-${f.event_key}`,
+      round,
+      matchOrder: (matchesByRound[round] || []).length,
+      player1Id: player1.id, player1Name: player1.name,
+      player2Id: player2.id, player2Name: player2.name,
+      winnerId, winnerName, status, startTime,
+    };
+  }
 
-      const dt = toFixtureDate(f);
-      const startTime = dt ? dt.toISOString() : null;
-
-      let winnerId = null;
-      let winnerName = null;
-      let status = (f.event_status || '').toLowerCase().includes('finish') ? 'completed' : 'scheduled';
-      if (f.event_winner === 'First Player') {
-        winnerId = player1.id;
-        winnerName = player1.name;
-      } else if (f.event_winner === 'Second Player') {
-        winnerId = player2.id;
-        winnerName = player2.name;
+  if (hasRoundField) {
+    // ── Path 1: use API round names ──────────────────────────────────────────
+    for (const f of mainFixtures) {
+      const raw = f.tournament_round || f.event_round || '';
+      const round = normalizeRound(raw);
+      if (!round || !matchesByRound[round]) continue;
+      matchesByRound[round].push(buildMatch(f, round));
+    }
+  } else {
+    // ── Path 2: sequential assignment by date (fallback) ─────────────────────
+    const sorted = [...mainFixtures].sort((a, b) => {
+      const da = toFixtureDate(a);
+      const db = toFixtureDate(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da - db;
+    });
+    let idx = 0;
+    for (const round of ROUNDS) {
+      const count = MATCHES_PER_ROUND[round] || 0;
+      for (let i = 0; i < count && idx < sorted.length; i++, idx++) {
+        matchesByRound[round].push(buildMatch(sorted[idx], round));
       }
-      if (winnerId) status = 'completed';
-
-      matchesByRound[round].push({
-        id: `m-${round}-${f.event_key}`,
-        round,
-        matchOrder: matchesByRound[round].length,
-        player1Id: player1.id,
-        player1Name: player1.name,
-        player2Id: player2.id,
-        player2Name: player2.name,
-        winnerId,
-        winnerName,
-        status,
-        startTime,
-      });
     }
   }
 
-  // Compute roundEliminated for each player from completed matches
+  // Compute roundEliminated per player
   const eliminated = new Set();
   for (const round of ROUNDS) {
     for (const m of matchesByRound[round] || []) {
@@ -177,7 +182,6 @@ function buildDrawFromFixtures(fixtures) {
 
   const players = Array.from(playersMap.values());
   const matches = ROUNDS.flatMap((r) => matchesByRound[r] || []);
-
   return { players, matches, rounds: ROUNDS };
 }
 
@@ -202,71 +206,93 @@ export function getRounds() {
 }
 
 /**
- * Get round lock deadlines based on live fixtures.
- * - Each round locks 30 minutes before the first scheduled match of that round.
- * - A round is considered "open" only after all matches in the previous round are completed.
+ * Get round pick-window deadlines.
+ *
+ * A round's pick window:
+ *   OPENS  — 12 hours after the first match of the PREVIOUS round starts.
+ *            This doesn't require all previous matches to finish, which is
+ *            important because rounds overlap in tournaments with byes.
+ *            R1 (first round) is always considered open from the start.
+ *   LOCKS  — 30 minutes before the first scheduled match of THIS round.
+ *
+ * If a round has no match data yet (e.g. draw not released) it is marked
+ * pending and neither open nor locked.
  */
 export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
-    // Fallback: no live data, keep a simple sequential schedule starting now.
+    // No live data — fall back to mock schedule based on Indian Wells dates.
+    // R1 started Mar 5, R64 Mar 6, R32 Mar 8, R16 Mar 10, QF Mar 12, SF Mar 14, F Mar 16
+    const ROUND_DATES = {
+      R1:  '2026-03-05T11:00:00',
+      R64: '2026-03-06T11:00:00',
+      R32: '2026-03-08T11:00:00',
+      R16: '2026-03-10T11:00:00',
+      QF:  '2026-03-12T11:00:00',
+      SF:  '2026-03-14T11:00:00',
+      F:   '2026-03-16T11:00:00',
+    };
     const now = new Date();
-    return ROUNDS.map((round, i) => ({
-      round,
-      // opensAt: 12h before the lock for each round (window opens when previous round locks)
-      opensAt: i === 0 ? null : new Date(now.getTime() + i * 24 * 60 * 60 * 1000).toISOString(),
-      lockAt: new Date(now.getTime() + (i + 1) * 24 * 60 * 60 * 1000).toISOString(),
-      isLocked: false,
-      isOpen: i === 0,
-    }));
+    return ROUNDS.map((round, i) => {
+      const firstStart = ROUND_DATES[round] ? new Date(ROUND_DATES[round]) : null;
+      const lockAtDate = firstStart ? new Date(firstStart.getTime() - 30 * 60 * 1000) : null;
+      const lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
+      const isLocked  = lockAtDate ? now >= lockAtDate : false;
+
+      let opensAt = null;
+      if (i === 0) {
+        opensAt = null; // R1 always open from the start
+      } else {
+        const prevFirstStart = ROUND_DATES[ROUNDS[i - 1]] ? new Date(ROUND_DATES[ROUNDS[i - 1]]) : null;
+        opensAt = prevFirstStart
+          ? new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString()
+          : null;
+      }
+      const hasOpened = i === 0 || (opensAt && now >= new Date(opensAt));
+      const isOpen    = hasOpened && !isLocked;
+
+      return { round, opensAt, lockAt, isLocked, isOpen };
+    });
   }
 
   const draw = buildDrawFromFixtures(fixtures);
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
   (draw.matches || []).forEach((m) => {
-    if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
-    matchesByRound[m.round].push(m);
+    if (matchesByRound[m.round]) matchesByRound[m.round].push(m);
   });
 
   const now = new Date();
   return ROUNDS.map((round, index) => {
     const roundMatches = matchesByRound[round] || [];
+
+    // First scheduled start time for this round
     const firstStart = roundMatches
       .map((m) => (m.startTime ? new Date(m.startTime) : null))
       .filter((d) => d && !Number.isNaN(d.getTime()))
       .sort((a, b) => a - b)[0] || null;
 
     const lockAtDate = firstStart ? new Date(firstStart.getTime() - 30 * 60 * 1000) : null;
-    const lockAt = lockAtDate ? lockAtDate.toISOString() : null;
-    const isLocked = lockAtDate ? now >= lockAtDate : false;
+    const lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
+    const isLocked   = lockAtDate ? now >= lockAtDate : false;
 
-    let previousRoundFinished = true;
+    // Window opens 12h after the first match of the previous round starts.
+    // This is tolerant of round overlap and doesn't require full completion.
     let opensAt = null;
     if (index > 0) {
-      const prevRound = ROUNDS[index - 1];
-      const prevMatches = matchesByRound[prevRound] || [];
-      previousRoundFinished =
-        prevMatches.length > 0 && prevMatches.every((m) => m.status === 'completed');
-
-      // opensAt: ~2h after the last match of the previous round starts (estimated end time)
-      const lastPrevStart = prevMatches
+      const prevMatches = matchesByRound[ROUNDS[index - 1]] || [];
+      const prevFirstStart = prevMatches
         .map((m) => (m.startTime ? new Date(m.startTime) : null))
         .filter((d) => d && !Number.isNaN(d.getTime()))
-        .sort((a, b) => b - a)[0] || null;
-      if (lastPrevStart) {
-        opensAt = new Date(lastPrevStart.getTime() + 2 * 60 * 60 * 1000).toISOString();
+        .sort((a, b) => a - b)[0] || null;
+      if (prevFirstStart) {
+        opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
       }
     }
 
-    const isOpen = previousRoundFinished && !isLocked;
+    const hasOpened = index === 0 || (opensAt && now >= new Date(opensAt));
+    const isOpen    = hasOpened && !isLocked;
 
-    return {
-      round,
-      opensAt,
-      lockAt,
-      isLocked,
-      isOpen,
-    };
+    return { round, opensAt, lockAt, isLocked, isOpen };
   });
 }

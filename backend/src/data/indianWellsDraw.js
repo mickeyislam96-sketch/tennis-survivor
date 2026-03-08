@@ -120,8 +120,25 @@ function buildIndianWellsMatches() {
   return matches;
 }
 
+// Realistic start times per round — used by pick-window deadline logic
+const ROUND_START_TIMES = {
+  R1:  '2026-03-05T11:00:00Z',
+  R64: '2026-03-06T11:00:00Z',
+  R32: '2026-03-08T11:00:00Z',
+  R16: '2026-03-10T11:00:00Z',
+  QF:  '2026-03-12T11:00:00Z',
+  SF:  '2026-03-14T11:00:00Z',
+  F:   '2026-03-16T11:00:00Z',
+};
+
 /**
- * Return draw with simulated results up to currentRound (Indian Wells format, byes in R1).
+ * Return mock draw for Indian Wells 2026.
+ *
+ * Actual state as of March 8 2026:
+ *   R1  — completed (March 5-6). Top 32 seeds had byes, didn't play.
+ *   R64 — completed (March 6-7). Seeds entered for the first time.
+ *   R32 — in progress (started March 8). Users pick for this round.
+ *   R16, QF, SF, F — scheduled.
  */
 export function getIndianWellsMockDraw(currentRound = 'R32') {
   const roundIndex = ROUNDS.indexOf(currentRound);
@@ -131,22 +148,33 @@ export function getIndianWellsMockDraw(currentRound = 'R32') {
 
   matches.forEach((m) => {
     const r = ROUNDS.indexOf(m.round);
+
+    // Every match gets a realistic start time so deadline logic has timestamps
+    m.startTime = ROUND_START_TIMES[m.round] || null;
+
     if (r < roundIndex) {
+      // Past rounds: mark completed with player1 winning (mock result)
       m.status = 'completed';
       m.winnerId = m.player1Id;
       m.winnerName = m.player1Name;
       eliminated.add(m.player2Id);
     } else if (r === roundIndex) {
+      // Current round: in progress, NO winner set yet — users are picking now
       m.status = 'in_progress';
-      m.winnerId = m.player1Id;
-      m.winnerName = m.player1Name;
-      eliminated.add(m.player2Id);
     }
+    // Future rounds: stay scheduled with no winner
   });
 
+  // Mark each eliminated player with the round they lost in
   eliminated.forEach((id) => {
     const p = players.find((x) => x.id === id);
-    if (p) p.roundEliminated = currentRound;
+    if (!p) return;
+    const lostMatch = matches.find(
+      (m) => m.status === 'completed' &&
+             (m.player1Id === id || m.player2Id === id) &&
+             m.winnerId !== id
+    );
+    if (lostMatch) p.roundEliminated = lostMatch.round;
   });
 
   return {
