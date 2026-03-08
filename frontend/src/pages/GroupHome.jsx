@@ -48,6 +48,7 @@ export function GroupHome() {
   const [copied, setCopied] = useState(false);
   const [openRound, setOpenRound] = useState(null);
   const [openRoundDeadline, setOpenRoundDeadline] = useState(null);
+  const [openRoundOpensAt, setOpenRoundOpensAt] = useState(null);
   const [myCurrentPick, setMyCurrentPick] = useState(null);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export function GroupHome() {
         if (open) {
           setOpenRound(open.round);
           setOpenRoundDeadline(open.lockAt || null);
+          setOpenRoundOpensAt(open.opensAt || null);
         }
       })
       .catch(() => {});
@@ -177,13 +179,10 @@ export function GroupHome() {
                   <Link to={`/group/${groupId}/pick`} className="btn primary btn-lg pick-cta-btn">
                     {openRound ? `Pick for ${openRound} →` : 'Make your pick →'}
                   </Link>
-                  {openRound && openRoundDeadline && (
+                  {openRound && (
                     <p className="pick-cta-hint">
-                      {openRound} is open — pick before <DeadlineCountdown to={openRoundDeadline} />
+                      <PickWindow opensAt={openRoundOpensAt} lockAt={openRoundDeadline} />
                     </p>
-                  )}
-                  {openRound && !openRoundDeadline && (
-                    <p className="pick-cta-hint">{openRound} is open — make your pick</p>
                   )}
                 </>
               )}
@@ -370,6 +369,14 @@ function JoinForm() {
   );
 }
 
+function fmtWindowDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+    + ', '
+    + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
 function DeadlineCountdown({ to }) {
   const [label, setLabel] = useState('');
   const timerRef = useRef(null);
@@ -378,7 +385,7 @@ function DeadlineCountdown({ to }) {
     const end = new Date(to);
     const tick = () => {
       const diff = end - new Date();
-      if (diff <= 0) { setLabel('deadline passed'); return; }
+      if (diff <= 0) { setLabel('closed'); return; }
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
@@ -392,4 +399,41 @@ function DeadlineCountdown({ to }) {
   }, [to]);
 
   return <strong>{label}</strong>;
+}
+
+// Shows the full pick window: "opens [date] → closes in [countdown]"
+function PickWindow({ opensAt, lockAt }) {
+  const now = new Date();
+  const windowOpen = opensAt ? new Date(opensAt) <= now : true;
+
+  if (!lockAt && !opensAt) {
+    return <span>Window open — make your pick</span>;
+  }
+
+  if (!windowOpen && opensAt) {
+    return (
+      <span className="pick-window">
+        <span className="pw-label">Pick window opens</span>
+        <span className="pw-opens">{fmtWindowDate(opensAt)}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="pick-window">
+      {opensAt && (
+        <>
+          <span className="pw-label">Window</span>
+          <span className="pw-opens">{fmtWindowDate(opensAt)}</span>
+          <span className="pw-arrow">→</span>
+        </>
+      )}
+      {lockAt && (
+        <>
+          <span className="pw-closes">{fmtWindowDate(lockAt)}</span>
+          <span className="pw-countdown">· closes in <DeadlineCountdown to={lockAt} /></span>
+        </>
+      )}
+    </span>
+  );
 }

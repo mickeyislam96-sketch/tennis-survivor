@@ -213,6 +213,8 @@ export async function getDeadlines() {
     const now = new Date();
     return ROUNDS.map((round, i) => ({
       round,
+      // opensAt: 12h before the lock for each round (window opens when previous round locks)
+      opensAt: i === 0 ? null : new Date(now.getTime() + i * 24 * 60 * 60 * 1000).toISOString(),
       lockAt: new Date(now.getTime() + (i + 1) * 24 * 60 * 60 * 1000).toISOString(),
       isLocked: false,
       isOpen: i === 0,
@@ -240,17 +242,28 @@ export async function getDeadlines() {
     const isLocked = lockAtDate ? now >= lockAtDate : false;
 
     let previousRoundFinished = true;
+    let opensAt = null;
     if (index > 0) {
       const prevRound = ROUNDS[index - 1];
       const prevMatches = matchesByRound[prevRound] || [];
       previousRoundFinished =
         prevMatches.length > 0 && prevMatches.every((m) => m.status === 'completed');
+
+      // opensAt: ~2h after the last match of the previous round starts (estimated end time)
+      const lastPrevStart = prevMatches
+        .map((m) => (m.startTime ? new Date(m.startTime) : null))
+        .filter((d) => d && !Number.isNaN(d.getTime()))
+        .sort((a, b) => b - a)[0] || null;
+      if (lastPrevStart) {
+        opensAt = new Date(lastPrevStart.getTime() + 2 * 60 * 60 * 1000).toISOString();
+      }
     }
 
     const isOpen = previousRoundFinished && !isLocked;
 
     return {
       round,
+      opensAt,
       lockAt,
       isLocked,
       isOpen,
