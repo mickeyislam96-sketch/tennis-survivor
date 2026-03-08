@@ -15,6 +15,8 @@ export const TOURNAMENTS = [
     surface: 'Hard',
     status: 'active',
     drawAvailable: true,
+    entryOpen: false,          // Tournament is underway — entry period is over
+    entryClosedReason: 'started',
   },
   {
     id: 'miami-2026',
@@ -28,6 +30,9 @@ export const TOURNAMENTS = [
     surface: 'Hard',
     status: 'upcoming',
     drawAvailable: false,
+    entryOpen: false,          // Not launched yet — opens when draw is released (~Mar 16)
+    entryOpenDate: '2026-03-16',
+    entryClosedReason: 'not-launched',
   },
 ];
 

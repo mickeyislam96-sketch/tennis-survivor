@@ -79,16 +79,16 @@ export function Leaderboard() {
         <table className="leaderboard-table">
           <thead>
             <tr>
-              <th className="lb-th-rank">#</th>
               <th>Player</th>
-              <th>Status</th>
-              {currentRound && <th className="lb-th-pick">{currentRound} pick</th>}
-              <th className="lb-th-rounds">Rounds</th>
+              <th className="lb-th-status">Status</th>
+              <th className="lb-th-rounds">Rounds survived</th>
+              <th className="lb-th-elim">Eliminated in</th>
             </tr>
           </thead>
           <tbody>
-            {leaderboard.map((m, i) => {
+            {leaderboard.map((m) => {
               const isYou = m.userId === userId;
+              const survivedRounds = m.survivedRounds ?? m.picksCount ?? 0;
               const rowClass = [
                 isYou ? 'lb-row-you' : '',
                 m.isAlive ? '' : 'lb-row-out',
@@ -96,9 +96,6 @@ export function Leaderboard() {
 
               return (
                 <tr key={m.id} className={rowClass}>
-                  <td className="lb-td-rank">
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
-                  </td>
                   <td className="lb-td-player">
                     <span
                       className="lb-avatar"
@@ -109,23 +106,24 @@ export function Leaderboard() {
                     <span className="lb-display-name">{m.displayName}</span>
                     {isYou && <span className="lb-you-tag">You</span>}
                   </td>
-                  <td>
-                    {m.isAlive ? (
-                      <span className="status-alive">✓ Alive</span>
-                    ) : (
-                      <span className="status-out">✗ {m.eliminatedRound}</span>
-                    )}
+                  <td className="lb-td-status">
+                    {m.isAlive
+                      ? <span className="status-alive">Alive</span>
+                      : <span className="status-out">Eliminated</span>
+                    }
                   </td>
-                  {currentRound && (
-                    <td className="lb-td-pick">
-                      {m.currentRoundPick ? (
-                        <span className="lb-pick-pill">{m.currentRoundPick}</span>
-                      ) : (
-                        <span className="lb-pick-none">—</span>
-                      )}
-                    </td>
-                  )}
-                  <td className="lb-td-rounds">{m.survivedRounds ?? m.picksCount ?? 0}</td>
+                  <td className="lb-td-rounds">
+                    {survivedRounds === 0
+                      ? <span className="lb-rounds-none">—</span>
+                      : <span className="lb-rounds-val">{survivedRounds} {survivedRounds === 1 ? 'round' : 'rounds'}</span>
+                    }
+                  </td>
+                  <td className="lb-td-elim">
+                    {m.isAlive
+                      ? <span className="lb-still-in">Still competing</span>
+                      : <span className="lb-elim-round">{m.eliminatedRound || '—'}</span>
+                    }
+                  </td>
                 </tr>
               );
             })}

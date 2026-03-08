@@ -2337,3 +2337,46 @@ input, select { font-family: var(--font); }
   font-weight: 500;
 }
 .prelaunch-footer-link:hover { color: var(--accent); text-decoration: none; }
+
+/* ── Entry closed notice ─────────────────────────────────────── */
+.entry-closed-notice {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-width: 420px;
+  margin: 0 auto;
+}
+.entry-closed-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+.entry-closed-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.entry-closed-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Leaderboard updates ─────────────────────────────────────── */
+.lb-th-status,
+.lb-td-status { text-align: center; }
+
+.lb-th-rounds,
+.lb-td-rounds { text-align: center; }
+
+.lb-th-elim,
+.lb-td-elim { text-align: right; }
+
+.lb-rounds-val { font-weight: 600; color: var(--text); }
+.lb-rounds-none { color: var(--text-muted); }
+.lb-still-in { color: var(--accent); font-style: italic; font-size: 0.85rem; }
+.lb-elim-round { color: var(--text-muted); font-size: 0.85rem; }

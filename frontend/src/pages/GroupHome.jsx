@@ -275,6 +275,16 @@ export function GroupHome() {
                   </p>
                 </div>
               </div>
+            ) : tournament.entryOpen === false ? (
+              <div className="entry-closed-notice">
+                <span className="entry-closed-icon">🔒</span>
+                <p className="entry-closed-title">This tournament hasn't launched yet</p>
+                <p className="entry-closed-sub">
+                  {tournament.entryOpenDate
+                    ? `Entries are expected to open around ${fmtDate(tournament.entryOpenDate)}, once the draw is released.`
+                    : 'Check back when the draw is released.'}
+                </p>
+              </div>
             ) : (
               <>
                 <button
@@ -355,9 +365,19 @@ export function GroupHome() {
 
         {!isMember ? (
           <div className="join-cta-section">
-            <Link to={`/join/${group.inviteCode}`} className="btn primary btn-lg">
-              Join this group
-            </Link>
+            {tournament?.entryOpen === false ? (
+              <div className="entry-closed-notice">
+                <span className="entry-closed-icon">🎾</span>
+                <p className="entry-closed-title">Entry period is over</p>
+                <p className="entry-closed-sub">
+                  {tournament.name} is already underway — new entries are no longer accepted.
+                </p>
+              </div>
+            ) : (
+              <Link to={`/join/${group.inviteCode}`} className="btn primary btn-lg">
+                Join this group
+              </Link>
+            )}
           </div>
         ) : (
           <>
