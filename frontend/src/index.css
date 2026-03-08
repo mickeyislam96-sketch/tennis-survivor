@@ -645,6 +645,50 @@ input, select { font-family: var(--font); }
   margin: 0;
 }
 
+/* Pick already made — "done" state */
+.pick-cta-done {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--accent-light);
+  border: 1.5px solid #bbf7d0;
+  border-radius: var(--radius);
+  padding: 0.9rem 1.25rem;
+  width: 100%;
+}
+.pick-cta-done-icon {
+  font-size: 1.4rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.pick-cta-done-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.1rem;
+}
+.pick-cta-done-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-dark);
+}
+.pick-cta-done-player {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.pick-cta-change-btn {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 0.45rem 0.9rem;
+  flex-shrink: 0;
+}
+.pick-cta-change-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 .join-cta-section {
   margin-bottom: 2rem;
 }
@@ -909,7 +953,7 @@ input, select { font-family: var(--font); }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='0.08'%3E%3Crect x='2' y='2' width='496' height='216'/%3E%3Crect x='28' y='2' width='444' height='216'/%3E%3Cline x1='2' y1='110' x2='498' y2='110'/%3E%3Cline x1='250' y1='2' x2='250' y2='75'/%3E%3Cline x1='250' y1='145' x2='250' y2='218'/%3E%3Cline x1='28' y1='75' x2='472' y2='75'/%3E%3Cline x1='28' y1='145' x2='472' y2='145'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='0.15'%3E%3Crect x='2' y='2' width='496' height='216'/%3E%3Crect x='28' y='2' width='444' height='216'/%3E%3Cline x1='2' y1='110' x2='498' y2='110'/%3E%3Cline x1='250' y1='2' x2='250' y2='75'/%3E%3Cline x1='250' y1='145' x2='250' y2='218'/%3E%3Cline x1='28' y1='75' x2='472' y2='75'/%3E%3Cline x1='28' y1='145' x2='472' y2='145'/%3E%3C/g%3E%3C/svg%3E");
   background-size: cover;
   background-position: center;
 }
@@ -1290,6 +1334,24 @@ input, select { font-family: var(--font); }
 .lb-row-you { background: #f0fdf4 !important; }
 .lb-row-you td { border-color: #bbf7d0; }
 
+/* Current round pick column */
+.lb-th-pick, .lb-td-pick { width: 9rem; }
+.lb-pick-pill {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lb-pick-none { color: var(--text-muted); font-size: 0.85rem; }
+
 /* Status pills */
 .status-alive {
   font-size: 0.78rem;
@@ -1346,7 +1408,8 @@ input, select { font-family: var(--font); }
   box-shadow: var(--shadow-sm);
   position: relative;
 }
-.match-card.status-completed { border-color: #d1fae5; }
+.match-card.status-completed { border-color: #6ee7b7; background: #f0fdf4; }
+.match-card.status-completed .match-divider { border-color: #bbf7d0; }
 .match-card.status-in_progress { border-color: #fbbf24; box-shadow: 0 0 0 2px #fef3c7; }
 
 .match-live-badge {
@@ -1590,13 +1653,14 @@ input, select { font-family: var(--font); }
 /* ── Pick screen: picked card ───────────────────────────────── */
 .picked-card {
   background: var(--accent-light);
-  border: 1.5px solid #86efac;
+  border: 2px solid #86efac;
   border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem;
   text-align: center;
 }
 .picked-card p { margin: 0 0 0.25rem; font-size: 0.95rem; }
-.picked-card strong { color: var(--accent-dark); font-size: 1.05rem; }
+.picked-card strong { color: var(--accent-dark); font-size: 1.2rem; font-weight: 800; display: block; margin-top: 0.25rem; }
+.picked-card .text-muted { font-size: 0.82rem; margin-top: 0.5rem; }
 
 /* ── Global button improvements ─────────────────────────────── */
 .btn {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
@@ -46,6 +46,9 @@ export function GroupHome() {
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [openRound, setOpenRound] = useState(null);
+  const [openRoundDeadline, setOpenRoundDeadline] = useState(null);
+  const [myCurrentPick, setMyCurrentPick] = useState(null);
 
   useEffect(() => {
     if (groupId) {
@@ -62,6 +65,38 @@ export function GroupHome() {
         .finally(() => setLoading(false));
     }
   }, [groupId, userId]);
+
+  // Fetch current open round
+  useEffect(() => {
+    fetch(`${API}/draw/deadlines`)
+      .then((r) => r.json())
+      .then((deadlines) => {
+        if (!Array.isArray(deadlines)) return;
+        const now = new Date();
+        const open = deadlines.find((d) => {
+          const lockAt = d.lockAt ? new Date(d.lockAt) : null;
+          return d.isOpen !== false && (!lockAt || now < lockAt);
+        });
+        if (open) {
+          setOpenRound(open.round);
+          setOpenRoundDeadline(open.lockAt || null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch user's pick for the current open round
+  useEffect(() => {
+    if (!groupId || !userId || !openRound) return;
+    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
+      .then((r) => r.json())
+      .then((picks) => {
+        if (!Array.isArray(picks)) return;
+        const pick = picks.find((p) => p.round === openRound);
+        setMyCurrentPick(pick || null);
+      })
+      .catch(() => {});
+  }, [groupId, userId, openRound]);
 
   if (loading) return <div className="page-loading">Loading…</div>;
 
@@ -126,10 +161,32 @@ export function GroupHome() {
           <>
             {/* Primary CTA */}
             <div className="pick-cta-section">
-              <Link to={`/group/${groupId}/pick`} className="btn primary btn-lg pick-cta-btn">
-                Make your pick →
-              </Link>
-              <p className="pick-cta-hint">Round R32 is open — deadline approaching</p>
+              {myCurrentPick ? (
+                <div className="pick-cta-done">
+                  <span className="pick-cta-done-icon">✓</span>
+                  <div className="pick-cta-done-text">
+                    <span className="pick-cta-done-label">{openRound} pick locked in</span>
+                    <span className="pick-cta-done-player">{myCurrentPick.playerName}</span>
+                  </div>
+                  <Link to={`/group/${groupId}/pick`} className="btn pick-cta-change-btn">
+                    View picks
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <Link to={`/group/${groupId}/pick`} className="btn primary btn-lg pick-cta-btn">
+                    {openRound ? `Pick for ${openRound} →` : 'Make your pick →'}
+                  </Link>
+                  {openRound && openRoundDeadline && (
+                    <p className="pick-cta-hint">
+                      {openRound} is open — pick before <DeadlineCountdown to={openRoundDeadline} />
+                    </p>
+                  )}
+                  {openRound && !openRoundDeadline && (
+                    <p className="pick-cta-hint">{openRound} is open — make your pick</p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Secondary nav cards */}
@@ -311,4 +368,28 @@ function JoinForm() {
       {error && <p className="error">{error}</p>}
     </form>
   );
+}
+
+function DeadlineCountdown({ to }) {
+  const [label, setLabel] = useState('');
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const end = new Date(to);
+    const tick = () => {
+      const diff = end - new Date();
+      if (diff <= 0) { setLabel('deadline passed'); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      if (d > 0) setLabel(`${d}d ${h}h`);
+      else if (h > 0) setLabel(`${h}h ${m}m`);
+      else setLabel(`${m}m`);
+    };
+    tick();
+    timerRef.current = setInterval(tick, 30000);
+    return () => clearInterval(timerRef.current);
+  }, [to]);
+
+  return <strong>{label}</strong>;
 }

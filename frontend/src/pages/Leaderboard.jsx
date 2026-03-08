@@ -42,7 +42,7 @@ export function Leaderboard() {
 
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;
 
-  const { group, leaderboard, aliveCount } = data;
+  const { group, leaderboard, aliveCount, currentRound } = data;
   const totalEntrants = leaderboard.length;
   const eliminated = totalEntrants - aliveCount;
 
@@ -82,6 +82,7 @@ export function Leaderboard() {
               <th className="lb-th-rank">#</th>
               <th>Player</th>
               <th>Status</th>
+              {currentRound && <th className="lb-th-pick">{currentRound} pick</th>}
               <th className="lb-th-rounds">Rounds</th>
             </tr>
           </thead>
@@ -115,6 +116,15 @@ export function Leaderboard() {
                       <span className="status-out">✗ {m.eliminatedRound}</span>
                     )}
                   </td>
+                  {currentRound && (
+                    <td className="lb-td-pick">
+                      {m.currentRoundPick ? (
+                        <span className="lb-pick-pill">{m.currentRoundPick}</span>
+                      ) : (
+                        <span className="lb-pick-none">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="lb-td-rounds">{m.survivedRounds ?? m.picksCount ?? 0}</td>
                 </tr>
               );
