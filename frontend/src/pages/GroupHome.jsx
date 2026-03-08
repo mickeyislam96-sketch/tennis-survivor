@@ -75,7 +75,7 @@ export function GroupHome() {
         const now = new Date();
         const open = deadlines.find((d) => {
           const lockAt = d.lockAt ? new Date(d.lockAt) : null;
-          return d.isOpen !== false && (!lockAt || now < lockAt);
+          return !d.isLocked && (!lockAt || now < lockAt);
         });
         if (open) {
           setOpenRound(open.round);

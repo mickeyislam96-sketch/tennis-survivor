@@ -18,7 +18,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     const now = new Date();
     const openRound = deadlines.find((d) => {
       const lockAt = d.lockAt ? new Date(d.lockAt) : null;
-      return d.isOpen !== false && (!lockAt || now < lockAt);
+      return !d.isLocked && (!lockAt || now < lockAt);
     });
     currentRound = openRound?.round || null;
   } catch (_) {
