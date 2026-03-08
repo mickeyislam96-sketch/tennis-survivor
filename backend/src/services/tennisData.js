@@ -9,37 +9,56 @@ import nodeFetch from 'node-fetch';
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
 
-// Map API round names to our round keys (R1, R64, R32, R16, QF, SF, F)
+// Map API round names to our internal round keys (R1, R64, R32, R16, QF, SF, F).
+// Indian Wells is a 96-draw: round 1 = R1 (byes), round 2 = R64, round 3 = R32, etc.
 const ROUND_MAP = {
+  // Text names
   'first round': 'R1',
   'round of 96': 'R1',
-  '1st round': 'R1',
-  'round 1': 'R1',
+  '1st round':   'R1',
+  'round 1':     'R1',
   'round of 64': 'R64',
-  '2nd round': 'R64',
-  'round 2': 'R64',
+  '2nd round':   'R64',
+  'round 2':     'R64',
   'round of 32': 'R32',
-  '3rd round': 'R32',
-  'round 3': 'R32',
+  '3rd round':   'R32',
+  'round 3':     'R32',
   'round of 16': 'R16',
-  '4th round': 'R16',
-  'round 4': 'R16',
-  'quarter-final': 'QF',
+  '4th round':   'R16',
+  'round 4':     'R16',
+  'quarter-final':    'QF',
   'quarter-final(s)': 'QF',
-  'quarterfinal': 'QF',
-  'quarterfinals': 'QF',
-  'semi-final': 'SF',
+  'quarterfinal':     'QF',
+  'quarterfinals':    'QF',
+  'quarter finals':   'QF',
+  'semi-final':    'SF',
   'semi-final(s)': 'SF',
-  'semifinal': 'SF',
-  'semifinals': 'SF',
-  'final': 'F',
+  'semifinal':     'SF',
+  'semifinals':    'SF',
+  'semi finals':   'SF',
+  'final':     'F',
   'the final': 'F',
 };
 
+// Numeric round values (API-Tennis often returns "1", "2", "3"...).
+// Maps position in ROUNDS array: ROUNDS[0]=R1, ROUNDS[1]=R64, etc.
 function normalizeRound(apiRound) {
-  if (!apiRound) return null;
-  const key = String(apiRound).toLowerCase().trim();
-  return ROUND_MAP[key] || (ROUNDS.includes(key) ? key : null);
+  if (apiRound === null || apiRound === undefined || apiRound === '') return null;
+  const str = String(apiRound).toLowerCase().trim();
+
+  // Named round
+  if (ROUND_MAP[str]) return ROUND_MAP[str];
+
+  // Already a valid internal key (e.g. "R32")
+  if (ROUNDS.includes(str.toUpperCase())) return str.toUpperCase();
+
+  // Numeric round: "1" → ROUNDS[0], "2" → ROUNDS[1], etc.
+  const num = parseInt(str, 10);
+  if (!Number.isNaN(num) && num >= 1 && num <= ROUNDS.length) {
+    return ROUNDS[num - 1];
+  }
+
+  return null;
 }
 
 /**
@@ -203,6 +222,14 @@ export async function getDraw(roundFilter = null) {
  */
 export function getRounds() {
   return [...ROUNDS];
+}
+
+/**
+ * Expose raw API fixtures for debugging — used by GET /api/draw/debug.
+ * Returns null if API not configured or unavailable.
+ */
+export async function getRawFixtures() {
+  return fetchApiDraw();
 }
 
 /**
