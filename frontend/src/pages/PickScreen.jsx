@@ -58,32 +58,24 @@ export function PickScreen() {
     setMyPickThisRound(pick || null);
   }, [allPicks, currentRound]);
 
-  // Whenever deadlines or picks change, choose the next round that is open,
-  // not locked, and has no pick yet, and move the currentRound there.
+  // When deadlines load, always navigate to the most recent open round so the
+  // user lands on the right tab — whether they have a pick there or not.
+  // Runs once on load (deadlines dependency only); user can still click tabs manually.
   useEffect(() => {
     if (!deadlines.length) return;
     const now = new Date();
-    const pickedRounds = new Set(allPicks.map((p) => p.round));
-
-    let suggestedRound = null;
-    let suggestedDeadline = null;
 
     for (const d of deadlines) {
       const lockAt = d.lockAt ? new Date(d.lockAt) : null;
       const isLocked = lockAt && now >= lockAt;
       const isOpen = d.isOpen !== false;
-      if (isOpen && !isLocked && !pickedRounds.has(d.round)) {
-        suggestedRound = d.round;
-        suggestedDeadline = d.lockAt || null;
-        break;
+      if (isOpen && !isLocked) {
+        setCurrentRound(d.round);
+        setDeadline(d.lockAt || null);
+        return;
       }
     }
-
-    if (suggestedRound) {
-      setCurrentRound(suggestedRound);
-      setDeadline(suggestedDeadline);
-    }
-  }, [deadlines, allPicks]);
+  }, [deadlines]);
 
   // When the user switches tabs, update the deadline for that round.
   useEffect(() => {
@@ -104,7 +96,7 @@ export function PickScreen() {
   }, [groupId, userId]);
 
   const submitPick = (player) => {
-    if (!groupId || !userId || myPickThisRound) return;
+    if (!groupId || !userId) return;
     setSubmitting(true);
     setMessage('');
     setRowError({ id: null, msg: '' });
@@ -124,9 +116,10 @@ export function PickScreen() {
         return r.json();
       })
       .then((pick) => {
+        const wasChange = !!myPickThisRound;
         setMyPickThisRound(pick);
         setAvailable((prev) => prev.filter((p) => p.id !== player.id));
-        setMessage('Pick locked in!');
+        setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
       })
       .catch((e) => {
         const msg = e.message || 'Could not submit pick';
@@ -191,9 +184,9 @@ export function PickScreen() {
         ))}
       </div>
 
-      {deadline && (
+      {deadline && !isLocked && (
         <div className="countdown-card">
-          <span className="countdown-label">Pick locks in</span>
+          <span className="countdown-label">Pick window closes in</span>
           <Countdown to={deadline} />
         </div>
       )}
