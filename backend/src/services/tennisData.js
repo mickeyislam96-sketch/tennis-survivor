@@ -309,6 +309,18 @@ export async function getDeadlines() {
     });
   }
 
+  // Fallback schedule used when the live API hasn't published start times yet
+  // (common for upcoming rounds like QF/SF/F early in the tournament week).
+  const ROUND_DATE_FALLBACK = {
+    R1:  '2026-03-05T11:00:00Z',
+    R64: '2026-03-06T11:00:00Z',
+    R32: '2026-03-08T11:00:00Z',
+    R16: '2026-03-10T11:00:00Z',
+    QF:  '2026-03-12T11:00:00Z',
+    SF:  '2026-03-14T11:00:00Z',
+    F:   '2026-03-16T11:00:00Z',
+  };
+
   const draw = buildDrawFromFixtures(fixtures);
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
@@ -320,29 +332,36 @@ export async function getDeadlines() {
   return ROUNDS.map((round, index) => {
     const roundMatches = matchesByRound[round] || [];
 
-    // First scheduled start time for this round
-    const firstStart = roundMatches
+    // First scheduled start time for this round — fall back to known schedule
+    // when the API hasn't published times yet (e.g. QF/SF/F early in the week).
+    const apiFirstStart = roundMatches
       .map((m) => (m.startTime ? new Date(m.startTime) : null))
       .filter((d) => d && !Number.isNaN(d.getTime()))
       .sort((a, b) => a - b)[0] || null;
+
+    const fallbackDate = ROUND_DATE_FALLBACK[round] ? new Date(ROUND_DATE_FALLBACK[round]) : null;
+    const firstStart   = apiFirstStart || fallbackDate;
 
     const lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
     const lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
     const isLocked   = lockAtDate ? now >= lockAtDate : false;
 
     // Window opens 12h after the first match of the nearest non-empty previous round starts.
-    // This is tolerant of round overlap and doesn't require full completion.
-    // We skip over empty rounds (e.g. R1 is empty when API folds it into R64).
+    // Falls back to the known schedule date for that round when the API has no times yet.
     let opensAt = null;
     if (index > 0) {
       let prevFirstStart = null;
       for (let pi = index - 1; pi >= 0; pi--) {
-        const prevMatches = matchesByRound[ROUNDS[pi]] || [];
-        prevFirstStart = prevMatches
+        const prevRound = ROUNDS[pi];
+        const prevMatches = matchesByRound[prevRound] || [];
+        const apiPrevStart = prevMatches
           .map((m) => (m.startTime ? new Date(m.startTime) : null))
           .filter((d) => d && !Number.isNaN(d.getTime()))
           .sort((a, b) => a - b)[0] || null;
-        if (prevFirstStart) break; // found a non-empty previous round
+        const fallbackPrevDate = ROUND_DATE_FALLBACK[prevRound]
+          ? new Date(ROUND_DATE_FALLBACK[prevRound]) : null;
+        prevFirstStart = apiPrevStart || fallbackPrevDate;
+        if (prevFirstStart) break;
       }
       if (prevFirstStart) {
         opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
