@@ -6,25 +6,78 @@ const ROUND_LABELS = {
   R1: 'R1', R64: 'R64', R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
 };
 const ROUND_FULL = {
-  R1: 'Round 1 (Byes)', R64: 'Round of 64', R32: 'Round of 32',
-  R16: 'Round of 16', QF: 'Quarter-finals', SF: 'Semi-finals', F: 'Final',
+  R1:  'First Round',
+  R64: 'Round of 64',
+  R32: 'Round of 32',
+  R16: 'Round of 16',
+  QF:  'Quarter-finals',
+  SF:  'Semi-finals',
+  F:   'Final',
 };
+// Expected slot counts per round (used to pad TBD slots)
 const MATCH_COUNTS = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
-// Rounds shown in the bracket view (R32 onwards — "look ahead" view)
+// Rounds shown in the visual bracket (R32 → Final keeps it manageable)
 const BRACKET_ROUNDS = ['R32', 'R16', 'QF', 'SF', 'F'];
 
-// Fixed pixel height for the bracket container — all columns share this height.
-// With space-around, each round's slots auto-scale so bracket lines align.
+// Fixed bracket height — every column shares this so SVG connectors align
 const BRACKET_H = 1280;
 
-// Y-center of slot `index` out of `total` slots in a space-around flex column
-function slotCenterY(index, total) {
-  return (2 * index + 1) * BRACKET_H / (2 * total);
+// ─── Bracket ordering ────────────────────────────────────────────────────────
+// The API returns matches in arbitrary order. To draw a correct bracket we
+// need adjacent pairs in each column to feed into the same next-round match.
+// Algorithm: DFS from the Final, tracing each player back to their previous-
+// round match. Player1's feeder comes first (top of bracket), Player2's second.
+
+function findFeeder(playerId, prevRoundMatches) {
+  if (!playerId) return null;
+  return prevRoundMatches.find(
+    m => m.player1Id === playerId || m.player2Id === playerId
+  ) || null;
 }
 
-// SVG bracket connectors between two adjacent round columns.
-// `fromCount` matches on the left; `fromCount/2` on the right.
+function buildOrderedBracket(matchesByRound, bracketRounds) {
+  const ordered = {};
+  bracketRounds.forEach(r => (ordered[r] = []));
+  const visited = new Set();
+
+  function dfs(match, roundIdx) {
+    if (!match || visited.has(match.id)) return;
+    visited.add(match.id);
+
+    const round = bracketRounds[roundIdx];
+    ordered[round].push(match);
+
+    if (roundIdx === 0) return;
+
+    const prevRound = bracketRounds[roundIdx - 1];
+    const prevMatches = matchesByRound[prevRound] || [];
+    dfs(findFeeder(match.player1Id, prevMatches), roundIdx - 1);
+    dfs(findFeeder(match.player2Id, prevMatches), roundIdx - 1);
+  }
+
+  // Seed the DFS from the Final
+  const finalRound = bracketRounds[bracketRounds.length - 1];
+  (matchesByRound[finalRound] || []).forEach(fm =>
+    dfs(fm, bracketRounds.length - 1)
+  );
+
+  // Append any orphan matches (not yet connected to the final bracket path)
+  bracketRounds.forEach(round => {
+    const placed = new Set(ordered[round].map(m => m.id));
+    (matchesByRound[round] || [])
+      .filter(m => !placed.has(m.id))
+      .forEach(m => ordered[round].push(m));
+  });
+
+  return ordered;
+}
+
+// ─── SVG bracket connectors ───────────────────────────────────────────────────
+function slotCenterY(index, total) {
+  return ((2 * index + 1) * BRACKET_H) / (2 * total);
+}
+
 function ConnectorSVG({ fromCount }) {
   const toCount = fromCount / 2;
   const lines = [];
@@ -33,42 +86,53 @@ function ConnectorSVG({ fromCount }) {
     const botY = slotCenterY(k * 2 + 1, fromCount);
     const midY = slotCenterY(k,          toCount);
     lines.push(
-      <line key={`ht${k}`} x1="0"  y1={topY} x2="18" y2={topY} />,
-      <line key={`hb${k}`} x1="0"  y1={botY} x2="18" y2={botY} />,
-      <line key={`v${k}`}  x1="18" y1={topY} x2="18" y2={botY} />,
-      <line key={`hm${k}`} x1="18" y1={midY} x2="36" y2={midY} />,
+      <line key={`ht${k}`} x1="0"  y1={topY} x2="16" y2={topY} />,
+      <line key={`hb${k}`} x1="0"  y1={botY} x2="16" y2={botY} />,
+      <line key={`v${k}`}  x1="16" y1={topY} x2="16" y2={botY} />,
+      <line key={`hm${k}`} x1="16" y1={midY} x2="32" y2={midY} />,
     );
   }
   return (
-    <svg width="36" height={BRACKET_H} className="bc-connector" aria-hidden="true">
-      <g stroke="#cbd5e1" strokeWidth="1.5" fill="none">{lines}</g>
+    <svg width="32" height={BRACKET_H} className="bc-connector" aria-hidden="true">
+      <g stroke="#d1d5db" strokeWidth="1.5" fill="none">{lines}</g>
     </svg>
   );
+}
+
+// ─── Bracket match card ───────────────────────────────────────────────────────
+function isLive(status) {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === 'in_progress' || s === '1' || s === '2' || s === '3' ||
+         s === '4' || s === '5' || s.startsWith('set');
 }
 
 function BracketCard({ match }) {
   if (!match) {
     return (
       <div className="bc-card bc-card--tbd">
-        <div className="bc-player">TBD</div>
-        <div className="bc-player">TBD</div>
+        <div className="bc-row bc-row--tbd"><span className="bc-name">TBD</span></div>
+        <div className="bc-divider" />
+        <div className="bc-row bc-row--tbd"><span className="bc-name">TBD</span></div>
       </div>
     );
   }
-  const p1w = match.winnerId && match.winnerId === match.player1Id;
-  const p2w = match.winnerId && match.winnerId === match.player2Id;
+  const p1w  = match.winnerId === match.player1Id;
+  const p2w  = match.winnerId === match.player2Id;
   const done = match.status === 'completed';
-  const live = match.status === 'in_progress';
+  const live = isLive(match.status);
+
   return (
-    <div className={`bc-card${done ? ' bc-card--done' : ''}${live ? ' bc-card--live' : ''}`}>
-      {live && <div className="bc-live-dot">LIVE</div>}
-      <div className={`bc-player${p1w ? ' bc-won' : done && !p1w ? ' bc-lost' : ''}`}>
+    <div className={`bc-card${done ? ' bc-done' : ''}${live ? ' bc-live' : ''}`}>
+      {live && <span className="bc-live-pip" />}
+      <div className={`bc-row${p1w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
         <span className="bc-name">{match.player1Name || 'TBD'}</span>
-        {p1w && <span className="bc-check">✓</span>}
+        {p1w && <span className="bc-tick">✓</span>}
       </div>
-      <div className={`bc-player${p2w ? ' bc-won' : done && !p2w ? ' bc-lost' : ''}`}>
+      <div className="bc-divider" />
+      <div className={`bc-row${p2w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
         <span className="bc-name">{match.player2Name || 'TBD'}</span>
-        {p2w && <span className="bc-check">✓</span>}
+        {p2w && <span className="bc-tick">✓</span>}
       </div>
     </div>
   );
@@ -79,8 +143,8 @@ function BracketCol({ round, matches }) {
   const padded = Array.from({ length: count }, (_, i) => matches[i] || null);
   return (
     <div className="bc-col">
-      <div className="bc-col-hdr">{ROUND_LABELS[round]}</div>
-      <div className="bc-col-body">
+      <div className="bc-col-hdr">{ROUND_FULL[round] || round}</div>
+      <div className="bc-col-body" style={{ height: BRACKET_H }}>
         {padded.map((m, i) => (
           <div key={i} className="bc-slot">
             <BracketCard match={m} />
@@ -91,52 +155,74 @@ function BracketCol({ round, matches }) {
   );
 }
 
+// ─── List-view match card ─────────────────────────────────────────────────────
+function ListCard({ match }) {
+  const p1w  = match.winnerId === match.player1Id;
+  const p2w  = match.winnerId === match.player2Id;
+  const done = match.status === 'completed';
+  const live = isLive(match.status);
+  const date = match.startTime
+    ? new Date(match.startTime).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+    : null;
+
+  return (
+    <div className={`lc${done ? ' lc--done' : live ? ' lc--live' : ' lc--upcoming'}`}>
+      {live && <div className="lc-live-bar">● LIVE</div>}
+      <div className={`lc-row${p1w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+        <span className="lc-name">{match.player1Name || 'TBD'}</span>
+        {p1w && <span className="lc-win-dot" />}
+      </div>
+      <div className="lc-sep" />
+      <div className={`lc-row${p2w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+        <span className="lc-name">{match.player2Name || 'TBD'}</span>
+        {p2w && <span className="lc-win-dot" />}
+      </div>
+      <div className="lc-meta">
+        {date && <span className="lc-date">{date}</span>}
+        <span className={`lc-badge${live ? ' lc-badge--live' : done ? ' lc-badge--done' : ' lc-badge--upcoming'}`}>
+          {live ? 'Live' : done ? 'Finished' : 'Scheduled'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export function DrawViewer() {
   const { groupId } = useParams();
-  const [data, setData]           = useState(null);
+  const [data, setData]             = useState(null);
   const [drawAvailable, setDrawAvailable] = useState(true);
-  const [view, setView]           = useState('bracket');
-  const [listRound, setListRound] = useState('R64');
+  const [view, setView]             = useState('bracket');
+  const [listRound, setListRound]   = useState('R1');
 
   useEffect(() => {
-    // First check if the pool's tournament has a draw available.
-    // We derive this from the /groups/:id response, which includes tournamentId.
-    // Then try to fetch the bracket — if the server signals no draw, show TBC.
     fetch(`${API}/draw/bracket?round=F`)
-      .then(r => {
-        if (!r.ok) throw new Error('no-draw');
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
       .then(d => {
-        // If server explicitly signals draw is not available, show TBC
-        if (d.drawAvailable === false) {
-          setDrawAvailable(false);
-        } else {
-          setData(d);
-        }
+        if (d.drawAvailable === false) { setDrawAvailable(false); return; }
+        setData(d);
+        // Default list tab to earliest round that has matches
+        const rounds  = d.rounds || [];
+        const byRound = (d.matches || []).reduce((a, m) => {
+          a[m.round] = (a[m.round] || 0) + 1; return a;
+        }, {});
+        const first = rounds.find(r => byRound[r] > 0);
+        if (first) setListRound(first);
       })
-      .catch(() => {
-        // A 404 or error means the draw isn't available yet
-        setDrawAvailable(false);
-        setData(null);
-      });
+      .catch(() => { setDrawAvailable(false); setData(null); });
   }, []);
 
   if (!drawAvailable) {
     return (
       <div className="page draw-viewer">
         <div className="draw-header">
-          <div>
-            <h1>Tournament Draw</h1>
-          </div>
+          <h1>Tournament Draw</h1>
           <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
         </div>
         <div className="draw-tbc-banner">
           <div className="draw-tbc-icon">🎾</div>
-          <h2 className="draw-tbc-title">Draw announced closer to the tournament</h2>
-          <p className="draw-tbc-sub">
-            The draw for this tournament hasn't been released yet. Check back nearer to the start date — it usually drops 1–2 days before play begins.
-          </p>
+          <h2 className="draw-tbc-title">Draw not yet released</h2>
+          <p className="draw-tbc-sub">Check back nearer to the start date — usually 1–2 days before play begins.</p>
         </div>
       </div>
     );
@@ -150,19 +236,24 @@ export function DrawViewer() {
     return acc;
   }, {});
 
-  const bracketRounds = BRACKET_ROUNDS.filter(r => rounds.includes(r));
+  // Build correctly ordered bracket (traces player progression from Final back)
+  const bracketRounds  = BRACKET_ROUNDS.filter(r => rounds.includes(r));
+  const orderedBracket = buildOrderedBracket(matchesByRound, bracketRounds);
 
-  // Build bracket elements (columns + SVG connectors)
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
     if (i > 0) {
-      const prevCount = MATCH_COUNTS[bracketRounds[i - 1]] || 2;
-      bracketEls.push(<ConnectorSVG key={`conn-${round}`} fromCount={prevCount} />);
+      bracketEls.push(
+        <ConnectorSVG key={`conn-${round}`} fromCount={MATCH_COUNTS[bracketRounds[i - 1]] || 2} />
+      );
     }
     bracketEls.push(
-      <BracketCol key={round} round={round} matches={matchesByRound[round] || []} />
+      <BracketCol key={round} round={round} matches={orderedBracket[round] || []} />
     );
   });
+
+  // Only show rounds that have at least one match
+  const roundsWithData = rounds.filter(r => (matchesByRound[r] || []).length > 0);
 
   return (
     <div className="page draw-viewer">
@@ -174,27 +265,18 @@ export function DrawViewer() {
         <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
 
-      {/* View toggle */}
       <div className="draw-view-toggle">
-        <button
-          className={`dvt-btn${view === 'bracket' ? ' dvt-active' : ''}`}
-          onClick={() => setView('bracket')}
-        >
+        <button className={`dvt-btn${view === 'bracket' ? ' dvt-active' : ''}`} onClick={() => setView('bracket')}>
           Bracket
         </button>
-        <button
-          className={`dvt-btn${view === 'list' ? ' dvt-active' : ''}`}
-          onClick={() => setView('list')}
-        >
-          By round
+        <button className={`dvt-btn${view === 'list' ? ' dvt-active' : ''}`} onClick={() => setView('list')}>
+          By Round
         </button>
       </div>
 
       {view === 'bracket' ? (
         <>
-          <p className="bracket-help-text">
-            R32 through to the Final — follow the path to the title
-          </p>
+          <p className="bracket-help-text">R32 through to the Final — follow the path to the title</p>
           <div className="bracket-scroll-wrap">
             <div className="bracket-wrap">{bracketEls}</div>
           </div>
@@ -202,7 +284,7 @@ export function DrawViewer() {
       ) : (
         <>
           <div className="round-tabs">
-            {rounds.map(r => (
+            {roundsWithData.map(r => (
               <button
                 key={r}
                 className={`round-tab${r === listRound ? ' active' : ''}`}
@@ -212,36 +294,22 @@ export function DrawViewer() {
               </button>
             ))}
           </div>
-          <div className="draw-round-label">{ROUND_FULL[listRound] || listRound}</div>
+          <div className="draw-round-label">
+            {ROUND_FULL[listRound] || listRound}
+            <span className="draw-round-count"> · {(matchesByRound[listRound] || []).length} matches</span>
+          </div>
 
           {(matchesByRound[listRound] || []).length === 0 ? (
             <div className="draw-empty-state">
               <span className="draw-empty-icon">🎾</span>
-              <p className="draw-empty-title">Fixtures not yet available</p>
+              <p className="draw-empty-title">No fixtures yet</p>
               <p className="draw-empty-sub">Check back once earlier rounds complete.</p>
             </div>
           ) : (
-            <div className="bracket-grid">
-              {(matchesByRound[listRound] || []).map((m, idx) => {
-                const p1w = m.winnerId && m.winnerId === m.player1Id;
-                const p2w = m.winnerId && m.winnerId === m.player2Id;
-                const done = m.status === 'completed';
-                const live = m.status === 'in_progress';
-                return (
-                  <div key={m.id || idx} className={`match-card status-${m.status || 'scheduled'}`}>
-                    {live && <div className="match-live-badge">LIVE</div>}
-                    <div className={`match-player-row${p1w ? ' match-won' : done && !p1w ? ' match-lost' : ''}`}>
-                      <span className="match-player-name">{m.player1Name || 'TBD'}</span>
-                      {p1w && <span className="match-winner-icon">✓</span>}
-                    </div>
-                    <div className="match-divider"><span className="match-vs">vs</span></div>
-                    <div className={`match-player-row${p2w ? ' match-won' : done && !p2w ? ' match-lost' : ''}`}>
-                      <span className="match-player-name">{m.player2Name || 'TBD'}</span>
-                      {p2w && <span className="match-winner-icon">✓</span>}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="lc-grid">
+              {(matchesByRound[listRound] || []).map((m, idx) => (
+                <ListCard key={m.id || idx} match={m} />
+              ))}
             </div>
           )}
         </>

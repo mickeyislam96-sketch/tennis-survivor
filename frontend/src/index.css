@@ -2380,3 +2380,96 @@ input, select { font-family: var(--font); }
 .lb-rounds-none { color: var(--text-muted); }
 .lb-still-in { color: var(--accent); font-style: italic; font-size: 0.85rem; }
 .lb-elim-round { color: var(--text-muted); font-size: 0.85rem; }
+
+/* ── Bracket card (updated classes) ──────────────────────────── */
+.bc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.28rem 0.5rem;
+  gap: 0.25rem;
+  color: #374151;
+  line-height: 1.3;
+}
+.bc-row--tbd { color: #9ca3af; }
+.bc-divider { height: 1px; background: #f3f4f6; }
+.bc-done { background: #f0fdf4; border-color: #86efac !important; }
+.bc-live { border-color: #f87171 !important; }
+.bc-tick { color: #16a34a; font-size: 0.7rem; flex-shrink: 0; }
+.bc-live-pip {
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  position: absolute;
+  top: 5px; right: 5px;
+  animation: pulse 1.2s infinite;
+}
+.bc-card { position: relative; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.draw-round-count { font-size: 0.82rem; font-weight: 400; color: var(--text-muted); }
+
+/* ── List-view match cards (lc-*) ────────────────────────────── */
+.lc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+.lc {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.88rem;
+}
+.lc--done { border-color: #86efac; }
+.lc--live { border-color: #f87171; box-shadow: 0 0 0 2px #fef2f2; }
+.lc-live-bar {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ef4444;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.75rem;
+  background: #fef2f2;
+}
+.lc-row {
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  gap: 0.5rem;
+  color: #374151;
+}
+.lc-won { font-weight: 700; color: #15803d; }
+.lc-lost { color: #9ca3af; }
+.lc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-win-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  flex-shrink: 0;
+}
+.lc-sep { height: 1px; background: #f3f4f6; margin: 0 0.75rem; }
+.lc-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.75rem;
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+}
+.lc-date { font-size: 0.75rem; color: #9ca3af; }
+.lc-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.lc-badge--done     { background: #dcfce7; color: #15803d; }
+.lc-badge--live     { background: #fee2e2; color: #ef4444; }
+.lc-badge--upcoming { background: #f3f4f6; color: #6b7280; }
