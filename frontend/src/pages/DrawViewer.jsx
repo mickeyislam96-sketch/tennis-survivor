@@ -56,10 +56,17 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
     dfs(findFeeder(match.player2Id, prevMatches), roundIdx - 1);
   }
 
-  // Seed the DFS from the Final
-  const finalRound = bracketRounds[bracketRounds.length - 1];
-  (matchesByRound[finalRound] || []).forEach(fm =>
-    dfs(fm, bracketRounds.length - 1)
+  // Start DFS from the highest round that has actual match data.
+  // If we always seed from the Final, we get nothing until the Final is played.
+  // Starting from the highest available round (e.g. R16) means each R16 match
+  // pulls its two feeder R32 matches into adjacent positions — so connector
+  // lines pair correctly even mid-tournament.
+  let topIdx = bracketRounds.length - 1;
+  while (topIdx > 0 && (matchesByRound[bracketRounds[topIdx]] || []).length === 0) {
+    topIdx--;
+  }
+  (matchesByRound[bracketRounds[topIdx]] || []).forEach(fm =>
+    dfs(fm, topIdx)
   );
 
   // Append any orphan matches (not yet connected to the final bracket path)
