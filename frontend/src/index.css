@@ -1650,6 +1650,25 @@ input, select { font-family: var(--font); }
 .countdown-label { color: #92400e; font-weight: 600; }
 .countdown-value { color: #b45309; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
 
+/* ── Pick screen: future window card (not yet open) ─────────── */
+.future-window-card {
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+.future-window-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.future-window-label { color: #1e40af; font-weight: 600; }
+.future-window-value { color: #1d4ed8; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.future-window-close { color: #6b7280; font-size: 0.8rem; margin-top: 0.3rem; }
+
 /* ── Pick screen: picked card ───────────────────────────────── */
 .picked-card {
   border-radius: var(--radius);

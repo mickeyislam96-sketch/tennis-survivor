@@ -10,6 +10,7 @@ export function PickScreen() {
   const [rounds, setRounds] = useState([]);
   const [currentRound, setCurrentRound] = useState('R32'); // Indian Wells: R1, R64, R32, R16, QF, SF, F
   const [deadline, setDeadline] = useState(null);
+  const [opensAt, setOpensAt] = useState(null);
   const [deadlines, setDeadlines] = useState([]);
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -72,16 +73,18 @@ export function PickScreen() {
       if (isOpen && !isLocked) {
         setCurrentRound(d.round);
         setDeadline(d.lockAt || null);
+        setOpensAt(d.opensAt || null);
         return;
       }
     }
   }, [deadlines]);
 
-  // When the user switches tabs, update the deadline for that round.
+  // When the user switches tabs, update the deadline and opens-at for that round.
   useEffect(() => {
     if (!deadlines.length) return;
     const d = deadlines.find((d) => d.round === currentRound);
     setDeadline(d ? d.lockAt : null);
+    setOpensAt(d ? d.opensAt : null);
   }, [currentRound, deadlines]);
 
   useEffect(() => {
@@ -147,8 +150,11 @@ export function PickScreen() {
     return alive && matchesSearch;
   });
 
-  const lockTime = deadline ? new Date(deadline) : null;
-  const isLocked = lockTime && new Date() >= lockTime;
+  const lockTime   = deadline ? new Date(deadline) : null;
+  const openTime   = opensAt  ? new Date(opensAt)  : null;
+  const isLocked      = lockTime && new Date() >= lockTime;
+  const isNotYetOpen  = !isLocked && openTime && new Date() < openTime;
+  const isOpen        = !isLocked && !isNotYetOpen;
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
 
@@ -184,10 +190,26 @@ export function PickScreen() {
         ))}
       </div>
 
-      {deadline && !isLocked && (
+      {/* Window is open: closing countdown */}
+      {isOpen && deadline && (
         <div className="countdown-card">
           <span className="countdown-label">Pick window closes in</span>
           <Countdown to={deadline} />
+        </div>
+      )}
+
+      {/* Window not yet open: show open + close times */}
+      {isNotYetOpen && (
+        <div className="future-window-card">
+          <div className="future-window-row">
+            <span className="future-window-label">Pick window opens in</span>
+            <Countdown to={opensAt} className="future-window-value" />
+          </div>
+          {deadline && (
+            <div className="future-window-close">
+              Closes: {formatWindowTime(deadline)}
+            </div>
+          )}
         </div>
       )}
 
@@ -211,7 +233,7 @@ export function PickScreen() {
       )}
 
       {/* Window is still open: show current pick banner (if any) + full player list */}
-      {!isLocked && (
+      {isOpen && (
         <>
           {myPickThisRound && (
             <div className="picked-card picked-card--changeable">
@@ -288,7 +310,14 @@ export function PickScreen() {
   );
 }
 
-function Countdown({ to }) {
+function formatWindowTime(isoString) {
+  const d = new Date(isoString);
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    + ' at '
+    + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function Countdown({ to, className = 'countdown-value' }) {
   const [left, setLeft] = useState('');
 
   useEffect(() => {
@@ -296,19 +325,20 @@ function Countdown({ to }) {
     const tick = () => {
       const now = new Date();
       if (now >= end) {
-        setLeft('Locked');
+        setLeft('—');
         return;
       }
-      const d = Math.floor((end - now) / 86400 / 1000);
-      const h = Math.floor(((end - now) % (86400 * 1000)) / 3600 / 1000);
-      const m = Math.floor(((end - now) % (3600 * 1000)) / 60 / 1000);
-      const s = Math.floor(((end - now) % (60 * 1000)) / 1000);
-      setLeft(`${d}d ${h}h ${m}m ${s}s`);
+      const ms  = end - now;
+      const d   = Math.floor(ms / 86400000);
+      const h   = Math.floor((ms % 86400000) / 3600000);
+      const m   = Math.floor((ms % 3600000)  / 60000);
+      const s   = Math.floor((ms % 60000)    / 1000);
+      setLeft(d > 0 ? `${d}d ${h}h ${m}m ${s}s` : `${h}h ${m}m ${s}s`);
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [to]);
 
-  return <span className="countdown-value">{left}</span>;
+  return <span className={className}>{left}</span>;
 }
