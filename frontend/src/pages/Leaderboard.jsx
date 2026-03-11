@@ -81,14 +81,13 @@ export function Leaderboard() {
             <tr>
               <th>Player</th>
               <th className="lb-th-status">Status</th>
-              <th className="lb-th-rounds">Rounds survived</th>
-              <th className="lb-th-elim">Eliminated in</th>
+              <th className="lb-th-progress">Progress</th>
             </tr>
           </thead>
           <tbody>
             {leaderboard.map((m) => {
               const isYou = m.userId === userId;
-              const survivedRounds = m.survivedRounds ?? m.picksCount ?? 0;
+              const survived = m.survivedRounds ?? 0;
               const rowClass = [
                 isYou ? 'lb-row-you' : '',
                 m.isAlive ? '' : 'lb-row-out',
@@ -112,17 +111,23 @@ export function Leaderboard() {
                       : <span className="status-out">Eliminated</span>
                     }
                   </td>
-                  <td className="lb-td-rounds">
-                    {survivedRounds === 0
-                      ? <span className="lb-rounds-none">—</span>
-                      : <span className="lb-rounds-val">{survivedRounds} {survivedRounds === 1 ? 'round' : 'rounds'}</span>
-                    }
-                  </td>
-                  <td className="lb-td-elim">
-                    {m.isAlive
-                      ? <span className="lb-still-in">Still competing</span>
-                      : <span className="lb-elim-round">{m.eliminatedRound || '—'}</span>
-                    }
+                  <td className="lb-td-progress">
+                    {m.isAlive ? (
+                      survived === 0
+                        ? <span className="lb-progress-pending">No results yet</span>
+                        : <span className="lb-progress-alive">
+                            {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                          </span>
+                    ) : (
+                      <span className="lb-progress-out">
+                        Out in {m.eliminatedRound || '—'}
+                        {survived > 0 && (
+                          <span className="lb-progress-sub">
+                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );

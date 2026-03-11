@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
-import { getRounds, getDeadlines } from '../services/tennisData.js';
+import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
 
 const ROUNDS = getRounds();
 
@@ -11,10 +11,75 @@ function isUUID(str) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str || ''));
 }
 
+/**
+ * Build a grader function from live draw data.
+ *
+ * Returns grade(playerId, round) → true (survived) | false (eliminated) | null (pending)
+ *
+ * Logic:
+ *  - If there's a completed match in `round` where the player WON  → true
+ *  - If there's a completed match in `round` where the player LOST → false
+ *  - Otherwise → null (match not played yet)
+ */
+function buildGrader(draw) {
+  // Map: playerId → Set of rounds they WON
+  const wonRounds = {};
+  // Map: playerId → Set of rounds they LOST
+  const lostRounds = {};
+
+  for (const match of (draw.matches || [])) {
+    if (match.status !== 'completed' || !match.winnerId) continue;
+    const loserId = match.winnerId === match.player1Id ? match.player2Id : match.player1Id;
+
+    if (!wonRounds[match.winnerId]) wonRounds[match.winnerId] = new Set();
+    wonRounds[match.winnerId].add(match.round);
+
+    if (!lostRounds[loserId]) lostRounds[loserId] = new Set();
+    lostRounds[loserId].add(match.round);
+  }
+
+  return function grade(playerId, round) {
+    if (lostRounds[playerId]?.has(round)) return false;
+    if (wonRounds[playerId]?.has(round))  return true;
+    return null;
+  };
+}
+
+/**
+ * Given a list of picks (each with .round, .playerId) and a grader,
+ * compute summary stats for one member.
+ *
+ * Returns { survivedRounds, eliminatedRound, isAlive }
+ */
+function gradeMember(picks, grade) {
+  let survivedRounds = 0;
+  let eliminatedRound = null;
+  let isAlive = true;
+
+  // Process picks in round order so we get the right eliminatedRound
+  const ordered = [...picks].sort(
+    (a, b) => ROUNDS.indexOf(a.round) - ROUNDS.indexOf(b.round)
+  );
+
+  for (const pick of ordered) {
+    const result = grade(pick.playerId || pick.player_id, pick.round);
+    if (result === true) {
+      survivedRounds++;
+    } else if (result === false) {
+      isAlive = false;
+      eliminatedRound = pick.round;
+      break; // once eliminated, stop counting
+    }
+    // null = pending, leave as-is
+  }
+
+  return { survivedRounds, eliminatedRound, isAlive };
+}
+
 leaderboardRouter.get('/:groupId', async (req, res) => {
   const { groupId } = req.params;
 
-  // Determine current open round
+  // Get current open round for the "current pick" column
   let currentRound = null;
   try {
     const deadlines = await getDeadlines();
@@ -24,9 +89,14 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       return !d.isLocked && (!lockAt || now < lockAt);
     });
     currentRound = openRound?.round || null;
-  } catch (_) {
-    // non-fatal
-  }
+  } catch (_) {}
+
+  // Get live draw data for grading picks
+  let grade = () => null; // default: all pending
+  try {
+    const draw = await getDraw();
+    grade = buildGrader(draw);
+  } catch (_) {}
 
   if (isUUID(groupId)) {
     try {
@@ -39,31 +109,50 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       }
       const g = groupResult.rows[0];
 
-      // Get members with their pick aggregates in one query
+      // Get all members
       const membersResult = await pool.query(
-        `SELECT
-           m.id::text,
-           m.user_id::text AS "userId",
-           m.display_name AS "displayName",
-           m.is_alive AS "isAlive",
-           m.eliminated_round AS "eliminatedRound",
-           COUNT(p.id) AS "picksCount",
-           COUNT(p.id) FILTER (WHERE p.survived = true) AS "survivedRounds",
-           MAX(p.round) AS "lastRound",
-           MAX(p.player_name) FILTER (WHERE p.round = $2) AS "currentRoundPick"
+        `SELECT m.id::text, m.user_id::text AS "userId", m.display_name AS "displayName",
+                m.is_alive AS "isAlive", m.eliminated_round AS "eliminatedRound", m.joined_at
          FROM group_members m
-         LEFT JOIN picks p ON p.user_id = m.user_id AND p.group_id = m.group_id
          WHERE m.group_id = $1
-         GROUP BY m.id, m.user_id, m.display_name, m.is_alive, m.eliminated_round
          ORDER BY m.joined_at`,
-        [groupId, currentRound]
+        [groupId]
       );
 
-      const members = membersResult.rows.map(m => ({
-        ...m,
-        picksCount: parseInt(m.picksCount, 10),
-        survivedRounds: parseInt(m.survivedRounds, 10),
-      }));
+      // Get all picks for this group
+      const picksResult = await pool.query(
+        `SELECT user_id::text AS "userId", round, player_id AS "playerId", player_name AS "playerName", survived
+         FROM picks WHERE group_id = $1`,
+        [groupId]
+      );
+
+      // Group picks by userId
+      const picksByUser = {};
+      for (const p of picksResult.rows) {
+        if (!picksByUser[p.userId]) picksByUser[p.userId] = [];
+        picksByUser[p.userId].push(p);
+      }
+
+      const members = membersResult.rows.map(m => {
+        const picks = picksByUser[m.userId] || [];
+
+        // Grade picks using live draw data
+        const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
+
+        // Current round pick (for the "this round's pick" column)
+        const currentPick = currentRound
+          ? (picks.find(p => p.round === currentRound) || null)
+          : null;
+
+        return {
+          ...m,
+          picksCount: picks.length,
+          survivedRounds,
+          eliminatedRound: eliminatedRound || m.eliminatedRound,
+          isAlive: picks.length > 0 ? isAlive : m.isAlive,
+          currentRoundPick: currentPick?.playerName || null,
+        };
+      });
 
       const alive = members
         .filter(m => m.isAlive)
@@ -90,14 +179,14 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
 
   const members = MOCK_MEMBERS.filter(m => m.groupId === groupId).map(m => {
     const picks = MOCK_PICKS.filter(p => p.userId === m.userId && p.groupId === groupId);
-    const lastRound = picks.length ? ROUNDS.indexOf(picks[picks.length - 1].round) : -1;
-    const survivedRounds = picks.filter(p => p.survived === true).length;
+    const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
     const currentPick = currentRound ? (picks.find(p => p.round === currentRound) || null) : null;
     return {
       ...m,
       picksCount: picks.length,
-      lastRound: lastRound >= 0 ? ROUNDS[lastRound] : null,
       survivedRounds,
+      eliminatedRound: eliminatedRound || m.eliminatedRound,
+      isAlive: picks.length > 0 ? isAlive : m.isAlive,
       currentRoundPick: currentPick ? currentPick.playerName : null,
     };
   });

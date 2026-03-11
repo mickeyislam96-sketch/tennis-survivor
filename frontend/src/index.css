@@ -2414,16 +2414,13 @@ input, select { font-family: var(--font); }
 .lb-th-status,
 .lb-td-status { text-align: center; }
 
-.lb-th-rounds,
-.lb-td-rounds { text-align: center; }
+.lb-th-progress,
+.lb-td-progress { text-align: right; }
 
-.lb-th-elim,
-.lb-td-elim { text-align: right; }
-
-.lb-rounds-val { font-weight: 600; color: var(--text); }
-.lb-rounds-none { color: var(--text-muted); }
-.lb-still-in { color: var(--accent); font-style: italic; font-size: 0.85rem; }
-.lb-elim-round { color: var(--text-muted); font-size: 0.85rem; }
+.lb-progress-alive  { font-weight: 600; color: var(--accent-dark); }
+.lb-progress-out    { color: var(--text); font-weight: 600; }
+.lb-progress-sub    { font-weight: 400; color: var(--text-muted); font-size: 0.85rem; }
+.lb-progress-pending { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
 
 /* ── Bracket card (updated classes) ──────────────────────────── */
 .bc-row {
