@@ -64,7 +64,15 @@ function normalizeRound(apiRound) {
   const fracMatch = roundPart.match(/^1\/(\d+)-finals?$/);
   if (fracMatch) {
     const denom = parseInt(fracMatch[1], 10);
-    if (denom >= 32) return 'R64'; // 1/64 and 1/32 both map to our R64 bucket
+    // Indian Wells 96-draw confirmed mapping from live API data:
+    //   1/64-finals (24 fixtures) = R1  — non-seeds first round
+    //   1/32-finals (32 fixtures) = R64 — top seeds enter + R1 winners
+    //   1/16-finals (16 fixtures) = R32
+    //   1/8-finals               = R16
+    //   1/4-finals               = QF
+    //   1/2-finals               = SF
+    if (denom === 64) return 'R1';
+    if (denom === 32) return 'R64';
     if (denom === 16) return 'R32';
     if (denom === 8)  return 'R16';
     if (denom === 4)  return 'QF';
