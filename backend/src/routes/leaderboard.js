@@ -26,21 +26,43 @@ function buildGrader(draw) {
   const wonRounds = {};
   // Map: playerId → Set of rounds they LOST
   const lostRounds = {};
+  // Name-based fallback maps (normalised lower-case name)
+  const wonRoundsByName = {};
+  const lostRoundsByName = {};
 
   for (const match of (draw.matches || [])) {
     if (match.status !== 'completed' || !match.winnerId) continue;
-    const loserId = match.winnerId === match.player1Id ? match.player2Id : match.player1Id;
+    const loserId   = match.winnerId === match.player1Id ? match.player2Id   : match.player1Id;
+    const loserName = (match.winnerId === match.player1Id ? match.player2Name : match.player1Name || '').toLowerCase().trim();
+    const winnerName = (match.winnerName || '').toLowerCase().trim();
 
     if (!wonRounds[match.winnerId]) wonRounds[match.winnerId] = new Set();
     wonRounds[match.winnerId].add(match.round);
 
     if (!lostRounds[loserId]) lostRounds[loserId] = new Set();
     lostRounds[loserId].add(match.round);
+
+    // Also index by name so real picks can be graded against mock data (IDs differ)
+    if (winnerName) {
+      if (!wonRoundsByName[winnerName]) wonRoundsByName[winnerName] = new Set();
+      wonRoundsByName[winnerName].add(match.round);
+    }
+    if (loserName) {
+      if (!lostRoundsByName[loserName]) lostRoundsByName[loserName] = new Set();
+      lostRoundsByName[loserName].add(match.round);
+    }
   }
 
-  return function grade(playerId, round) {
+  return function grade(playerId, round, playerName) {
+    // Primary: match by player ID
     if (lostRounds[playerId]?.has(round)) return false;
     if (wonRounds[playerId]?.has(round))  return true;
+    // Fallback: match by normalised player name (handles mock-vs-real ID mismatch)
+    const normName = (playerName || '').toLowerCase().trim();
+    if (normName) {
+      if (lostRoundsByName[normName]?.has(round)) return false;
+      if (wonRoundsByName[normName]?.has(round))  return true;
+    }
     return null;
   };
 }
@@ -62,7 +84,7 @@ function gradeMember(picks, grade) {
   );
 
   for (const pick of ordered) {
-    const result = grade(pick.playerId || pick.player_id, pick.round);
+    const result = grade(pick.playerId || pick.player_id, pick.round, pick.playerName || pick.player_name);
     if (result === true) {
       survivedRounds++;
     } else if (result === false) {
@@ -91,12 +113,18 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     currentRound = openRound?.round || null;
   } catch (_) {}
 
-  // Get live draw data for grading picks
+  // Get live draw data for grading picks.
+  // Pass 'F' so the mock draw marks all rounds through SF as completed,
+  // giving maximum grading coverage even when the live API is unavailable.
   let grade = () => null; // default: all pending
   try {
-    const draw = await getDraw();
+    const draw = await getDraw('F');
+    const completedMatches = (draw.matches || []).filter(m => m.status === 'completed').length;
+    console.log(`[leaderboard] draw source: ${completedMatches > 0 ? 'has data' : 'empty'}, completed matches: ${completedMatches}`);
     grade = buildGrader(draw);
-  } catch (_) {}
+  } catch (e) {
+    console.error('[leaderboard] getDraw failed:', e.message);
+  }
 
   if (isUUID(groupId)) {
     try {
