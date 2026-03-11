@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
+import { sendRegistrationEmail } from '../utils/email.js';
 
 export const authRouter = Router();
 
@@ -55,6 +56,16 @@ authRouter.post('/register', async (req, res) => {
       [normEmail, normName]
     );
     const u = result.rows[0];
+
+    // Send confirmation email to new users only (non-blocking)
+    sendRegistrationEmail({
+      email: u.email,
+      displayName: u.display_name,
+      tournamentName: 'Miami Open 2026',
+      drawDate: 'March 16, 2026',
+      startDate: 'March 19, 2026',
+    });
+
     return res.status(201).json({ id: u.id, email: u.email, displayName: u.display_name, isNew: true });
   } catch (err) {
     console.error('Register error:', err.message);

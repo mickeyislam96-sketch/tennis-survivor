@@ -1,50 +1,213 @@
 import { Router } from 'express';
+import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 
 export const groupsRouter = Router();
 
-groupsRouter.get('/', (req, res) => {
+function isUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str || ''));
+}
+
+function rowToGroup(g) {
+  return {
+    id: g.id,
+    name: g.name,
+    inviteCode: g.invite_code,
+    entryFeeCents: g.entry_fee_cents,
+    prizePoolCents: g.prize_pool_cents,
+    tournamentId: g.tournament_id,
+    adminUserId: g.admin_user_id,
+    createdAt: g.created_at,
+  };
+}
+
+function rowToMember(m) {
+  return {
+    id: m.id,
+    groupId: m.group_id,
+    userId: m.user_id,
+    displayName: m.display_name,
+    isAlive: m.is_alive,
+    eliminatedRound: m.eliminated_round,
+    joinedAt: m.joined_at,
+  };
+}
+
+// GET /api/groups — groups the user belongs to
+groupsRouter.get('/', async (req, res) => {
   const userId = req.query.userId || req.headers['x-user-id'];
+  if (!userId) return res.json([]);
+
+  if (isUUID(userId)) {
+    try {
+      const result = await pool.query(
+        `SELECT g.id::text, g.name, g.invite_code, g.entry_fee_cents, g.prize_pool_cents,
+                g.tournament_id, g.admin_user_id::text, g.created_at
+         FROM groups g
+         JOIN group_members m ON m.group_id = g.id
+         WHERE m.user_id = $1
+         ORDER BY g.created_at DESC`,
+        [userId]
+      );
+      return res.json(result.rows.map(rowToGroup));
+    } catch (e) {
+      console.error('DB groups list error:', e.message);
+    }
+  }
+
+  // Mock fallback
   const myGroups = MOCK_GROUPS.filter(g =>
     MOCK_MEMBERS.some(m => m.groupId === g.id && m.userId === userId)
   );
   res.json(myGroups);
 });
 
-groupsRouter.get('/:id', (req, res) => {
-  const group = MOCK_GROUPS.find(g => g.id === req.params.id);
-  if (!group) return res.status(404).json({ error: 'Group not found' });
-  const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
-  res.json({ ...group, members });
-});
+// GET /api/groups/invite/:code — look up group by invite code
+groupsRouter.get('/invite/:code', async (req, res) => {
+  const code = req.params.code.toUpperCase();
 
-groupsRouter.get('/invite/:code', (req, res) => {
-  const group = MOCK_GROUPS.find(g => g.inviteCode === req.params.code.toUpperCase());
+  try {
+    const result = await pool.query(
+      `SELECT id::text, name, invite_code, entry_fee_cents, prize_pool_cents,
+              tournament_id, admin_user_id::text, created_at
+       FROM groups WHERE invite_code = $1`,
+      [code]
+    );
+    if (result.rows.length > 0) {
+      const g = result.rows[0];
+      const membersResult = await pool.query(
+        `SELECT id::text, group_id::text, user_id::text, display_name, is_alive, eliminated_round, joined_at
+         FROM group_members WHERE group_id = $1`,
+        [g.id]
+      );
+      return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
+    }
+  } catch (e) {
+    console.error('DB invite lookup error:', e.message);
+  }
+
+  // Mock fallback
+  const group = MOCK_GROUPS.find(g => g.inviteCode === code);
   if (!group) return res.status(404).json({ error: 'Invalid invite code' });
   const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
   res.json({ ...group, members });
 });
 
-groupsRouter.post('/', (req, res) => {
-  const { name, entryFeeCents = 0, adminUserId } = req.body;
-  const inviteCode = (name || 'GROUP').replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
+// GET /api/groups/:id — group detail + members
+groupsRouter.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (isUUID(id)) {
+    try {
+      const result = await pool.query(
+        `SELECT id::text, name, invite_code, entry_fee_cents, prize_pool_cents,
+                tournament_id, admin_user_id::text, created_at
+         FROM groups WHERE id = $1`,
+        [id]
+      );
+      if (result.rows.length > 0) {
+        const g = result.rows[0];
+        const membersResult = await pool.query(
+          `SELECT id::text, group_id::text, user_id::text, display_name, is_alive, eliminated_round, joined_at
+           FROM group_members WHERE group_id = $1
+           ORDER BY joined_at`,
+          [id]
+        );
+        return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
+      }
+    } catch (e) {
+      console.error('DB group lookup error:', e.message);
+    }
+  }
+
+  // Mock fallback
+  const group = MOCK_GROUPS.find(g => g.id === id);
+  if (!group) return res.status(404).json({ error: 'Group not found' });
+  const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
+  res.json({ ...group, members });
+});
+
+// POST /api/groups — create a new group
+groupsRouter.post('/', async (req, res) => {
+  const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
+  const adminId = adminUserId || req.headers['x-user-id'];
+  const groupName = (name || 'My Pool').trim();
+  const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
+  const tournament = tournamentId || 'indian-wells-2026';
+
+  if (isUUID(adminId)) {
+    try {
+      const result = await pool.query(
+        `INSERT INTO groups (name, invite_code, entry_fee_cents, prize_pool_cents, tournament_id, admin_user_id)
+         VALUES ($1, $2, $3, 0, $4, $5)
+         RETURNING id::text, name, invite_code, entry_fee_cents, prize_pool_cents, tournament_id, admin_user_id::text, created_at`,
+        [groupName, inviteCode, entryFeeCents || 0, tournament, adminId]
+      );
+      return res.status(201).json(rowToGroup(result.rows[0]));
+    } catch (e) {
+      console.error('DB group create error:', e.message);
+      return res.status(500).json({ error: 'Failed to create group' });
+    }
+  }
+
+  // Mock fallback
   const group = {
     id: 'g' + Date.now(),
-    name: name || 'My Pool',
+    name: groupName,
     inviteCode,
     entryFeeCents: entryFeeCents || 0,
     prizePoolCents: 0,
-    tournamentId: 'indian-wells-2026',
-    adminUserId: adminUserId || req.headers['x-user-id'],
-    createdAt: new Date().toISOString()
+    tournamentId: tournament,
+    adminUserId: adminId,
+    createdAt: new Date().toISOString(),
   };
   MOCK_GROUPS.push(group);
   res.status(201).json(group);
 });
 
-groupsRouter.post('/:id/join', (req, res) => {
+// POST /api/groups/:id/join
+groupsRouter.post('/:id/join', async (req, res) => {
   const { userId, displayName } = req.body;
-  const group = MOCK_GROUPS.find(g => g.id === req.params.id);
+  const groupId = req.params.id;
+
+  if (isUUID(groupId) && isUUID(userId)) {
+    try {
+      const groupCheck = await pool.query('SELECT id FROM groups WHERE id = $1', [groupId]);
+      if (groupCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+
+      const existing = await pool.query(
+        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+        [groupId, userId]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Already a member' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO group_members (group_id, user_id, display_name, is_alive)
+         VALUES ($1, $2, $3, true)
+         RETURNING id::text, group_id::text, user_id::text, display_name, is_alive, eliminated_round, joined_at`,
+        [groupId, userId, (displayName || 'Player').trim()]
+      );
+
+      // Increment prize pool if group has an entry fee
+      await pool.query(
+        `UPDATE groups SET prize_pool_cents = prize_pool_cents + entry_fee_cents
+         WHERE id = $1 AND entry_fee_cents > 0`,
+        [groupId]
+      );
+
+      return res.status(201).json(rowToMember(result.rows[0]));
+    } catch (e) {
+      console.error('DB join group error:', e.message);
+      return res.status(500).json({ error: 'Failed to join group' });
+    }
+  }
+
+  // Mock fallback
+  const group = MOCK_GROUPS.find(g => g.id === groupId);
   if (!group) return res.status(404).json({ error: 'Group not found' });
   if (MOCK_MEMBERS.some(m => m.groupId === group.id && m.userId === userId)) {
     return res.status(400).json({ error: 'Already a member' });
@@ -56,7 +219,7 @@ groupsRouter.post('/:id/join', (req, res) => {
     displayName: displayName || 'Player',
     isAlive: true,
     eliminatedRound: null,
-    joinedAt: new Date().toISOString()
+    joinedAt: new Date().toISOString(),
   };
   MOCK_MEMBERS.push(member);
   if (group.entryFeeCents) {
