@@ -8,6 +8,10 @@
     "db:init": "node src/db/init.js",
     "find-indian-wells": "node scripts/find-indian-wells.js"
   },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
