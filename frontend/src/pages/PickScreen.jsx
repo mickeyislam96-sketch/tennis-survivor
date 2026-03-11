@@ -198,13 +198,41 @@ export function PickScreen() {
         </div>
       )}
 
-      {myPickThisRound ? (
-        <div className="picked-card">
-          <p>Your pick for {currentRound}: <strong>{myPickThisRound.playerName}</strong></p>
-          <p className="text-muted">You cannot change your pick after the round locks.</p>
+      {/* Window is locked: show locked pick or missed-pick warning */}
+      {isLocked && myPickThisRound && (
+        <div className="picked-card picked-card--locked">
+          <div className="picked-card-inner">
+            <span className="picked-card-icon">🔒</span>
+            <div>
+              <p className="picked-card-label">Your {currentRound} pick — locked in</p>
+              <p className="picked-card-player">{myPickThisRound.playerName}</p>
+            </div>
+          </div>
         </div>
-      ) : (
+      )}
+      {isLocked && !myPickThisRound && (
+        <div className="picked-card picked-card--missed">
+          <span className="picked-card-icon">⚠️</span>
+          <p className="picked-card-label">Pick window closed — no pick made for {currentRound}</p>
+        </div>
+      )}
+
+      {/* Window is still open: show current pick banner (if any) + full player list */}
+      {!isLocked && (
         <>
+          {myPickThisRound && (
+            <div className="picked-card picked-card--changeable">
+              <div className="picked-card-inner">
+                <span className="picked-card-icon">✓</span>
+                <div>
+                  <p className="picked-card-label">Current {currentRound} pick</p>
+                  <p className="picked-card-player">{myPickThisRound.playerName}</p>
+                </div>
+                <span className="picked-card-hint">You can change until the window closes</span>
+              </div>
+            </div>
+          )}
+
           <div className="search-row">
             <input
               type="text"
@@ -219,10 +247,18 @@ export function PickScreen() {
             {filtered.slice(0, 80).map((player) => {
               const name = (player.name || '').toLowerCase().trim();
               const lastName = name.split(' ').pop();
-              const isUsed = usedIds.has(player.id) || (lastName && usedLastNames.has(lastName));
+              const isCurrentPick = player.id === myPickThisRound?.playerId;
+              // "Used" only counts picks from OTHER rounds — the current round's pick is replaceable
+              const usedInOtherRound = !isCurrentPick &&
+                (usedIds.has(player.id) || (lastName && usedLastNames.has(lastName)));
               const isTopSeed = player.seed && player.seed <= 8;
               return (
-                <li key={player.id} className={`player-row ${isUsed ? 'player-used' : ''} ${isTopSeed ? 'player-top-seed' : ''}`}>
+                <li key={player.id} className={[
+                  'player-row',
+                  usedInOtherRound ? 'player-used' : '',
+                  isTopSeed ? 'player-top-seed' : '',
+                  isCurrentPick ? 'player-current-pick' : '',
+                ].filter(Boolean).join(' ')}>
                   {player.seed ? (
                     <span className="player-seed-badge">#{player.seed}</span>
                   ) : (
@@ -230,19 +266,20 @@ export function PickScreen() {
                   )}
                   <span className="player-name">
                     {player.name}
-                    {isUsed && <span className="player-used-label">Already used</span>}
+                    {usedInOtherRound && <span className="player-used-label">Already used</span>}
+                    {isCurrentPick && <span className="player-current-label">Your pick</span>}
                   </span>
                   {rowError.id === player.id && (
                     <span className="player-row-error">{rowError.msg}</span>
                   )}
-                  {!isUsed && rowError.id !== player.id && (
+                  {!usedInOtherRound && !isCurrentPick && rowError.id !== player.id && (
                     <button
                       type="button"
                       className="btn primary btn-sm"
-                      disabled={submitting || isLocked}
+                      disabled={submitting}
                       onClick={() => submitPick(player)}
                     >
-                      Pick
+                      {myPickThisRound ? 'Switch' : 'Pick'}
                     </button>
                   )}
                 </li>

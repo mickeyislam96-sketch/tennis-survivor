@@ -103,10 +103,12 @@ picksRouter.post('/', async (req, res) => {
 
     if (isUUID(userId) && isUUID(groupId)) {
       try {
-        // Check player not already used by this user in this group
+        // Check player not already used in a DIFFERENT round by this user in this group.
+        // We exclude the current round so that changing a pick mid-window is allowed —
+        // the existing pick for THIS round is being replaced, not double-counted.
         const usedResult = await pool.query(
-          'SELECT player_id, player_name FROM picks WHERE user_id = $1 AND group_id = $2',
-          [userId, groupId]
+          'SELECT player_id, player_name FROM picks WHERE user_id = $1 AND group_id = $2 AND round != $3',
+          [userId, groupId, round]
         );
         const usedIds = new Set(usedResult.rows.map(p => p.player_id));
         const usedNames = new Set(usedResult.rows.map(p => (p.player_name || '').toLowerCase().trim()));
@@ -119,37 +121,45 @@ picksRouter.post('/', async (req, res) => {
           return res.status(400).json({ error: 'Player already used in a previous round' });
         }
 
-        // Insert — UNIQUE(group_id, user_id, round) will reject duplicate picks for same round
+        // UPSERT — insert new pick, or update player if they're changing within the open window.
+        // The survived field is reset to NULL on change since the round hasn't been graded yet.
         const result = await pool.query(
           `INSERT INTO picks (group_id, user_id, round, player_id, player_name, survived)
            VALUES ($1, $2, $3, $4, $5, NULL)
+           ON CONFLICT (group_id, user_id, round)
+           DO UPDATE SET player_id = EXCLUDED.player_id,
+                         player_name = EXCLUDED.player_name,
+                         survived = NULL
            RETURNING id::text, group_id::text, user_id::text, round, player_id, player_name, survived, created_at`,
           [groupId, userId, round, playerId, resolvedName]
         );
         return res.status(201).json(rowToPick(result.rows[0]));
       } catch (e) {
-        if (e.code === '23505') {
-          return res.status(400).json({ error: 'Already picked for this round' });
-        }
-        console.error('DB picks insert error:', e.message);
+        console.error('DB picks upsert error:', e.message);
         return res.status(500).json({ error: 'Failed to submit pick' });
       }
     }
 
     // Mock fallback
     const myPicks = MOCK_PICKS.filter(p => p.userId === userId && p.groupId === groupId);
-    const alreadyUsedId = myPicks.some(p => p.playerId === playerId);
+    // Exclude current round from "already used" check (same logic as DB path)
+    const otherRoundPicks = myPicks.filter(p => p.round !== round);
+    const alreadyUsedId = otherRoundPicks.some(p => p.playerId === playerId);
     const normalizedName = resolvedName.toLowerCase().trim();
-    const alreadyUsedName = normalizedName && myPicks.some(
+    const alreadyUsedName = normalizedName && otherRoundPicks.some(
       p => (p.playerName || '').toLowerCase().trim() === normalizedName
     );
     if (alreadyUsedId || alreadyUsedName) {
       return res.status(400).json({ error: 'Player already used in a previous round' });
     }
-    const existing = MOCK_PICKS.find(
+    // Update existing pick if one exists (change), otherwise push a new one
+    const existingIdx = MOCK_PICKS.findIndex(
       p => p.userId === userId && p.groupId === groupId && p.round === round
     );
-    if (existing) return res.status(400).json({ error: 'Already picked for this round' });
+    if (existingIdx >= 0) {
+      MOCK_PICKS[existingIdx] = { ...MOCK_PICKS[existingIdx], playerId, playerName: resolvedName, survived: null };
+      return res.status(201).json(MOCK_PICKS[existingIdx]);
+    }
 
     const pick = {
       id: 'pick' + Date.now(),

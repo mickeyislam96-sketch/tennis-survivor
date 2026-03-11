@@ -1652,15 +1652,59 @@ input, select { font-family: var(--font); }
 
 /* ── Pick screen: picked card ───────────────────────────────── */
 .picked-card {
-  background: var(--accent-light);
-  border: 2px solid #86efac;
   border-radius: var(--radius);
-  padding: 1.5rem;
-  text-align: center;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.5rem;
 }
-.picked-card p { margin: 0 0 0.25rem; font-size: 0.95rem; }
-.picked-card strong { color: var(--accent-dark); font-size: 1.2rem; font-weight: 800; display: block; margin-top: 0.25rem; }
-.picked-card .text-muted { font-size: 0.82rem; margin-top: 0.5rem; }
+.picked-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.picked-card-icon { font-size: 1.4rem; flex-shrink: 0; }
+.picked-card-label { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
+.picked-card-player { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.picked-card-hint {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Changeable (window open, pick exists) — amber tone */
+.picked-card--changeable {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+}
+/* Locked (window closed, pick confirmed) — green tone */
+.picked-card--locked {
+  background: var(--accent-light);
+  border: 1.5px solid #86efac;
+}
+/* Missed (window closed, no pick) — red tone */
+.picked-card--missed {
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Current pick highlight in player list */
+.player-row.player-current-pick {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.player-current-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #15803d;
+  background: #dcfce7;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 0.4rem;
+}
 
 /* ── Global button improvements ─────────────────────────────── */
 .btn {

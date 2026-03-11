@@ -289,7 +289,7 @@ export async function getDeadlines() {
     const now = new Date();
     return ROUNDS.map((round, i) => {
       const firstStart = ROUND_DATES[round] ? new Date(ROUND_DATES[round]) : null;
-      const lockAtDate = firstStart ? new Date(firstStart.getTime() - 30 * 60 * 1000) : null;
+      const lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
       const lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
       const isLocked  = lockAtDate ? now >= lockAtDate : false;
 
@@ -326,7 +326,7 @@ export async function getDeadlines() {
       .filter((d) => d && !Number.isNaN(d.getTime()))
       .sort((a, b) => a - b)[0] || null;
 
-    const lockAtDate = firstStart ? new Date(firstStart.getTime() - 30 * 60 * 1000) : null;
+    const lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
     const lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
     const isLocked   = lockAtDate ? now >= lockAtDate : false;
 
