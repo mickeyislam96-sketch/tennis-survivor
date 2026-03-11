@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
+import { TOURNAMENTS } from '../data/tournaments';
 
 const ROUND_LABELS = {
   R1: 'R1', R64: 'R64', R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
@@ -201,8 +202,17 @@ export function DrawViewer() {
   const [drawAvailable, setDrawAvailable] = useState(true);
   const [view, setView]             = useState('bracket');
   const [listRound, setListRound]   = useState('R1');
+  const [tournamentId, setTournamentId] = useState(null);
 
   useEffect(() => {
+    // Fetch group info to know which tournament this pool is for
+    if (groupId) {
+      fetch(`${API}/groups/${groupId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(g => { if (g?.tournamentId) setTournamentId(g.tournamentId); })
+        .catch(() => {});
+    }
+
     fetch(`${API}/draw/bracket?round=F`)
       .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
       .then(d => {
@@ -217,7 +227,7 @@ export function DrawViewer() {
         if (first) setListRound(first);
       })
       .catch(() => { setDrawAvailable(false); setData(null); });
-  }, []);
+  }, [groupId]);
 
   if (!drawAvailable) {
     return (
@@ -259,6 +269,10 @@ export function DrawViewer() {
     );
   });
 
+  // SofaScore widget URL — stored per tournament in tournaments.js
+  const tournament = TOURNAMENTS.find(t => t.id === tournamentId) || TOURNAMENTS.find(t => t.status === 'active');
+  const widgetUrl = tournament?.bracketWidget || null;
+
   // Only show rounds that have at least one match
   const roundsWithData = rounds.filter(r => (matchesByRound[r] || []).length > 0);
 
@@ -282,12 +296,26 @@ export function DrawViewer() {
       </div>
 
       {view === 'bracket' ? (
-        <>
-          <p className="bracket-help-text">R32 through to the Final — follow the path to the title</p>
-          <div className="bracket-scroll-wrap">
-            <div className="bracket-wrap">{bracketEls}</div>
+        widgetUrl ? (
+          <div className="sofascore-widget-wrap">
+            <iframe
+              src={widgetUrl}
+              style={{ width: '100%', maxWidth: 700, height: 872, border: 'none', display: 'block' }}
+              scrolling="yes"
+              title="Tournament Draw"
+            />
+            <p className="widget-credit">
+              Draw data via <a href="https://www.sofascore.com" target="_blank" rel="noopener noreferrer">SofaScore</a>
+            </p>
           </div>
-        </>
+        ) : (
+          <>
+            <p className="bracket-help-text">R32 through to the Final — follow the path to the title</p>
+            <div className="bracket-scroll-wrap">
+              <div className="bracket-wrap">{bracketEls}</div>
+            </div>
+          </>
+        )
       ) : (
         <>
           <div className="round-tabs">

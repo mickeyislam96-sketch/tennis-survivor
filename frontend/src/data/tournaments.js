@@ -17,6 +17,7 @@ export const TOURNAMENTS = [
     drawAvailable: true,
     entryOpen: false,          // Tournament is underway — entry period is over
     entryClosedReason: 'started',
+    bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2487/season/80797/cuptree/10848110?widgetTitle=2026%20Indian%20Wells%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
   },
   {
     id: 'miami-2026',

@@ -2473,3 +2473,20 @@ input, select { font-family: var(--font); }
 .lc-badge--done     { background: #dcfce7; color: #15803d; }
 .lc-badge--live     { background: #fee2e2; color: #ef4444; }
 .lc-badge--upcoming { background: #f3f4f6; color: #6b7280; }
+
+/* ── SofaScore bracket widget ────────────────────────────────── */
+.sofascore-widget-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  width: 100%;
+  overflow-x: auto;
+}
+.widget-credit {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  text-align: center;
+}
+.widget-credit a { color: var(--accent); }
