@@ -10,11 +10,18 @@ function fmtGBP(cents) {
 export function JoinGroup() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const { userId, user } = useAuth();
+  const { userId, user, register, login } = useAuth();
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+
+  // Auth form state (shown when not logged in)
+  const [authMode, setAuthMode] = useState('register'); // 'register' | 'login'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     if (!code) return;
@@ -25,14 +32,35 @@ export function JoinGroup() {
       .finally(() => setLoading(false));
   }, [code]);
 
-  const join = () => {
-    if (!group || !userId) return;
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      if (authMode === 'register') {
+        if (!authName.trim()) { setAuthError('Please enter your name.'); setAuthLoading(false); return; }
+        await register(authEmail.trim(), authName.trim());
+      } else {
+        await login(authEmail.trim());
+      }
+      // After auth succeeds the component will re-render with userId set
+    } catch (err) {
+      setAuthError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const join = (currentUser) => {
+    const uid = currentUser?.id || userId;
+    const uName = currentUser?.displayName || user?.displayName || 'Player';
+    if (!group || !uid) return;
     setJoining(true);
     setError('');
     fetch(`${API}/groups/${group.id}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, displayName: user?.displayName || 'Player' })
+      body: JSON.stringify({ userId: uid, displayName: uName })
     })
       .then((r) => {
         if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed'); });
@@ -93,19 +121,91 @@ export function JoinGroup() {
           <li>Last player standing wins the entire prize pool</li>
         </ul>
 
-        {isMember ? (
-          <div className="join-already">
-            <p className="text-muted">You're already in this pool.</p>
-            <Link to={`/group/${group.id}`} className="btn primary btn-lg">Go to group →</Link>
+        {group.betaFree && (
+          <div className="beta-waiver-notice">
+            <span className="beta-waiver-icon">🎁</span>
+            <div>
+              <p className="beta-waiver-title">Entry fee waived for beta</p>
+              <p className="beta-waiver-sub">No payment will be taken. Join free for this test run.</p>
+            </div>
           </div>
-        ) : (
-          <div className="join-action">
-            <button onClick={join} className="btn primary btn-lg join-submit-btn" disabled={joining}>
-              {joining ? 'Joining…' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
-            </button>
-            <p className="join-disclaimer">Entry fee is non-refundable once the tournament begins.</p>
-            {error && <p className="error">{error}</p>}
+        )}
+
+        {/* ── Not logged in: show register / login form ── */}
+        {!userId && (
+          <div className="join-auth-section">
+            <div className="join-auth-tabs">
+              <button
+                className={`join-auth-tab${authMode === 'register' ? ' active' : ''}`}
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+              >
+                Create account
+              </button>
+              <button
+                className={`join-auth-tab${authMode === 'login' ? ' active' : ''}`}
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+              >
+                Sign in
+              </button>
+            </div>
+
+            <form className="join-auth-form" onSubmit={handleAuth}>
+              {authMode === 'register' && (
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Your name"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              )}
+              <input
+                className="input"
+                type="email"
+                placeholder="Email address"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+                autoFocus={authMode === 'login'}
+              />
+              {authError && <p className="error">{authError}</p>}
+              <button
+                type="submit"
+                className="btn primary btn-lg join-submit-btn"
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? (authMode === 'register' ? 'Creating account…' : 'Signing in…')
+                  : (authMode === 'register' ? 'Create account & join →' : 'Sign in & join →')}
+              </button>
+              {authMode === 'register' && (
+                <p className="join-auth-hint">We'll send you a confirmation email.</p>
+              )}
+            </form>
           </div>
+        )}
+
+        {/* ── Logged in: show join / already member ── */}
+        {userId && (
+          isMember ? (
+            <div className="join-already">
+              <p className="text-muted">You're already in this pool.</p>
+              <Link to={`/group/${group.id}`} className="btn primary btn-lg">Go to group →</Link>
+            </div>
+          ) : (
+            <div className="join-action">
+              <p className="join-welcome">Joining as <strong>{user?.displayName}</strong></p>
+              <button onClick={() => join()} className="btn primary btn-lg join-submit-btn" disabled={joining}>
+                {joining ? 'Joining…' : group.betaFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
+              </button>
+              {!group.betaFree && (
+                <p className="join-disclaimer">Entry fee is non-refundable once the tournament begins.</p>
+              )}
+              {error && <p className="error">{error}</p>}
+            </div>
+          )
         )}
       </div>
     </div>

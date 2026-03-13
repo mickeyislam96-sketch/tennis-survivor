@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 import './Layout.css';
@@ -9,12 +10,105 @@ const nav = [
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
 
+function AuthModal({ onClose }) {
+  const { register, login } = useAuth();
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      if (mode === 'register') {
+        if (!name.trim()) { setError('Please enter your name.'); setLoading(false); return; }
+        await register(email.trim(), name.trim());
+      } else {
+        await login(email.trim());
+      }
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">
+            {mode === 'register' ? 'Create account' : 'Sign in'}
+          </h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <div className="modal-tabs">
+          <button
+            className={`modal-tab${mode === 'login' ? ' active' : ''}`}
+            onClick={() => { setMode('login'); setError(''); }}
+          >
+            Sign in
+          </button>
+          <button
+            className={`modal-tab${mode === 'register' ? ' active' : ''}`}
+            onClick={() => { setMode('register'); setError(''); }}
+          >
+            Create account
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="modal-form">
+          {mode === 'register' && (
+            <input
+              className="input"
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+            />
+          )}
+          <input
+            className="input"
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus={mode === 'login'}
+          />
+          {error && <p className="error">{error}</p>}
+          <button type="submit" className="btn primary btn-lg" disabled={loading}>
+            {loading
+              ? (mode === 'register' ? 'Creating account…' : 'Signing in…')
+              : (mode === 'register' ? 'Create account →' : 'Sign in →')}
+          </button>
+          {mode === 'login' && (
+            <p className="modal-hint">Enter the email address you registered with.</p>
+          )}
+          {mode === 'register' && (
+            <p className="modal-hint">We'll send you a confirmation email.</p>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
+  const [showAuth, setShowAuth] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <div className="layout">
@@ -39,9 +133,34 @@ export function Layout({ children }) {
           </NavLink>
         </nav>
 
-        {user && (
-          <span className="user-badge">{user.displayName || user.email}</span>
-        )}
+        <div className="header-user">
+          {user ? (
+            <div className="user-menu-wrap">
+              <button
+                className="user-badge user-badge-btn"
+                onClick={() => setShowUserMenu(v => !v)}
+              >
+                {user.displayName || user.email}
+                <span className="user-badge-caret">▾</span>
+              </button>
+              {showUserMenu && (
+                <div className="user-menu-dropdown">
+                  <p className="user-menu-email">{user.email}</p>
+                  <button
+                    className="user-menu-signout"
+                    onClick={() => { logout(); setShowUserMenu(false); }}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button className="btn-signin" onClick={() => setShowAuth(true)}>
+              Sign in
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="main">{children}</main>
@@ -54,6 +173,8 @@ export function Layout({ children }) {
           </div>
         </div>
       </footer>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </div>
   );
 }
