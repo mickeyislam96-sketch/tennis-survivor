@@ -71,6 +71,9 @@ CREATE TABLE IF NOT EXISTS tiebreaker_answers (
   UNIQUE(group_id, user_id, match_id, question_key)
 );
 
-CREATE INDEX idx_picks_group_user ON picks(group_id, user_id);
-CREATE INDEX idx_group_members_group ON group_members(group_id);
-CREATE INDEX idx_draw_matches_round ON draw_matches(round);
+CREATE INDEX IF NOT EXISTS idx_picks_group_user ON picks(group_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_draw_matches_round ON draw_matches(round);
+
+-- Migrations (safe to re-run)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;

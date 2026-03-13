@@ -20,6 +20,7 @@ export function JoinGroup() {
   const [authMode, setAuthMode] = useState('register'); // 'register' | 'login'
   const [authEmail, setAuthEmail] = useState('');
   const [authName, setAuthName] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
@@ -35,13 +36,17 @@ export function JoinGroup() {
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
+    if (authMode === 'register' && authPassword.length < 8) {
+      setAuthError('Password must be at least 8 characters.');
+      return;
+    }
     setAuthLoading(true);
     try {
       if (authMode === 'register') {
         if (!authName.trim()) { setAuthError('Please enter your name.'); setAuthLoading(false); return; }
-        await register(authEmail.trim(), authName.trim());
+        await register(authEmail.trim(), authName.trim(), authPassword);
       } else {
-        await login(authEmail.trim());
+        await login(authEmail.trim(), authPassword);
       }
       // After auth succeeds the component will re-render with userId set
     } catch (err) {
@@ -137,13 +142,13 @@ export function JoinGroup() {
             <div className="join-auth-tabs">
               <button
                 className={`join-auth-tab${authMode === 'register' ? ' active' : ''}`}
-                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                onClick={() => { setAuthMode('register'); setAuthError(''); setAuthPassword(''); }}
               >
                 Create account
               </button>
               <button
                 className={`join-auth-tab${authMode === 'login' ? ' active' : ''}`}
-                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                onClick={() => { setAuthMode('login'); setAuthError(''); setAuthPassword(''); }}
               >
                 Sign in
               </button>
@@ -169,6 +174,14 @@ export function JoinGroup() {
                 onChange={(e) => setAuthEmail(e.target.value)}
                 required
                 autoFocus={authMode === 'login'}
+              />
+              <input
+                className="input"
+                type="password"
+                placeholder={authMode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                required
               />
               {authError && <p className="error">{authError}</p>}
               <button

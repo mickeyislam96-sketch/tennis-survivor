@@ -15,19 +15,25 @@ function AuthModal({ onClose, initialMode = 'login' }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const switchMode = (m) => { setMode(m); setError(''); setPassword(''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (mode === 'register' && password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'register') {
-        if (!name.trim()) { setError('Please enter your name.'); setLoading(false); return; }
-        await register(email.trim(), name.trim());
+        await register(email.trim(), name.trim(), password);
       } else {
-        await login(email.trim());
+        await login(email.trim(), password);
       }
       onClose();
     } catch (err) {
@@ -50,13 +56,13 @@ function AuthModal({ onClose, initialMode = 'login' }) {
         <div className="modal-tabs">
           <button
             className={`modal-tab${mode === 'login' ? ' active' : ''}`}
-            onClick={() => { setMode('login'); setError(''); }}
+            onClick={() => switchMode('login')}
           >
             Sign in
           </button>
           <button
             className={`modal-tab${mode === 'register' ? ' active' : ''}`}
-            onClick={() => { setMode('register'); setError(''); }}
+            onClick={() => switchMode('register')}
           >
             Create account
           </button>
@@ -83,15 +89,20 @@ function AuthModal({ onClose, initialMode = 'login' }) {
             required
             autoFocus={mode === 'login'}
           />
+          <input
+            className="input"
+            type="password"
+            placeholder={mode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           {error && <p className="error">{error}</p>}
           <button type="submit" className="btn primary btn-lg" disabled={loading}>
             {loading
               ? (mode === 'register' ? 'Creating account…' : 'Signing in…')
               : (mode === 'register' ? 'Create account →' : 'Sign in →')}
           </button>
-          {mode === 'login' && (
-            <p className="modal-hint">Enter the email address you registered with.</p>
-          )}
           {mode === 'register' && (
             <p className="modal-hint">We'll send you a confirmation email.</p>
           )}

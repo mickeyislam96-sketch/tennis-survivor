@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
 import { sendRegistrationEmail } from '../utils/email.js';
@@ -6,7 +7,6 @@ import { sendRegistrationEmail } from '../utils/email.js';
 export const authRouter = Router();
 
 // ── GET /api/auth/me?userId= ─────────────────────────────────────────────────
-// Returns user profile. Checks DB first, falls back to mock users.
 authRouter.get('/me', async (req, res) => {
   const userId = req.query.userId || req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'No userId provided' });
@@ -24,18 +24,20 @@ authRouter.get('/me', async (req, res) => {
     // DB unavailable — fall through to mock
   }
 
-  // Mock user fallback (for Indian Wells demo data)
   const mock = MOCK_USERS.find(u => u.id === userId);
   if (!mock) return res.status(404).json({ error: 'User not found' });
   res.json(mock);
 });
 
 // ── POST /api/auth/register ──────────────────────────────────────────────────
-// Create a new user account. Returns existing user if email already registered.
 authRouter.post('/register', async (req, res) => {
-  const { email, displayName } = req.body;
+  const { email, displayName, password } = req.body;
+
   if (!email?.trim() || !displayName?.trim()) {
-    return res.status(400).json({ error: 'Email and display name are required' });
+    return res.status(400).json({ error: 'Email and display name are required.' });
+  }
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   }
 
   const normEmail = email.trim().toLowerCase();
@@ -43,21 +45,21 @@ authRouter.post('/register', async (req, res) => {
 
   try {
     const existing = await pool.query(
-      'SELECT id::text, email, display_name FROM users WHERE email = $1',
+      'SELECT id::text FROM users WHERE email = $1',
       [normEmail]
     );
     if (existing.rows.length > 0) {
-      const u = existing.rows[0];
-      return res.json({ id: u.id, email: u.email, displayName: u.display_name, isNew: false });
+      return res.status(409).json({ error: 'An account with this email already exists. Please sign in instead.' });
     }
 
+    const passwordHash = await bcrypt.hash(password, 12);
+
     const result = await pool.query(
-      'INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id::text, email, display_name',
-      [normEmail, normName]
+      'INSERT INTO users (email, display_name, password_hash) VALUES ($1, $2, $3) RETURNING id::text, email, display_name',
+      [normEmail, normName, passwordHash]
     );
     const u = result.rows[0];
 
-    // Send confirmation email to new users only (non-blocking)
     sendRegistrationEmail({
       email: u.email,
       displayName: u.display_name,
@@ -74,24 +76,39 @@ authRouter.post('/register', async (req, res) => {
 });
 
 // ── POST /api/auth/login ─────────────────────────────────────────────────────
-// Sign in with email — returns user if account exists.
 authRouter.post('/login', async (req, res) => {
-  const { email } = req.body;
+  const { email, password } = req.body;
+
   if (!email?.trim()) {
-    return res.status(400).json({ error: 'Email is required' });
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required.' });
   }
 
   const normEmail = email.trim().toLowerCase();
 
   try {
     const result = await pool.query(
-      'SELECT id::text, email, display_name FROM users WHERE email = $1',
+      'SELECT id::text, email, display_name, password_hash FROM users WHERE email = $1',
       [normEmail]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'No account found with that email.' });
     }
+
     const u = result.rows[0];
+
+    if (!u.password_hash) {
+      // Legacy account created before passwords were added — prompt them to reset
+      return res.status(401).json({ error: 'This account was created before passwords were added. Please create a new account.' });
+    }
+
+    const valid = await bcrypt.compare(password, u.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Incorrect password.' });
+    }
+
     return res.json({ id: u.id, email: u.email, displayName: u.display_name });
   } catch (err) {
     console.error('Login error:', err.message);
