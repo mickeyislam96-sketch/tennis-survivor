@@ -10,9 +10,9 @@ const nav = [
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
 
-function AuthModal({ onClose }) {
+function AuthModal({ onClose, initialMode = 'login' }) {
   const { register, login } = useAuth();
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -108,6 +108,7 @@ export function Layout({ children }) {
   const { user, logout } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
   const [showAuth, setShowAuth] = useState(false);
+  const [initialMode, setInitialMode] = useState('login');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
@@ -156,9 +157,14 @@ export function Layout({ children }) {
               )}
             </div>
           ) : (
-            <button className="btn-signin" onClick={() => setShowAuth(true)}>
-              Sign in
-            </button>
+            <div className="header-auth-btns">
+              <button className="btn-signin" onClick={() => { setInitialMode('login'); setShowAuth(true); }}>
+                Sign in
+              </button>
+              <button className="btn-register" onClick={() => { setInitialMode('register'); setShowAuth(true); }}>
+                Create account
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -174,7 +180,7 @@ export function Layout({ children }) {
         </div>
       </footer>
 
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} initialMode={initialMode} />}
     </div>
   );
 }

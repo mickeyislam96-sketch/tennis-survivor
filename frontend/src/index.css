@@ -2725,3 +2725,23 @@ input, select { font-family: var(--font); }
   margin: 0 0 0.5rem;
   text-align: center;
 }
+
+/* ── Header two-button auth layout ──────────────────────────── */
+.header-auth-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-register {
+  padding: 0.4rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-register:hover { background: var(--accent-dark); }
