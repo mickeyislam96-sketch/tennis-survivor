@@ -8,6 +8,7 @@ import { Leaderboard } from './pages/Leaderboard';
 import { GroupHome } from './pages/GroupHome';
 import { JoinGroup } from './pages/JoinGroup';
 import { TermsAndConditions } from './pages/TermsAndConditions';
+import { ResetPassword } from './pages/ResetPassword';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 
@@ -99,6 +100,7 @@ function App() {
         <Route path="/group/:groupId/leaderboard" element={<Leaderboard />} />
         <Route path="/join/:code" element={<JoinGroup />} />
         <Route path="/terms" element={<TermsAndConditions />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

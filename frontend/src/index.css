@@ -2745,3 +2745,74 @@ input, select { font-family: var(--font); }
   transition: background 0.15s;
 }
 .btn-register:hover { background: var(--accent-dark); }
+
+/* ── Forgot password / reset password ───────────────────────── */
+.forgot-link {
+  align-self: flex-start;
+  margin-top: -0.25rem;
+}
+.btn-text-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-text-link:hover { color: var(--accent-dark); }
+
+.modal-sent {
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.modal-sent-icon { font-size: 2.5rem; }
+.modal-sent-text { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
+
+.success-msg {
+  font-size: 0.875rem;
+  color: var(--success);
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  margin: 0;
+}
+
+/* ── Reset password page ─────────────────────────────────────── */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+}
+.auth-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 420px;
+  padding: 2rem;
+}
+.auth-card-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.auth-card-logo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.auth-card-body { display: flex; flex-direction: column; gap: 0.75rem; }
+.auth-card-title { font-size: 1.1rem; margin: 0; text-align: center; }
+.auth-card-hint { font-size: 0.875rem; color: var(--text-muted); margin: 0; text-align: center; line-height: 1.6; }
+.auth-status-icon { font-size: 2.5rem; text-align: center; }
+.auth-form { display: flex; flex-direction: column; gap: 0.75rem; }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
+import { API } from '../App';
 import './Layout.css';
 
 const nav = [
@@ -12,30 +13,48 @@ const nav = [
 
 function AuthModal({ onClose, initialMode = 'login' }) {
   const { register, login } = useAuth();
+
+  // mode: 'login' | 'register' | 'forgot' | 'forgot-sent'
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const switchMode = (m) => { setMode(m); setError(''); setPassword(''); };
+  const switchMode = (m) => { setMode(m); setError(''); setSuccess(''); setPassword(''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+
     if (mode === 'register' && password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
+
     setLoading(true);
     try {
       if (mode === 'register') {
         await register(email.trim(), name.trim(), password);
-      } else {
+        onClose();
+      } else if (mode === 'login') {
         await login(email.trim(), password);
+        onClose();
+      } else if (mode === 'forgot') {
+        const res = await fetch(`${API}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.error || 'Something went wrong.');
+        }
+        switchMode('forgot-sent');
       }
-      onClose();
     } catch (err) {
       setError(err.message || 'Something went wrong.');
     } finally {
@@ -43,70 +62,129 @@ function AuthModal({ onClose, initialMode = 'login' }) {
     }
   };
 
+  const title = {
+    login: 'Sign in',
+    register: 'Create account',
+    forgot: 'Reset password',
+    'forgot-sent': 'Check your email',
+  }[mode];
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">
-            {mode === 'register' ? 'Create account' : 'Sign in'}
-          </h2>
+          <h2 className="modal-title">{title}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <div className="modal-tabs">
-          <button
-            className={`modal-tab${mode === 'login' ? ' active' : ''}`}
-            onClick={() => switchMode('login')}
-          >
-            Sign in
-          </button>
-          <button
-            className={`modal-tab${mode === 'register' ? ' active' : ''}`}
-            onClick={() => switchMode('register')}
-          >
-            Create account
-          </button>
-        </div>
+        {/* Tabs — only shown for login / register */}
+        {(mode === 'login' || mode === 'register') && (
+          <div className="modal-tabs">
+            <button
+              className={`modal-tab${mode === 'login' ? ' active' : ''}`}
+              onClick={() => switchMode('login')}
+            >
+              Sign in
+            </button>
+            <button
+              className={`modal-tab${mode === 'register' ? ' active' : ''}`}
+              onClick={() => switchMode('register')}
+            >
+              Create account
+            </button>
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="modal-form">
-          {mode === 'register' && (
+        {/* Forgot password — email sent confirmation */}
+        {mode === 'forgot-sent' && (
+          <div className="modal-sent">
+            <p className="modal-sent-icon">📬</p>
+            <p className="modal-sent-text">
+              If an account exists for <strong>{email}</strong>, a password reset link has been sent. Check your inbox (and spam).
+            </p>
+            <button className="btn-text-link" onClick={() => switchMode('login')}>
+              Back to sign in
+            </button>
+          </div>
+        )}
+
+        {/* Main form */}
+        {mode !== 'forgot-sent' && (
+          <form onSubmit={handleSubmit} className="modal-form">
+            {mode === 'register' && (
+              <input
+                className="input"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoFocus
+              />
+            )}
+
             <input
               className="input"
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              autoFocus
+              autoFocus={mode === 'login' || mode === 'forgot'}
             />
-          )}
-          <input
-            className="input"
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoFocus={mode === 'login'}
-          />
-          <input
-            className="input"
-            type="password"
-            placeholder={mode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit" className="btn primary btn-lg" disabled={loading}>
-            {loading
-              ? (mode === 'register' ? 'Creating account…' : 'Signing in…')
-              : (mode === 'register' ? 'Create account →' : 'Sign in →')}
-          </button>
-          {mode === 'register' && (
-            <p className="modal-hint">We'll send you a confirmation email.</p>
-          )}
-        </form>
+
+            {(mode === 'login' || mode === 'register') && (
+              <input
+                className="input"
+                type="password"
+                placeholder={mode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            )}
+
+            {/* Forgot password link — only on login */}
+            {mode === 'login' && (
+              <button
+                type="button"
+                className="btn-text-link forgot-link"
+                onClick={() => switchMode('forgot')}
+              >
+                Forgot your password?
+              </button>
+            )}
+
+            {error && <p className="error">{error}</p>}
+            {success && <p className="success-msg">{success}</p>}
+
+            <button type="submit" className="btn primary btn-lg" disabled={loading}>
+              {loading ? (
+                mode === 'register' ? 'Creating account…' :
+                mode === 'login'    ? 'Signing in…' :
+                                     'Sending link…'
+              ) : (
+                mode === 'register' ? 'Create account →' :
+                mode === 'login'    ? 'Sign in →' :
+                                     'Send reset link →'
+              )}
+            </button>
+
+            {mode === 'register' && (
+              <p className="modal-hint">We'll send you a confirmation email.</p>
+            )}
+
+            {mode === 'forgot' && (
+              <button
+                type="button"
+                className="btn-text-link"
+                onClick={() => switchMode('login')}
+              >
+                Back to sign in
+              </button>
+            )}
+          </form>
+        )}
       </div>
     </div>
   );
