@@ -142,6 +142,9 @@ function BracketCard({ match }) {
         <span className="bc-name">{match.player2Name || 'TBD'}</span>
         {p2w && <span className="bc-tick">✓</span>}
       </div>
+      {done && match.score && (
+        <div className="bc-score">{match.score}</div>
+      )}
     </div>
   );
 }
@@ -176,14 +179,21 @@ function ListCard({ match }) {
   return (
     <div className={`lc${done ? ' lc--done' : live ? ' lc--live' : ' lc--upcoming'}`}>
       {live && <div className="lc-live-bar">● LIVE</div>}
-      <div className={`lc-row${p1w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
-        <span className="lc-name">{match.player1Name || 'TBD'}</span>
-        {p1w && <span className="lc-win-dot" />}
-      </div>
-      <div className="lc-sep" />
-      <div className={`lc-row${p2w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
-        <span className="lc-name">{match.player2Name || 'TBD'}</span>
-        {p2w && <span className="lc-win-dot" />}
+      <div className="lc-body">
+        <div className="lc-players">
+          <div className={`lc-row${p1w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+            <span className="lc-name">{match.player1Name || 'TBD'}</span>
+            {p1w && <span className="lc-win-dot" />}
+          </div>
+          <div className="lc-sep" />
+          <div className={`lc-row${p2w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+            <span className="lc-name">{match.player2Name || 'TBD'}</span>
+            {p2w && <span className="lc-win-dot" />}
+          </div>
+        </div>
+        {done && match.score && (
+          <div className="lc-score">{match.score}</div>
+        )}
       </div>
       <div className="lc-meta">
         {date && <span className="lc-date">{date}</span>}

@@ -2816,3 +2816,94 @@ input, select { font-family: var(--font); }
 .auth-card-hint { font-size: 0.875rem; color: var(--text-muted); margin: 0; text-align: center; line-height: 1.6; }
 .auth-status-icon { font-size: 2.5rem; text-align: center; }
 .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* ══════════════════════════════════════════════════════════════
+   SCORE DISPLAY
+══════════════════════════════════════════════════════════════ */
+
+/* Bracket card — small score line below player rows */
+.bc-score {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: center;
+  padding: 0.18rem 0.5rem 0.28rem;
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+  letter-spacing: 0.03em;
+}
+.bc-card.bc-done .bc-score {
+  background: #f0fdf4;
+  color: #15803d;
+  border-top-color: #bbf7d0;
+}
+
+/* List card — score panel on the right of a completed match */
+.lc-body {
+  display: flex;
+  align-items: stretch;
+}
+.lc-players {
+  flex: 1;
+  min-width: 0;
+}
+.lc-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  border-left: 1px solid #d1fae5;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE POLISH — additional overrides (375px-first)
+══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 680px) {
+  /* Header: shrink auth buttons so they fit beside the logo */
+  .header-auth-btns { gap: 0.35rem; }
+  .btn-signin  { font-size: 0.78rem; padding: 0.32rem 0.6rem; }
+  .btn-register { font-size: 0.78rem; padding: 0.32rem 0.6rem; }
+
+  /* PickScreen: search bar should fill its row */
+  .search-row  { width: 100%; }
+  .search-input { min-width: 0; width: 100%; box-sizing: border-box; }
+
+  /* PickScreen: tighter round tabs */
+  .round-tab { font-size: 0.78rem; padding: 0.3rem 0.6rem; }
+
+  /* PickScreen: tighter player rows */
+  .player-row  { padding: 0.6rem 0.75rem; }
+  .player-name { font-size: 0.88rem; }
+
+  /* GroupHome: pick CTA wraps cleanly */
+  .pick-cta-section  { flex-direction: column; align-items: stretch; }
+  .pick-cta-done     { flex-wrap: wrap; }
+  .pick-cta-done-player { font-size: 0.95rem; }
+
+  /* DrawViewer: single-column match grid on mobile */
+  .lc-grid { grid-template-columns: 1fr; }
+
+  /* DrawViewer: smaller score panel on tight screens */
+  .lc-score { font-size: 0.75rem; padding: 0.4rem 0.6rem; min-width: 3.75rem; }
+
+  /* Leaderboard: reduce cell padding so table fits */
+  .leaderboard-table th,
+  .leaderboard-table td { padding: 0.55rem 0.65rem; }
+  .lb-display-name { font-size: 0.84rem; }
+  .lb-avatar { width: 26px; height: 26px; font-size: 0.6rem; }
+  .lb-th-rounds, .lb-td-rounds { width: 4.5rem; }
+
+  /* DrawViewer bracket: slightly narrower columns */
+  .bc-col-hdr,
+  .bc-col-body { width: 140px; }
+}

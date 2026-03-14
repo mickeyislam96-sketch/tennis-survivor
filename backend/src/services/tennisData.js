@@ -182,6 +182,7 @@ function buildDrawFromFixtures(fixtures) {
       player1Id: player1.id, player1Name: player1.name,
       player2Id: player2.id, player2Name: player2.name,
       winnerId, winnerName, status, startTime,
+      score: f.event_final_result || null,
     };
   }
 
