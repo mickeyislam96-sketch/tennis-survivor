@@ -2818,6 +2818,80 @@ input, select { font-family: var(--font); }
 .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
 
 /* ══════════════════════════════════════════════════════════════
+   WINNER BANNER
+══════════════════════════════════════════════════════════════ */
+
+.lb-winner-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.lb-winner-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='0.1'%3E%3Crect x='2' y='2' width='496' height='216'/%3E%3Crect x='28' y='2' width='444' height='216'/%3E%3Cline x1='2' y1='110' x2='498' y2='110'/%3E%3Cline x1='250' y1='2' x2='250' y2='75'/%3E%3Cline x1='250' y1='145' x2='250' y2='218'/%3E%3Cline x1='28' y1='75' x2='472' y2='75'/%3E%3Cline x1='28' y1='145' x2='472' y2='145'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  pointer-events: none;
+}
+.lb-winner-trophy {
+  font-size: 3rem;
+  line-height: 1;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.lb-winner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+.lb-winner-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.7);
+}
+.lb-winner-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.lb-winner-sub {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.65);
+  font-weight: 500;
+}
+.lb-winner-prize {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 680px) {
+  .lb-winner-banner { padding: 1.25rem; gap: 1rem; }
+  .lb-winner-trophy { font-size: 2.25rem; }
+  .lb-winner-name   { font-size: 1.4rem; }
+  .lb-winner-prize  { font-size: 1.2rem; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    SCORE DISPLAY
 ══════════════════════════════════════════════════════════════ */
 

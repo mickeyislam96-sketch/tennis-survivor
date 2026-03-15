@@ -75,59 +75,69 @@ export const MOCK_USERS = [
 ];
 
 export const MOCK_MEMBERS = [
-  // Alive (45 survivors — tournament is early, most people still in)
-  { id: 'mem1',  groupId: 'g1', userId: 'u1',  displayName: 'Alice',  isAlive: true, eliminatedRound: null },
-  { id: 'mem2',  groupId: 'g1', userId: 'u2',  displayName: 'Bob',    isAlive: true, eliminatedRound: null },
-  { id: 'mem4',  groupId: 'g1', userId: 'u4',  displayName: 'Dan',    isAlive: true, eliminatedRound: null },
-  { id: 'mem5',  groupId: 'g1', userId: 'u5',  displayName: 'Emma',   isAlive: true, eliminatedRound: null },
-  { id: 'mem6',  groupId: 'g1', userId: 'u6',  displayName: 'Finn',   isAlive: true, eliminatedRound: null },
-  { id: 'mem7',  groupId: 'g1', userId: 'u7',  displayName: 'Grace',  isAlive: true, eliminatedRound: null },
-  { id: 'mem8',  groupId: 'g1', userId: 'u8',  displayName: 'Harry',  isAlive: true, eliminatedRound: null },
-  { id: 'mem9',  groupId: 'g1', userId: 'u9',  displayName: 'Isla',   isAlive: true, eliminatedRound: null },
-  { id: 'mem10', groupId: 'g1', userId: 'u10', displayName: 'Jack',   isAlive: true, eliminatedRound: null },
-  { id: 'mem11', groupId: 'g1', userId: 'u11', displayName: 'Kate',   isAlive: true, eliminatedRound: null },
-  { id: 'mem12', groupId: 'g1', userId: 'u12', displayName: 'Liam',   isAlive: true, eliminatedRound: null },
-  { id: 'mem13', groupId: 'g1', userId: 'u13', displayName: 'Mia',    isAlive: true, eliminatedRound: null },
-  { id: 'mem14', groupId: 'g1', userId: 'u14', displayName: 'Noah',   isAlive: true, eliminatedRound: null },
-  { id: 'mem15', groupId: 'g1', userId: 'u15', displayName: 'Olivia', isAlive: true, eliminatedRound: null },
-  { id: 'mem16', groupId: 'g1', userId: 'u16', displayName: 'Pete',   isAlive: true, eliminatedRound: null },
-  { id: 'mem17', groupId: 'g1', userId: 'u17', displayName: 'Quinn',  isAlive: true, eliminatedRound: null },
-  { id: 'mem18', groupId: 'g1', userId: 'u18', displayName: 'Rosa',   isAlive: true, eliminatedRound: null },
-  { id: 'mem19', groupId: 'g1', userId: 'u19', displayName: 'Sam',    isAlive: true, eliminatedRound: null },
-  { id: 'mem20', groupId: 'g1', userId: 'u20', displayName: 'Tara',   isAlive: true, eliminatedRound: null },
-  { id: 'mem21', groupId: 'g1', userId: 'u21', displayName: 'Umar',   isAlive: true, eliminatedRound: null },
-  { id: 'mem22', groupId: 'g1', userId: 'u22', displayName: 'Vera',   isAlive: true, eliminatedRound: null },
-  { id: 'mem23', groupId: 'g1', userId: 'u23', displayName: 'Will',   isAlive: true, eliminatedRound: null },
-  { id: 'mem24', groupId: 'g1', userId: 'u24', displayName: 'Xena',   isAlive: true, eliminatedRound: null },
-  { id: 'mem25', groupId: 'g1', userId: 'u25', displayName: 'Yusuf',  isAlive: true, eliminatedRound: null },
-  { id: 'mem26', groupId: 'g1', userId: 'u26', displayName: 'Zoe',    isAlive: true, eliminatedRound: null },
-  { id: 'mem27', groupId: 'g1', userId: 'u27', displayName: 'Adam',   isAlive: true, eliminatedRound: null },
-  { id: 'mem28', groupId: 'g1', userId: 'u28', displayName: 'Beth',   isAlive: true, eliminatedRound: null },
-  { id: 'mem29', groupId: 'g1', userId: 'u29', displayName: 'Cole',   isAlive: true, eliminatedRound: null },
-  { id: 'mem30', groupId: 'g1', userId: 'u30', displayName: 'Demi',   isAlive: true, eliminatedRound: null },
-  { id: 'mem31', groupId: 'g1', userId: 'u31', displayName: 'Evan',   isAlive: true, eliminatedRound: null },
-  { id: 'mem32', groupId: 'g1', userId: 'u32', displayName: 'Faye',   isAlive: true, eliminatedRound: null },
-  { id: 'mem33', groupId: 'g1', userId: 'u33', displayName: 'Glen',   isAlive: true, eliminatedRound: null },
-  { id: 'mem34', groupId: 'g1', userId: 'u34', displayName: 'Hana',   isAlive: true, eliminatedRound: null },
-  { id: 'mem35', groupId: 'g1', userId: 'u35', displayName: 'Ivan',   isAlive: true, eliminatedRound: null },
-  { id: 'mem36', groupId: 'g1', userId: 'u36', displayName: 'Jade',   isAlive: true, eliminatedRound: null },
-  { id: 'mem37', groupId: 'g1', userId: 'u37', displayName: 'Kian',   isAlive: true, eliminatedRound: null },
-  { id: 'mem38', groupId: 'g1', userId: 'u38', displayName: 'Luna',   isAlive: true, eliminatedRound: null },
-  { id: 'mem39', groupId: 'g1', userId: 'u39', displayName: 'Max',    isAlive: true, eliminatedRound: null },
-  { id: 'mem40', groupId: 'g1', userId: 'u40', displayName: 'Nina',   isAlive: true, eliminatedRound: null },
-  { id: 'mem41', groupId: 'g1', userId: 'u41', displayName: 'Omar',   isAlive: true, eliminatedRound: null },
-  { id: 'mem42', groupId: 'g1', userId: 'u42', displayName: 'Pia',    isAlive: true, eliminatedRound: null },
-  { id: 'mem43', groupId: 'g1', userId: 'u43', displayName: 'Ravi',   isAlive: true, eliminatedRound: null },
-  { id: 'mem44', groupId: 'g1', userId: 'u44', displayName: 'Sky',    isAlive: true, eliminatedRound: null },
-  { id: 'mem45', groupId: 'g1', userId: 'u45', displayName: 'Theo',   isAlive: true, eliminatedRound: null },
-  { id: 'mem46', groupId: 'g1', userId: 'u46', displayName: 'Uma',    isAlive: true, eliminatedRound: null },
-  // Eliminated at R64 (3 players — picked an upset victim)
+  // ── Winner ──────────────────────────────────────────────────────────────────
+  { id: 'mem40', groupId: 'g1', userId: 'u40', displayName: 'Nina',   isAlive: true,  eliminatedRound: null },
+
+  // ── Eliminated in SF ────────────────────────────────────────────────────────
+  { id: 'mem18', groupId: 'g1', userId: 'u18', displayName: 'Rosa',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem19', groupId: 'g1', userId: 'u19', displayName: 'Sam',    isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem20', groupId: 'g1', userId: 'u20', displayName: 'Tara',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem21', groupId: 'g1', userId: 'u21', displayName: 'Umar',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem22', groupId: 'g1', userId: 'u22', displayName: 'Vera',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem23', groupId: 'g1', userId: 'u23', displayName: 'Will',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem24', groupId: 'g1', userId: 'u24', displayName: 'Xena',   isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem25', groupId: 'g1', userId: 'u25', displayName: 'Yusuf',  isAlive: false, eliminatedRound: 'SF' },
+  { id: 'mem26', groupId: 'g1', userId: 'u26', displayName: 'Zoe',    isAlive: false, eliminatedRound: 'SF' },
+
+  // ── Eliminated in QF ────────────────────────────────────────────────────────
+  { id: 'mem9',  groupId: 'g1', userId: 'u9',  displayName: 'Isla',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem10', groupId: 'g1', userId: 'u10', displayName: 'Jack',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem11', groupId: 'g1', userId: 'u11', displayName: 'Kate',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem12', groupId: 'g1', userId: 'u12', displayName: 'Liam',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem13', groupId: 'g1', userId: 'u13', displayName: 'Mia',    isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem14', groupId: 'g1', userId: 'u14', displayName: 'Noah',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem15', groupId: 'g1', userId: 'u15', displayName: 'Olivia', isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem16', groupId: 'g1', userId: 'u16', displayName: 'Pete',   isAlive: false, eliminatedRound: 'QF' },
+  { id: 'mem17', groupId: 'g1', userId: 'u17', displayName: 'Quinn',  isAlive: false, eliminatedRound: 'QF' },
+
+  // ── Eliminated in R16 ───────────────────────────────────────────────────────
+  { id: 'mem44', groupId: 'g1', userId: 'u44', displayName: 'Sky',    isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem45', groupId: 'g1', userId: 'u45', displayName: 'Theo',   isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem46', groupId: 'g1', userId: 'u46', displayName: 'Uma',    isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem1',  groupId: 'g1', userId: 'u1',  displayName: 'Alice',  isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem2',  groupId: 'g1', userId: 'u2',  displayName: 'Bob',    isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem4',  groupId: 'g1', userId: 'u4',  displayName: 'Dan',    isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem5',  groupId: 'g1', userId: 'u5',  displayName: 'Emma',   isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem6',  groupId: 'g1', userId: 'u6',  displayName: 'Finn',   isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem7',  groupId: 'g1', userId: 'u7',  displayName: 'Grace',  isAlive: false, eliminatedRound: 'R16' },
+  { id: 'mem8',  groupId: 'g1', userId: 'u8',  displayName: 'Harry',  isAlive: false, eliminatedRound: 'R16' },
+
+  // ── Eliminated in R32 ───────────────────────────────────────────────────────
+  { id: 'mem27', groupId: 'g1', userId: 'u27', displayName: 'Adam',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem28', groupId: 'g1', userId: 'u28', displayName: 'Beth',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem29', groupId: 'g1', userId: 'u29', displayName: 'Cole',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem30', groupId: 'g1', userId: 'u30', displayName: 'Demi',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem31', groupId: 'g1', userId: 'u31', displayName: 'Evan',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem34', groupId: 'g1', userId: 'u34', displayName: 'Hana',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem36', groupId: 'g1', userId: 'u36', displayName: 'Jade',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem41', groupId: 'g1', userId: 'u41', displayName: 'Omar',   isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem42', groupId: 'g1', userId: 'u42', displayName: 'Pia',    isAlive: false, eliminatedRound: 'R32' },
+  { id: 'mem43', groupId: 'g1', userId: 'u43', displayName: 'Ravi',   isAlive: false, eliminatedRound: 'R32' },
+
+  // ── Eliminated in R64 ───────────────────────────────────────────────────────
   { id: 'mem3',  groupId: 'g1', userId: 'u3',  displayName: 'Carol',  isAlive: false, eliminatedRound: 'R64' },
   { id: 'mem47', groupId: 'g1', userId: 'u47', displayName: 'Vito',   isAlive: false, eliminatedRound: 'R64' },
   { id: 'mem48', groupId: 'g1', userId: 'u48', displayName: 'Wren',   isAlive: false, eliminatedRound: 'R64' },
-  // Eliminated at R1 (2 players — picked a qualifier who lost early)
+  { id: 'mem32', groupId: 'g1', userId: 'u32', displayName: 'Faye',   isAlive: false, eliminatedRound: 'R64' },
+  { id: 'mem35', groupId: 'g1', userId: 'u35', displayName: 'Ivan',   isAlive: false, eliminatedRound: 'R64' },
+  { id: 'mem37', groupId: 'g1', userId: 'u37', displayName: 'Kian',   isAlive: false, eliminatedRound: 'R64' },
+  { id: 'mem38', groupId: 'g1', userId: 'u38', displayName: 'Luna',   isAlive: false, eliminatedRound: 'R64' },
+  { id: 'mem39', groupId: 'g1', userId: 'u39', displayName: 'Max',    isAlive: false, eliminatedRound: 'R64' },
+
+  // ── Eliminated in R1 ────────────────────────────────────────────────────────
   { id: 'mem49', groupId: 'g1', userId: 'u49', displayName: 'Xavi',   isAlive: false, eliminatedRound: 'R1' },
   { id: 'mem50', groupId: 'g1', userId: 'u50', displayName: 'Yara',   isAlive: false, eliminatedRound: 'R1' },
+  { id: 'mem33', groupId: 'g1', userId: 'u33', displayName: 'Glen',   isAlive: false, eliminatedRound: 'R1' },
 ];
 
 export const MOCK_PICKS = [

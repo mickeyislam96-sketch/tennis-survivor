@@ -45,6 +45,7 @@ export function Leaderboard() {
   const { group, leaderboard, aliveCount, currentRound } = data;
   const totalEntrants = leaderboard.length;
   const eliminated = totalEntrants - aliveCount;
+  const winner = aliveCount === 1 ? leaderboard[0] : null;
 
   return (
     <div className="page leaderboard">
@@ -52,6 +53,21 @@ export function Leaderboard() {
         <h1>Leaderboard</h1>
         <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
+
+      {/* Winner banner — shown when tournament is complete */}
+      {winner && (
+        <div className="lb-winner-banner">
+          <div className="lb-winner-trophy">🏆</div>
+          <div className="lb-winner-body">
+            <span className="lb-winner-eyebrow">Tournament Winner</span>
+            <span className="lb-winner-name">{winner.displayName}</span>
+            <span className="lb-winner-sub">Last one standing · {totalEntrants} entrants</span>
+          </div>
+          {group?.prizePoolCents > 0 && (
+            <div className="lb-winner-prize">{fmtGBP(group.prizePoolCents)}</div>
+          )}
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="lb-stats-bar">
