@@ -31,9 +31,7 @@ export const TOURNAMENTS = [
     surface: 'Hard',
     status: 'upcoming',
     drawAvailable: false,
-    entryOpen: false,          // Not launched yet — opens when draw is released (~Mar 16)
-    entryOpenDate: '2026-03-16',
-    entryClosedReason: 'not-launched',
+    entryOpen: true,           // Registration open ahead of draw release (Mar 16)
   },
 ];
 
