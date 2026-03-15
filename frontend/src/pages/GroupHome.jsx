@@ -184,9 +184,11 @@ export function GroupHome() {
     // Members skip this view — they go straight to the main dashboard.
     if (preLaunch && tournament && !isMember) {
       const startDate    = tournament.startDate;
-      const drawDate     = new Date(new Date(startDate) - 3 * 24 * 60 * 60 * 1000);
-      const drawDateFmt  = fmtDate(drawDate.toISOString().slice(0, 10));
       const startDateFmt = fmtDate(startDate);
+      // Use the explicit draw date from config if set, else estimate 3 days before start
+      const drawDateStr  = tournament.drawDate
+        || new Date(new Date(startDate) - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const drawDateFmt  = fmtDate(drawDateStr);
       const isFree       = group.entryFeeCents === 0;
 
       const handleJoinClick = () => {
@@ -251,7 +253,7 @@ export function GroupHome() {
               <div className="plt-dot" />
               <div className="plt-body">
                 <span className="plt-label">Draw released</span>
-                <span className="plt-sub">~{drawDateFmt} · pick window opens</span>
+                <span className="plt-sub">{drawDateFmt} · pick window opens</span>
               </div>
             </div>
             <div className="plt-connector" />
@@ -625,18 +627,25 @@ function AuthModal({ onClose, onSuccess, poolName, register, login }) {
   const [mode, setMode] = useState('register'); // 'register' | 'login'
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const switchMode = (m) => { setMode(m); setError(''); setPassword(''); };
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'register') {
-        await register(email.trim(), displayName.trim());
+        await register(email.trim(), displayName.trim(), password);
       } else {
-        await login(email.trim());
+        await login(email.trim(), password);
       }
       onSuccess();
     } catch (err) {
@@ -659,7 +668,7 @@ function AuthModal({ onClose, onSuccess, poolName, register, login }) {
           <p className="auth-modal-sub">
             {mode === 'register'
               ? 'A free account lets us track your picks and keep you in the game.'
-              : 'Enter your email to sign back in.'}
+              : 'Sign in to join this pool.'}
           </p>
         </div>
 
@@ -690,25 +699,37 @@ function AuthModal({ onClose, onSuccess, poolName, register, login }) {
             </>
           )}
 
+          <label className="auth-field-label">
+            {mode === 'register' ? 'Create a password' : 'Password'}
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder={mode === 'register' ? 'Min. 8 characters' : 'Your password'}
+            className="input auth-input"
+            required
+          />
+
           {error && <p className="error auth-error">{error}</p>}
 
           <button type="submit" className="btn primary btn-lg auth-submit-btn" disabled={loading}>
             {loading
               ? 'Please wait…'
-              : mode === 'register' ? 'Create account & join →' : 'Sign in →'}
+              : mode === 'register' ? 'Create account & join →' : 'Sign in & join →'}
           </button>
         </form>
 
         <p className="auth-toggle">
           {mode === 'register' ? (
             <>Already have an account?{' '}
-              <button className="auth-toggle-btn" onClick={() => { setMode('login'); setError(''); }}>
+              <button className="auth-toggle-btn" onClick={() => switchMode('login')}>
                 Sign in
               </button>
             </>
           ) : (
             <>New here?{' '}
-              <button className="auth-toggle-btn" onClick={() => { setMode('register'); setError(''); }}>
+              <button className="auth-toggle-btn" onClick={() => switchMode('register')}>
                 Create account
               </button>
             </>

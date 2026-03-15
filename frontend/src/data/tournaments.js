@@ -14,6 +14,7 @@ export const TOURNAMENTS = [
     location: 'Indian Wells, CA',
     surface: 'Hard',
     status: 'active',
+    drawDate: '2026-03-03',
     drawAvailable: true,
     entryOpen: false,          // Tournament is underway — entry period is over
     entryClosedReason: 'started',
@@ -30,8 +31,10 @@ export const TOURNAMENTS = [
     location: 'Miami, FL',
     surface: 'Hard',
     status: 'upcoming',
+    drawDate: '2026-03-16',    // Draw released March 16
     drawAvailable: false,
     entryOpen: true,           // Registration open ahead of draw release (Mar 16)
+    // bracketWidget: ''       // ← Add SofaScore Miami bracket URL on Mar 16
   },
 ];
 

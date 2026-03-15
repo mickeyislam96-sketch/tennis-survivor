@@ -1,6 +1,7 @@
 /**
  * Tennis draw & results: API-Tennis when configured, else Indian Wells mock.
- * BNP Paribas Open Indian Wells 2026 - 96 players, 32 byes in R1.
+ * Active tournament: Miami Open 2026 — 96-player draw, same R1/R64/.../F structure.
+ * Ensure INDIAN_WELLS_TOURNAMENT_KEY on Railway is set to the Miami tournament key.
  */
 
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
@@ -99,9 +100,9 @@ async function fetchApiDraw() {
   const tournamentKey = process.env.INDIAN_WELLS_TOURNAMENT_KEY || process.env.TOURNAMENT_KEY;
   if (!apiKey || !tournamentKey) return null;
 
-  // Indian Wells 2026 typically March 5-16
-  const dateStart = '2026-03-05';
-  const dateStop = '2026-03-16';
+  // Miami Open 2026: draw March 16, tournament March 19–30
+  const dateStart = '2026-03-16';
+  const dateStop  = '2026-03-30';
   const url = `${API_BASE}/?method=get_fixtures&APIkey=${apiKey}&tournament_key=${tournamentKey}&tournament_season=2026&date_start=${dateStart}&date_stop=${dateStop}`;
 
   try {
@@ -277,15 +278,15 @@ export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
     // No live data — fall back to mock schedule based on Indian Wells dates.
-    // R1 started Mar 5, R64 Mar 6, R32 Mar 8, R16 Mar 10, QF Mar 12, SF Mar 14, F Mar 16
+    // Miami Open 2026 approximate schedule (fallback when live API unavailable)
     const ROUND_DATES = {
-      R1:  '2026-03-05T11:00:00',
-      R64: '2026-03-06T11:00:00',
-      R32: '2026-03-08T11:00:00',
-      R16: '2026-03-10T11:00:00',
-      QF:  '2026-03-12T11:00:00',
-      SF:  '2026-03-14T11:00:00',
-      F:   '2026-03-16T11:00:00',
+      R1:  '2026-03-19T11:00:00',
+      R64: '2026-03-20T11:00:00',
+      R32: '2026-03-21T11:00:00',
+      R16: '2026-03-23T11:00:00',
+      QF:  '2026-03-25T11:00:00',
+      SF:  '2026-03-27T11:00:00',
+      F:   '2026-03-29T11:00:00',
     };
     const now = new Date();
     return ROUNDS.map((round, i) => {
@@ -312,14 +313,15 @@ export async function getDeadlines() {
 
   // Fallback schedule used when the live API hasn't published start times yet
   // (common for upcoming rounds like QF/SF/F early in the tournament week).
+  // Miami Open 2026 approximate schedule (fallback when live API has no start times yet)
   const ROUND_DATE_FALLBACK = {
-    R1:  '2026-03-05T11:00:00Z',
-    R64: '2026-03-06T11:00:00Z',
-    R32: '2026-03-08T11:00:00Z',
-    R16: '2026-03-10T11:00:00Z',
-    QF:  '2026-03-12T11:00:00Z',
-    SF:  '2026-03-14T11:00:00Z',
-    F:   '2026-03-16T11:00:00Z',
+    R1:  '2026-03-19T11:00:00Z',
+    R64: '2026-03-20T11:00:00Z',
+    R32: '2026-03-21T11:00:00Z',
+    R16: '2026-03-23T11:00:00Z',
+    QF:  '2026-03-25T11:00:00Z',
+    SF:  '2026-03-27T11:00:00Z',
+    F:   '2026-03-29T11:00:00Z',
   };
 
   const draw = buildDrawFromFixtures(fixtures);
