@@ -181,7 +181,8 @@ export function GroupHome() {
     const preLaunch  = isPreLaunch(tournament);
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
-    if (preLaunch && tournament) {
+    // Members skip this view — they go straight to the main dashboard.
+    if (preLaunch && tournament && !isMember) {
       const startDate    = tournament.startDate;
       const drawDate     = new Date(new Date(startDate) - 3 * 24 * 60 * 60 * 1000);
       const drawDateFmt  = fmtDate(drawDate.toISOString().slice(0, 10));

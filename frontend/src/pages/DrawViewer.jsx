@@ -215,28 +215,40 @@ export function DrawViewer() {
   const [tournamentId, setTournamentId] = useState(null);
 
   useEffect(() => {
-    // Fetch group info to know which tournament this pool is for
-    if (groupId) {
-      fetch(`${API}/groups/${groupId}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(g => { if (g?.tournamentId) setTournamentId(g.tournamentId); })
-        .catch(() => {});
-    }
+    if (!groupId) return;
 
-    fetch(`${API}/draw/bracket?round=F`)
-      .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
-      .then(d => {
-        if (d.drawAvailable === false) { setDrawAvailable(false); return; }
-        setData(d);
-        // Default list tab to earliest round that has matches
-        const rounds  = d.rounds || [];
-        const byRound = (d.matches || []).reduce((a, m) => {
-          a[m.round] = (a[m.round] || 0) + 1; return a;
-        }, {});
-        const first = rounds.find(r => byRound[r] > 0);
-        if (first) setListRound(first);
+    // Fetch group first to get the tournament, then conditionally fetch the draw.
+    fetch(`${API}/groups/${groupId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(g => {
+        if (!g) { setDrawAvailable(false); return; }
+        const tid = g.tournamentId;
+        if (tid) setTournamentId(tid);
+
+        // Check frontend config — if the draw hasn't been released for this
+        // tournament yet, show the "coming soon" state without hitting the API.
+        const tournament = TOURNAMENTS.find(t => t.id === tid);
+        if (tournament?.drawAvailable === false) {
+          setDrawAvailable(false);
+          return;
+        }
+
+        // Draw is available — fetch it.
+        return fetch(`${API}/draw/bracket?round=F`)
+          .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
+          .then(d => {
+            if (d.drawAvailable === false) { setDrawAvailable(false); return; }
+            setData(d);
+            const rounds  = d.rounds || [];
+            const byRound = (d.matches || []).reduce((a, m) => {
+              a[m.round] = (a[m.round] || 0) + 1; return a;
+            }, {});
+            const first = rounds.find(r => byRound[r] > 0);
+            if (first) setListRound(first);
+          })
+          .catch(() => { setDrawAvailable(false); setData(null); });
       })
-      .catch(() => { setDrawAvailable(false); setData(null); });
+      .catch(() => { setDrawAvailable(false); });
   }, [groupId]);
 
   if (!drawAvailable) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { TOURNAMENTS } from '../data/tournaments';
 
 export function PickScreen() {
   const { groupId } = useParams();
@@ -18,6 +19,7 @@ export function PickScreen() {
   const [myPickThisRound, setMyPickThisRound] = useState(null);
   const [member, setMember] = useState(null);
   const [rowError, setRowError] = useState({ id: null, msg: '' });
+  const [drawAvailable, setDrawAvailable] = useState(true);
 
   useEffect(() => {
     fetch(`${API}/draw/rounds`)
@@ -94,6 +96,9 @@ export function PickScreen() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
+        // Check if this tournament's draw has been released yet
+        const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
+        if (tournament?.drawAvailable === false) setDrawAvailable(false);
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
@@ -157,6 +162,22 @@ export function PickScreen() {
   const isOpen        = !isLocked && !isNotYetOpen;
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
+
+  if (!drawAvailable) {
+    return (
+      <div className="page pick-screen">
+        <div className="pick-header">
+          <h1>Make your pick</h1>
+          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
+        </div>
+        <div className="draw-empty-state">
+          <div className="draw-empty-icon">🎾</div>
+          <p className="draw-empty-title">Picks not open yet</p>
+          <p className="draw-empty-sub">The draw hasn't been released. Once it is, you'll be able to make your pick here.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page pick-screen">
