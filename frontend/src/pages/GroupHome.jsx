@@ -479,12 +479,12 @@ export function GroupHome() {
           <div className="hiw-step">
             <div className="hiw-step-num">2</div>
             <h3 className="hiw-step-title">Pick one player</h3>
-            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice. Run out of valid picks and you're eliminated — so don't burn your best players too soon.</p>
+            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
           </div>
           <div className="hiw-step">
             <div className="hiw-step-num">3</div>
             <h3 className="hiw-step-title">Last one standing wins</h3>
-            <p className="hiw-step-desc">If your player loses, you're out. Outlast everyone else and take the entire prize pool.</p>
+            <p className="hiw-step-desc">If your player loses, you're out. Run out of valid picks and you're eliminated — so don't burn your best players too soon. Outlast everyone else and take the entire prize pool.</p>
           </div>
         </div>
       </section>
