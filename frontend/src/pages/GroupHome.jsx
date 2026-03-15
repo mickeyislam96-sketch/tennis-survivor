@@ -365,13 +365,16 @@ export function GroupHome() {
 
         {!isMember ? (
           <div className="join-cta-section">
-            {tournament?.entryOpen === false ? (
+            {tournament?.entryOpen === false || tournament?.status === 'active' ? (
               <div className="entry-closed-notice">
                 <span className="entry-closed-icon">🎾</span>
                 <p className="entry-closed-title">Entry period is over</p>
                 <p className="entry-closed-sub">
                   {tournament.name} is already underway — new entries are no longer accepted.
                 </p>
+                <Link to={`/group/${groupId}/leaderboard`} className="btn primary btn-lg" style={{ marginTop: '0.75rem' }}>
+                  View leaderboard →
+                </Link>
               </div>
             ) : (
               <Link to={`/join/${group.inviteCode}`} className="btn primary btn-lg">
