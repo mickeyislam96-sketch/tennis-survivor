@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
-import { sendRegistrationEmail, sendPasswordResetEmail } from '../utils/email.js';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email.js';
 
 export const authRouter = Router();
 
@@ -63,13 +63,7 @@ authRouter.post('/register', async (req, res) => {
     const u = result.rows[0];
 
     // Non-blocking welcome email
-    sendRegistrationEmail({
-      email: u.email,
-      displayName: u.display_name,
-      tournamentName: 'Miami Open 2026',
-      drawDate: 'March 16, 2026',
-      startDate: 'March 19, 2026',
-    });
+    sendWelcomeEmail({ email: u.email, displayName: u.display_name });
 
     return res.status(201).json({ id: u.id, email: u.email, displayName: u.display_name, isNew: true });
   } catch (err) {

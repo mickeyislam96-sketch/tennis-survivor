@@ -14,6 +14,7 @@ export const TOURNAMENTS = [
     location: 'Indian Wells, CA, USA',
     surface: 'Hard (outdoor)',
     status: 'active',       // 'upcoming' | 'active' | 'completed'
+    drawDate: 'March 3, 2026',
     drawAvailable: true,
     // Pick window is computed dynamically via getDeadlines() for active tournaments.
     // For upcoming tournaments, set manually below once the schedule is confirmed.
@@ -31,6 +32,7 @@ export const TOURNAMENTS = [
     location: 'Miami, FL, USA',
     surface: 'Hard (outdoor)',
     status: 'upcoming',
+    drawDate: 'March 16, 2026',
     drawAvailable: false,
     pickWindowOpen: null,   // set once schedule is confirmed
     pickWindowClose: null,

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
+import { TOURNAMENTS } from '../data/tournaments.js';
+import { sendTournamentJoinEmail } from '../utils/email.js';
 
 export const groupsRouter = Router();
 
@@ -198,6 +200,37 @@ groupsRouter.post('/:id/join', async (req, res) => {
          WHERE id = $1 AND entry_fee_cents > 0`,
         [groupId]
       );
+
+      // Non-blocking tournament join confirmation email
+      try {
+        const [userResult, groupResult, prizeResult] = await Promise.all([
+          pool.query('SELECT email, display_name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT name, tournament_id, entry_fee_cents FROM groups WHERE id = $1', [groupId]),
+          pool.query('SELECT prize_pool_cents FROM groups WHERE id = $1', [groupId]),
+        ]);
+        const user = userResult.rows[0];
+        const group = groupResult.rows[0];
+        const prize = prizeResult.rows[0];
+        const tournament = TOURNAMENTS.find(t => t.id === group?.tournament_id);
+        if (user && tournament) {
+          const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+          sendTournamentJoinEmail({
+            email: user.email,
+            displayName: user.display_name,
+            groupId,
+            groupName: group.name,
+            tournamentName: tournament.name,
+            tourLevel: tournament.tourLevel,
+            location: tournament.location,
+            drawDate: tournament.drawDate || fmt(tournament.startDate),
+            startDate: fmt(tournament.startDate),
+            drawAvailable: tournament.drawAvailable === true,
+            prizePoolCents: prize?.prize_pool_cents || 0,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Tournament join email lookup failed:', emailErr.message);
+      }
 
       return res.status(201).json(rowToMember(result.rows[0]));
     } catch (e) {
