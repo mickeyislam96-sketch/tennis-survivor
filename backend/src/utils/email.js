@@ -11,18 +11,18 @@ if (!EMAIL_CONFIGURED) {
   console.log(`✅ Email configured — sending from ${process.env.GMAIL_USER}`);
 }
 
-// Use explicit SMTP settings (more reliable than service:'gmail' across nodemailer versions)
+// Port 465 (SSL) — Railway blocks 587/STARTTLS on most plans but allows 465
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,          // STARTTLS on port 587
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  tls: {
-    rejectUnauthorized: false,  // prevent issues with some Railway network configs
-  },
+  connectionTimeout: 10000,  // fail fast if Railway is still blocking — 10s
+  greetingTimeout:   10000,
+  socketTimeout:     15000,
 });
 
 const APP_URL = process.env.FRONTEND_URL || 'https://final-serve-ivor.vercel.app';
