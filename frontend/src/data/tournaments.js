@@ -30,11 +30,11 @@ export const TOURNAMENTS = [
     endDate: '2026-03-30',
     location: 'Miami, FL',
     surface: 'Hard',
-    status: 'upcoming',
+    status: 'active',
     drawDate: '2026-03-16',    // Draw released March 16
-    drawAvailable: false,
-    entryOpen: true,           // Registration open ahead of draw release (Mar 16)
-    // bracketWidget: ''       // ← Add SofaScore Miami bracket URL on Mar 16
+    drawAvailable: true,
+    entryOpen: true,
+    // bracketWidget: ''       // ← Paste SofaScore Miami bracket widget URL here once known
   },
 ];
 

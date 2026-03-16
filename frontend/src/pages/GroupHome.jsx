@@ -368,7 +368,7 @@ export function GroupHome() {
 
         {!isMember ? (
           <div className="join-cta-section">
-            {tournament?.entryOpen === false || tournament?.status === 'active' ? (
+            {tournament?.entryOpen === false ? (
               <div className="entry-closed-notice">
                 <span className="entry-closed-icon">🎾</span>
                 <p className="entry-closed-title">Entry period is over</p>

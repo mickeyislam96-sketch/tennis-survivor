@@ -31,9 +31,9 @@ export const TOURNAMENTS = [
     endDate: '2026-03-30',
     location: 'Miami, FL, USA',
     surface: 'Hard (outdoor)',
-    status: 'upcoming',
+    status: 'active',
     drawDate: 'March 16, 2026',
-    drawAvailable: false,
+    drawAvailable: true,
     pickWindowOpen: null,   // set once schedule is confirmed
     pickWindowClose: null,
   },
