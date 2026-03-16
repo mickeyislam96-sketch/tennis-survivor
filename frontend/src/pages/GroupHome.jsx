@@ -179,6 +179,9 @@ export function GroupHome() {
 
     const tournament = getTournament(group.tournamentId);
     const preLaunch  = isPreLaunch(tournament);
+    // Entry is closed if explicitly flagged OR if the timed cutoff has passed
+    const isEntryClosed = tournament?.entryOpen === false
+      || (tournament?.entryCloseAt && new Date() >= new Date(tournament.entryCloseAt));
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
     // Members skip this view — they go straight to the main dashboard.
@@ -278,7 +281,7 @@ export function GroupHome() {
                   </p>
                 </div>
               </div>
-            ) : tournament.entryOpen === false ? (
+            ) : isEntryClosed ? (
               <div className="entry-closed-notice">
                 <span className="entry-closed-icon">🔒</span>
                 <p className="entry-closed-title">This tournament hasn't launched yet</p>
@@ -368,7 +371,7 @@ export function GroupHome() {
 
         {!isMember ? (
           <div className="join-cta-section">
-            {tournament?.entryOpen === false ? (
+            {isEntryClosed ? (
               <div className="entry-closed-notice">
                 <span className="entry-closed-icon">🎾</span>
                 <p className="entry-closed-title">Entry period is over</p>

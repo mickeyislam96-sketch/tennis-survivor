@@ -34,7 +34,8 @@ export const TOURNAMENTS = [
     status: 'active',
     drawDate: 'March 16, 2026',
     drawAvailable: true,
-    pickWindowOpen: null,   // set once schedule is confirmed
+    entryCloseAt: '2026-03-17T16:00:00Z',  // Closes 4pm UK time March 17
+    pickWindowOpen: null,
     pickWindowClose: null,
   },
 ];
