@@ -1,26 +1,24 @@
 import nodemailer from 'nodemailer';
 
 // ── Startup check — log clearly if email is not configured ──────────────────
-const EMAIL_CONFIGURED = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+const EMAIL_CONFIGURED = !!(process.env.GMAIL_USER && process.env.BREVO_SMTP_KEY);
 if (!EMAIL_CONFIGURED) {
   console.warn(
-    '⚠️  EMAIL NOT CONFIGURED: GMAIL_USER and/or GMAIL_APP_PASSWORD env vars are missing. ' +
+    '⚠️  EMAIL NOT CONFIGURED: GMAIL_USER and/or BREVO_SMTP_KEY env vars are missing. ' +
     'All emails will be silently skipped until these are set on Railway.',
   );
 } else {
-  console.log(`✅ Email configured — sending from ${process.env.GMAIL_USER}`);
+  console.log(`✅ Email configured — sending from ${process.env.GMAIL_USER} via Brevo`);
 }
 
-// Port 465 (SSL) — Railway blocks 587/STARTTLS on most plans but allows 465
-// family: 4 — forces IPv4; Railway cannot reach smtp.gmail.com over IPv6
+// Brevo SMTP — reliable transactional email, no IPv6 issues
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4,
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    pass: process.env.BREVO_SMTP_KEY,
   },
   connectionTimeout: 10000,
   greetingTimeout:   10000,
@@ -85,7 +83,7 @@ const divider = `
 
 export const sendWelcomeEmail = async ({ email, displayName }) => {
   if (!EMAIL_CONFIGURED) {
-    console.warn(`[email] Skipping welcome email to ${email} — GMAIL credentials not set.`);
+    console.warn(`[email] Skipping welcome email to ${email} — email not configured.`);
     return;
   }
   const mailOptions = {
@@ -233,7 +231,7 @@ export const sendTournamentJoinEmail = async ({
   prizePoolCents,
 }) => {
   if (!EMAIL_CONFIGURED) {
-    console.warn(`[email] Skipping tournament join email to ${email} — GMAIL credentials not set.`);
+    console.warn(`[email] Skipping tournament join email to ${email} — email not configured.`);
     return;
   }
   const mailOptions = {
@@ -503,7 +501,7 @@ const buildTournamentJoinHTML = ({
 
 export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) => {
   if (!EMAIL_CONFIGURED) {
-    const msg = 'Email service not configured — GMAIL_USER and GMAIL_APP_PASSWORD must be set on Railway.';
+    const msg = 'Email service not configured — GMAIL_USER and BREVO_SMTP_KEY must be set on Railway.';
     console.warn(`[email] ${msg}`);
     throw new Error(msg);
   }
