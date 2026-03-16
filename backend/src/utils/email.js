@@ -12,15 +12,17 @@ if (!EMAIL_CONFIGURED) {
 }
 
 // Port 465 (SSL) — Railway blocks 587/STARTTLS on most plans but allows 465
+// family: 4 — forces IPv4; Railway cannot reach smtp.gmail.com over IPv6
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
   secure: true,
+  family: 4,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  connectionTimeout: 10000,  // fail fast if Railway is still blocking — 10s
+  connectionTimeout: 10000,
   greetingTimeout:   10000,
   socketTimeout:     15000,
 });
