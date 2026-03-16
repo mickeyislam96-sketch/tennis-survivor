@@ -5,7 +5,7 @@
  */
 
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
-import { getIndianWellsMockDraw } from '../data/indianWellsDraw.js';
+import { getMiamiMockDraw } from '../data/miamiDraw.js';
 import nodeFetch from 'node-fetch';
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
@@ -243,7 +243,7 @@ export async function getDraw(roundFilter = null) {
     const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
     return { ...draw, currentRound };
   }
-  return getIndianWellsMockDraw(roundFilter || 'R32');
+  return getMiamiMockDraw(roundFilter || 'R1');
 }
 
 /**
