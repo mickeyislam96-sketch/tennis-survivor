@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './db/pool.js';
+import { sendWelcomeEmail } from './utils/email.js';
 import { groupsRouter } from './routes/groups.js';
 import { picksRouter } from './routes/picks.js';
 import { drawRouter } from './routes/draw.js';
@@ -38,6 +39,19 @@ app.use('/api/auth', authRouter);
 app.use('/api/tiebreaker', tiebreakerRouter);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
+
+// Email smoke-test — hit this endpoint from Railway to verify SMTP is working.
+// Usage: GET /api/email-test?to=youraddress@gmail.com
+app.get('/api/email-test', async (req, res) => {
+  const to = req.query.to;
+  if (!to) return res.status(400).json({ error: 'Provide ?to=email query param' });
+  try {
+    await sendWelcomeEmail({ email: to, displayName: 'Test User' });
+    res.json({ ok: true, message: `Test email dispatched to ${to}` });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);

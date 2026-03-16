@@ -1,10 +1,27 @@
 import nodemailer from 'nodemailer';
 
+// ── Startup check — log clearly if email is not configured ──────────────────
+const EMAIL_CONFIGURED = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+if (!EMAIL_CONFIGURED) {
+  console.warn(
+    '⚠️  EMAIL NOT CONFIGURED: GMAIL_USER and/or GMAIL_APP_PASSWORD env vars are missing. ' +
+    'All emails will be silently skipped until these are set on Railway.',
+  );
+} else {
+  console.log(`✅ Email configured — sending from ${process.env.GMAIL_USER}`);
+}
+
+// Use explicit SMTP settings (more reliable than service:'gmail' across nodemailer versions)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,          // STARTTLS on port 587
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
+  },
+  tls: {
+    rejectUnauthorized: false,  // prevent issues with some Railway network configs
   },
 });
 
@@ -65,6 +82,10 @@ const divider = `
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const sendWelcomeEmail = async ({ email, displayName }) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping welcome email to ${email} — GMAIL credentials not set.`);
+    return;
+  }
   const mailOptions = {
     from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
     to: email,
@@ -74,9 +95,9 @@ export const sendWelcomeEmail = async ({ email, displayName }) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Welcome email sent to ${email}`);
+    console.log(`✅ Welcome email sent to ${email}`);
   } catch (err) {
-    console.error(`Failed to send welcome email to ${email}:`, err.message);
+    console.error(`❌ Failed to send welcome email to ${email}:`, err.message);
     // Non-fatal — don't throw
   }
 };
@@ -209,6 +230,10 @@ export const sendTournamentJoinEmail = async ({
   drawAvailable,
   prizePoolCents,
 }) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping tournament join email to ${email} — GMAIL credentials not set.`);
+    return;
+  }
   const mailOptions = {
     from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
     to: email,
@@ -222,9 +247,9 @@ export const sendTournamentJoinEmail = async ({
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Tournament join email sent to ${email} for ${tournamentName}`);
+    console.log(`✅ Tournament join email sent to ${email} for ${tournamentName}`);
   } catch (err) {
-    console.error(`Failed to send tournament join email to ${email}:`, err.message);
+    console.error(`❌ Failed to send tournament join email to ${email}:`, err.message);
     // Non-fatal — don't throw
   }
 };
@@ -475,6 +500,11 @@ const buildTournamentJoinHTML = ({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) => {
+  if (!EMAIL_CONFIGURED) {
+    const msg = 'Email service not configured — GMAIL_USER and GMAIL_APP_PASSWORD must be set on Railway.';
+    console.warn(`[email] ${msg}`);
+    throw new Error(msg);
+  }
   const mailOptions = {
     from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
     to: email,
@@ -484,9 +514,9 @@ export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) =
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}`);
+    console.log(`✅ Password reset email sent to ${email}`);
   } catch (err) {
-    console.error(`Failed to send password reset email to ${email}:`, err.message);
+    console.error(`❌ Failed to send password reset email to ${email}:`, err.message);
     throw err;
   }
 };
