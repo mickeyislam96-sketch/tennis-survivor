@@ -27,6 +27,20 @@ function rowToPick(p) {
 
 async function getAvailablePlayers(userId, groupId, currentRound) {
   const draw = await getDraw(currentRound);
+
+  // Build the set of players who actually have a match this round.
+  // This correctly excludes seeded players in R1 (they have byes and don't play).
+  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound);
+  if (roundMatches.length > 0) {
+    const playingThisRound = new Set(
+      roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
+    );
+    return (draw.players || []).filter(
+      p => !p.roundEliminated && playingThisRound.has(p.id)
+    );
+  }
+
+  // Fallback (no match data yet): return all non-eliminated players
   return (draw.players || []).filter(p => !p.roundEliminated);
 }
 
