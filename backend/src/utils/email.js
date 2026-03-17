@@ -1,29 +1,31 @@
-import nodemailer from 'nodemailer';
-
-// ── Startup check — log clearly if email is not configured ──────────────────
-const EMAIL_CONFIGURED = !!(process.env.GMAIL_USER && process.env.BREVO_SMTP_KEY);
+// ── Startup check ────────────────────────────────────────────────────────────
+const EMAIL_CONFIGURED = !!process.env.BREVO_API_KEY;
 if (!EMAIL_CONFIGURED) {
-  console.warn(
-    '⚠️  EMAIL NOT CONFIGURED: GMAIL_USER and/or BREVO_SMTP_KEY env vars are missing. ' +
-    'All emails will be silently skipped until these are set on Railway.',
-  );
+  console.warn('⚠️  EMAIL NOT CONFIGURED: BREVO_API_KEY env var is missing.');
 } else {
-  console.log(`✅ Email configured — sending from ${process.env.GMAIL_USER} via Brevo`);
+  console.log('✅ Email configured — Brevo HTTP API');
 }
 
-// Brevo SMTP — reliable transactional email, no IPv6 issues
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.BREVO_SMTP_KEY,
-  },
-  connectionTimeout: 10000,
-  greetingTimeout:   10000,
-  socketTimeout:     15000,
-});
+// Send via Brevo HTTP API (port 443 — works on Railway, no SMTP needed)
+async function sendViaBrevo({ to, subject, html }) {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': process.env.BREVO_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: 'Final Serve-ivor', email: 'noreply@finalserveivor.com' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Brevo API error ${res.status}: ${body}`);
+  }
+}
 
 const APP_URL = process.env.FRONTEND_URL || 'https://final-serve-ivor.vercel.app';
 
@@ -87,14 +89,14 @@ export const sendWelcomeEmail = async ({ email, displayName }) => {
     return;
   }
   const mailOptions = {
-    from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
+    from: `"Final Serve-ivor" <noreply@finalserveivor.com>`,
     to: email,
     subject: `Welcome to Final Serve-ivor, ${displayName} 🎾`,
     html: buildWelcomeHTML({ email, displayName }),
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendViaBrevo({ to: email, subject: mailOptions.subject, html: mailOptions.html });
     console.log(`✅ Welcome email sent to ${email}`);
   } catch (err) {
     console.error(`❌ Failed to send welcome email to ${email}:`, err.message);
@@ -235,7 +237,7 @@ export const sendTournamentJoinEmail = async ({
     return;
   }
   const mailOptions = {
-    from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
+    from: `"Final Serve-ivor" <noreply@finalserveivor.com>`,
     to: email,
     subject: `You're in — ${tournamentName} · Final Serve-ivor`,
     html: buildTournamentJoinHTML({
@@ -246,7 +248,7 @@ export const sendTournamentJoinEmail = async ({
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendViaBrevo({ to: email, subject: mailOptions.subject, html: mailOptions.html });
     console.log(`✅ Tournament join email sent to ${email} for ${tournamentName}`);
   } catch (err) {
     console.error(`❌ Failed to send tournament join email to ${email}:`, err.message);
@@ -501,19 +503,19 @@ const buildTournamentJoinHTML = ({
 
 export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) => {
   if (!EMAIL_CONFIGURED) {
-    const msg = 'Email service not configured — GMAIL_USER and BREVO_SMTP_KEY must be set on Railway.';
+    const msg = 'Email service not configured — BREVO_API_KEY must be set on Railway.';
     console.warn(`[email] ${msg}`);
     throw new Error(msg);
   }
   const mailOptions = {
-    from: `"Final Serve-ivor" <${process.env.GMAIL_USER}>`,
+    from: `"Final Serve-ivor" <noreply@finalserveivor.com>`,
     to: email,
     subject: `Reset your password — Final Serve-ivor`,
     html: buildPasswordResetHTML({ email, displayName, resetUrl }),
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendViaBrevo({ to: email, subject: mailOptions.subject, html: mailOptions.html });
     console.log(`✅ Password reset email sent to ${email}`);
   } catch (err) {
     console.error(`❌ Failed to send password reset email to ${email}:`, err.message);
