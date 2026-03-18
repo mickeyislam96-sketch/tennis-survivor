@@ -235,14 +235,15 @@ function buildMiamiMatches() {
 }
 
 // Approximate round start times — Miami Open 2026
+// R1 begins Wednesday 19 March. Schedule shifts daily as matches progress.
 const ROUND_START_TIMES = {
-  R1:  '2026-03-18T11:00:00Z',
-  R64: '2026-03-19T11:00:00Z',
-  R32: '2026-03-21T11:00:00Z',
-  R16: '2026-03-23T11:00:00Z',
-  QF:  '2026-03-25T11:00:00Z',
-  SF:  '2026-03-27T11:00:00Z',
-  F:   '2026-03-29T11:00:00Z',
+  R1:  '2026-03-19T11:00:00Z',
+  R64: '2026-03-20T11:00:00Z',
+  R32: '2026-03-22T11:00:00Z',
+  R16: '2026-03-24T11:00:00Z',
+  QF:  '2026-03-26T11:00:00Z',
+  SF:  '2026-03-28T11:00:00Z',
+  F:   '2026-03-30T11:00:00Z',
 };
 
 /**

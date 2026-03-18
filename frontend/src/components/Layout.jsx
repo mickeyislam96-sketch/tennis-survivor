@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
@@ -10,6 +10,111 @@ const nav = [
   { to: 'history',     label: 'My Picks' },
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
+
+// ── Avatar helpers ────────────────────────────────────────────
+const AVATAR_COLOURS = [
+  '#16a34a', '#0891b2', '#7c3aed', '#db2777',
+  '#d97706', '#65a30d', '#0369a1', '#9333ea',
+];
+
+function avatarColour(name) {
+  let hash = 0;
+  for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
+  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
+}
+
+function initials(name) {
+  return (name || '?')
+    .split(' ')
+    .map((w) => w[0] || '')
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+// ── User menu component ───────────────────────────────────────
+function UserMenu({ user, groupId }) {
+  const { logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  const colour = avatarColour(user.displayName || user.email);
+  const ini    = initials(user.displayName || user.email);
+
+  return (
+    <div className="user-menu-wrap" ref={wrapRef}>
+      <button
+        className="user-avatar-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Account menu"
+        aria-expanded={open}
+      >
+        <span className="user-avatar" style={{ background: colour }}>{ini}</span>
+      </button>
+
+      {open && (
+        <div className="user-menu-dropdown">
+          {/* Identity */}
+          <div className="user-menu-identity">
+            <span className="user-avatar user-avatar-sm" style={{ background: colour }}>{ini}</span>
+            <div className="user-menu-id-text">
+              <p className="user-menu-name">{user.displayName || 'You'}</p>
+              <p className="user-menu-email">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="user-menu-divider" />
+
+          {/* Navigation items */}
+          {groupId && (
+            <Link
+              to={`/group/${groupId}/history`}
+              className="user-menu-item"
+              onClick={() => setOpen(false)}
+            >
+              My Picks
+            </Link>
+          )}
+          {groupId && (
+            <Link
+              to={`/group/${groupId}/leaderboard`}
+              className="user-menu-item"
+              onClick={() => setOpen(false)}
+            >
+              Leaderboard
+            </Link>
+          )}
+          <Link
+            to="/"
+            className="user-menu-item"
+            onClick={() => setOpen(false)}
+          >
+            My Pools
+          </Link>
+
+          <div className="user-menu-divider" />
+
+          <button
+            className="user-menu-signout"
+            onClick={() => { logout(); setOpen(false); }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AuthModal({ onClose, initialMode = 'login' }) {
   const { register, login } = useAuth();
@@ -194,11 +299,10 @@ export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
-  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <div className="layout">
@@ -225,26 +329,7 @@ export function Layout({ children }) {
 
         <div className="header-user">
           {user ? (
-            <div className="user-menu-wrap">
-              <button
-                className="user-badge user-badge-btn"
-                onClick={() => setShowUserMenu(v => !v)}
-              >
-                {user.displayName || user.email}
-                <span className="user-badge-caret">▾</span>
-              </button>
-              {showUserMenu && (
-                <div className="user-menu-dropdown">
-                  <p className="user-menu-email">{user.email}</p>
-                  <button
-                    className="user-menu-signout"
-                    onClick={() => { logout(); setShowUserMenu(false); }}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              )}
-            </div>
+            <UserMenu user={user} groupId={groupId} />
           ) : (
             <div className="header-auth-btns">
               <button className="btn-signin" onClick={() => { setInitialMode('login'); setShowAuth(true); }}>

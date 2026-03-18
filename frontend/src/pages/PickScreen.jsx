@@ -27,13 +27,17 @@ export function PickScreen() {
       .then(setRounds);
   }, []);
 
-  useEffect(() => {
+  const fetchDeadlines = () => {
     fetch(`${API}/draw/deadlines`)
       .then((r) => r.json())
       .then((list) => {
         setDeadlines(Array.isArray(list) ? list : []);
       })
       .catch(() => setDeadlines([]));
+  };
+
+  useEffect(() => {
+    fetchDeadlines();
   }, []);
 
   useEffect(() => {
@@ -215,7 +219,7 @@ export function PickScreen() {
       {isOpen && deadline && (
         <div className="countdown-card">
           <span className="countdown-label">Pick window closes in</span>
-          <Countdown to={deadline} />
+          <Countdown to={deadline} onExpire={fetchDeadlines} />
         </div>
       )}
 
@@ -338,7 +342,7 @@ function formatWindowTime(isoString) {
     + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function Countdown({ to, className = 'countdown-value' }) {
+function Countdown({ to, className = 'countdown-value', onExpire }) {
   const [left, setLeft] = useState('');
 
   useEffect(() => {
@@ -347,6 +351,8 @@ function Countdown({ to, className = 'countdown-value' }) {
       const now = new Date();
       if (now >= end) {
         setLeft('—');
+        clearInterval(id);
+        if (onExpire) onExpire();
         return;
       }
       const ms  = end - now;
@@ -359,7 +365,7 @@ function Countdown({ to, className = 'countdown-value' }) {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [to]);
+  }, [to]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <span className={className}>{left}</span>;
 }

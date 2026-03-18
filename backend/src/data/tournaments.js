@@ -13,7 +13,7 @@ export const TOURNAMENTS = [
     endDate: '2026-03-16',
     location: 'Indian Wells, CA, USA',
     surface: 'Hard (outdoor)',
-    status: 'active',       // 'upcoming' | 'active' | 'completed'
+    status: 'completed',    // 'upcoming' | 'active' | 'completed'
     drawDate: 'March 3, 2026',
     drawAvailable: true,
     // Pick window is computed dynamically via getDeadlines() for active tournaments.

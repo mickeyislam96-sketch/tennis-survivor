@@ -3,8 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
 
+// ── Formatting helpers ────────────────────────────────────────
 function fmtGBP(cents) {
-  return '£' + (cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return '£' + (cents / 100).toLocaleString('en-GB', {
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  });
 }
 
 function initials(name) {
@@ -27,10 +30,110 @@ function avatarColour(name) {
   return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
 }
 
+const ROUND_LABELS = {
+  R1: '1st Round', R64: '2nd Round', R32: '3rd Round',
+  R16: '4th Round', QF: 'QF', SF: 'SF', F: 'Final',
+};
+
+// ── Pick History Modal ────────────────────────────────────────
+function PickHistoryModal({ member, groupId, currentRound, onClose }) {
+  const [picks, setPicks] = useState(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/picks/history?userId=${member.userId}&groupId=${groupId}`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(setPicks)
+      .catch(() => { setError(true); setPicks([]); });
+  }, [member.userId, groupId]);
+
+  const colour = avatarColour(member.displayName);
+  const ini    = initials(member.displayName);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box lb-picks-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="lb-picks-modal-header">
+          <span className="lb-avatar" style={{ background: colour, width: 36, height: 36, fontSize: '0.8rem' }}>
+            {ini}
+          </span>
+          <div>
+            <p className="lb-picks-modal-name">{member.displayName}</p>
+            <p className="lb-picks-modal-sub">
+              {member.isAlive
+                ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
+                : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`
+              }
+            </p>
+          </div>
+          <button className="modal-close" onClick={onClose} style={{ marginLeft: 'auto' }}>✕</button>
+        </div>
+
+        {/* Current round pick callout */}
+        {currentRound && member.currentRoundPick && (
+          <div className="lb-picks-current">
+            <span className="lb-picks-current-label">
+              {ROUND_LABELS[currentRound] || currentRound} pick
+            </span>
+            <span className="lb-picks-current-player">{member.currentRoundPick}</span>
+          </div>
+        )}
+
+        {/* Full pick history */}
+        <div className="lb-picks-history-wrap">
+          <p className="lb-picks-history-title">Pick history</p>
+
+          {picks === null && (
+            <p className="lb-picks-loading">Loading…</p>
+          )}
+
+          {error && (
+            <p className="lb-picks-error">Could not load picks.</p>
+          )}
+
+          {picks !== null && !error && picks.length === 0 && (
+            <p className="lb-picks-empty">No picks submitted yet.</p>
+          )}
+
+          {picks !== null && picks.length > 0 && (
+            <table className="lb-picks-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Player picked</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {picks.map((p) => (
+                  <tr key={p.id || p.round} className={
+                    p.survived === false ? 'lb-pick-row-out' : ''
+                  }>
+                    <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
+                    <td className="lb-pick-player">{p.playerName || '—'}</td>
+                    <td className="lb-pick-result">
+                      {p.survived === true  && <span className="status-alive">✓ Survived</span>}
+                      {p.survived === false && <span className="status-out">✗ Eliminated</span>}
+                      {p.survived == null   && <span className="lb-progress-pending">Pending</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Leaderboard component ────────────────────────────────
 export function Leaderboard() {
   const { groupId } = useParams();
   const { userId } = useAuth();
-  const [data, setData] = useState(null);
+  const [data, setData]           = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   useEffect(() => {
     if (!groupId) return;
@@ -44,8 +147,8 @@ export function Leaderboard() {
 
   const { group, leaderboard, aliveCount, currentRound } = data;
   const totalEntrants = leaderboard.length;
-  const eliminated = totalEntrants - aliveCount;
-  const winner = aliveCount === 1 ? leaderboard[0] : null;
+  const eliminated    = totalEntrants - aliveCount;
+  const winner        = aliveCount === 1 ? leaderboard[0] : null;
 
   return (
     <div className="page leaderboard">
@@ -54,7 +157,7 @@ export function Leaderboard() {
         <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
 
-      {/* Winner banner — shown when tournament is complete */}
+      {/* Winner banner */}
       {winner && (
         <div className="lb-winner-banner">
           <div className="lb-winner-trophy">🏆</div>
@@ -90,6 +193,7 @@ export function Leaderboard() {
       </div>
 
       <p className="lb-group-name">{group?.name}</p>
+      <p className="lb-click-hint">Click any player to see their picks</p>
 
       <div className="lb-table-wrap">
         <table className="leaderboard-table">
@@ -102,15 +206,21 @@ export function Leaderboard() {
           </thead>
           <tbody>
             {leaderboard.map((m) => {
-              const isYou = m.userId === userId;
+              const isYou    = m.userId === userId;
               const survived = m.survivedRounds ?? 0;
               const rowClass = [
+                'lb-row-clickable',
                 isYou ? 'lb-row-you' : '',
                 m.isAlive ? '' : 'lb-row-out',
               ].filter(Boolean).join(' ');
 
               return (
-                <tr key={m.id} className={rowClass}>
+                <tr
+                  key={m.id}
+                  className={rowClass}
+                  onClick={() => setSelectedMember(m)}
+                  title="Click to view picks"
+                >
                   <td className="lb-td-player">
                     <span
                       className="lb-avatar"
@@ -136,10 +246,10 @@ export function Leaderboard() {
                           </span>
                     ) : (
                       <span className="lb-progress-out">
-                        Out in {m.eliminatedRound || '—'}
+                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
                         {survived > 0 && (
                           <span className="lb-progress-sub">
-                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'}
                           </span>
                         )}
                       </span>
@@ -151,6 +261,16 @@ export function Leaderboard() {
           </tbody>
         </table>
       </div>
+
+      {/* Pick history modal */}
+      {selectedMember && (
+        <PickHistoryModal
+          member={selectedMember}
+          groupId={groupId}
+          currentRound={currentRound}
+          onClose={() => setSelectedMember(null)}
+        />
+      )}
     </div>
   );
 }
