@@ -54,7 +54,11 @@ export function PickHistory() {
         </div>
       )}
 
-      {picks.length === 0 ? (
+      {!userId ? (
+        <div className="auth-prompt">
+          <p className="auth-prompt-text">Sign in to view your picks.</p>
+        </div>
+      ) : picks.length === 0 ? (
         <p className="text-muted">No picks yet. Make your first pick from the Pick screen.</p>
       ) : (
         <div className="history-list">

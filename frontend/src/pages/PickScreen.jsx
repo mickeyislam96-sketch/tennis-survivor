@@ -257,8 +257,15 @@ export function PickScreen() {
         </div>
       )}
 
+      {/* Not signed in: prompt to log in */}
+      {isOpen && !userId && (
+        <div className="auth-prompt">
+          <p className="auth-prompt-text">Sign in to make your pick.</p>
+        </div>
+      )}
+
       {/* Window is still open: show current pick banner (if any) + full player list */}
-      {isOpen && (
+      {isOpen && userId && (
         <>
           {myPickThisRound && (
             <div className="picked-card picked-card--changeable">
