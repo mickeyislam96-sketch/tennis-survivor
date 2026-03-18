@@ -280,6 +280,10 @@ export async function getRawFixtures() {
  * If a round has no match data yet (e.g. draw not released) it is marked
  * pending and neither open nor locked.
  */
+const LOCKTIME_OVERRIDES = {
+  R1: '2026-03-18T19:00:00Z',
+};
+
 export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
@@ -297,9 +301,10 @@ export async function getDeadlines() {
     const now = new Date();
     return ROUNDS.map((round, i) => {
       const firstStart = ROUND_DATES[round] ? new Date(ROUND_DATES[round]) : null;
-      const lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-      const lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
-      const isLocked  = lockAtDate ? now >= lockAtDate : false;
+      let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
+      if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+      let lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
+      let isLocked  = lockAtDate ? now >= lockAtDate : false;
 
       let opensAt = null;
       if (i === 0) {
@@ -350,9 +355,10 @@ export async function getDeadlines() {
     const fallbackDate = ROUND_DATE_FALLBACK[round] ? new Date(ROUND_DATE_FALLBACK[round]) : null;
     const firstStart   = apiFirstStart || fallbackDate;
 
-    const lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-    const lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
-    const isLocked   = lockAtDate ? now >= lockAtDate : false;
+    let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
+    if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+    let lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
+    let isLocked   = lockAtDate ? now >= lockAtDate : false;
 
     // Window opens 12h after the first match of the nearest non-empty previous round starts.
     // Falls back to the known schedule date for that round when the API has no times yet.
