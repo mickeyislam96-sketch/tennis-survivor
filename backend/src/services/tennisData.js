@@ -284,6 +284,10 @@ const LOCKTIME_OVERRIDES = {
   R1: '2026-03-18T19:00:00Z',
 };
 
+const LOCKTIME_OVERRIDES = {
+  R1: "2026-03-18T19:00:00Z",
+};
+
 export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
