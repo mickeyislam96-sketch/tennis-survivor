@@ -34,7 +34,6 @@ export const TOURNAMENTS = [
     drawDate: '2026-03-16',
     drawAvailable: true,
     entryOpen: true,
-    entryCloseAt: '2026-03-17T16:00:00Z',  // Closes 4pm UK time March 17 (UK=UTC in March)
     bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2430/season/80799/cuptree/10850024?widgetTitle=2026%20Miami%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
   },
 ];

@@ -70,6 +70,7 @@ export function GroupHome() {
   const [openRound, setOpenRound] = useState(null);
   const [openRoundDeadline, setOpenRoundDeadline] = useState(null);
   const [openRoundOpensAt, setOpenRoundOpensAt] = useState(null);
+  const [r1LockAt, setR1LockAt] = useState(null);
   const [myCurrentPick, setMyCurrentPick] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [joinAfterAuth, setJoinAfterAuth] = useState(false); // trigger join after registration
@@ -111,6 +112,9 @@ export function GroupHome() {
           setOpenRoundDeadline(open.lockAt || null);
           setOpenRoundOpensAt(open.opensAt || null);
         }
+        // Save R1 lockAt specifically — used to compute dynamic entry close time
+        const r1 = deadlines.find((d) => d.round === 'R1');
+        if (r1?.lockAt) setR1LockAt(r1.lockAt);
       })
       .catch(() => {});
   }, []);
@@ -179,9 +183,13 @@ export function GroupHome() {
 
     const tournament = getTournament(group.tournamentId);
     const preLaunch  = isPreLaunch(tournament);
-    // Entry is closed if explicitly flagged OR if the timed cutoff has passed
+    // Entry closes 1 hour before R1 picks lock (gives new joiners time to make their first pick).
+    // Falls back to the tournament's explicit entryOpen flag if the deadline isn't loaded yet.
+    const entryDeadline = r1LockAt
+      ? new Date(new Date(r1LockAt).getTime() - 60 * 60 * 1000)
+      : null;
     const isEntryClosed = tournament?.entryOpen === false
-      || (tournament?.entryCloseAt && new Date() >= new Date(tournament.entryCloseAt));
+      || (entryDeadline && new Date() >= entryDeadline);
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
     // Members skip this view — they go straight to the main dashboard.

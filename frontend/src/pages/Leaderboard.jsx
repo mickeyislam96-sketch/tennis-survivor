@@ -138,9 +138,19 @@ export function Leaderboard() {
   useEffect(() => {
     if (!groupId) return;
     fetch(`${API}/leaderboard/${groupId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData(null));
+      .then((r) => {
+        if (!r.ok) throw new Error('API error');
+        return r.json();
+      })
+      .then((json) => {
+        setData({
+          group: json.group || null,
+          leaderboard: Array.isArray(json.leaderboard) ? json.leaderboard : [],
+          aliveCount: json.aliveCount ?? 0,
+          currentRound: json.currentRound ?? null,
+        });
+      })
+      .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
   }, [groupId]);
 
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;
@@ -205,6 +215,13 @@ export function Leaderboard() {
             </tr>
           </thead>
           <tbody>
+            {leaderboard.length === 0 && (
+              <tr>
+                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                  No entries yet — be the first to join!
+                </td>
+              </tr>
+            )}
             {leaderboard.map((m) => {
               const isYou    = m.userId === userId;
               const survived = m.survivedRounds ?? 0;
