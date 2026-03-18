@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import cron from 'node-cron';
+import { autoProcessResults, processRoundResults } from './services/resultsProcessor.js';
+
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
@@ -94,6 +97,30 @@ app.post('/api/admin/bulk-join', async (req, res) => {
     res.json({ ok: true, usersFound: users.rows.length, added, totalMembers: Number(count.rows[0].count) });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+
+// ── Automated results processor — every 15 minutes ───────────────────────────
+cron.schedule('*/15 * * * *', async () => {
+  try { await autoProcessResults(); }
+  catch (err) { console.error('[cron] Results error:', err.message); }
+});
+
+// Admin: manually trigger results processing
+// POST /api/admin/process-results { secret, round? }
+app.post('/api/admin/process-results', async (req, res) => {
+  const { secret, round } = req.body;
+  if (secret !== 'fsv-miami-2026') {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+  try {
+    const result = round
+      ? await processRoundResults(round)
+      : await autoProcessResults();
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
