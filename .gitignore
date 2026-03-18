@@ -16,3 +16,8 @@ frontend/build/
 # Logs
 *.log
 npm-debug.log*
+
+# Binary documents (keep locally, not in repo)
+*.docx
+*.xlsx
+*.pdf

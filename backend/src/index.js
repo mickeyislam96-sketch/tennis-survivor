@@ -70,12 +70,6 @@ app.get('/api/db-check', async (req, res) => {
   }
 });
 
-
-// ── Temporary migration endpoint — bulk-add all registered users to a group ──
-app.post('/api/admin/bulk-join', async (req, res) => {
-  const { groupId, secret } = req.body;
-  if (secret !== 'fsv-miami-migrate-2026') {
-    return res.status(401).json({ error: 'Unauthorised' });
   }
   try {
     const users = await pool.query('SELECT id::text, display_name FROM users');
