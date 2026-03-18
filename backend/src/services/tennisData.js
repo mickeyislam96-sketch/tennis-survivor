@@ -286,7 +286,7 @@ export async function getDeadlines() {
     // No live data — fall back to static schedule for Miami Open 2026.
     // R1 = non-seeds, R64 = seeds enter (Fri 21). All times UTC (11:00 ≈ 7am ET).
     const ROUND_DATES = {
-      R1:  '2026-03-19T11:00:00Z',
+      R1:  '2026-03-19T15:00:00Z',
       R64: '2026-03-21T11:00:00Z',
       R32: '2026-03-23T11:00:00Z',
       R16: '2026-03-25T11:00:00Z',
@@ -320,7 +320,7 @@ export async function getDeadlines() {
   // Fallback schedule used when the live API hasn't published start times yet
   // (common for QF/SF/F early in the tournament week). All times UTC.
   const ROUND_DATE_FALLBACK = {
-    R1:  '2026-03-19T11:00:00Z',
+    R1:  '2026-03-19T15:00:00Z',
     R64: '2026-03-21T11:00:00Z',
     R32: '2026-03-23T11:00:00Z',
     R16: '2026-03-25T11:00:00Z',
