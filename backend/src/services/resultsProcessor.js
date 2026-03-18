@@ -59,8 +59,9 @@ export async function processRoundResults(round) {
     eliminated += e.rowCount;
   }
 
-  console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks updated, ${eliminated} eliminated`);
-  return { round, processed: completed.length, picksUpdated, eliminated };
+  const nonPickers = await eliminateNonPickers(round);
+  console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks updated, ${eliminated} eliminated, ${nonPickers} non-pickers removed`);
+  return { round, processed: completed.length, picksUpdated, eliminated, nonPickers };
 }
 
 /**
@@ -91,4 +92,26 @@ export async function autoProcessResults() {
 
   if (summary.length === 0) console.log('[results] Nothing to process.');
   return summary;
+}
+
+/**
+ * Eliminate group members who did not submit a pick for a round.
+ * Called after a round locks — anyone still alive with no pick is out.
+ */
+export async function eliminateNonPickers(round) {
+  console.log(`[results] Eliminating non-pickers for ${round}...`);
+  const result = await pool.query(
+    `UPDATE group_members gm
+        SET is_alive = false, eliminated_round = $1
+      WHERE gm.is_alive = true
+        AND NOT EXISTS (
+          SELECT 1 FROM picks p
+           WHERE p.group_id = gm.group_id
+             AND p.user_id  = gm.user_id
+             AND p.round    = $1
+        )`,
+    [round]
+  );
+  console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
+  return result.rowCount;
 }
