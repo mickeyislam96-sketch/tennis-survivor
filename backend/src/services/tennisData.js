@@ -281,7 +281,7 @@ export async function getRawFixtures() {
  * pending and neither open nor locked.
  */
 const LOCKTIME_OVERRIDES = {
-  R1: '2026-03-18T19:00:00Z',
+  R1: '2026-03-18T23:00:00Z',
 };
 
 const LOCKTIME_OVERRIDES = {
