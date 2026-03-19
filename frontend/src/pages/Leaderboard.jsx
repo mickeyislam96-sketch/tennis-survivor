@@ -138,6 +138,7 @@ export function Leaderboard() {
           leaderboard: Array.isArray(json.leaderboard) ? json.leaderboard : [],
           aliveCount: json.aliveCount ?? 0,
           currentRound: json.currentRound ?? null,
+          roundIsLocked: json.roundIsLocked ?? false,
         });
       })
       .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
@@ -145,7 +146,7 @@ export function Leaderboard() {
 
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;
 
-  const { group, leaderboard, aliveCount, currentRound } = data;
+  const { group, leaderboard, aliveCount, currentRound, roundIsLocked } = data;
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
   const winner        = aliveCount === 1 ? leaderboard[0] : null;
@@ -202,6 +203,7 @@ export function Leaderboard() {
               <th>Player</th>
               <th className="lb-th-status">Status</th>
               <th className="lb-th-progress">Progress</th>
+              {currentRound && <th className="lb-th-pick">{currentRound} Pick</th>}
             </tr>
           </thead>
           <tbody>
@@ -262,6 +264,15 @@ export function Leaderboard() {
                       </span>
                     )}
                   </td>
+                  {currentRound && (
+                    <td className="lb-td-pick">
+                      {roundIsLocked
+                        ? (m.currentRoundPick
+                            ? <span className={m.isAlive ? 'lb-pick-alive' : 'lb-pick-out'}>{m.currentRoundPick}</span>
+                            : <span className="lb-pick-none">—</span>)
+                        : <span className="lb-pick-hidden">🔒 Hidden</span>}
+                    </td>
+                  )}
                 </tr>
               );
             })}
