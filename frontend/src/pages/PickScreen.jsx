@@ -129,8 +129,23 @@ export function PickScreen() {
       })
       .then((pick) => {
         const wasChange = !!myPickThisRound;
+        const oldPick = myPickThisRound;
+
         setMyPickThisRound(pick);
-        setAvailable((prev) => prev.filter((p) => p.id !== player.id));
+
+        setAllPicks((prev) => [
+          ...prev.filter((p) => p.round !== currentRound),
+          pick,
+        ]);
+
+        setAvailable((prev) => {
+          let updated = prev.filter((p) => p.id !== player.id);
+          if (wasChange && oldPick && !updated.find((p) => p.id === oldPick.playerId)) {
+            updated = [...updated, { id: oldPick.playerId, name: oldPick.playerName, seed: oldPick.seed ?? null }];
+          }
+          return updated;
+        });
+
         setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
       })
       .catch((e) => {
