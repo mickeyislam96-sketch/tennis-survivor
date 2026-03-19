@@ -59,8 +59,9 @@ async function fetchDateEvents(date) {
   if (cached && Date.now() - cached.fetchedAt < LIVE_TTL) return cached.events;
 
   try {
+    const baseUrl = process.env.SOFASCORE_BASE_URL || 'https://api.sofascore.com';
     const res = await nodeFetch(
-      `https://api.sofascore.com/api/v1/sport/tennis/scheduled-events/${date}`,
+      `${baseUrl}/api/v1/sport/tennis/scheduled-events/${date}`,
       {
         headers: {
           'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
