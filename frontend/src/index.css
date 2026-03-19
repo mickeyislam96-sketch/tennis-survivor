@@ -3272,13 +3272,32 @@ input, select { font-family: var(--font); }
   /* DrawViewer bracket: slightly narrower columns */
   .bc-col-hdr,
   .bc-col-body { width: 140px; }
+
+  /* Leaderboard: make Pick column readable on mobile */
+  .lb-th-pick, .lb-td-pick { width: 6.5rem; font-size: 0.8rem; }
+  .lb-pick-alive, .lb-pick-out { font-size: 0.78rem; }
+  .lb-pick-hidden { font-size: 0.72rem; }
+
+  /* Urgency banner: stack vertically on narrow screens */
+  .pick-urgency-banner { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .pub-cta { align-self: stretch; text-align: center; }
+
+  /* PickScreen: locked pick card */
+  .picked-card-player { font-size: 0.9rem; }
+  .picked-card-opponent { font-size: 0.78rem; }
+
+  /* Leaderboard: allow horizontal scroll if table overflows */
+  .lb-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+
+
+
 
 /* ── Auth prompt (shown on pick/history pages when not signed in) ─── */
 .auth-prompt { display: flex; justify-content: center; padding: 2.5rem 1rem; }
 .auth-prompt-text { font-size: 1rem; color: var(--text-muted); text-align: center; }
-
-/* ── Auth prompt (shown on pick/history pages when not signed in) ─── */
+── Auth prompt (shown on pick/history pages when not signed in) ─── */
 .auth-prompt { display: flex; justify-content: center; padding: 2.5rem 1rem; }
 .auth-prompt-text { font-size: 1rem; color: var(--text-muted); text-align: center; }
 
