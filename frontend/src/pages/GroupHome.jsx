@@ -191,6 +191,10 @@ export function GroupHome() {
     const isEntryClosed = tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
 
+    // Show an urgency banner when the user hasn't picked and the deadline is within 24 h
+    const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
+    const closingSoon = openRound && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
     // Members skip this view — they go straight to the main dashboard.
     if (preLaunch && tournament && !isMember) {
@@ -340,6 +344,18 @@ export function GroupHome() {
 
     return (
       <div className="page group-home">
+
+        {/* ── Closing-soon urgency banner ── */}
+        {closingSoon && (
+          <div className="pick-urgency-banner">
+            <span className="pub-icon">⚠️</span>
+            <span className="pub-text">
+              <strong>Deadline closing soon!</strong>{' '}
+              <Countdown to={openRoundDeadline} /> left to pick for <strong>{openRound}</strong>.
+            </span>
+            <Link to={`/group/${groupId}/pick`} className="pub-cta">Pick now →</Link>
+          </div>
+        )}
 
         {/* Hero banner */}
         <div className="group-hero">
