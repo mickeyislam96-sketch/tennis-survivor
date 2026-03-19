@@ -101,16 +101,31 @@ function gradeMember(picks, grade) {
 leaderboardRouter.get('/:groupId', async (req, res) => {
   const { groupId } = req.params;
 
-  // Get current open round for the "current pick" column
+  // Determine which round's pick to show on the leaderboard.
+  // If a pick window is actively open → hide all picks.
+  // Otherwise → reveal picks from the most recently locked round.
   let currentRound = null;
+  let roundIsLocked = false;
   try {
     const deadlines = await getDeadlines();
     const now = new Date();
-    const openRound = deadlines.find((d) => {
-      const lockAt = d.lockAt ? new Date(d.lockAt) : null;
-      return !d.isLocked && (!lockAt || now < lockAt);
+    // "Actively open" means the window has started AND not yet closed
+    const activeOpenRound = deadlines.find((d) => {
+      const opensAt = d.opensAt ? new Date(d.opensAt) : null;
+      const lockAt  = d.lockAt  ? new Date(d.lockAt)  : null;
+      return !d.isLocked && opensAt && now >= opensAt && (!lockAt || now < lockAt);
     });
-    currentRound = openRound?.round || null;
+    if (activeOpenRound) {
+      currentRound  = activeOpenRound.round;
+      roundIsLocked = false;
+    } else {
+      // No active pick window — reveal picks for the last locked round
+      const lastLocked = [...deadlines].filter((d) => d.isLocked).pop();
+      if (lastLocked) {
+        currentRound  = lastLocked.round;
+        roundIsLocked = true;
+      }
+    }
   } catch (_) {}
 
   // Get live draw data for grading picks.
@@ -178,8 +193,8 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
           survivedRounds,
           eliminatedRound: eliminatedRound || m.eliminatedRound,
           isAlive: picks.length > 0 ? isAlive : m.isAlive,
-          // Only expose the current round pick once it is locked (round closed)
-          currentRoundPick: currentRound ? null : (currentPick?.playerName || null),
+          // Expose the pick only when the round is fully locked
+          currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
         };
       });
 
@@ -195,6 +210,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         leaderboard: [...alive, ...eliminated],
         aliveCount: alive.length,
         currentRound,
+        roundIsLocked,
       });
     } catch (e) {
       console.error('DB leaderboard error:', e.message);
