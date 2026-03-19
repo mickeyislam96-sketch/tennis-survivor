@@ -4,26 +4,34 @@ import { useAuth } from '../App';
 import { API } from '../App';
 
 const ROUND_LABELS = {
-  R1: '1st Rd', R64: '2nd Rd', R32: '3rd Rd',
-  R16: '4th Rd', QF: 'Quarter-final', SF: 'Semi-final', F: 'Final',
+  R1: '1st Rd',
+  R64: '2nd Rd',
+  R32: '3rd Rd',
+  R16: '4th Rd',
+  QF: 'Quarter-final',
+  SF: 'Semi-final',
+  F: 'Final',
 };
 
 function fmtGBP(cents) {
-  return 'Â£' + (cents / 100).toLocaleString('en-GB', {
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  return '£' + (cents / 100).toLocaleString('en-GB', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   });
 }
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   });
 }
 
-// ââ Pool history section ââââââââââââââââââââââââââââââââââââââ
+// -- Pool history section -------------------------------------------------
 function PoolHistory({ userId }) {
-  const [pools, setPools]   = useState(null);
-  const [error, setError]   = useState('');
+  const [pools, setPools] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!userId) return;
@@ -33,8 +41,8 @@ function PoolHistory({ userId }) {
       .catch(() => { setError('Could not load pool history.'); setPools([]); });
   }, [userId]);
 
-  if (pools === null) return <p className="lb-picks-loading">Loading poolsâ¦</p>;
-  if (error)          return <p className="error">{error}</p>;
+  if (pools === null) return <p className="lb-picks-loading">Loading pools…</p>;
+  if (error) return <p className="error">{error}</p>;
   if (pools.length === 0) return (
     <p style={{ color: '#888', fontStyle: 'italic' }}>
       You haven't joined any pools yet.
@@ -65,7 +73,9 @@ function PoolHistory({ userId }) {
                 {p.isAlive
                   ? <span className="status-alive">Alive</span>
                   : <span className="status-out">
-                      Eliminated{p.eliminatedRound ? ` (${ROUND_LABELS[p.eliminatedRound] || p.eliminatedRound})` : ''}
+                      Eliminated{p.eliminatedRound
+                        ? ` (${ROUND_LABELS[p.eliminatedRound] || p.eliminatedRound})`
+                        : ''}
                     </span>
                 }
               </td>
@@ -80,16 +90,16 @@ function PoolHistory({ userId }) {
   );
 }
 
-// ââ Account settings section ââââââââââââââââââââââââââââââââââ
+// -- Account settings section ---------------------------------------------
 function AccountSettings({ user, updateUser }) {
-  const [displayName,    setDisplayName]    = useState(user?.displayName || '');
-  const [email,          setEmail]          = useState(user?.email || '');
-  const [currentPwd,     setCurrentPwd]     = useState('');
-  const [newPwd,         setNewPwd]         = useState('');
-  const [confirmPwd,     setConfirmPwd]     = useState('');
-  const [saving,         setSaving]         = useState(false);
-  const [error,          setError]          = useState('');
-  const [success,        setSuccess]        = useState('');
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -108,9 +118,14 @@ function AccountSettings({ user, updateUser }) {
     setSaving(true);
     try {
       const body = {};
-      if (displayName.trim() && displayName.trim() !== user?.displayName) body.displayName = displayName.trim();
-      if (email.trim() && email.trim().toLowerCase() !== user?.email)     body.email = email.trim();
-      if (newPwd) { body.currentPassword = currentPwd; body.newPassword = newPwd; }
+      if (displayName.trim() && displayName.trim() !== user?.displayName)
+        body.displayName = displayName.trim();
+      if (email.trim() && email.trim().toLowerCase() !== user?.email)
+        body.email = email.trim();
+      if (newPwd) {
+        body.currentPassword = currentPwd;
+        body.newPassword = newPwd;
+      }
 
       if (Object.keys(body).length === 0) {
         setError('No changes to save.');
@@ -144,87 +159,57 @@ function AccountSettings({ user, updateUser }) {
         <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
           Display name
         </label>
-        <input
-          className="input"
-          type="text"
-          value={displayName}
-          onChange={e => setDisplayName(e.target.value)}
-          placeholder="Your name"
-        />
+        <input className="input" type="text" value={displayName}
+          onChange={e => setDisplayName(e.target.value)} placeholder="Your name" />
       </div>
-
       <div>
         <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
           Email address
         </label>
-        <input
-          className="input"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="your@email.com"
-        />
+        <input className="input" type="email" value={email}
+          onChange={e => setEmail(e.target.value)} placeholder="your@email.com" />
       </div>
-
       <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '0.25rem 0' }} />
-
       <p style={{ fontSize: '0.85rem', color: '#555', margin: 0 }}>
-        Change password â leave blank to keep current password
+        Change password — leave blank to keep current password
       </p>
-
       <div>
         <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
           Current password
         </label>
-        <input
-          className="input"
-          type="password"
-          value={currentPwd}
+        <input className="input" type="password" value={currentPwd}
           onChange={e => setCurrentPwd(e.target.value)}
           placeholder="Required to change password"
-          autoComplete="current-password"
-        />
+          autoComplete="current-password" />
       </div>
-
       <div>
-        <label style={{ display: 'block', fontCStze: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
+        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
           New password
         </label>
-        <input
-          className="input"
-          type="password"
-          value={newPwd}
+        <input className="input" type="password" value={newPwd}
           onChange={e => setNewPwd(e.target.value)}
           placeholder="Min. 8 characters"
-          autoComplete="new-password"
-        />
+          autoComplete="new-password" />
       </div>
-
       <div>
         <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
           Confirm new password
         </label>
-        <input
-          className="input"
-          type="password"
-          value={confirmPwd}
+        <input className="input" type="password" value={confirmPwd}
           onChange={e => setConfirmPwd(e.target.value)}
           placeholder="Repeat new password"
-          autoComplete="new-password"
-        />
+          autoComplete="new-password" />
       </div>
-
-      {error   && <p className="error">{error}</p>}
+      {error && <p className="error">{error}</p>}
       {success && <p className="success-msg">{success}</p>}
-
       <button type="submit" className="btn primary" disabled={saving} style={{ alignSelf: 'flex-start' }}>
-        {saving ? 'Savingâ¦' : 'Save changes'}
+        {saving ? 'Saving…' : 'Save changes'}
       </button>
     </form>
   );
 }
 
-// ââ Main Profile page âââââââââââââââââââââââââââââââââââââââââ
+// -- Main Profile page ----------------------------------------------------
 export function Profile() {
   const { user, userId, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -239,7 +224,7 @@ export function Profile() {
   return (
     <div className="page" style={{ maxWidth: 720 }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <Link to="/" className="back-link">â Back to pools</Link>
+        <Link to="/" className="back-link">← Back to pools</Link>
         <h1 style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
           {user.displayName || 'Profile'}
         </h1>
