@@ -63,14 +63,22 @@ async function fetchDateEvents(date) {
       `https://api.sofascore.com/api/v1/sport/tennis/scheduled-events/${date}`,
       {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
-          'Accept':     'application/json',
-          'Referer':    'https://www.sofascore.com/',
+          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':          'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer':         'https://www.sofascore.com/',
+          'Origin':          'https://www.sofascore.com',
+          'sec-fetch-dest':  'empty',
+          'sec-fetch-mode':  'cors',
+          'sec-fetch-site':  'same-site',
         },
-        timeout: 8000,
+        timeout: 10000,
       }
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn(`[Sofascore] ${date} → HTTP ${res.status} ${res.statusText}`);
+      return [];
+    }
     const data   = await res.json();
     const events = (data.events || []).filter(e => e.tournament?.id === TOURNAMENT_ID);
     dateCache[date] = { events, fetchedAt: Date.now() };
