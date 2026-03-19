@@ -7,7 +7,7 @@ import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email.js';
 
 export const authRouter = Router();
 
-// ── GET /api/auth/me?userId= ─────────────────────────────────────────────────
+// ââ GET /api/auth/me?userId= âââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me', async (req, res) => {
   const userId = req.query.userId || req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'No userId provided' });
@@ -22,7 +22,7 @@ authRouter.get('/me', async (req, res) => {
       return res.json({ id: u.id, email: u.email, displayName: u.display_name });
     }
   } catch (_) {
-    // DB unavailable — fall through to mock
+    // DB unavailable â fall through to mock
   }
 
   const mock = MOCK_USERS.find(u => u.id === userId);
@@ -30,7 +30,7 @@ authRouter.get('/me', async (req, res) => {
   res.json(mock);
 });
 
-// ── POST /api/auth/register ──────────────────────────────────────────────────
+// ââ POST /api/auth/register ââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/register', async (req, res) => {
   const { email, displayName, password } = req.body;
 
@@ -72,7 +72,7 @@ authRouter.post('/register', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/login ─────────────────────────────────────────────────────
+// ââ POST /api/auth/login âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -111,7 +111,7 @@ authRouter.post('/login', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/forgot-password ───────────────────────────────────────────
+// ââ POST /api/auth/forgot-password âââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
@@ -126,7 +126,7 @@ authRouter.post('/forgot-password', async (req, res) => {
       'SELECT id::text, email, display_name FROM users WHERE email = $1',
       [normEmail]
     );
-    if (result.rows.length === 0) return; // No account — silent
+    if (result.rows.length === 0) return; // No account â silent
 
     const u = result.rows[0];
     const token = randomUUID();
@@ -153,7 +153,7 @@ authRouter.post('/forgot-password', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/reset-password ────────────────────────────────────────────
+// ââ POST /api/auth/reset-password ââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
 
@@ -205,7 +205,7 @@ authRouter.post('/reset-password', async (req, res) => {
   }
 });
 
-// ── GET /api/auth/verify-reset-token?token= ──────────────────────────────────
+// ââ GET /api/auth/verify-reset-token?token= ââââââââââââââââââââââââââââââââââ
 // Lets the frontend validate the token before showing the form
 authRouter.get('/verify-reset-token', async (req, res) => {
   const { token } = req.query;
@@ -225,5 +225,116 @@ authRouter.get('/verify-reset-token', async (req, res) => {
     return res.json({ valid: true });
   } catch (err) {
     return res.status(500).json({ valid: false, error: 'Could not verify token.' });
+  }
+});
+
+// ââ PATCH /api/auth/me âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Update display name, email, and/or password
+authRouter.patch('/me', async (req, res) => {
+  const userId = req.query.userId || req.headers['x-user-id'];
+  if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
+
+  const { displayName, email, currentPassword, newPassword } = req.body;
+
+  try {
+    // Fetch current user
+    const userResult = await pool.query(
+      'SELECT id::text, email, display_name, password_hash FROM users WHERE id::text = $1',
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const u = userResult.rows[0];
+
+    // If changing password, verify current password first
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to set a new one.' });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+      }
+      const valid = await bcrypt.compare(currentPassword, u.password_hash || '');
+      if (!valid) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+    }
+
+    // If changing email, check it is not already taken
+    if (email && email.trim().toLowerCase() !== u.email) {
+      const normEmail = email.trim().toLowerCase();
+      const existing = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND id::text != $2',
+        [normEmail, userId]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'That email is already in use.' });
+      }
+    }
+
+    // Build update
+    const updates = [];
+    const params  = [];
+    let idx = 1;
+
+    if (displayName?.trim()) {
+      updates.push(`display_name = $${idx++}`);
+      params.push(displayName.trim());
+    }
+    if (email?.trim()) {
+      updates.push(`email = $${idx++}`);
+      params.push(email.trim().toLowerCase());
+    }
+    if (newPassword) {
+      const hash = await bcrypt.hash(newPassword, 12);
+      updates.push(`password_hash = $${idx++}`);
+      params.push(hash);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No changes provided.' });
+    }
+
+    params.push(userId);
+    const updated = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id::text = $${idx} RETURNING id::text, email, display_name`,
+      params
+    );
+
+    const row = updated.rows[0];
+    return res.json({ id: row.id, email: row.email, displayName: row.display_name });
+  } catch (err) {
+    console.error('PATCH /me error:', err.message);
+    return res.status(500).json({ error: 'Failed to update profile. Please try again.' });
+  }
+});
+
+// ââ GET /api/auth/me/pools âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Returns all pools (groups) the user has joined, with their alive/eliminated status
+authRouter.get('/me/pools', async (req, res) => {
+  const userId = req.query.userId || req.headers['x-user-id'];
+  if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
+
+  try {
+    const result = await pool.query(
+      `SELECT
+         g.id::text AS "groupId",
+         g.name AS "groupName",
+         g.prize_pool_cents AS "prizePoolCents",
+         gm.is_alive AS "isAlive",
+         gm.eliminated_round AS "eliminatedRound",
+         gm.joined_at AS "joinedAt",
+         (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS "totalMembers"
+       FROM group_members gm
+       JOIN groups g ON g.id = gm.group_id
+       WHERE gm.user_id::text = $1
+       ORDER BY gm.joined_at DESC`,
+      [userId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('GET /me/pools error:', err.message);
+    return res.status(500).json({ error: 'Failed to load pool history.' });
   }
 });
