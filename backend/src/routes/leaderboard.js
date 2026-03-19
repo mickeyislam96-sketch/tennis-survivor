@@ -14,17 +14,17 @@ function isUUID(str) {
 /**
  * Build a grader function from live draw data.
  *
- * Returns grade(playerId, round) → true (survived) | false (eliminated) | null (pending)
+ * Returns grade(playerId, round) â true (survived) | false (eliminated) | null (pending)
  *
  * Logic:
- *  - If there's a completed match in `round` where the player WON  → true
- *  - If there's a completed match in `round` where the player LOST → false
- *  - Otherwise → null (match not played yet)
+ *  - If there's a completed match in `round` where the player WON  â true
+ *  - If there's a completed match in `round` where the player LOST â false
+ *  - Otherwise â null (match not played yet)
  */
 function buildGrader(draw) {
-  // Map: playerId → Set of rounds they WON
+  // Map: playerId â Set of rounds they WON
   const wonRounds = {};
-  // Map: playerId → Set of rounds they LOST
+  // Map: playerId â Set of rounds they LOST
   const lostRounds = {};
   // Name-based fallback maps (normalised lower-case name)
   const wonRoundsByName = {};
@@ -178,7 +178,8 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
           survivedRounds,
           eliminatedRound: eliminatedRound || m.eliminatedRound,
           isAlive: picks.length > 0 ? isAlive : m.isAlive,
-          currentRoundPick: currentPick?.playerName || null,
+          // Only expose the current round pick once it is locked (round closed)
+          currentRoundPick: currentRound ? null : (currentPick?.playerName || null),
         };
       });
 
@@ -215,7 +216,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       survivedRounds,
       eliminatedRound: eliminatedRound || m.eliminatedRound,
       isAlive: picks.length > 0 ? isAlive : m.isAlive,
-      currentRoundPick: currentPick ? currentPick.playerName : null,
+      currentRoundPick: currentRound ? null : (currentPick ? currentPick.playerName : null),
     };
   });
 
