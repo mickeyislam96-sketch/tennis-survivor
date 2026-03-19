@@ -9,7 +9,8 @@ export function PickScreen() {
   const { userId } = useAuth();
   const [available, setAvailable] = useState([]);
   const [rounds, setRounds] = useState([]);
-  const [currentRound, setCurrentRound] = useState('R32'); // Indian Wells: R1, R64, R32, R16, QF, SF, F
+  const [currentRound, setCurrentRound] = useState('R1');
+  const [pickMatchDetail, setPickMatchDetail] = useState(null);
   const [deadline, setDeadline] = useState(null);
   const [opensAt, setOpensAt] = useState(null);
   const [deadlines, setDeadlines] = useState([]);
@@ -254,17 +255,37 @@ export function PickScreen() {
       )}
 
       {/* Window is locked: show locked pick or missed-pick warning */}
-      {isLocked && myPickThisRound && (
-        <div className="picked-card picked-card--locked">
-          <div className="picked-card-inner">
-            <span className="picked-card-icon">🔒</span>
-            <div>
-              <p className="picked-card-label">Your {currentRound} pick — locked in</p>
-              <p className="picked-card-player">{myPickThisRound.playerName}</p>
+      {isLocked && myPickThisRound && (() => {
+        const survived = myPickThisRound.survived;
+        const md = pickMatchDetail;
+        const opponent = md
+          ? (md.player1Id === myPickThisRound.playerId ? md.player2Name : md.player1Name)
+          : null;
+        const s = (md?.status || '').toLowerCase();
+        const isLiveNow = s === 'in_progress' || s === '1' || s === '2' || s === '3' || s.startsWith('set');
+        const statusText = survived === true ? 'Advanced ✓'
+          : survived === false ? 'Eliminated ✗'
+          : isLiveNow ? '● Live now'
+          : s === 'completed' ? 'Match complete'
+          : md?.startTime ? `Scheduled ${new Date(md.startTime).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}`
+          : null;
+        const statusCls = survived === true ? 'ps-status--won'
+          : survived === false ? 'ps-status--lost'
+          : isLiveNow ? 'ps-status--live' : 'ps-status--pending';
+        return (
+          <div className={`picked-card picked-card--locked${survived === true ? ' picked-card--survived' : survived === false ? ' picked-card--eliminated' : ''}`}>
+            <div className="picked-card-inner">
+              <span className="picked-card-icon">{survived === true ? '✓' : survived === false ? '✗' : '🔒'}</span>
+              <div>
+                <p className="picked-card-label">Your {currentRound} pick — locked in</p>
+                <p className="picked-card-player">{myPickThisRound.playerName}</p>
+                {opponent && <p className="picked-card-opponent">vs {opponent}</p>}
+                {statusText && <p className={`ps-match-status ${statusCls}`}>{statusText}</p>}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {isLocked && !myPickThisRound && (
         <div className="picked-card picked-card--missed">
           <span className="picked-card-icon">⚠️</span>
