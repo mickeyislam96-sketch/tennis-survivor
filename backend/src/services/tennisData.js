@@ -7,6 +7,7 @@
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
 import { getMiamiMockDraw } from '../data/miamiDraw.js';
 import nodeFetch from 'node-fetch';
+import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
 
@@ -243,7 +244,13 @@ function buildDrawFromFixtures(fixtures) {
  * Get draw with results. Uses live API if configured, else Indian Wells mock.
  */
 export async function getDraw(roundFilter = null) {
-  const fixtures = await fetchApiDraw();
+  // Priority: 1) API-Tennis (paid, configured via TENNIS_API_KEY)
+  //           2) Sofascore (free, unofficial, no key required)
+  //           3) Mock draw (local fallback)
+  let fixtures = await fetchApiDraw();
+  if (!fixtures || fixtures.length === 0) {
+    fixtures = await fetchSofascoreFixtures();
+  }
   if (fixtures && fixtures.length > 0) {
     const draw = buildDrawFromFixtures(fixtures);
     const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
@@ -264,7 +271,7 @@ export function getRounds() {
  * Returns null if API not configured or unavailable.
  */
 export async function getRawFixtures() {
-  return fetchApiDraw();
+  return (await fetchApiDraw()) ?? fetchSofascoreFixtures();
 }
 
 /**
