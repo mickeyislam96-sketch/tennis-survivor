@@ -11,7 +11,7 @@ const nav = [
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
 
-// ââ Avatar helpers ââââââââââââââââââââââââââââââââââââââââââââ
+// ── Avatar helpers ────────────────────────────────────────────
 const AVATAR_COLOURS = [
   '#16a34a', '#0891b2', '#7c3aed', '#db2777',
   '#d97706', '#65a30d', '#0369a1', '#9333ea',
@@ -32,7 +32,7 @@ function initials(name) {
     .slice(0, 2);
 }
 
-// ââ User menu component âââââââââââââââââââââââââââââââââââââââ
+// ── User menu component ───────────────────────────────────────
 function UserMenu({ user, groupId }) {
   const { logout } = useAuth();
   const [open, setOpen] = useState(false);
@@ -75,7 +75,7 @@ function UserMenu({ user, groupId }) {
 
           <div className="user-menu-divider" />
 
-          {/* Navigation items â Profile and My Pools always visible */}
+          {/* Navigation items — Profile and My Pools always visible */}
           <Link
             to="/profile"
             className="user-menu-item"
@@ -168,10 +168,10 @@ function AuthModal({ onClose, initialMode = 'login' }) {
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">â</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        {/* Tabs â only shown for login / register */}
+        {/* Tabs — only shown for login / register */}
         {(mode === 'login' || mode === 'register') && (
           <div className="modal-tabs">
             <button
@@ -189,10 +189,10 @@ function AuthModal({ onClose, initialMode = 'login' }) {
           </div>
         )}
 
-        {/* Forgot password â email sent confirmation */}
+        {/* Forgot password — email sent confirmation */}
         {mode === 'forgot-sent' && (
           <div className="modal-sent">
-            <p className="modal-sent-icon">ð¬</p>
+            <p className="modal-sent-icon">📬</p>
             <p className="modal-sent-text">
               If an account exists for <strong>{email}</strong>, a password reset link has been sent. Check your inbox (and spam).
             </p>
@@ -238,7 +238,7 @@ function AuthModal({ onClose, initialMode = 'login' }) {
               />
             )}
 
-            {/* Forgot password link â only on login */}
+            {/* Forgot password link — only on login */}
             {mode === 'login' && (
               <button
                 type="button"
@@ -254,13 +254,13 @@ function AuthModal({ onClose, initialMode = 'login' }) {
 
             <button type="submit" className="btn primary btn-lg" disabled={loading}>
               {loading ? (
-                mode === 'register' ? 'Creating accountâ¦' :
-                mode === 'login'    ? 'Signing inâ¦' :
-                                     'Sending linkâ¦'
+                mode === 'register' ? 'Creating account…' :
+                mode === 'login'    ? 'Signing in…' :
+                                     'Sending link…'
               ) : (
-                mode === 'register' ? 'Create account â' :
-                mode === 'login'    ? 'Sign in â' :
-                                     'Send reset link â'
+                mode === 'register' ? 'Create account →' :
+                mode === 'login'    ? 'Sign in →' :
+                                     'Send reset link →'
               )}
             </button>
 
@@ -336,7 +336,7 @@ export function Layout({ children }) {
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="footer-copy">Â© 2026 Final Serve-ivor Â· A game of skill</span>
+          <span className="footer-copy">© 2026 Final Serve-ivor · A game of skill</span>
           <div className="footer-links">
             <NavLink to="/terms" className="footer-link">Terms &amp; Conditions</NavLink>
           </div>
