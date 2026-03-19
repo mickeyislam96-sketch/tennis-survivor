@@ -70,29 +70,6 @@ app.get('/api/db-check', async (req, res) => {
   }
 });
 
-  }
-  try {
-    const users = await pool.query('SELECT id::text, display_name FROM users');
-    let added = 0;
-    for (const user of users.rows) {
-      try {
-        await pool.query(
-          `INSERT INTO group_members (group_id, user_id, display_name, is_alive)
-           VALUES ($1, $2, $3, true)
-           ON CONFLICT (group_id, user_id) DO NOTHING`,
-          [groupId, user.id, user.display_name]
-        );
-        added++;
-      } catch (_) {}
-    }
-    const count = await pool.query(
-      'SELECT COUNT(*) FROM group_members WHERE group_id = $1', [groupId]
-    );
-    res.json({ ok: true, usersFound: users.rows.length, added, totalMembers: Number(count.rows[0].count) });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 
 // ── Automated results processor — every 15 minutes ───────────────────────────
