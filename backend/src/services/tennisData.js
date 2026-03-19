@@ -13,7 +13,7 @@ const API_BASE = 'https://api.api-tennis.com/tennis';
 // Map API round names to our internal round keys (R1, R64, R32, R16, QF, SF, F).
 // Indian Wells is a 96-draw: round 1 = R1 (byes), round 2 = R64, round 3 = R32, etc.
 const ROUND_MAP = {
-  // Text names
+  // Text nam
   'first round': 'R1',
   'round of 96': 'R1',
   '1st round':   'R1',
@@ -281,7 +281,7 @@ export async function getRawFixtures() {
  * pending and neither open nor locked.
  */
 const LOCKTIME_OVERRIDES = {
-  R1: '2026-03-18T23:00:00Z',
+  R1: '2026-03-19T14:00:00Z',
 };
 
 export async function getDeadlines() {
