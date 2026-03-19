@@ -366,6 +366,81 @@ input, select { font-family: var(--font); }
 .survived-true .history-status { color: var(--success); }
 .survived-false .history-status { color: var(--danger); }
 
+/* ── Pick card — locked state variants ─────────────────────────────── */
+.picked-card--survived {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.picked-card--eliminated {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+.picked-card--pending {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.picked-card-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.picked-card-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.picked-card-label {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0 0 0.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.picked-card-player {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.1rem;
+  color: var(--text, #111827);
+}
+.picked-card-opponent {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0 0 0.25rem;
+}
+
+/* match status pill */
+.ps-match-status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15em 0.55em;
+  border-radius: 999px;
+  margin-top: 0.2rem;
+}
+.ps-match-status--won {
+  background: #dcfce7;
+  color: #15803d;
+}
+.ps-match-status--lost {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.ps-match-status--live {
+  background: #fef9c3;
+  color: #854d0e;
+  animation: pulse-live 1.5s ease-in-out infinite;
+}
+.ps-match-status--scheduled {
+  background: #f1f5f9;
+  color: #475569;
+}
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
 /* ── Leaderboard ─────────────────────────────────────────── */
 
 .alive-count {
