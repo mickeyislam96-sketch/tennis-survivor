@@ -245,6 +245,13 @@ export function DrawViewer() {
             }, {});
             const first = rounds.find(r => byRound[r] > 0);
             if (first) setListRound(first);
+
+            // If no bracket rounds (R32+) have data yet, default to list view
+            // so users see live R1 matches rather than an empty bracket
+            const hasBracketData = BRACKET_ROUNDS.some((r) =>
+              (d.matches || []).some((m) => m.round === r)
+            );
+            if (!hasBracketData) setView('list');
           })
           .catch(() => { setDrawAvailable(false); setData(null); });
       })
