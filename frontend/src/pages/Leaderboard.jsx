@@ -3,9 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
 
-// ââ Formatting helpers ââââââââââââââââââââââââââââââââââââââââ
+// ── Formatting helpers ────────────────────────────────────────
 function fmtGBP(cents) {
-  return 'Â£' + (cents / 100).toLocaleString('en-GB', {
+  return '£' + (cents / 100).toLocaleString('en-GB', {
     minimumFractionDigits: 0, maximumFractionDigits: 0,
   });
 }
@@ -35,7 +35,7 @@ const ROUND_LABELS = {
   R16: '4th Round', QF: 'QF', SF: 'SF', F: 'Final',
 };
 
-// ââ Pick History Modal ââââââââââââââââââââââââââââââââââââââââ
+// ── Pick History Modal ────────────────────────────────────────
 function PickHistoryModal({ member, groupId, currentRound, onClose }) {
   const [picks, setPicks] = useState(null);
   const [error, setError] = useState(false);
@@ -62,20 +62,20 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
             <p className="lb-picks-modal-name">{member.displayName}</p>
             <p className="lb-picks-modal-sub">
               {member.isAlive
-                ? `Still in Â· ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
-                : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || 'â'}`
+                ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
+                : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`
               }
             </p>
           </div>
-          <button className="modal-close" onClick={onClose} style={{ marginLeft: 'auto' }}>â</button>
+          <button className="modal-close" onClick={onClose} style={{ marginLeft: 'auto' }}>✕</button>
         </div>
 
-        {/* Full pick history â current open round is hidden until picks lock */}
+        {/* Full pick history — current open round is hidden until picks lock */}
         <div className="lb-picks-history-wrap">
           <p className="lb-picks-history-title">Pick history</p>
 
           {picks === null && (
-            <p className="lb-picks-loading">Loadingâ¦</p>
+            <p className="lb-picks-loading">Loading…</p>
           )}
 
           {error && (
@@ -101,10 +101,10 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
                     p.survived === false ? 'lb-pick-row-out' : ''
                   }>
                     <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
-                    <td className="lb-pick-player">{p.playerName || 'â'}</td>
+                    <td className="lb-pick-player">{p.playerName || '—'}</td>
                     <td className="lb-pick-result">
-                      {p.survived === true  && <span className="status-alive">â Survived</span>}
-                      {p.survived === false && <span className="status-out">â Eliminated</span>}
+                      {p.survived === true  && <span className="status-alive">✓ Survived</span>}
+                      {p.survived === false && <span className="status-out">✗ Eliminated</span>}
                       {p.survived == null   && <span className="lb-progress-pending">Pending</span>}
                     </td>
                   </tr>
@@ -118,7 +118,7 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
   );
 }
 
-// ââ Main Leaderboard component ââââââââââââââââââââââââââââââââ
+// ── Main Leaderboard component ────────────────────────────────
 export function Leaderboard() {
   const { groupId } = useParams();
   const { userId } = useAuth();
@@ -143,7 +143,7 @@ export function Leaderboard() {
       .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
   }, [groupId]);
 
-  if (!data) return <div className="page-loading">Loading leaderboardâ¦</div>;
+  if (!data) return <div className="page-loading">Loading leaderboard…</div>;
 
   const { group, leaderboard, aliveCount, currentRound } = data;
   const totalEntrants = leaderboard.length;
@@ -154,17 +154,17 @@ export function Leaderboard() {
     <div className="page leaderboard">
       <div className="leaderboard-header">
         <h1>Leaderboard</h1>
-        <Link to={`/group/${groupId}`} className="back-link">â Back to group</Link>
+        <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
 
       {/* Winner banner */}
       {winner && (
         <div className="lb-winner-banner">
-          <div className="lb-winner-trophy">ð</div>
+          <div className="lb-winner-trophy">🏆</div>
           <div className="lb-winner-body">
             <span className="lb-winner-eyebrow">Tournament Winner</span>
             <span className="lb-winner-name">{winner.displayName}</span>
-            <span className="lb-winner-sub">Last one standing Â· {totalEntrants} entrants</span>
+            <span className="lb-winner-sub">Last one standing · {totalEntrants} entrants</span>
           </div>
           {group?.prizePoolCents > 0 && (
             <div className="lb-winner-prize">{fmtGBP(group.prizePoolCents)}</div>
@@ -208,7 +208,7 @@ export function Leaderboard() {
             {leaderboard.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                  No entries yet â be the first to join!
+                  No entries yet — be the first to join!
                 </td>
               </tr>
             )}
@@ -253,10 +253,10 @@ export function Leaderboard() {
                           </span>
                     ) : (
                       <span className="lb-progress-out">
-                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || 'â'}
+                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
                         {survived > 0 && (
                           <span className="lb-progress-sub">
-                            {' '}Â· {survived} {survived === 1 ? 'round' : 'rounds'}
+                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'}
                           </span>
                         )}
                       </span>
