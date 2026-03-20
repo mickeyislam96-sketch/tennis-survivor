@@ -351,7 +351,7 @@ export function GroupHome() {
             <span className="pub-icon">⚠️</span>
             <span className="pub-text">
               <strong>Deadline closing soon!</strong>{' '}
-              <Countdown to={openRoundDeadline} /> left to pick for <strong>{openRound}</strong>.
+              <DeadlineCountdown to={openRoundDeadline} /> left to pick for <strong>{openRound}</strong>.
             </span>
             <Link to={`/group/${groupId}/pick`} className="pub-cta">Pick now →</Link>
           </div>
