@@ -4,6 +4,44 @@ import { useAuth } from '../App';
 import { API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
 
+// ── Helper components defined before PickScreen to ensure they are available
+// ── regardless of bundler hoisting behaviour ──────────────────────────────
+
+function formatWindowTime(isoString) {
+  const d = new Date(isoString);
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    + ' at '
+    + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function Countdown({ to, className = 'countdown-value', onExpire }) {
+  const [left, setLeft] = useState('');
+
+  useEffect(() => {
+    const end = new Date(to);
+    const tick = () => {
+      const now = new Date();
+      if (now >= end) {
+        setLeft('—');
+        clearInterval(id);
+        if (onExpire) onExpire();
+        return;
+      }
+      const ms  = end - now;
+      const d   = Math.floor(ms / 86400000);
+      const h   = Math.floor((ms % 86400000) / 3600000);
+      const m   = Math.floor((ms % 3600000)  / 60000);
+      const s   = Math.floor((ms % 60000)    / 1000);
+      setLeft(d > 0 ? `${d}d ${h}h ${m}m ${s}s` : `${h}h ${m}m ${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [to]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <span className={className}>{left}</span>;
+}
+
 export function PickScreen() {
   const { groupId } = useParams();
   const { userId } = useAuth();
@@ -407,39 +445,4 @@ export function PickScreen() {
       {message && <p className="success-msg">{message}</p>}
     </div>
   );
-}
-
-function formatWindowTime(isoString) {
-  const d = new Date(isoString);
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-    + ' at '
-    + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
-function Countdown({ to, className = 'countdown-value', onExpire }) {
-  const [left, setLeft] = useState('');
-
-  useEffect(() => {
-    const end = new Date(to);
-    const tick = () => {
-      const now = new Date();
-      if (now >= end) {
-        setLeft('—');
-        clearInterval(id);
-        if (onExpire) onExpire();
-        return;
-      }
-      const ms  = end - now;
-      const d   = Math.floor(ms / 86400000);
-      const h   = Math.floor((ms % 86400000) / 3600000);
-      const m   = Math.floor((ms % 3600000)  / 60000);
-      const s   = Math.floor((ms % 60000)    / 1000);
-      setLeft(d > 0 ? `${d}d ${h}h ${m}m ${s}s` : `${h}h ${m}m ${s}s`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [to]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return <span className={className}>{left}</span>;
 }
