@@ -67,6 +67,35 @@ export function TermsAndConditions() {
       </section>
 
       <section className="terms-section">
+        <h2>5a. Overlapping Rounds at Masters 1000 Events</h2>
+        <p>
+          ATP Masters 1000 tournaments use a 96-player draw in which the top 32 seeds receive
+          first-round byes. This creates a structural overlap: Round 1 matches (played between
+          unseeded players) and Round 2 matches (where seeds enter) are scheduled across
+          overlapping days. In practice, some Round 1 matches may still be unplayed at the time
+          the Round 2 pick window closes.
+        </p>
+        <p>
+          Because the Round 2 window must close before Round 2 begins — regardless of whether all
+          Round 1 matches have been completed — participants may be required to submit their Round 2
+          pick before their Round 1 result is known. This is an inherent feature of the tournament
+          format, not an error in the competition.
+        </p>
+        <p>
+          In this situation, participants should submit a Round 2 pick speculatively before the
+          window closes. That pick will only take effect if the participant's Round 1 player wins
+          their match and they advance to Round 2. If the participant's Round 1 player loses, the
+          participant is eliminated in Round 1 and their Round 2 pick is disregarded. The pick
+          screen will display a warning when this situation applies, prompting you to act in time.
+        </p>
+        <p>
+          It is the participant's sole responsibility to monitor the pick screen, note any such
+          warnings, and submit their Round 2 pick within the open window. No extensions or
+          exceptions will be granted for participants who fail to act while the window is open.
+        </p>
+      </section>
+
+      <section className="terms-section">
         <h2>6. Skill Element</h2>
         <p>
           Successful participation requires knowledge of professional tennis: understanding player

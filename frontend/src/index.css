@@ -3304,3 +3304,37 @@ input, select { font-family: var(--font); }
 /* ── Auth prompt (shown on pick/history pages when not signed in) ─── */
 .auth-prompt { display: flex; justify-content: center; padding: 2.5rem 1rem; }
 .auth-prompt-text { font-size: 1rem; color: var(--text-muted); text-align: center; }
+
+/* ── Masters 1000 overlap: pending previous round pick banner ─────────────── */
+.pending-prev-pick-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.875rem 1rem;
+  margin: 0.75rem 0;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+}
+.pending-prev-pick-banner--urgent {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+.pending-prev-pick-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+.pending-prev-pick-body { flex: 1; }
+.pending-prev-pick-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 0.25rem;
+}
+.pending-prev-pick-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.4;
+}

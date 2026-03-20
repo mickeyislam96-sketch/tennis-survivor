@@ -35,6 +35,36 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     const playingThisRound = new Set(
       roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
+
+    // Supplement with players from the previous round who may still advance.
+    //
+    // Two cases handled:
+    //   a) Match already completed → add the winner only (loser is eliminated).
+    //   b) Match not yet played (scheduled/in_progress, no winnerId) → add BOTH
+    //      players speculatively. This covers the Masters 1000 overlap window
+    //      where R1 and R64 run concurrently: a user's R1 pick may not have
+    //      played by the time the R64 window closes, but they still need to be
+    //      able to make a speculative R64 pick in case they advance.
+    //      The results processor handles elimination retroactively once R1 results
+    //      are confirmed — so a speculative pick for an eliminated R1 player is
+    //      simply voided at that point.
+    const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
+    if (prevRoundIndex >= 0) {
+      const prevRound = ROUNDS[prevRoundIndex];
+      (draw.matches || [])
+        .filter(m => m.round === prevRound)
+        .forEach(m => {
+          if (m.winnerId) {
+            // Completed: only the winner can advance
+            playingThisRound.add(m.winnerId);
+          } else {
+            // Pending: either player might advance — include both
+            if (m.player1Id) playingThisRound.add(m.player1Id);
+            if (m.player2Id) playingThisRound.add(m.player2Id);
+          }
+        });
+    }
+
     return (draw.players || []).filter(
       p => !p.roundEliminated && playingThisRound.has(p.id)
     );

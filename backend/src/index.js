@@ -16,6 +16,7 @@ import { leaderboardRouter } from './routes/leaderboard.js';
 import { authRouter } from './routes/auth.js';
 import { tiebreakerRouter } from './routes/tiebreaker.js';
 import { poolsRouter } from './routes/pools.js';
+import { healthRouter } from './routes/health.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,8 +41,7 @@ app.use('/api/draw', drawRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/tiebreaker', tiebreakerRouter);
-
-app.get('/api/health', (_, res) => res.json({ ok: true }));
+app.use('/api/health', healthRouter);
 
 // Email smoke-test — uses sendPasswordResetEmail which throws on failure
 // Usage: GET /api/email-test?to=youraddress@gmail.com

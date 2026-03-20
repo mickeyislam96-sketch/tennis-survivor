@@ -149,10 +149,21 @@ function buildDrawFromFixtures(fixtures) {
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
 
-  // Filter out explicit qualification matches
+  // Filter out explicit qualification matches and doubles/mixed doubles
   const mainFixtures = fixtures.filter((f) => {
     const q = String(f.event_qualification ?? '').toLowerCase();
-    return q !== 'true' && q !== '1';
+    if (q === 'true' || q === '1') return false;
+
+    // Exclude doubles and mixed doubles events
+    const eventType = String(f.event_type_type ?? f.event_type ?? '').toLowerCase();
+    if (eventType.includes('double') || eventType.includes('mixed')) return false;
+
+    // Fallback: player names with " / " are doubles pairings
+    const p1 = String(f.event_first_player ?? '');
+    const p2 = String(f.event_second_player ?? '');
+    if (p1.includes(' / ') || p2.includes(' / ')) return false;
+
+    return true;
   });
 
   // Check whether the API provides usable round names
@@ -196,11 +207,21 @@ function buildDrawFromFixtures(fixtures) {
 
   if (hasRoundField) {
     // ── Path 1: use API round names ──────────────────────────────────────────
+    const unknownRounds = new Map(); // raw name → count (log once per name)
     for (const f of mainFixtures) {
       const raw = f.tournament_round || f.event_round || '';
       const round = normalizeRound(raw);
-      if (!round || !matchesByRound[round]) continue;
+      if (!round || !matchesByRound[round]) {
+        if (raw) unknownRounds.set(raw, (unknownRounds.get(raw) ?? 0) + 1);
+        continue;
+      }
       matchesByRound[round].push(buildMatch(f, round));
+    }
+    if (unknownRounds.size > 0) {
+      const summary = [...unknownRounds.entries()]
+        .map(([name, count]) => `"${name}" ×${count}`)
+        .join(', ');
+      console.warn(`[tennisData] Skipped fixtures with unmapped round names: ${summary}`);
     }
   } else {
     // ── Path 2: sequential assignment by date (fallback) ─────────────────────

@@ -183,6 +183,18 @@ export function PickScreen() {
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
 
+  // ── Masters 1000 overlap banner ──────────────────────────────────────────────
+  // When R64 is open but the user's R1 pick hasn't been graded yet (survived===null)
+  // and the R1 window is locked, show a contextual warning so they know to pick now.
+  const prevRound = rounds[rounds.indexOf(currentRound) - 1] || null;
+  const prevRoundPick = prevRound ? allPicks.find((p) => p.round === prevRound) : null;
+  const prevRoundDeadline = prevRound ? deadlines.find((d) => d.round === prevRound) : null;
+  const prevRoundIsLocked = prevRoundDeadline
+    ? (prevRoundDeadline.isLocked || (prevRoundDeadline.lockAt && new Date() >= new Date(prevRoundDeadline.lockAt)))
+    : false;
+  const showPrevPickPending =
+    isOpen && prevRoundPick && prevRoundPick.survived === null && prevRoundIsLocked;
+
   if (!drawAvailable) {
     return (
       <div className="page pick-screen">
@@ -251,6 +263,25 @@ export function PickScreen() {
               Closes: {formatWindowTime(deadline)}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Masters 1000 overlap: R1 locked but ungraded, R64 window open */}
+      {showPrevPickPending && (
+        <div className={`pending-prev-pick-banner${!myPickThisRound ? ' pending-prev-pick-banner--urgent' : ''}`}>
+          <span className="pending-prev-pick-icon">{myPickThisRound ? '⏳' : '⚠️'}</span>
+          <div className="pending-prev-pick-body">
+            <p className="pending-prev-pick-title">
+              {myPickThisRound
+                ? `${currentRound} pick submitted — waiting on your ${prevRound} result`
+                : `Your ${currentRound} pick is due now`}
+            </p>
+            <p className="pending-prev-pick-sub">
+              {myPickThisRound
+                ? `At Masters 1000 events, Round 1 and Round 2 run on overlapping days. Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't been graded yet — this pick will take effect if they advance. If they lose, you're eliminated and this pick is disregarded.`
+                : `At Masters 1000 events, Round 1 and Round 2 run on overlapping days. Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't played yet, but the ${currentRound} window closes soon. Submit your ${currentRound} pick now — it will only count if your ${prevRound} player wins.`}
+            </p>
+          </div>
         </div>
       )}
 

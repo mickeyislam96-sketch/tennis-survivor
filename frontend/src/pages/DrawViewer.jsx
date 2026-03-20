@@ -18,11 +18,12 @@ const ROUND_FULL = {
 // Expected slot counts per round (used to pad TBD slots)
 const MATCH_COUNTS = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
-// Rounds shown in the visual bracket (R32 → Final keeps it manageable)
-const BRACKET_ROUNDS = ['R32', 'R16', 'QF', 'SF', 'F'];
+// Rounds shown in the visual bracket (R64 → Final)
+const BRACKET_ROUNDS = ['R64', 'R32', 'R16', 'QF', 'SF', 'F'];
 
-// Fixed bracket height — every column shares this so SVG connectors align
-const BRACKET_H = 1280;
+// Fixed bracket height — every column shares this so SVG connectors align.
+// R64 has 32 slots, so 32 × 64px = 2048px keeps slot heights consistent.
+const BRACKET_H = 2048;
 
 // ─── Bracket ordering ────────────────────────────────────────────────────────
 // The API returns matches in arbitrary order. To draw a correct bracket we
@@ -339,7 +340,7 @@ export function DrawViewer() {
           </div>
         ) : (
           <>
-            <p className="bracket-help-text">R32 through to the Final — follow the path to the title</p>
+            <p className="bracket-help-text">Round of 64 through to the Final — follow the path to the title</p>
             <div className="bracket-scroll-wrap">
               <div className="bracket-wrap">{bracketEls}</div>
             </div>
