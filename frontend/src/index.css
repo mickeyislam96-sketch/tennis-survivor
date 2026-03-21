@@ -2029,14 +2029,16 @@ input, select { font-family: var(--font); }
     grid-template-columns: 1fr 1fr;
   }
 
+  /* Stats bar: proper 2×2 grid on mobile */
   .lb-stats-bar {
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
   }
+  .lb-stat { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .lb-stat:nth-child(even) { border-right: none; }
+  .lb-stat:nth-child(3), .lb-stat:nth-child(4) { border-bottom: none; }
 
-  .leaderboard-table th:nth-child(4),
-  .leaderboard-table td:nth-child(4) {
-    display: none;
-  }
+  /* Pick column: keep visible — table scrolls horizontally if needed */
 
   .join-card { max-width: 100%; }
   .join-action, .join-already { padding: 1.25rem 1.25rem; }
@@ -3303,6 +3305,69 @@ input, select { font-family: var(--font); }
 
   /* Leaderboard: allow horizontal scroll if table overflows */
   .lb-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Page headers: stack title + back link vertically ── */
+  .pick-header,
+  .leaderboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    margin-bottom: 1rem;
+  }
+  .pick-header h1,
+  .leaderboard-header h1 { font-size: 1.5rem; }
+
+  /* ── Picked-card changeable: hide overflow hint text ── */
+  /* "You can change until the window closes" clips on narrow screens */
+  .picked-card-hint { display: none; }
+
+  /* ── Invite box: prevent long URL from overflowing ── */
+  .invite-box-row { gap: 0.5rem; }
+  .invite-box-code {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .invite-copy-btn { flex-shrink: 0; }
+
+  /* ── Leaderboard name: truncate long display names ── */
+  .lb-display-name {
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Pick history modal: full-width on mobile ── */
+  .lb-picks-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  /* ── Pending badge: tighter on mobile ── */
+  .player-pending-badge {
+    font-size: 0.62rem;
+    padding: 0.05rem 0.28rem;
+    margin-left: 0.3rem;
+  }
+
+  /* ── Minimum tap targets for buttons ── */
+  .btn-sm { min-height: 36px; }
+  .round-tab { min-height: 36px; }
+
+  /* ── Pick screen: tighten spacing ── */
+  .pick-screen { padding-top: 0; }
+  .round-tabs { margin-bottom: 0.75rem; }
+  .available-count { font-size: 0.8rem; margin: 0.4rem 0; }
+
+  /* ── Leaderboard: reduce stats bar padding ── */
+  .lb-stat { padding: 0.75rem 0.5rem; }
+  .lb-stat-value { font-size: 1.2rem; }
+  .lb-stat-label { font-size: 0.7rem; }
 }
 
 
