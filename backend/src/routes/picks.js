@@ -28,6 +28,23 @@ function rowToPick(p) {
 async function getAvailablePlayers(userId, groupId, currentRound) {
   const draw = await getDraw(currentRound);
 
+  // Build pending/confirmed sets from the previous round up-front.
+  // This runs regardless of whether the current round's draw exists yet —
+  // so the fallback path can still tag players whose prev-round match is pending.
+  const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
+  const pendingFromPrevRound = new Set();
+  if (prevRoundIndex >= 0) {
+    const prevRound = ROUNDS[prevRoundIndex];
+    (draw.matches || [])
+      .filter(m => m.round === prevRound)
+      .forEach(m => {
+        if (!m.winnerId) {
+          if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
+          if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
+        }
+      });
+  }
+
   // Build the set of players who actually have a match this round.
   // This correctly excludes seeded players in R1 (they have byes and don't play).
   const roundMatches = (draw.matches || []).filter(m => m.round === currentRound);
@@ -37,27 +54,18 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     );
 
     // Supplement with players from the previous round who may still advance.
-    //
-    // Two cases handled:
-    //   a) Match already completed → add the winner only (loser is eliminated).
-    //   b) Match not yet played (no winnerId) → add BOTH players speculatively.
-    //      These are tagged pendingPrevRound:true so the UI can warn the user
-    //      that picking them carries risk — if they lose their prev-round match
-    //      the pick is voided and the user is eliminated.
-    const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
-    const pendingFromPrevRound = new Set();
+    // Winners are confirmed; players in unresolved matches are added speculatively
+    // and flagged pendingPrevRound:true so the UI can warn of the risk.
     if (prevRoundIndex >= 0) {
       const prevRound = ROUNDS[prevRoundIndex];
       (draw.matches || [])
         .filter(m => m.round === prevRound)
         .forEach(m => {
           if (m.winnerId) {
-            // Completed: only the winner can advance
             playingThisRound.add(m.winnerId);
           } else {
-            // Pending: either player might advance — include both, flag as risky
-            if (m.player1Id) { playingThisRound.add(m.player1Id); pendingFromPrevRound.add(m.player1Id); }
-            if (m.player2Id) { playingThisRound.add(m.player2Id); pendingFromPrevRound.add(m.player2Id); }
+            if (m.player1Id) playingThisRound.add(m.player1Id);
+            if (m.player2Id) playingThisRound.add(m.player2Id);
           }
         });
     }
@@ -67,8 +75,11 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
   }
 
-  // Fallback (no match data yet): return all non-eliminated players
-  return (draw.players || []).filter(p => !p.roundEliminated);
+  // Fallback: the current round's draw isn't published yet.
+  // Return all non-eliminated players, tagging those with unresolved prev-round matches.
+  return (draw.players || [])
+    .filter(p => !p.roundEliminated)
+    .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 }
 
 // GET /api/picks/available?userId=&groupId=&round=
