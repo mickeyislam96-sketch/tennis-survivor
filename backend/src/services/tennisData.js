@@ -309,7 +309,8 @@ export async function getRawFixtures() {
  * pending and neither open nor locked.
  */
 const LOCKTIME_OVERRIDES = {
-  R1: '2026-03-19T13:00:00Z',
+  R1:  '2026-03-19T13:00:00Z',
+  R32: '2026-03-22T18:00:00Z', // Lock 1h before first R32 match (Sun 22 Mar, 2PM EDT / 18:00 UTC)
 };
 
 export async function getDeadlines() {
@@ -320,7 +321,7 @@ export async function getDeadlines() {
     const ROUND_DATES = {
       R1:  '2026-03-19T13:00:00Z',
       R64: '2026-03-21T11:00:00Z',
-      R32: '2026-03-23T11:00:00Z',
+      R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
       R16: '2026-03-25T11:00:00Z',
       QF:  '2026-03-26T11:00:00Z',
       SF:  '2026-03-28T11:00:00Z',
@@ -355,7 +356,7 @@ export async function getDeadlines() {
   const ROUND_DATE_FALLBACK = {
     R1:  '2026-03-19T13:00:00Z',
     R64: '2026-03-21T11:00:00Z',
-    R32: '2026-03-23T11:00:00Z',
+    R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
     R16: '2026-03-25T11:00:00Z',
     QF:  '2026-03-26T11:00:00Z',
     SF:  '2026-03-28T11:00:00Z',
