@@ -40,15 +40,12 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     //
     // Two cases handled:
     //   a) Match already completed → add the winner only (loser is eliminated).
-    //   b) Match not yet played (scheduled/in_progress, no winnerId) → add BOTH
-    //      players speculatively. This covers the Masters 1000 overlap window
-    //      where R1 and R64 run concurrently: a user's R1 pick may not have
-    //      played by the time the R64 window closes, but they still need to be
-    //      able to make a speculative R64 pick in case they advance.
-    //      The results processor handles elimination retroactively once R1 results
-    //      are confirmed — so a speculative pick for an eliminated R1 player is
-    //      simply voided at that point.
+    //   b) Match not yet played (no winnerId) → add BOTH players speculatively.
+    //      These are tagged pendingPrevRound:true so the UI can warn the user
+    //      that picking them carries risk — if they lose their prev-round match
+    //      the pick is voided and the user is eliminated.
     const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
+    const pendingFromPrevRound = new Set();
     if (prevRoundIndex >= 0) {
       const prevRound = ROUNDS[prevRoundIndex];
       (draw.matches || [])
@@ -58,16 +55,16 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
             // Completed: only the winner can advance
             playingThisRound.add(m.winnerId);
           } else {
-            // Pending: either player might advance — include both
-            if (m.player1Id) playingThisRound.add(m.player1Id);
-            if (m.player2Id) playingThisRound.add(m.player2Id);
+            // Pending: either player might advance — include both, flag as risky
+            if (m.player1Id) { playingThisRound.add(m.player1Id); pendingFromPrevRound.add(m.player1Id); }
+            if (m.player2Id) { playingThisRound.add(m.player2Id); pendingFromPrevRound.add(m.player2Id); }
           }
         });
     }
 
-    return (draw.players || []).filter(
-      p => !p.roundEliminated && playingThisRound.has(p.id)
-    );
+    return (draw.players || [])
+      .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
+      .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
   }
 
   // Fallback (no match data yet): return all non-eliminated players

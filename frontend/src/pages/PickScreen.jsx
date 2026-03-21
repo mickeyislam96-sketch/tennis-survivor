@@ -422,6 +422,11 @@ export function PickScreen() {
                     {player.name}
                     {usedInOtherRound && <span className="player-used-label">Already used</span>}
                     {isCurrentPick && <span className="player-current-label">Your pick</span>}
+                    {!usedInOtherRound && player.pendingPrevRound && (
+                      <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
+                        ⚠️ {prevRound} result pending
+                      </span>
+                    )}
                   </span>
                   {rowError.id === player.id && (
                     <span className="player-row-error">{rowError.msg}</span>

@@ -1264,6 +1264,21 @@ input, select { font-family: var(--font); }
   display: inline-block;
 }
 
+/* ── Pending previous-round result badge ─────────────────── */
+/* Shown on players who haven't yet confirmed their spot in this round */
+.player-pending-badge {
+  margin-left: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  display: inline-block;
+  white-space: nowrap;
+}
+
 /* ── Inline pick error on player row ──────────────────────── */
 .player-row-error {
   font-size: 0.78rem;
