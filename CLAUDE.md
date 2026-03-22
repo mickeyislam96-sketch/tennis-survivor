@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 21 March 2026. Keep this file updated at the end of every session.
+> Last updated: 22 March 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -63,10 +63,12 @@
 
 ## CRITICAL: Git workflow
 
-**NEVER use the mnt path for git operations.** The local workspace at `/sessions/exciting-determined-volta/mnt/tennis-survivor` has a stale `.git/index.lock` on a FUSE filesystem that cannot be deleted and blocks all git commands.
+The mnt path (`/sessions/*/mnt/tennis-survivor`) is a FUSE/virtiofs filesystem. Git stash and commit are blocked by a persistent `.git/index.lock` that cannot be deleted from within the VM.
 
-**ALWAYS clone fresh to `/tmp/tennis-survivor` and work from there:**
+**Preferred approach — git plumbing (no index needed):**
+Use `git hash-object`, `git mktree`, `git commit-tree`, and `git push` directly. This bypasses the index lock entirely and pushes straight to GitHub. See session 22 Mar 2026 for a worked example.
 
+**Alternative — clone to /tmp:**
 ```bash
 cd /tmp && git clone https://github.com/mickeyislam96-sketch/tennis-survivor.git
 cd /tmp/tennis-survivor
@@ -76,7 +78,9 @@ git commit -m "..."
 git push origin main
 ```
 
-The mnt path can still be used for reading files, but all git operations must go through `/tmp/tennis-survivor`.
+The mnt path is fine for reading files. The GitHub token is embedded in the remote URL and can be used for API calls or push auth.
+
+**Mac-side:** The repo lives at `/Users/mikaeelislam/tennis-survivor`. The user can commit and push from their Mac terminal normally.
 
 ---
 
@@ -234,23 +238,26 @@ Sofascore embed widget limitation. Fix: build custom bracket from API-Tennis dat
 ### 4. ~~No health check for API key~~ — FIXED
 `backend/src/routes/health.js` added — validates env vars, makes live API call, pings DB.
 
-### 5. API `round: null` gap — OPEN
+### 5. ~~False `pendingPrevRound` badge on confirmed players~~ — FIXED (22 Mar)
+Players already in the R32 draw (e.g. Jorda) were still showing the `⚠️ R64 result pending` badge because `pendingFromPrevRound` was built from all unresolved R64 matches before checking whether those players had already progressed. Fix: after building `playingThisRound` from current round fixtures, strip any confirmed player from `pendingFromPrevRound`.
+
+### 6. API `round: null` gap — OPEN
 ~6 R64 matches in the API currently have `round: null`. `normalizeRound()` returns null so they are not detected as pending R64 matches — affected players don't get the `⚠️ R64 result pending` badge. Root cause: API hasn't assigned the round name yet for these fixtures.
 
-### 6. Future round dates not verified — ACTION NEEDED
+### 7. Future round dates not verified — ACTION NEEDED
 `ROUND_DATES` and `ROUND_DATE_FALLBACK` fallback dates for R16, QF, SF, F are estimates. Once confirmed, add a `LOCKTIME_OVERRIDE` for each round set to 1 hour before the first match.
 
 ---
 
-## Current tournament state (as of 21 March 2026)
+## Current tournament state (as of 22 March 2026)
 
 - Tournament: ATP Miami Open 2026
-- Stage: R64 in progress, R32 window now open
+- Stage: R32 — pick window now locked (locked at 18:00 UTC), matches underway
 - R32 first match: Sunday 22 March, 3PM EDT / 19:00 UTC
 - R32 pick lock: Sunday 22 March, 2PM EDT / 18:00 UTC (hardcoded LOCKTIME_OVERRIDE)
-- Pick window closes in: ~1d 7h from time of writing
 - Participants: 8 users in test group `6da0f300-ff14-43cb-bcef-ad4ba6709208`
 - Mode: Practice tournament — testing features, no prize money
+- Next action: confirm actual R16 first match time and add `LOCKTIME_OVERRIDE` for R16
 
 ---
 
@@ -262,3 +269,4 @@ Sofascore embed widget limitation. Fix: build custom bracket from API-Tennis dat
 | 20 Mar 2026 | Fixed R64 picks pool — `getAvailablePlayers()` now builds pool from R1 winners + seeded players in R64. Added real health check endpoint (`health.js`). Extended bracket viewer to start at R64. Fixed `Countdown` ReferenceError crashing the app. Added leaderboard pick column (Hidden/player name) and pick history modal. Added urgency banner when pick window closes within 24h. Added survivor progress meter to GroupHome. Added leaderboard reveals picks after lock. |
 | 21 Mar 2026 (session 1) | Fixed R32 pick window timing — corrected ROUND_DATES and ROUND_DATE_FALLBACK to Sun 22 Mar 19:00 UTC; added LOCKTIME_OVERRIDE for R32 at 18:00 UTC. Added `pendingPrevRound` feature — backend tags players with unresolved prev-round matches; frontend shows amber `⚠️ R64 result pending` badge on those players; added banner prompting user to make speculative pick. Fixed bug where `pendingPrevRound` was only computed in the main path — moved set computation before the `roundMatches` conditional so it works in the fallback path (when R32 draw not yet published). Generalised pending-round banner text to work for any round transition. |
 | 21 Mar 2026 (session 2) | Comprehensive mobile layout improvements: removed `display:none` on leaderboard 4th column (Pick was invisible on mobile); fixed `lb-stats-bar` 2×2 grid (was setting `grid-template-columns` on a flex container — no effect; added `display:grid`); hid `.picked-card-hint` on mobile; stacked page headers vertically; fixed invite URL overflow; truncated long display names; made pick history modal full-width; tightened pending badges and button tap targets. |
+| 22 Mar 2026 | Fixed R32 ghost player bug — 33 players showing instead of 32. Root cause: `getAvailablePlayers()` in `picks.js` speculatively added both players from pending R64 matches, but Musetti (withdrew) and Jorda's R64 opponent were added despite the match being effectively settled. Fix: skip speculative addition when one player is already confirmed in the current round's match data. Second fix: Jorda was still showing `⚠️ R64 result pending` badge — `pendingFromPrevRound` was built from all unresolved R64 matches before confirming progression; fix strips confirmed-in-current-round players from the pending set. Both deployed via git plumbing (index.lock workaround). Mac repo resynced — was 31 commits behind, stale lock files removed. Mac repo path: `/Users/mikaeelislam/tennis-survivor`. |
