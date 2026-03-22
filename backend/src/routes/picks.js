@@ -64,8 +64,19 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
           if (m.winnerId) {
             playingThisRound.add(m.winnerId);
           } else {
-            if (m.player1Id) playingThisRound.add(m.player1Id);
-            if (m.player2Id) playingThisRound.add(m.player2Id);
+            // Pending in the API — but check whether one player is already
+            // confirmed in the current round's fixtures. If so, the match is
+            // effectively settled (walkover / withdrawal / API lag) and we must
+            // not speculatively add the other player.
+            const p1Confirmed = m.player1Id && playingThisRound.has(m.player1Id);
+            const p2Confirmed = m.player2Id && playingThisRound.has(m.player2Id);
+            if (!p1Confirmed && !p2Confirmed) {
+              // Genuinely pending — add both speculatively.
+              if (m.player1Id) playingThisRound.add(m.player1Id);
+              if (m.player2Id) playingThisRound.add(m.player2Id);
+            }
+            // If one side is already confirmed, skip — they are already in the
+            // set and the other player should not be added (Musetti / Jorda case).
           }
         });
     }
