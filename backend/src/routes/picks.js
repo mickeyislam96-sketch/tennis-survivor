@@ -53,6 +53,12 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
 
+    // A player already confirmed in the current round's fixtures has clearly
+    // advanced — strip them from the pending set so the "⚠️ result pending"
+    // badge does not appear incorrectly (Jorda case: API has no winner on his
+    // R64 match yet, but he is already confirmed in the R32 draw).
+    playingThisRound.forEach(id => pendingFromPrevRound.delete(id));
+
     // Supplement with players from the previous round who may still advance.
     // Winners are confirmed; players in unresolved matches are added speculatively
     // and flagged pendingPrevRound:true so the UI can warn of the risk.
