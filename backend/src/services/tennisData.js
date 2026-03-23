@@ -311,6 +311,7 @@ export async function getRawFixtures() {
 const LOCKTIME_OVERRIDES = {
   R1:  '2026-03-19T13:00:00Z',
   R32: '2026-03-22T18:00:00Z', // Lock 1h before first R32 match (Sun 22 Mar, 2PM EDT / 18:00 UTC)
+  R16: '2026-03-24T14:00:00Z', // Lock 1h before first R16 match (Mon 24 Mar, 3PM GMT / 14:00 UTC)
 };
 
 export async function getDeadlines() {
