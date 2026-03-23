@@ -53,12 +53,6 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
 
-    // A player already confirmed in the current round's fixtures has clearly
-    // advanced — strip them from the pending set so the "⚠️ result pending"
-    // badge does not appear incorrectly (Jorda case: API has no winner on his
-    // R64 match yet, but he is already confirmed in the R32 draw).
-    playingThisRound.forEach(id => pendingFromPrevRound.delete(id));
-
     // Supplement with players from the previous round who may still advance.
     // Winners are confirmed; players in unresolved matches are added speculatively
     // and flagged pendingPrevRound:true so the UI can warn of the risk.
@@ -87,12 +81,17 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
         });
     }
 
-    return (draw.players || [])
+    const pool = (draw.players || [])
       .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
       .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+
+    // If the main path yields players, return them. If it yields zero (e.g. a mock
+    // draw inconsistency where currentRound participants are already marked eliminated),
+    // fall through to the non-round-filtered fallback below.
+    if (pool.length > 0) return pool;
   }
 
-  // Fallback: the current round's draw isn't published yet.
+  // Fallback: the current round's draw isn't published yet (or main path was empty).
   // Return all non-eliminated players, tagging those with unresolved prev-round matches.
   return (draw.players || [])
     .filter(p => !p.roundEliminated)

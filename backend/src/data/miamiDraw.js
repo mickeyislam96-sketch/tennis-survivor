@@ -185,20 +185,22 @@ function buildMiamiMatches() {
     });
   }
 
-  // ── R64: 32 matches — R1 winner[i] vs seed[i] ────────────────────────────
+  // ── R64: 32 matches — seed[i] vs R1 winner[i] ────────────────────────────
+  // Seed is placed as player1 so that the mock (player1 always wins) correctly
+  // advances seeds into R32 — matching real tournament expectations.
   const byePlayers = MIAMI_PLAYERS.slice(0, SEEDS_WITH_BYES);
   for (let i = 0; i < MATCHES_PER_ROUND.R64; i++) {
     const r1Match = matches[i];
-    const p1 = { id: r1Match.player1Id, name: r1Match.player1Name };
-    const p2 = byePlayers[i];
+    const r1Winner = { id: r1Match.player1Id, name: r1Match.player1Name };
+    const seed = byePlayers[i];
     matches.push({
       id: `m-R64-${i}`,
       round: 'R64',
       matchOrder: i,
-      player1Id: p1.id,
-      player1Name: p1.name,
-      player2Id: p2.id,
-      player2Name: p2.name,
+      player1Id: seed.id,      // seed as player1 → seed wins in mock
+      player1Name: seed.name,
+      player2Id: r1Winner.id,  // R1 winner as player2
+      player2Name: r1Winner.name,
       winnerId: null,
       winnerName: null,
       status: 'scheduled',
@@ -207,14 +209,17 @@ function buildMiamiMatches() {
   }
 
   // ── R32 → R16 → QF → SF → F: pair consecutive winners ───────────────────
+  // R64 winners are the 32 seeds (p1–p32). Pair them in draw order and
+  // propagate player1 (the mock winner) into the next round each time.
   const laterRounds = ['R32', 'R16', 'QF', 'SF', 'F'];
-  let prevWinners = [...MIAMI_PLAYERS.slice(0, 64)];
+  let prevWinners = byePlayers.map(p => ({ id: p.id, name: p.name }));
   for (const round of laterRounds) {
     const count = MATCHES_PER_ROUND[round];
+    const roundMatches = [];
     for (let i = 0; i < count; i++) {
-      const p1 = prevWinners[i * 2]     || MIAMI_PLAYERS[i * 2];
-      const p2 = prevWinners[i * 2 + 1] || MIAMI_PLAYERS[i * 2 + 1];
-      matches.push({
+      const p1 = prevWinners[i * 2];
+      const p2 = prevWinners[i * 2 + 1];
+      const m = {
         id: `m-${round}-${i}`,
         round,
         matchOrder: i,
@@ -226,9 +231,12 @@ function buildMiamiMatches() {
         winnerName: null,
         status: 'scheduled',
         bye: false,
-      });
+      };
+      matches.push(m);
+      roundMatches.push(m);
     }
-    prevWinners = prevWinners.slice(0, count * 2);
+    // Advance player1 of each match as the winner into the next round
+    prevWinners = roundMatches.map(m => ({ id: m.player1Id, name: m.player1Name }));
   }
 
   return matches;
