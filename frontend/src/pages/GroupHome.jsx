@@ -485,18 +485,29 @@ export function GroupHome() {
   // ── Lobby / home ────────────────────────────────────────────
   const activePools   = allPools.filter(p => p.tournament?.status === 'active');
   const upcomingPools = allPools.filter(p => p.tournament?.status === 'upcoming');
+  const ctaPool       = activePools[0] || upcomingPools[0];
 
   return (
     <div className="page home-page">
       <div className="home-hero">
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <p className="home-hero-eyebrow">🎾 Year-round ATP tennis prediction</p>
+          <p className="home-hero-eyebrow">🎾 ATP Masters 1000 · Survivor fantasy</p>
           <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
-            Pick one player per round. If they win, you survive.<br />
-            Last one standing takes the prize.
+            Pick one player per round. If they lose, you're out.<br />
+            Last one standing takes the entire prize pool.
           </p>
+          {ctaPool && !ctaPool.isMember && (
+            <Link
+              to={`/group/${ctaPool.id}`}
+              className="home-hero-cta"
+            >
+              {ctaPool.tournament?.status === 'upcoming'
+                ? `Enter ${ctaPool.tournament?.shortName || 'now'} free →`
+                : 'Enter now →'}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -605,6 +616,11 @@ function PoolCard({ pool }) {
         )}
         {t?.status === 'upcoming' && t?.startDate && (
           <span className="pool-card-stat">Starts {new Date(t.startDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}</span>
+        )}
+        {t?.status === 'upcoming' && (
+          <span className="pool-card-stat pool-card-registered">
+            {pool.memberCount > 0 ? `${pool.memberCount} already registered` : 'Be first to join'}
+          </span>
         )}
         {!t?.drawAvailable && (
           <span className="pool-card-stat pool-card-tbc">Draw TBC</span>

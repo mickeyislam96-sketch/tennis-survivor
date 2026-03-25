@@ -1109,6 +1109,28 @@ input, select { font-family: var(--font); }
   max-width: 480px;
 }
 
+.home-hero-cta {
+  display: inline-block;
+  margin-top: 1.4rem;
+  background: #fff;
+  color: #14532d;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.6rem 1.3rem;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  letter-spacing: 0.01em;
+}
+.home-hero-cta:hover {
+  background: #f0fdf4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  text-decoration: none;
+  color: #14532d;
+}
+
 /* ── How it works section ──────────────────────────────────── */
 .how-it-works {
   margin-bottom: 2.5rem;
@@ -2329,6 +2351,14 @@ input, select { font-family: var(--font); }
 .pool-card-tbc {
   background: #fef9c3;
   color: #92400e;
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  font-weight: 600;
+}
+
+.pool-card-registered {
+  background: #f0fdf4;
+  color: #166534;
   border-radius: 4px;
   padding: 0.1rem 0.45rem;
   font-weight: 600;

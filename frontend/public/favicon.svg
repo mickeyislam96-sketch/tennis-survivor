@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Tennis ball: green circle with white seam curves -->
+  <circle cx="16" cy="16" r="15" fill="#16a34a"/>
+  <circle cx="16" cy="16" r="15" fill="none" stroke="#0d3d22" stroke-width="0.75"/>
+  <!-- Left seam -->
+  <path d="M9 7 Q3 16 9 25" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Right seam -->
+  <path d="M23 7 Q29 16 23 25" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+</svg>
