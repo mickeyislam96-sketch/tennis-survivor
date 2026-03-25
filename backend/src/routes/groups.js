@@ -134,7 +134,10 @@ groupsRouter.post('/', async (req, res) => {
   const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
   const adminId = adminUserId || req.headers['x-user-id'];
   const groupName = (name || 'My Pool').trim();
-  const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
+  // Generate invite code: short tournament prefix + random alphanumeric suffix
+  const prefix = groupName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const inviteCode = `${prefix}-${suffix}`;
   const tournament = tournamentId || 'indian-wells-2026';
 
   if (isUUID(adminId)) {

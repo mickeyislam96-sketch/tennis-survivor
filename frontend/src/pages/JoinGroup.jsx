@@ -42,13 +42,17 @@ export function JoinGroup() {
     }
     setAuthLoading(true);
     try {
+      let authUser;
       if (authMode === 'register') {
         if (!authName.trim()) { setAuthError('Please enter your name.'); setAuthLoading(false); return; }
-        await register(authEmail.trim(), authName.trim(), authPassword);
+        authUser = await register(authEmail.trim(), authName.trim(), authPassword);
       } else {
-        await login(authEmail.trim(), authPassword);
+        authUser = await login(authEmail.trim(), authPassword);
       }
-      // After auth succeeds the component will re-render with userId set
+      // Auto-join the group immediately after auth succeeds
+      if (authUser && group) {
+        join(authUser);
+      }
     } catch (err) {
       setAuthError(err.message || 'Something went wrong. Please try again.');
     } finally {

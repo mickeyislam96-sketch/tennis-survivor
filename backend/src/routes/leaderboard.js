@@ -235,7 +235,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       survivedRounds,
       eliminatedRound: eliminatedRound || m.eliminatedRound,
       isAlive: picks.length > 0 ? isAlive : m.isAlive,
-      currentRoundPick: currentRound ? null : (currentPick ? currentPick.playerName : null),
+      currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
     };
   });
 
@@ -249,5 +249,6 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     leaderboard: [...alive, ...eliminated],
     aliveCount: alive.length,
     currentRound,
+    roundIsLocked,
   });
 });

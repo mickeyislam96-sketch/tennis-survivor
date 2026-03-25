@@ -1,11 +1,37 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email.js';
 
 export const authRouter = Router();
+
+// Rate limiters — protect against brute-force and spam
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 10,                     // 10 attempts per window
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,  // 1 hour
+  max: 5,                     // 5 registrations per hour per IP
+  message: { error: 'Too many accounts created. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,  // 1 hour
+  max: 3,                     // 3 reset requests per hour per IP
+  message: { error: 'Too many password reset requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ââ GET /api/auth/me?userId= âââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me', async (req, res) => {
@@ -31,7 +57,7 @@ authRouter.get('/me', async (req, res) => {
 });
 
 // ââ POST /api/auth/register ââââââââââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/register', async (req, res) => {
+authRouter.post('/register', registerLimiter, async (req, res) => {
   const { email, displayName, password } = req.body;
 
   if (!email?.trim())        return res.status(400).json({ error: 'Email is required.' });
@@ -73,7 +99,7 @@ authRouter.post('/register', async (req, res) => {
 });
 
 // ââ POST /api/auth/login âââââââââââââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
@@ -112,7 +138,7 @@ authRouter.post('/login', async (req, res) => {
 });
 
 // ââ POST /api/auth/forgot-password âââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/forgot-password', async (req, res) => {
+authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
 

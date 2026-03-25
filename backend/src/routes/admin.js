@@ -162,6 +162,27 @@ adminRouter.get('/status', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/regenerate-invite ─────────────────────────────────────────
+// Generate a new invite code for a group.
+// Body: { secret, groupId }
+adminRouter.post('/regenerate-invite', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { groupId } = req.body;
+  if (!groupId) return res.status(400).json({ error: 'groupId is required' });
+  try {
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    // Get group name for prefix
+    const group = await pool.query('SELECT name FROM groups WHERE id = $1::uuid', [groupId]);
+    if (group.rows.length === 0) return res.status(404).json({ error: 'Group not found' });
+    const prefix = group.rows[0].name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+    const newCode = `${prefix}-${suffix}`;
+    await pool.query('UPDATE groups SET invite_code = $1 WHERE id = $2::uuid', [newCode, groupId]);
+    res.json({ ok: true, groupId, inviteCode: newCode });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
