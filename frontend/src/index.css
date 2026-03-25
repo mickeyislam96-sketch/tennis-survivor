@@ -1,7 +1,7 @@
 :root {
-  --bg: #f1f5f9;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-alt: #f8fafc;
+  --surface-alt: #f5f7fa;
   --border: #e2e8f0;
   --text: #0f172a;
   --text-muted: #64748b;
@@ -20,6 +20,9 @@
   --font: 'Outfit', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Mono', ui-monospace, monospace;
   --transition: 0.15s ease;
+  --nav-bg: #0f3d20;
+  --nav-text: rgba(255,255,255,0.85);
+  --nav-active: #4ade80;
 }
 
 * { box-sizing: border-box; }
@@ -612,10 +615,12 @@ input, select { font-family: var(--font); }
 .home-section-title {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 3.5px solid var(--accent);
 }
 
 .home-section-sub {
@@ -672,7 +677,7 @@ input, select { font-family: var(--font); }
 ══════════════════════════════════════════════════════════════ */
 
 .group-hero {
-  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #0a2e14 0%, #14532d 40%, #16a34a 100%);
   border-radius: var(--radius);
   padding: 2rem 2rem 1.75rem;
   margin-bottom: 2rem;
@@ -1122,6 +1127,8 @@ input, select { font-family: var(--font); }
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 1rem;
+  padding-left: 0.75rem;
+  border-left: 3.5px solid var(--accent);
 }
 .hiw-steps {
   display: grid;
@@ -2884,17 +2891,17 @@ input, select { font-family: var(--font); }
 /* ── Header sign-in button + user menu ──────────────────────── */
 .btn-signin {
   padding: 0.4rem 0.9rem;
-  border: 1.5px solid var(--accent);
+  border: 1.5px solid rgba(255,255,255,0.35);
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--accent);
+  color: #ffffff;
   font-family: var(--font);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.btn-signin:hover { background: var(--accent); color: #fff; }
+.btn-signin:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); color: #fff; }
 
 .header-user { position: relative; }
 
@@ -3047,15 +3054,15 @@ input, select { font-family: var(--font); }
   padding: 0.4rem 0.9rem;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #fff;
+  background: var(--nav-active);
+  color: #0f3d20;
   font-family: var(--font);
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.15s;
 }
-.btn-register:hover { background: var(--accent-dark); }
+.btn-register:hover { background: #86efac; }
 
 /* ── Forgot password / reset password ───────────────────────── */
 .forgot-link {
@@ -3637,4 +3644,222 @@ input, select { font-family: var(--font); }
   .modal-auth-header { padding: 1.25rem 1.25rem 1rem; }
   .modal-auth-body { padding: 1rem 1.25rem 1.25rem; }
   .modal-box--auth { max-width: 100%; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HOMEPAGE REDESIGN — March 2026
+══════════════════════════════════════════════════════════════ */
+
+/* ── Hero: taller on mobile ─────────────────────────────────── */
+.home-hero--tall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 3.5rem 2.5rem;
+}
+@media (max-width: 680px) {
+  .home-hero--tall {
+    min-height: 85vh;
+    padding: 3rem 1.5rem;
+    border-radius: 0;
+    margin: -1.25rem -1rem 2rem;
+    width: calc(100% + 2rem);
+  }
+}
+
+.home-hero-cta {
+  display: inline-flex;
+  margin-top: 1.5rem;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);
+}
+
+.home-hero-countdown-pill {
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  backdrop-filter: blur(4px);
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+}
+
+/* ── Social proof strip ─────────────────────────────────────── */
+.social-proof-strip {
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.9rem 1rem;
+  margin: -0.5rem 0 2rem;
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+/* ── How-it-works: icon accents ─────────────────────────────── */
+.hiw-step-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* ── How-it-works: vertical stack on mobile with accent line ── */
+@media (max-width: 680px) {
+  .hiw-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 1.5rem;
+    border-left: 3px solid var(--accent-light);
+  }
+  .hiw-step {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+    padding: 0.75rem 0 1.25rem 0.75rem;
+    position: relative;
+  }
+  .hiw-step::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 1rem;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    transform: translateX(-50%);
+    margin-left: 1.5px;
+  }
+}
+
+/* ── Pool card: clay court accent for upcoming ──────────────── */
+.pool-card--upcoming {
+  border-top: 4px solid #c2410c;
+}
+.pool-card--upcoming .pool-card-name {
+  font-size: 1.25rem;
+}
+.pool-card--upcoming .pool-card-bottom {
+  padding-top: 1rem;
+}
+.pool-card-join-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 0.75rem;
+}
+@media (max-width: 680px) {
+  .pool-card--upcoming {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+
+/* ── Group hero stat numbers: oversized ─────────────────────── */
+.group-stat-value--big {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+@media (max-width: 680px) {
+  .group-stat-value--big {
+    font-size: 2.25rem;
+  }
+}
+
+/* ── Leaderboard: big stat numbers ──────────────────────────── */
+.lb-stat-value--big {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.lb-stat-alive .lb-stat-value--big { color: var(--success); }
+.lb-stat-out .lb-stat-value--big { color: var(--danger); }
+@media (max-width: 680px) {
+  .lb-stat-value--big { font-size: 2rem; }
+}
+
+/* ── Leaderboard: solid status pills ────────────────────────── */
+.status-alive-solid {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--success);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  white-space: nowrap;
+}
+.status-out-solid {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  white-space: nowrap;
+}
+
+/* ── Pick screen: massive countdown ─────────────────────────── */
+.countdown-card--big {
+  background: #fffbeb;
+  border: 2px solid #fde68a;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  text-align: center;
+}
+.countdown-card--big .countdown-label {
+  font-size: 0.85rem;
+  color: #92400e;
+  font-weight: 600;
+}
+.countdown-card--big .countdown-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #78350f;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.countdown-closing-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #dc2626;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.countdown-closing-soon::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #dc2626;
+  border-radius: 50%;
+  animation: pulse-live 1.5s ease-in-out infinite;
+}
+@media (max-width: 680px) {
+  .countdown-card--big .countdown-value { font-size: 1.75rem; }
 }

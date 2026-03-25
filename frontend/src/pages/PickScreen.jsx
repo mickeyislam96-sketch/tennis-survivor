@@ -284,12 +284,19 @@ export function PickScreen() {
       </div>
 
       {/* Window is open: closing countdown */}
-      {isOpen && deadline && (
-        <div className="countdown-card">
-          <span className="countdown-label">Pick window closes in</span>
-          <Countdown to={deadline} onExpire={fetchDeadlines} />
-        </div>
-      )}
+      {isOpen && deadline && (() => {
+        const msLeft = new Date(deadline) - new Date();
+        const closingSoon = msLeft > 0 && msLeft < 24 * 60 * 60 * 1000;
+        return (
+          <div className="countdown-card--big">
+            <span className="countdown-label">Pick window closes in</span>
+            <Countdown to={deadline} onExpire={fetchDeadlines} />
+            {closingSoon && (
+              <span className="countdown-closing-soon">Closing soon</span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Window not yet open: show open + close times */}
       {isNotYetOpen && (

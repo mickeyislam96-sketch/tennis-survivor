@@ -366,24 +366,24 @@ export function GroupHome() {
             </p>
             <h1 className="group-hero-title">{group.name}</h1>
             <div className="group-hero-stats">
+              {totalMembers > 0 && (
+                <>
+                  <div className="group-hero-stat">
+                    <span className="group-stat-value group-stat-value--big">{aliveMembers}</span>
+                    <span className="group-stat-label">Still in</span>
+                  </div>
+                  <div className="group-hero-divider" />
+                </>
+              )}
               <div className="group-hero-stat">
-                <span className="group-stat-value">{fmtGBP(group.prizePoolCents)}</span>
+                <span className="group-stat-value group-stat-value--big">{fmtGBP(group.prizePoolCents)}</span>
                 <span className="group-stat-label">Prize pool</span>
               </div>
               <div className="group-hero-divider" />
               <div className="group-hero-stat">
-                <span className="group-stat-value">{fmtGBP(group.entryFeeCents)}</span>
+                <span className="group-stat-value group-stat-value--big">{fmtGBP(group.entryFeeCents)}</span>
                 <span className="group-stat-label">Entry fee</span>
               </div>
-              {totalMembers > 0 && (
-                <>
-                  <div className="group-hero-divider" />
-                  <div className="group-hero-stat">
-                    <span className="group-stat-value">{aliveMembers}<span className="group-stat-total"> / {totalMembers}</span></span>
-                    <span className="group-stat-label">Still in</span>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -485,65 +485,40 @@ export function GroupHome() {
   // ── Lobby / home ────────────────────────────────────────────
   const activePools   = allPools.filter(p => p.tournament?.status === 'active');
   const upcomingPools = allPools.filter(p => p.tournament?.status === 'upcoming');
-  const ctaPool       = activePools[0] || upcomingPools[0];
+  const ctaPool       = upcomingPools[0] || activePools[0];
+
+  // Monte Carlo start date for countdown pill
+  const mcStartDate = ctaPool?.tournament?.startDate;
+  const daysToStart = mcStartDate ? Math.max(0, Math.ceil((new Date(mcStartDate) - new Date()) / 86400000)) : null;
 
   return (
     <div className="page home-page">
-      <div className="home-hero">
+      {/* ── Hero: ~85vh on mobile ── */}
+      <div className="home-hero home-hero--tall">
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <p className="home-hero-eyebrow">🎾 ATP Masters 1000 · Survivor fantasy</p>
+          <p className="home-hero-eyebrow">ATP Masters 1000 · Survivor fantasy</p>
           <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
             Pick one player per round. If they lose, you're out.<br />
             Last one standing takes the entire prize pool.
           </p>
-          {ctaPool && !ctaPool.isMember && (
-            <Link
-              to={`/group/${ctaPool.id}`}
-              className="home-hero-cta"
-            >
+          {ctaPool && (
+            <Link to={`/group/${ctaPool.id}`} className="btn primary btn-lg home-hero-cta">
               {ctaPool.tournament?.status === 'upcoming'
-                ? `Enter ${ctaPool.tournament?.shortName || 'now'} free →`
+                ? `Enter ${ctaPool.tournament?.shortName || ''} free →`
                 : 'Enter now →'}
             </Link>
+          )}
+          {daysToStart !== null && daysToStart > 0 && (
+            <div className="home-hero-countdown-pill">
+              🎾 {ctaPool.tournament?.shortName || 'Tournament'} starts in {daysToStart} day{daysToStart !== 1 ? 's' : ''}
+            </div>
           )}
         </div>
       </div>
 
-      {/* How it works */}
-      <section className="how-it-works">
-        <h2 className="hiw-heading">How it works</h2>
-        <div className="hiw-steps">
-          <div className="hiw-step">
-            <div className="hiw-step-num">1</div>
-            <h3 className="hiw-step-title">Enter a pool</h3>
-            <p className="hiw-step-desc">Join an open tournament pool below, or use a friend's invite code to enter their private group.</p>
-          </div>
-          <div className="hiw-step">
-            <div className="hiw-step-num">2</div>
-            <h3 className="hiw-step-title">Pick one player</h3>
-            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
-          </div>
-          <div className="hiw-step">
-            <div className="hiw-step-num">3</div>
-            <h3 className="hiw-step-title">Last one standing wins</h3>
-            <p className="hiw-step-desc">If your player loses, you're out. Run out of valid picks and you're eliminated — so don't burn your best players too soon. Outlast everyone else and take the entire prize pool.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Active tournaments */}
-      {activePools.length > 0 && (
-        <section className="home-section">
-          <h2 className="home-section-title">Open now</h2>
-          <div className="pool-card-list">
-            {activePools.map(p => <PoolCard key={p.id} pool={p} />)}
-          </div>
-        </section>
-      )}
-
-      {/* Upcoming tournaments */}
+      {/* ── Pool cards: upcoming first, then active ── */}
       {upcomingPools.length > 0 && (
         <section className="home-section">
           <h2 className="home-section-title">Coming soon</h2>
@@ -553,7 +528,51 @@ export function GroupHome() {
         </section>
       )}
 
-      {/* My pools */}
+      {/* ── Social proof strip ── */}
+      {ctaPool && (
+        <div className="social-proof-strip">
+          🎾 {ctaPool.memberCount > 0
+            ? `${ctaPool.memberCount} player${ctaPool.memberCount !== 1 ? 's' : ''} already registered for ${ctaPool.tournament?.shortName || 'the next tournament'}`
+            : `Be the first to join ${ctaPool.tournament?.shortName || 'the next tournament'}`}
+        </div>
+      )}
+
+      {/* ── How it works ── */}
+      <section className="how-it-works">
+        <h2 className="hiw-heading">How it works</h2>
+        <div className="hiw-steps">
+          <div className="hiw-step">
+            <span className="hiw-step-icon">🏆</span>
+            <div className="hiw-step-num">1</div>
+            <h3 className="hiw-step-title">Enter a pool</h3>
+            <p className="hiw-step-desc">Join an open tournament pool, or use a friend's invite code to enter their private group.</p>
+          </div>
+          <div className="hiw-step">
+            <span className="hiw-step-icon">🎾</span>
+            <div className="hiw-step-num">2</div>
+            <h3 className="hiw-step-title">Pick one player</h3>
+            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
+          </div>
+          <div className="hiw-step">
+            <span className="hiw-step-icon">🥇</span>
+            <div className="hiw-step-num">3</div>
+            <h3 className="hiw-step-title">Last one standing wins</h3>
+            <p className="hiw-step-desc">If your player loses, you're out. Don't burn your best players too soon. Outlast everyone and take the prize pool.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Active tournaments ── */}
+      {activePools.length > 0 && (
+        <section className="home-section">
+          <h2 className="home-section-title">Open now</h2>
+          <div className="pool-card-list">
+            {activePools.map(p => <PoolCard key={p.id} pool={p} />)}
+          </div>
+        </section>
+      )}
+
+      {/* ── My pools ── */}
       {groups.length > 0 && (
         <section className="home-section">
           <h2 className="home-section-title">Your pools</h2>
@@ -592,8 +611,10 @@ function PoolCard({ pool }) {
   const statusLabel = t?.status === 'active' ? 'Live' : 'Coming soon';
   const statusClass = t?.status === 'active' ? 'pool-status--active' : 'pool-status--upcoming';
 
+  const isUpcoming = t?.status === 'upcoming';
+
   return (
-    <Link to={`/group/${pool.id}`} className="pool-card">
+    <Link to={`/group/${pool.id}`} className={`pool-card${isUpcoming ? ' pool-card--upcoming' : ''}`}>
       <div className="pool-card-top">
         <div>
           <span className={`pool-status-badge ${statusClass}`}>{statusLabel}</span>
@@ -625,9 +646,15 @@ function PoolCard({ pool }) {
         {!t?.drawAvailable && (
           <span className="pool-card-stat pool-card-tbc">Draw TBC</span>
         )}
-        <span className="pool-card-cta">
-          {pool.isMember ? 'Open pool →' : isFree ? 'Enter free →' : 'Enter →'}
-        </span>
+        {isUpcoming ? (
+          <span className="btn primary pool-card-join-btn">
+            {pool.isMember ? 'Open pool →' : isFree ? 'Join pool free →' : `Join pool ${fmtGBP(pool.entryFeeCents)} →`}
+          </span>
+        ) : (
+          <span className="pool-card-cta">
+            {pool.isMember ? 'Open pool →' : isFree ? 'Enter free →' : 'Enter →'}
+          </span>
+        )}
       </div>
     </Link>
   );

@@ -175,21 +175,21 @@ export function Leaderboard() {
 
       {/* Stats bar */}
       <div className="lb-stats-bar">
-        <div className="lb-stat">
-          <span className="lb-stat-value">{fmtGBP(group?.prizePoolCents || 0)}</span>
-          <span className="lb-stat-label">Prize pool</span>
-        </div>
         <div className="lb-stat lb-stat-alive">
-          <span className="lb-stat-value">{aliveCount}</span>
+          <span className="lb-stat-value lb-stat-value--big">{aliveCount}</span>
           <span className="lb-stat-label">Still in</span>
         </div>
         <div className="lb-stat lb-stat-out">
-          <span className="lb-stat-value">{eliminated}</span>
+          <span className="lb-stat-value lb-stat-value--big">{eliminated}</span>
           <span className="lb-stat-label">Eliminated</span>
         </div>
         <div className="lb-stat">
-          <span className="lb-stat-value">{totalEntrants}</span>
+          <span className="lb-stat-value lb-stat-value--big">{totalEntrants}</span>
           <span className="lb-stat-label">Total entrants</span>
+        </div>
+        <div className="lb-stat">
+          <span className="lb-stat-value">{fmtGBP(group?.prizePoolCents || 0)}</span>
+          <span className="lb-stat-label">Prize pool</span>
         </div>
       </div>
 
@@ -242,8 +242,8 @@ export function Leaderboard() {
                   </td>
                   <td className="lb-td-status">
                     {m.isAlive
-                      ? <span className="status-alive">Alive</span>
-                      : <span className="status-out">Eliminated</span>
+                      ? <span className="status-alive-solid">Alive</span>
+                      : <span className="status-out-solid">Eliminated</span>
                     }
                   </td>
                   <td className="lb-td-progress">

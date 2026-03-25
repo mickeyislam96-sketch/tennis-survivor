@@ -343,7 +343,7 @@ export function Layout({ children }) {
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="footer-copy">© 2026 Final Serve-ivor · A game of skill</span>
+          <span className="footer-copy">A game of skill · ATP · 2026</span>
           <div className="footer-links">
             <NavLink to="/terms" className="footer-link">Terms &amp; Conditions</NavLink>
           </div>
