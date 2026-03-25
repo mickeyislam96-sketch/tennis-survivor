@@ -32,7 +32,12 @@ try {
   console.error('Schema init error:', err.message);
 }
 
-app.use(cors({ origin: '*', credentials: false }));
+const ALLOWED_ORIGINS = [
+  'https://finalserveivor.com',
+  'https://tennis-survivor.vercel.app',
+  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
+];
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 
 app.use('/api/groups', groupsRouter);

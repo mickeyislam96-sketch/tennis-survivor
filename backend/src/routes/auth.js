@@ -140,7 +140,7 @@ authRouter.post('/forgot-password', async (req, res) => {
       [u.id, token, expiresAt]
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://finalserveivor.com';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     await sendPasswordResetEmail({

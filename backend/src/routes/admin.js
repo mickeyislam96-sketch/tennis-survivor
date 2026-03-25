@@ -31,7 +31,11 @@ import { pool } from '../db/pool.js';
 export const adminRouter = Router();
 
 function getAdminSecret() {
-  return process.env.ADMIN_SECRET || 'fsv-admin-2026';
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) {
+    console.error('[admin] ADMIN_SECRET env var is not set — all admin requests will be rejected');
+  }
+  return secret;
 }
 
 function checkSecret(req, res) {

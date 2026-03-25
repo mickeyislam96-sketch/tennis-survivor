@@ -76,6 +76,19 @@ export async function processRoundResults(round) {
  * Calling it before the window closes would unfairly eliminate users who still have time.
  */
 export async function eliminateNonPickers(round) {
+  // Safety guard: verify the pick window is locked before eliminating anyone
+  try {
+    const deadlines = await getDeadlines();
+    const roundDeadline = deadlines.find(d => d.round === round);
+    if (roundDeadline && !roundDeadline.isLocked) {
+      console.log(`[results] Skipping non-picker elimination for ${round} — pick window still open`);
+      return 0;
+    }
+  } catch (err) {
+    console.warn(`[results] Could not verify deadline for ${round}, skipping elimination to be safe:`, err.message);
+    return 0;
+  }
+
   console.log(`[results] Eliminating non-pickers for ${round}...`);
   const result = await pool.query(
     `UPDATE group_members gm
