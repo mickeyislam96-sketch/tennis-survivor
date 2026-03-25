@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 25 March 2026. Keep this file updated at the end of every session.
+> Last updated: 25 March 2026 (session 2). Keep this file updated at the end of every session.
 
 ---
 
@@ -179,6 +179,7 @@ R32: '2026-04-07T09:00:00Z'  // estimate — update once confirmed
 | `backend/src/data/mockDraw.js` | Dispatcher — routes to correct tournament mock based on `TOURNAMENT.id` |
 | `backend/src/data/miamiDraw.js` | Miami mock draw (corrected — seeds win R64, winners propagate correctly) |
 | `backend/src/data/monteCarloMockDraw.js` | Monte Carlo mock draw — 8 seeds + 48 non-seeds, correct R1/R32/R16/QF/SF/F structure |
+| `backend/src/data/mockGroups.js` | Mock pool entries for landing page — g1 (Indian Wells, demo), g2 (Miami, completed), g3 (Monte Carlo, upcoming "Coming soon" card) |
 | `backend/src/services/resultsProcessor.js` | Results grading — `processRoundResults()` grades picks; `autoProcessResults()` calls `eliminateNonPickers()` only when window is confirmed locked |
 
 ### Frontend
@@ -220,7 +221,7 @@ R32: '2026-04-07T09:00:00Z'  // estimate — update once confirmed
 | `GET /api/admin/status` | Admin status — cache info, runtime overrides, tournament config |
 | `GET /api/admin/picks/:groupId` | All picks for a group (admin view, unredacted) |
 
-All `/api/admin/*` routes require `Authorization: Bearer <ADMIN_SECRET>` header.
+All `/api/admin/*` routes require `?secret=<ADMIN_SECRET>` as a query param (GET) or `{ secret: "..." }` in the request body (POST). **Not** a header — the code checks `req.body?.secret || req.query?.secret`.
 
 ---
 
@@ -300,17 +301,23 @@ Matches with `round: null` in the raw API are not detected as pending. Root caus
 ## Current tournament state (as of 25 March 2026)
 
 - Miami Open 2026: **COMPLETED** — practice tournament, all users eliminated
-- Next tournament: **Rolex Monte-Carlo Masters 2026** (~6–13 April 2026)
+- Next tournament: **Rolex Monte-Carlo Masters 2026** (6–13 April 2026)
 - Draw release: ~4 April 2026
 - Target launch date: ~2 April 2026 (4+ days before play begins)
-- Current backend: switching to Monte Carlo pending Railway env var update
-- `drawAvailable: false` for Monte Carlo in both tournaments.js files — users will see "Draw not yet released" until the draw drops
+- `ACTIVE_TOURNAMENT=monte-carlo-2026` — **confirmed set in Railway**
+- `ADMIN_SECRET=fsv-mc26-9d4e7f2a1b8c3065` — **confirmed set in Railway** (use `?secret=` query param)
+- `MONTE_CARLO_TOURNAMENT_KEY` — **NOT YET SET** — obtain from API-Tennis ~4 April
+- `drawAvailable: false` for Monte Carlo in both `tournaments.js` files — users will see "Draw TBC" until the draw drops
+- DB state: 8 users, 1 group, 13 picks (all from Miami practice), 0 alive
+- Landing page: "Coming soon" Monte Carlo card live and confirmed ✓
 
-**Immediate actions needed:**
-1. Set Railway env vars: `ACTIVE_TOURNAMENT=monte-carlo-2026`, `ADMIN_SECRET=<strong secret>`, `MONTE_CARLO_TOURNAMENT_KEY=<from API-Tennis>`
-2. Verify API round names via `/api/draw/debug` once key is set
-3. Update `lockTimeOverrides` for all Monte Carlo rounds once schedule confirmed
-4. Set `drawAvailable: true` + `status: 'active'` in both `tournaments.js` files when draw releases
+**Remaining actions before launch (~2 April):**
+1. Upgrade Railway plan to Hobby ($5/month) before 6 April — trial expires mid-tournament otherwise ⚠️ PAYMENT REQUIRED BY MICKEY
+2. Share link with test users (can join Monte Carlo pool now via "Enter free →" on landing page)
+3. Add `MONTE_CARLO_TOURNAMENT_KEY` to Railway once obtained from API-Tennis (~4 April)
+4. Verify API round names via `/api/draw/debug` once key is set — update `roundNameOverrides` in `monte-carlo-2026.js` if needed
+5. Update `lockTimeOverrides` for R16, QF, SF, F once the official schedule is published (typically 1-2 days before tournament)
+6. Set `drawAvailable: true` + `status: 'active'` in both `frontend/src/data/tournaments.js` and `backend/src/data/tournaments.js` when draw releases (~4 April), then push and deploy
 
 ---
 
@@ -324,4 +331,5 @@ Matches with `round: null` in the raw API are not detected as pending. Root caus
 | 21 Mar 2026 (session 2) | Comprehensive mobile layout improvements: leaderboard 4th column now visible; lb-stats-bar 2×2 grid fixed; page headers stack vertically; invite URL overflow fixed; pick history modal full-width. |
 | 22 Mar 2026 | Fixed R32 ghost player bug (33 instead of 32). Fixed false pendingPrevRound badge on confirmed players. Both fixes deployed via git plumbing. Mac repo resynced (was 31 commits behind). |
 | 23 Mar 2026 | Fixed R16 (and QF/SF/F) pick pool returning 0 players. Root cause: mock draw had seeds losing in R64. Fixed seed order in miamiDraw.js, added winner propagation. Added safety net in picks.js. |
-| 25 Mar 2026 | **Major production overhaul for Monte Carlo launch.** Tournament-agnostic architecture: `ACTIVE_TOURNAMENT` env var, per-tournament config objects (miami-2026, monte-carlo-2026), mockDraw.js dispatcher, monteCarloMockDraw.js. Full rewrite of tennisData.js: 2-min cache with thundering herd protection, 3-attempt retry, stale fallback, runtime lock overrides, tournament-agnostic deadlines. Admin router (admin.js) with 7 endpoints for manual control. Fixed critical `eliminateNonPickers` bug (was firing during open window). Fixed leaderboard R1 pick visibility. DrawViewer.jsx fully dynamic (no hardcoded round structures, Sofascore iframe removed). Both tournaments.js files updated. Deployed via /tmp clone. Vercel confirmed READY. |
+| 25 Mar 2026 (session 1) | **Major production overhaul for Monte Carlo launch.** Tournament-agnostic architecture: `ACTIVE_TOURNAMENT` env var, per-tournament config objects (miami-2026, monte-carlo-2026), mockDraw.js dispatcher, monteCarloMockDraw.js. Full rewrite of tennisData.js: 2-min cache with thundering herd protection, 3-attempt retry, stale fallback, runtime lock overrides, tournament-agnostic deadlines. Admin router (admin.js) with 7 endpoints for manual control. Fixed critical `eliminateNonPickers` bug (was firing during open window). Fixed leaderboard R1 pick visibility. DrawViewer.jsx fully dynamic (no hardcoded round structures, Sofascore iframe removed). Both tournaments.js files updated. Deployed via /tmp clone. Vercel confirmed READY. Railway env vars set: `ACTIVE_TOURNAMENT=monte-carlo-2026`, `ADMIN_SECRET=fsv-mc26-9d4e7f2a1b8c3065`. |
+| 25 Mar 2026 (session 2) | Added Monte Carlo "Coming soon" pool card to landing page — `mockGroups.js` g3 entry with `tournamentId: 'monte-carlo-2026'`. Deployed, confirmed live. Group page (`/group/g3`) renders correctly: "Registration open", draw date Apr 4, "Tournament begins Mon 6 Apr", "Join free →". Fixed CLAUDE.md admin auth docs (uses `?secret=` query param, not Authorization header). Confirmed admin endpoint working with correct secret. |
