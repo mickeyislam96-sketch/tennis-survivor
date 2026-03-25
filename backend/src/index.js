@@ -34,6 +34,7 @@ try {
 
 const ALLOWED_ORIGINS = [
   'https://finalserveivor.com',
+  'https://www.finalserveivor.com',
   'https://tennis-survivor.vercel.app',
   ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
 ];
