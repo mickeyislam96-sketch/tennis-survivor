@@ -19,6 +19,16 @@ export const MOCK_GROUPS = [
     adminUserId: 'u1',
     createdAt: new Date().toISOString()
   },
+  {
+    id: 'g3',
+    name: 'Monte Carlo 2026 Pool',
+    inviteCode: 'MONTE-CARLO-2026',
+    entryFeeCents: 0,          // Free entry for the Monte Carlo launch pool
+    prizePoolCents: 0,
+    tournamentId: 'monte-carlo-2026',
+    adminUserId: 'u1',
+    createdAt: new Date().toISOString()
+  },
 ];
 
 export const MOCK_USERS = [
