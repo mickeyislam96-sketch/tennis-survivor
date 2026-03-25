@@ -36,11 +36,11 @@ export function TermsAndConditions() {
       <section className="terms-section">
         <h2>3. Accounts</h2>
         <p>
-          You must register an account to participate. Each individual may hold only one account.
-          Creating multiple accounts, sharing accounts, or allowing another person to submit picks
-          on your behalf is prohibited and grounds for immediate disqualification without refund.
-          You are responsible for maintaining the security of your account credentials. The operator
-          is not liable for any loss arising from unauthorised access to your account.
+          You must register an account to participate. You may hold more than one account, but
+          each account entered into a pool requires its own entry fee and is treated as a
+          separate participant. You are responsible for maintaining the security of your account
+          credentials. The operator is not liable for any loss arising from unauthorised access
+          to your account.
         </p>
       </section>
 
@@ -96,10 +96,10 @@ export function TermsAndConditions() {
       <section className="terms-section">
         <h2>6a. Overlapping Rounds</h2>
         <p>
-          Some ATP tournament formats create a structural overlap between rounds. For example, at
-          Masters 1000 events, top seeds receive first-round byes and enter the draw at a later
-          stage. This means the pick window for a subsequent round may open and close while matches
-          from the previous round are still in progress.
+          ATP tournaments vary in draw size and structure. In some formats, top-seeded players
+          receive byes and enter the draw at a later stage. This can create a structural overlap
+          where the pick window for a subsequent round opens and closes while matches from the
+          previous round are still in progress.
         </p>
         <p>
           In this situation, you may need to submit your next-round pick before your current-round
@@ -123,14 +123,17 @@ export function TermsAndConditions() {
         <p>
           If a match is decided by walkover (where one player does not take to the court),
           retirement (where a player withdraws during the match), or disqualification, the
-          advancing player is treated as the winner for the purposes of this competition. If you
-          selected the advancing player, your pick counts as correct. If you selected the player
-          who withdrew, retired, or was disqualified, your pick counts as incorrect and you are
-          eliminated.
+          player who retires, withdraws, or is disqualified is treated as having lost the match.
+          If your chosen player is the one who retires, walks over, or is disqualified, your
+          pick counts as a loss and you are eliminated.
         </p>
         <p>
-          If both players are unable to complete the match and the ATP assigns a replacement or
-          the match is removed from the draw entirely, the operator will determine how affected
+          If your chosen player's opponent retires, walks over, or is disqualified, your chosen
+          player advances and your pick counts as correct.
+        </p>
+        <p>
+          If both players are unable to complete the match and the ATP removes the match from
+          the draw entirely or assigns a replacement, the operator will determine how affected
           picks are handled and will communicate the decision to all participants.
         </p>
       </section>
@@ -183,10 +186,10 @@ export function TermsAndConditions() {
         <h2>11. Prohibited Conduct &amp; Disqualification</h2>
         <p>
           The following conduct is prohibited and may result in immediate disqualification without
-          refund: operating more than one account; colluding with other participants to coordinate
-          picks; using automated tools or bots to submit picks; attempting to exploit bugs or
-          vulnerabilities in the platform; or any behaviour that the operator, in its sole
-          discretion, considers to undermine the fairness or integrity of the competition.
+          refund: colluding with other participants to coordinate picks; using automated tools or
+          bots to submit picks; attempting to exploit bugs or vulnerabilities in the platform; or
+          any behaviour that the operator, in its sole discretion, considers to undermine the
+          fairness or integrity of the competition.
         </p>
       </section>
 
@@ -255,7 +258,7 @@ export function TermsAndConditions() {
         <h2>17. Contact</h2>
         <p>
           For questions about these terms or the competition, contact the operator at{' '}
-          <a href="mailto:hello@finalserveivor.com">hello@finalserveivor.com</a>.
+          <a href="mailto:finalservivor@gmail.com">finalservivor@gmail.com</a>.
         </p>
       </section>
     </div>
