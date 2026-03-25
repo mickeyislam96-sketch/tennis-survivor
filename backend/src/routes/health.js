@@ -36,7 +36,7 @@ healthRouter.get('/', async (_req, res) => {
   };
 
   if (!apiKey)        { checks.env.TENNIS_API_KEY_error = 'Set TENNIS_API_KEY on Railway';     allOk = false; }
-  if (!tournamentKey) { checks.env.TOURNAMENT_KEY_error  = `Set ${TOURNAMENT.id.toUpperCase().replace(/-/g,'_')}_TOURNAMENT_KEY on Railway`; allOk = false; }
+  if (!tournamentKey) { checks.env.TOURNAMENT_KEY_warning = `Set ${TOURNAMENT.id.toUpperCase().replace(/-/g,'_')}_TOURNAMENT_KEY on Railway — running on mock data until set`; }
 
   // ── 2. API-Tennis live call ──────────────────────────────────────────────────
   if (apiKey && tournamentKey) {
