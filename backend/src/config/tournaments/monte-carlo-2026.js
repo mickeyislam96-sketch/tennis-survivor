@@ -11,7 +11,7 @@
  * NOTE: Exact API round names must be verified once MONTE_CARLO_TOURNAMENT_KEY
  * is set and /api/draw/debug is checked. Update roundNameOverrides below.
  *
- * Tournament dates: ~6–13 April 2026
+ * Tournament dates: 5–13 April 2026 (starts Sunday)
  * Draw release: ~4 April 2026
  */
 
@@ -37,7 +37,7 @@ export const MONTE_CARLO_2026 = {
 
   // Date range to query from API-Tennis
   // Adjust once the exact 2026 schedule is confirmed.
-  apiDateStart: '2026-04-04',
+  apiDateStart: '2026-04-03',
   apiDateStop:  '2026-04-14',
   apiSeason:    '2026',
 
@@ -45,8 +45,8 @@ export const MONTE_CARLO_2026 = {
   // TODO: Update these once the exact schedule is published.
   // These are estimates based on typical Monte Carlo scheduling.
   lockTimeOverrides: {
-    R1:  '2026-04-06T09:00:00Z', // ~1h before first R1 match (~10am local = 8am UTC+2)
-    R32: '2026-04-07T09:00:00Z', // ~1h before seeds enter on day 2
+    R1:  '2026-04-05T09:00:00Z', // Sun 5 Apr, 10am UK (BST) = 09:00 UTC — window shuts when tournament starts
+    R32: '2026-04-07T09:00:00Z', // ~1h before seeds enter
     // R16, QF, SF, F: add once schedule confirmed
   },
 
@@ -54,7 +54,7 @@ export const MONTE_CARLO_2026 = {
   // Times are UTC. Monte Carlo is UTC+2 in April.
   // Typical start: 10:00 local = 08:00 UTC.
   roundDates: {
-    R1:  '2026-04-06T09:00:00Z',
+    R1:  '2026-04-05T09:00:00Z',
     R32: '2026-04-07T09:00:00Z',
     R16: '2026-04-09T09:00:00Z',
     QF:  '2026-04-10T09:00:00Z',
@@ -64,7 +64,7 @@ export const MONTE_CARLO_2026 = {
 
   // Round date fallback — API has fixtures but no times yet.
   roundDateFallback: {
-    R1:  '2026-04-06T09:00:00Z',
+    R1:  '2026-04-05T09:00:00Z',
     R32: '2026-04-07T09:00:00Z',
     R16: '2026-04-09T09:00:00Z',
     QF:  '2026-04-10T09:00:00Z',

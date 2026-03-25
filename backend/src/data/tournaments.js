@@ -26,7 +26,7 @@ export const TOURNAMENTS = [
     shortName: 'Monte Carlo',
     year: 2026,
     tourLevel: 'ATP Masters 1000',
-    startDate: '2026-04-06',
+    startDate: '2026-04-05',
     endDate: '2026-04-13',
     location: 'Monte Carlo, Monaco',
     surface: 'Clay (outdoor)',
