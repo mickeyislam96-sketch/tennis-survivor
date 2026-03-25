@@ -82,7 +82,11 @@ groupsRouter.get('/invite/:code', async (req, res) => {
          FROM group_members WHERE group_id = $1`,
         [g.id]
       );
-      return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
+      const groupData = rowToGroup(g);
+      // Expose betaFree flag so JoinGroup page shows "Entry fee waived" notice
+      const tournament = TOURNAMENTS.find(t => t.id === g.tournament_id);
+      const betaFree = groupData.entryFeeCents === 0;
+      return res.json({ ...groupData, betaFree, members: membersResult.rows.map(rowToMember) });
     }
   } catch (e) {
     console.error('DB invite lookup error:', e.message);
@@ -92,7 +96,8 @@ groupsRouter.get('/invite/:code', async (req, res) => {
   const group = MOCK_GROUPS.find(g => g.inviteCode === code);
   if (!group) return res.status(404).json({ error: 'Invalid invite code' });
   const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
-  res.json({ ...group, members });
+  const betaFree = (group.entryFeeCents || 0) === 0;
+  res.json({ ...group, betaFree, members });
 });
 
 // GET /api/groups/:id — group detail + members
@@ -115,7 +120,9 @@ groupsRouter.get('/:id', async (req, res) => {
            ORDER BY joined_at`,
           [id]
         );
-        return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
+        const groupData = rowToGroup(g);
+        const betaFree = groupData.entryFeeCents === 0;
+        return res.json({ ...groupData, betaFree, members: membersResult.rows.map(rowToMember) });
       }
     } catch (e) {
       console.error('DB group lookup error:', e.message);
@@ -183,11 +190,13 @@ groupsRouter.post('/:id/join', async (req, res) => {
       }
 
       const existing = await pool.query(
-        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+        `SELECT id::text, group_id::text, user_id::text, display_name, is_alive, eliminated_round, joined_at
+         FROM group_members WHERE group_id = $1 AND user_id = $2`,
         [groupId, userId]
       );
       if (existing.rows.length > 0) {
-        return res.status(400).json({ error: 'Already a member' });
+        // Return 200 (not 400) so auto-join flows don't show errors
+        return res.status(200).json(rowToMember(existing.rows[0]));
       }
 
       const result = await pool.query(

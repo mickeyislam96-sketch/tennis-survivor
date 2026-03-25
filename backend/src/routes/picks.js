@@ -161,9 +161,20 @@ picksRouter.post('/', async (req, res) => {
       if (!isOpen) return res.status(400).json({ error: 'Picks for this round are not yet open' });
     }
 
+    // Validate user is actually a member of this group
+    if (isUUID(userId) && isUUID(groupId)) {
+      const memberCheck = await pool.query(
+        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+        [groupId, userId]
+      );
+      if (memberCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'You must join the group before making a pick' });
+      }
+    }
+
     // Validate player is in the draw and not eliminated
     const available = await getAvailablePlayers(userId, groupId, round);
-    if (!available.some(p => p.id === playerId)) {
+    if (!Array.isArray(available) || !available.some(p => p.id === playerId)) {
       return res.status(400).json({ error: 'Player not available for pick' });
     }
 

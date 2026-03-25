@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
@@ -146,8 +146,11 @@ export function PickScreen() {
       .catch(() => setMember(null));
   }, [groupId, userId]);
 
+  const submitRef = useRef(false);
   const submitPick = (player) => {
     if (!groupId || !userId) return;
+    if (submitRef.current) return; // guard against double-clicks
+    submitRef.current = true;
     setSubmitting(true);
     setMessage('');
     setRowError({ id: null, msg: '' });
@@ -192,7 +195,7 @@ export function PickScreen() {
         setRowError({ id: player.id, msg });
         setTimeout(() => setRowError({ id: null, msg: '' }), 4000);
       })
-      .finally(() => setSubmitting(false));
+      .finally(() => { setSubmitting(false); submitRef.current = false; });
   };
 
   const usedIds = new Set(allPicks.map((p) => p.playerId).filter(Boolean));
