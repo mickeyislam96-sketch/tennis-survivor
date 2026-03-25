@@ -122,8 +122,8 @@ picksRouter.get('/history', async (req, res) => {
         `SELECT id::text, group_id::text, user_id::text, round, player_id, player_name, survived, created_at
          FROM picks
          WHERE user_id = $1 AND group_id = $2
-         ORDER BY array_position(ARRAY['R1','R64','R32','R16','QF','SF','F']::text[], round)`,
-        [userId, groupId]
+         ORDER BY array_position($3::text[], round)`,
+        [userId, groupId, ROUNDS]
       );
       return res.json(result.rows.map(rowToPick));
     } catch (e) {

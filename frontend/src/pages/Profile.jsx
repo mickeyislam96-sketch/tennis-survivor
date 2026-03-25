@@ -4,13 +4,8 @@ import { useAuth } from '../App';
 import { API } from '../App';
 
 const ROUND_LABELS = {
-  R1: '1st Rd',
-  R64: '2nd Rd',
-  R32: '3rd Rd',
-  R16: '4th Rd',
-  QF: 'Quarter-final',
-  SF: 'Semi-final',
-  F: 'Final',
+  R1: 'R1', R64: 'R64', R32: 'R32',
+  R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
 };
 
 function fmtGBP(cents) {

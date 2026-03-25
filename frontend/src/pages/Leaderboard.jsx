@@ -31,8 +31,8 @@ function avatarColour(name) {
 }
 
 const ROUND_LABELS = {
-  R1: '1st Round', R64: '2nd Round', R32: '3rd Round',
-  R16: '4th Round', QF: 'QF', SF: 'SF', F: 'Final',
+  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
+  R16: 'Round of 16', QF: 'Quarter-final', SF: 'Semi-final', F: 'Final',
 };
 
 // ── Pick History Modal ────────────────────────────────────────

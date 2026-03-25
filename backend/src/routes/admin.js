@@ -169,8 +169,8 @@ adminRouter.get('/picks/:groupId', async (req, res) => {
          FROM picks p
          JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = p.user_id
         WHERE p.group_id = $1::uuid
-        ORDER BY gm.display_name, array_position(ARRAY['R1','R32','R64','R16','QF','SF','F']::text[], p.round)`,
-      [groupId]
+        ORDER BY gm.display_name, array_position($2::text[], p.round)`,
+      [groupId, ROUNDS]
     );
     res.json({ ok: true, picks: result.rows });
   } catch (err) {

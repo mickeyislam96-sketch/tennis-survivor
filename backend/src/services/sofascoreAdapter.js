@@ -9,12 +9,14 @@
 
 import nodeFetch from 'node-fetch';
 
+import { TOURNAMENT } from '../config/tournament.js';
+
 // ── Tournament config ─────────────────────────────────────────────────────────
-// Update these when the tournament changes. Find IDs by browsing Sofascore and
-// inspecting network requests, or via: /api/v1/sport/tennis/scheduled-events/{date}
-const TOURNAMENT_ID = parseInt(process.env.SOFASCORE_TOURNAMENT_ID || '176918', 10); // Miami 2026
-const DATE_START    = process.env.SOFASCORE_DATE_START || '2026-03-19';
-const DATE_END      = process.env.SOFASCORE_DATE_END   || '2026-03-30';
+// Reads from active tournament config. Sofascore IDs must be set via env var
+// (find IDs by browsing Sofascore and inspecting network requests).
+const TOURNAMENT_ID = parseInt(process.env.SOFASCORE_TOURNAMENT_ID || '0', 10);
+const DATE_START    = process.env.SOFASCORE_DATE_START || TOURNAMENT.apiDateStart;
+const DATE_END      = process.env.SOFASCORE_DATE_END   || TOURNAMENT.apiDateStop;
 
 // Sofascore roundInfo.round → our internal round key.
 // The round number = players remaining AFTER this round completes.
