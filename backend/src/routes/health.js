@@ -3,63 +3,55 @@
  *
  * Production health check. Never silently passes.
  *
- * Checks (in order):
- *   1. Required env vars are present (TENNIS_API_KEY + tournament key)
- *   2. API-Tennis responds successfully with a real HTTP call
- *   3. Which data source is active (live_api | mock_data)
- *   4. PostgreSQL database is reachable
- *
- * Response:
- *   HTTP 200  { ok: true,  ... }  — all checks passed
- *   HTTP 500  { ok: false, ... }  — at least one check failed
+ * Checks:
+ *   1. Required env vars (TENNIS_API_KEY + active tournament key)
+ *   2. API-Tennis live call for the active tournament
+ *   3. Active data source (live_api | mock_data)
+ *   4. In-memory cache status
+ *   5. PostgreSQL connectivity
  */
 
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
+import { TOURNAMENT } from '../config/tournament.js';
+import { getCacheStatus } from '../services/tennisData.js';
 
 export const healthRouter = Router();
 
-const API_BASE = 'https://api.api-tennis.com/tennis';
-const HEALTH_TIMEOUT_MS = 8000;
-
-// A narrow date range to minimise data returned by the test call.
-// We use the tournament start date so there will always be fixtures to return.
-const TEST_DATE_START = '2026-03-19';
-const TEST_DATE_STOP  = '2026-03-20';
+const API_BASE        = 'https://api.api-tennis.com/tennis';
+const HEALTH_TIMEOUT  = 8000;
 
 healthRouter.get('/', async (_req, res) => {
   const checks = {};
-  let allOk = true;
+  let allOk    = true;
 
   // ── 1. Env vars ─────────────────────────────────────────────────────────────
   const apiKey       = process.env.TENNIS_API_KEY;
-  const tournamentKey =
-    process.env.MIAMI_TOURNAMENT_KEY ||
-    process.env.INDIAN_WELLS_TOURNAMENT_KEY ||
-    process.env.TOURNAMENT_KEY;
+  const tournamentKey = TOURNAMENT.apiTournamentKey;
 
   checks.env = {
-    TENNIS_API_KEY:  apiKey        ? 'present' : 'MISSING',
-    TOURNAMENT_KEY:  tournamentKey ? 'present' : 'MISSING',
+    TENNIS_API_KEY:    apiKey        ? 'present' : 'MISSING',
+    TOURNAMENT_KEY:    tournamentKey ? 'present' : 'MISSING',
+    ACTIVE_TOURNAMENT: TOURNAMENT.id,
   };
 
-  if (!apiKey)        { checks.env.TENNIS_API_KEY_error  = 'Set TENNIS_API_KEY on Railway';  allOk = false; }
-  if (!tournamentKey) { checks.env.TOURNAMENT_KEY_error   = 'Set MIAMI_TOURNAMENT_KEY on Railway'; allOk = false; }
+  if (!apiKey)        { checks.env.TENNIS_API_KEY_error = 'Set TENNIS_API_KEY on Railway';     allOk = false; }
+  if (!tournamentKey) { checks.env.TOURNAMENT_KEY_error  = `Set ${TOURNAMENT.id.toUpperCase().replace(/-/g,'_')}_TOURNAMENT_KEY on Railway`; allOk = false; }
 
   // ── 2. API-Tennis live call ──────────────────────────────────────────────────
   if (apiKey && tournamentKey) {
+    // Use a narrow test range (just the first day) to minimise data returned
     const url =
       `${API_BASE}/?method=get_fixtures` +
       `&APIkey=${apiKey}` +
       `&tournament_key=${tournamentKey}` +
-      `&tournament_season=2026` +
-      `&date_start=${TEST_DATE_START}` +
-      `&date_stop=${TEST_DATE_STOP}`;
+      `&tournament_season=${TOURNAMENT.apiSeason}` +
+      `&date_start=${TOURNAMENT.apiDateStart}` +
+      `&date_stop=${TOURNAMENT.apiDateStart}`; // just first day
 
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
-
+      const timer      = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
       let httpRes;
       try {
         httpRes = await fetch(url, { signal: controller.signal });
@@ -67,18 +59,10 @@ healthRouter.get('/', async (_req, res) => {
         clearTimeout(timer);
       }
 
-      if (!httpRes.ok) {
-        throw new Error(`HTTP ${httpRes.status} ${httpRes.statusText}`);
-      }
-
+      if (!httpRes.ok) throw new Error(`HTTP ${httpRes.status} ${httpRes.statusText}`);
       const data = await httpRes.json();
-
-      if (data?.success === false) {
-        throw new Error(`API error: ${data?.error || 'success=false'}`);
-      }
-      if (!Array.isArray(data?.result)) {
-        throw new Error('Unexpected response shape — result is not an array');
-      }
+      if (data?.success === false) throw new Error(`API error: ${data?.error || 'success=false'}`);
+      if (!Array.isArray(data?.result)) throw new Error('Unexpected response — result is not an array');
 
       checks.tennis_api = {
         status:            'ok',
@@ -89,25 +73,26 @@ healthRouter.get('/', async (_req, res) => {
       const timedOut = err.name === 'AbortError';
       checks.tennis_api = {
         status:      'FAIL',
-        detail:      timedOut ? `Timed out after ${HEALTH_TIMEOUT_MS}ms` : err.message,
+        detail:      timedOut ? `Timed out after ${HEALTH_TIMEOUT}ms` : err.message,
         data_source: 'mock_fallback',
       };
       allOk = false;
     }
   } else {
-    // Keys missing — app will fall back to mock data at runtime
     checks.tennis_api = {
       status:      'skipped',
-      reason:      'API keys not configured — app is running on mock data',
+      reason:      'API keys not configured — running on mock data',
       data_source: 'mock_data',
     };
-    // allOk already set to false above when keys were missing
   }
 
-  // ── 3. Active data source summary ────────────────────────────────────────────
+  // ── 3. In-memory cache status ────────────────────────────────────────────────
+  checks.cache = getCacheStatus();
+
+  // ── 4. Active data source summary ───────────────────────────────────────────
   checks.data_source = checks.tennis_api?.data_source ?? 'unknown';
 
-  // ── 4. Database ──────────────────────────────────────────────────────────────
+  // ── 5. Database ──────────────────────────────────────────────────────────────
   try {
     await pool.query('SELECT 1');
     checks.database = 'ok';
@@ -116,7 +101,6 @@ healthRouter.get('/', async (_req, res) => {
     allOk = false;
   }
 
-  // ── Response ─────────────────────────────────────────────────────────────────
   res.status(allOk ? 200 : 500).json({
     ok:        allOk,
     timestamp: new Date().toISOString(),

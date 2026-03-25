@@ -110,10 +110,13 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     const deadlines = await getDeadlines();
     const now = new Date();
     // "Actively open" means the window has started AND not yet closed
+    // A round is "actively open" when its pick window has started AND not yet closed.
+    // R1 is special: opensAt is null (always open from the start), so we must not
+    // require opensAt to be non-null — we use d.isOpen which already handles R1.
     const activeOpenRound = deadlines.find((d) => {
-      const opensAt = d.opensAt ? new Date(d.opensAt) : null;
-      const lockAt  = d.lockAt  ? new Date(d.lockAt)  : null;
-      return !d.isLocked && opensAt && now >= opensAt && (!lockAt || now < lockAt);
+      const lockAt = d.lockAt ? new Date(d.lockAt) : null;
+      const withinLock = !lockAt || now < lockAt;
+      return d.isOpen && !d.isLocked && withinLock;
     });
     if (activeOpenRound) {
       currentRound  = activeOpenRound.round;

@@ -13,12 +13,10 @@ export const TOURNAMENTS = [
     endDate: '2026-03-16',
     location: 'Indian Wells, CA',
     surface: 'Hard',
-    status: 'active',
+    status: 'completed',
     drawDate: '2026-03-03',
     drawAvailable: true,
-    entryOpen: false,          // Tournament is underway — entry period is over
-    entryClosedReason: 'started',
-    bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2487/season/80797/cuptree/10848110?widgetTitle=2026%20Indian%20Wells%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
+    entryOpen: false,
   },
   {
     id: 'miami-2026',
@@ -30,14 +28,38 @@ export const TOURNAMENTS = [
     endDate: '2026-03-30',
     location: 'Miami, FL',
     surface: 'Hard',
-    status: 'active',
+    status: 'completed',
     drawDate: '2026-03-16',
     drawAvailable: true,
-    entryOpen: true,
-    bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2430/season/80799/cuptree/10850024?widgetTitle=2026%20Miami%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
+    entryOpen: false,
+  },
+  {
+    id: 'monte-carlo-2026',
+    name: 'Rolex Monte-Carlo Masters',
+    shortName: 'Monte Carlo',
+    year: 2026,
+    tourLevel: 'ATP Masters 1000',
+    startDate: '2026-04-06',
+    endDate: '2026-04-13',
+    location: 'Monte Carlo, Monaco',
+    surface: 'Clay',
+    status: 'upcoming',   // change to 'active' when live
+    drawDate: '2026-04-04',
+    drawAvailable: false, // set to true once draw is released
+    entryOpen: true,      // entry is open
+    entryCloseAt: '2026-04-04T16:00:00Z',
   },
 ];
 
 export function getTournament(id) {
   return TOURNAMENTS.find(t => t.id === id) || null;
+}
+
+export function getActiveTournament() {
+  return (
+    TOURNAMENTS.find(t => t.status === 'active') ||
+    TOURNAMENTS.find(t => t.status === 'upcoming') ||
+    [...TOURNAMENTS].reverse().find(t => t.status === 'completed') ||
+    null
+  );
 }

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { autoProcessResults, processRoundResults } from './services/resultsProcessor.js';
+import { autoProcessResults } from './services/resultsProcessor.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -17,6 +17,7 @@ import { authRouter } from './routes/auth.js';
 import { tiebreakerRouter } from './routes/tiebreaker.js';
 import { poolsRouter } from './routes/pools.js';
 import { healthRouter } from './routes/health.js';
+import { adminRouter } from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -78,22 +79,8 @@ cron.schedule('*/15 * * * *', async () => {
   catch (err) { console.error('[cron] Results error:', err.message); }
 });
 
-// Admin: manually trigger results processing
-// POST /api/admin/process-results { secret, round? }
-app.post('/api/admin/process-results', async (req, res) => {
-  const { secret, round } = req.body;
-  if (secret !== 'fsv-miami-2026') {
-    return res.status(401).json({ error: 'Unauthorised' });
-  }
-  try {
-    const result = round
-      ? await processRoundResults(round)
-      : await autoProcessResults();
-    res.json({ ok: true, result });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
+// Admin routes — auth via ADMIN_SECRET env var
+app.use('/api/admin', adminRouter);
 
 app.listen(PORT, () => {
   console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);

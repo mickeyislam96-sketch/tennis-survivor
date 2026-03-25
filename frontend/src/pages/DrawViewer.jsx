@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
 
+// Round labels — extended to cover any tournament structure
 const ROUND_LABELS = {
   R1: 'R1', R64: 'R64', R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
 };
@@ -15,15 +16,10 @@ const ROUND_FULL = {
   SF:  'Semi-finals',
   F:   'Final',
 };
-// Expected slot counts per round (used to pad TBD slots)
-const MATCH_COUNTS = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
-// Rounds shown in the visual bracket (R64 → Final)
-const BRACKET_ROUNDS = ['R64', 'R32', 'R16', 'QF', 'SF', 'F'];
-
-// Fixed bracket height — every column shares this so SVG connectors align.
-// R64 has 32 slots, so 32 × 64px = 2048px keeps slot heights consistent.
-const BRACKET_H = 2048;
+// These are derived dynamically from API data — see DrawViewer component.
+// Kept as fallback only.
+const MATCH_COUNTS_FALLBACK = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
 // ─── Bracket ordering ────────────────────────────────────────────────────────
 // The API returns matches in arbitrary order. To draw a correct bracket we
@@ -83,17 +79,15 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
 }
 
 // ─── SVG bracket connectors ───────────────────────────────────────────────────
-function slotCenterY(index, total) {
-  return ((2 * index + 1) * BRACKET_H) / (2 * total);
-}
-
-function ConnectorSVG({ fromCount }) {
+function ConnectorSVG({ fromCount, totalHeight }) {
+  const h       = totalHeight || 2048;
   const toCount = fromCount / 2;
-  const lines = [];
+  const lines   = [];
+  function cy(idx, total) { return ((2 * idx + 1) * h) / (2 * total); }
   for (let k = 0; k < toCount; k++) {
-    const topY = slotCenterY(k * 2,     fromCount);
-    const botY = slotCenterY(k * 2 + 1, fromCount);
-    const midY = slotCenterY(k,          toCount);
+    const topY = cy(k * 2,     fromCount);
+    const botY = cy(k * 2 + 1, fromCount);
+    const midY = cy(k,          toCount);
     lines.push(
       <line key={`ht${k}`} x1="0"  y1={topY} x2="16" y2={topY} />,
       <line key={`hb${k}`} x1="0"  y1={botY} x2="16" y2={botY} />,
@@ -102,7 +96,7 @@ function ConnectorSVG({ fromCount }) {
     );
   }
   return (
-    <svg width="32" height={BRACKET_H} className="bc-connector" aria-hidden="true">
+    <svg width="32" height={h} className="bc-connector" aria-hidden="true">
       <g stroke="#d1d5db" strokeWidth="1.5" fill="none">{lines}</g>
     </svg>
   );
@@ -150,13 +144,13 @@ function BracketCard({ match }) {
   );
 }
 
-function BracketCol({ round, matches }) {
-  const count = MATCH_COUNTS[round] || 1;
+function BracketCol({ round, matches, totalHeight, matchCount }) {
+  const count  = matchCount || MATCH_COUNTS_FALLBACK[round] || 1;
   const padded = Array.from({ length: count }, (_, i) => matches[i] || null);
   return (
     <div className="bc-col">
       <div className="bc-col-hdr">{ROUND_FULL[round] || round}</div>
-      <div className="bc-col-body" style={{ height: BRACKET_H }}>
+      <div className="bc-col-body" style={{ height: totalHeight }}>
         {padded.map((m, i) => (
           <div key={i} className="bc-slot">
             <BracketCard match={m} />
@@ -283,25 +277,40 @@ export function DrawViewer() {
     return acc;
   }, {});
 
-  // Build correctly ordered bracket (traces player progression from Final back)
-  const bracketRounds  = BRACKET_ROUNDS.filter(r => rounds.includes(r));
+  // Compute match counts dynamically from the draw data (handles any draw size)
+  // Fallback to known counts if API data is incomplete.
+  const matchCounts = {};
+  rounds.forEach(r => {
+    matchCounts[r] = (matchesByRound[r] || []).length || MATCH_COUNTS_FALLBACK[r] || 1;
+  });
+
+  // Bracket shows all rounds. Fixed height based on the first round (most matches).
+  // 64px per slot gives enough room for the match cards without excessive scrolling.
+  const firstRound    = rounds[0];
+  const firstCount    = matchCounts[firstRound] || 1;
+  const BRACKET_H_DYN = Math.max(firstCount * 64, 512);
+
+  // All rounds with data form the bracket
+  const bracketRounds  = rounds.filter(r => (matchesByRound[r] || []).length > 0);
   const orderedBracket = buildOrderedBracket(matchesByRound, bracketRounds);
 
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
     if (i > 0) {
       bracketEls.push(
-        <ConnectorSVG key={`conn-${round}`} fromCount={MATCH_COUNTS[bracketRounds[i - 1]] || 2} />
+        <ConnectorSVG key={`conn-${round}`} fromCount={matchCounts[bracketRounds[i - 1]] || 2} totalHeight={BRACKET_H_DYN} />
       );
     }
     bracketEls.push(
-      <BracketCol key={round} round={round} matches={orderedBracket[round] || []} />
+      <BracketCol
+        key={round}
+        round={round}
+        matches={orderedBracket[round] || []}
+        totalHeight={BRACKET_H_DYN}
+        matchCount={matchCounts[round]}
+      />
     );
   });
-
-  // SofaScore widget URL — stored per tournament in tournaments.js
-  const tournament = TOURNAMENTS.find(t => t.id === tournamentId) || TOURNAMENTS.find(t => t.status === 'active');
-  const widgetUrl = tournament?.bracketWidget || null;
 
   // Only show rounds that have at least one match
   const roundsWithData = rounds.filter(r => (matchesByRound[r] || []).length > 0);
@@ -326,21 +335,15 @@ export function DrawViewer() {
       </div>
 
       {view === 'bracket' ? (
-        widgetUrl ? (
-          <div className="sofascore-widget-wrap">
-            <iframe
-              src={widgetUrl}
-              style={{ width: '100%', maxWidth: 700, height: 872, border: 'none', display: 'block' }}
-              scrolling="yes"
-              title="Tournament Draw"
-            />
-            <p className="widget-credit">
-              Draw data via <a href="https://www.sofascore.com" target="_blank" rel="noopener noreferrer">SofaScore</a>
-            </p>
+        bracketEls.length === 0 ? (
+          <div className="draw-empty-state">
+            <span className="draw-empty-icon">🎾</span>
+            <p className="draw-empty-title">Bracket not yet available</p>
+            <p className="draw-empty-sub">Switch to "By Round" to see individual match data, or check back once more fixtures are published.</p>
           </div>
         ) : (
           <>
-            <p className="bracket-help-text">Round of 64 through to the Final — follow the path to the title</p>
+            <p className="bracket-help-text">Follow each player's path through the draw</p>
             <div className="bracket-scroll-wrap">
               <div className="bracket-wrap">{bracketEls}</div>
             </div>
