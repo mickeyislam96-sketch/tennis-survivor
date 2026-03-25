@@ -129,7 +129,16 @@ export function TermsAndConditions() {
         </p>
         <p>
           If your chosen player's opponent retires, walks over, or is disqualified, your chosen
-          player advances and your pick counts as correct.
+          player advances and your pick ordinarily counts as correct.
+        </p>
+        <p>
+          However, if a withdrawal or walkover is confirmed before the match takes place and the
+          pick window for that round is still open (or there is otherwise sufficient time for
+          participants to adjust), the operator reserves the right to void the affected pick and
+          require the participant to select a different player. This is to prevent participants
+          from gaining a free pass through a round by deliberately selecting a player whose
+          opponent is known or expected to withdraw. The operator will notify affected participants
+          promptly if a pick is voided under this clause.
         </p>
         <p>
           If both players are unable to complete the match and the ATP removes the match from
