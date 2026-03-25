@@ -165,6 +165,24 @@ export function GroupHome() {
     }
   }, [joinAfterAuth, isRegistered, userId]);
 
+  // Auto-join: if user just registered (via header or any path) while viewing
+  // a pre-launch group they're not yet a member of, join them automatically.
+  // This prevents the confusing state where a user registers via the header
+  // "Create account" button but doesn't end up in the group.
+  const hasAutoJoined = useRef(false);
+  useEffect(() => {
+    if (hasAutoJoined.current) return;
+    if (!isRegistered || !userId || !group || !groupId) return;
+    const isMember = group.members?.some((m) => m.userId === userId);
+    if (isMember) return;
+    const tournament = getTournament(group.tournamentId);
+    if (!isPreLaunch(tournament)) return;
+    // Don't auto-join if entry is closed
+    if (tournament?.entryOpen === false) return;
+    hasAutoJoined.current = true;
+    joinGroup(userId, user?.displayName || 'Player');
+  }, [isRegistered, userId, group, groupId]);
+
   if (loading) return <div className="page-loading">Loading…</div>;
 
   // ── Group dashboard ──────────────────────────────────────────
