@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 25 March 2026. Keep this file updated at the end of every session.
+> Last updated: 26 March 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -250,32 +250,54 @@ Players already in the R32 draw (e.g. Jorda) were still showing the `⚠️ R64 
 ### 8. ~~Mock group joins not persisting~~ — FIXED (25 Mar 2026)
 Mock group joins (e.g. g3 for Monte Carlo) used `MOCK_MEMBERS.push()` — in-memory only, wiped on every Railway deploy. Fix: created a real PostgreSQL group via `POST /api/groups` API. The pools endpoint's `dbTournamentIds` filter automatically hides mock g3 when a real DB group exists for `monte-carlo-2026`. All future joins persist in PostgreSQL. Real group ID: `2d0d1477-0761-49c8-aaf7-d54ad466062f`.
 
+### 9. ~~Non-members can submit picks~~ — FIXED (26 Mar 2026)
+No group membership check on `POST /api/picks`. Anyone could submit picks to any group without joining. Fix: added `SELECT id FROM group_members` check before accepting picks. Returns 403 if not a member.
+
+### 10. ~~Join endpoint returning 400 for already-joined users~~ — FIXED (26 Mar 2026)
+`POST /api/groups/:id/join` returned `400 Already a member` which caused auto-join flows to show error messages. Fix: now returns `200` with existing member data.
+
+### 11. ~~Invite box overflows on mobile~~ — FIXED (26 Mar 2026)
+The invite URL + "Copy link" button were in a horizontal flex row. On mobile, the button was pushed off-screen forcing horizontal scroll. Fix: stacked vertically on mobile with full-width copy button.
+
+### 12. No authentication on API endpoints — OPEN (pre-paid tournaments)
+`userId` comes from request body with no server-side JWT/session verification. Any user can impersonate another by changing the userId param. Acceptable risk for 50-person free beta, must fix before paid tournaments.
+
+### 13. Results processing has no transaction wrapping — OPEN (pre-paid tournaments)
+If server crashes mid-processing, some players get marked survived and others don't. Needs `BEGIN/COMMIT` transaction. Low risk at beta scale.
+
+### 14. No "draw is live" notification email — OPEN
+When the draw drops and picks open, users who already joined have no way of knowing unless they check the site. Need to build a notification endpoint or scheduled task.
+
 ---
 
-## Current tournament state (as of 25 March 2026)
+## Current tournament state (as of 26 March 2026)
 
-### Miami Open 2026 (practice)
+### Miami Open 2026 (practice — ended)
 - Tournament: ATP Miami Open 2026
-- Stage: R32+ — practice tournament winding down
+- Stage: Complete — practice tournament finished
 - Participants: 8 users in test group `6da0f300-ff14-43cb-bcef-ad4ba6709208`
 - Mode: Practice tournament — no prize money
+- Indian Wells test data removed from codebase (26 Mar)
 
 ### Monte Carlo 2026 (upcoming — first competitive tournament)
 - Tournament: Rolex Monte-Carlo Masters 2026
 - Status: `upcoming` — registration open, draw not yet available
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f` (PostgreSQL — persistent)
-- Invite code: `MONTE-CARLO-2026-POO-6euo7q` (cosmetically ugly — "POO" truncation; consider updating)
+- Invite code: `MONTECAR-406R3X` (regenerated 25 Mar)
 - Entry: Free
-- Draw release: ~Sat 4 Apr
-- Tournament starts: Mon 6 Apr
-- Members: 0 (fresh group — old mock g3 joins were lost, see known issue #8)
+- Draw release: ~Fri 4 Apr
+- Tournament starts: Sun 5 Apr
+- Members: growing (joins persist in PostgreSQL)
 
 ### Pre-launch actions (before 4 Apr)
-1. **Railway billing** — trial expires ~7 Apr. Upgrade to Hobby plan ($5/month) before 6 Apr or backend dies mid-tournament
+1. **Railway billing** — trial expires ~7 Apr. Upgrade to Hobby plan ($5/month) before 5 Apr or backend dies mid-tournament
 2. **`MONTE_CARLO_TOURNAMENT_KEY`** — obtain from API-Tennis and set in Railway env vars (~4 Apr)
 3. **Lock time overrides** — add `LOCKTIME_OVERRIDES` for each round once schedule published
 4. **Draw release deployment** — set `drawAvailable: true` + `status: 'active'` in both `frontend/src/data/tournaments.js` and `backend/src/data/tournaments.js`
-5. **OG image** — `og-image.png` (1200×630) referenced in `frontend/index.html` doesn't exist yet. Without it, WhatsApp/iMessage link previews show text but no image
+5. ~~**OG image**~~ — DONE (25 Mar session 3). `og-image.png` created and deployed.
+6. **Custom bracket viewer** — replace Sofascore widget with custom bracket seeded from official draw. Mickey provides draw on ~4 Apr; build seed file + bracket UI.
+7. **SPF/DKIM for Brevo** — set up domain authentication for `finalserveivor.com` in Brevo before paid tournaments.
+8. **"Draw is live" notification email** — no email currently triggers when draw drops. Users who already joined won't know picks are open unless they check the site. Build a notify endpoint or scheduled task.
 
 ---
 
@@ -291,3 +313,5 @@ Mock group joins (e.g. g3 for Monte Carlo) used `MOCK_MEMBERS.push()` — in-mem
 | 23 Mar 2026 | Fixed R16 (and QF/SF/F) pick pool returning 0 players. Root cause: live API (API-Tennis) is returning 0 fixtures for the March 16–30 range (health check shows `TOURNAMENT_KEY` present but only 1 fixture for narrow range — likely wrong key or rate limit), so mock fallback is used. Mock had a bug: R1 qualifiers were `player1` in R64 matches, so all 32 seeds were marked `roundEliminated: 'R64'`. R16 mock matches referenced those seeds, leaving zero eligible players. Fix 1: swapped R64 player order so seeds are `player1` (and win). Fix 2: `prevWinners` now propagates actual match winners forward rather than slicing the original list. Fix 3: added safety net in `getAvailablePlayers` — if main path yields 0 players, falls through to the non-round-filtered fallback. **Action needed: verify `MIAMI_TOURNAMENT_KEY` is correctly set in Railway env vars** — the live API returning only 1 fixture for a narrow test range suggests the tournament key may be wrong or the account is rate-limited. |
 | 25 Mar 2026 (session 1) | Added Monte Carlo "Coming Soon" card to landing page (mock g3 in mockGroups.js). Verified admin endpoints work (auth uses `?secret=` query param, not header). Updated CLAUDE.md admin auth docs. |
 | 25 Mar 2026 (session 2) | Landing page design improvements: added OG meta tags + Twitter card to `frontend/index.html`; created `frontend/public/favicon.svg` (green tennis ball); added hero CTA button "Enter Monte Carlo free →" for non-members in GroupHome.jsx; added social proof "X already registered" badge on upcoming pool cards; updated hero copy. **Critical bug fix:** mock group joins (g3) were stored in-memory only (`MOCK_MEMBERS.push()`), wiped on every Railway deploy. Fix: created real PostgreSQL group `2d0d1477-0761-49c8-aaf7-d54ad466062f` for Monte Carlo via API call. Pools endpoint auto-filters mock g3 via `dbTournamentIds` Set. All joins now persist in PostgreSQL. Verified hero CTA links to real DB group and group page loads correctly. **Still needed:** `og-image.png` (1200×630) for social sharing previews; invite code cosmetic fix ("POO" truncation). |
+| 25 Mar 2026 (session 3) | **Pre-launch audit + fixes.** Three commits pushed: (1) `8b95785` critical security fixes — CORS restricted to specific origins, password reset URL fixed, admin hardcoded secret removed, `eliminateNonPickers` safety guard added; (2) `2824af0` comprehensive fixes — leaderboard mock fallback ternary fix, auto-join after registration, OG image created, invite code generator fixed, rate limiting on auth endpoints; (3) `274cd59` emergency CORS fix — added `www.finalserveivor.com` to allowed origins (site was broken because domain redirects to www). Verified site fully working. Set `ADMIN_SECRET` and `FRONTEND_URL` env vars in Railway. Regenerated Monte Carlo invite code to `MONTECAR-406R3X`. Verified Brevo email delivery working (2-3 min delay, acceptable). Created `FSV_Service_Infrastructure_Map.xlsx` with full service audit, scaling limits, cost projections. Agreed plan: replace Sofascore bracket widget with custom bracket seeded from static draw for Monte Carlo (~4 Apr session). |
+| 26 Mar 2026 | **Comprehensive backend audit + hardening.** Full code audit of all backend routes found 20 issues. Commits pushed: (1) `eb24252` auto-join fix — users registering via header auth modal now auto-join pre-launch groups; (2) `e64307c` hardening — group membership check on picks (was missing), double-submit guard on pick button, join endpoint returns 200 for already-joined users, `betaFree` flag exposed on group endpoints; (3) `adf796e` Indian Wells test data cleanup; (4) `38820f2` email copy fix — "Group" → "Pool" in tournament join email, context-aware CTA button ("See who's joined" pre-launch / "Make your first pick" when draw live); (5) `ca011be` mobile invite box fix — stacked URL + copy button vertically (was overflowing off-screen). Email mockups generated for all 3 templates (welcome, tournament join, password reset). Identified future issues: no auth on API (issue #12), no transaction wrapping on results (issue #13), no "draw is live" notification email (issue #14). |
