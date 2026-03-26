@@ -515,7 +515,7 @@ export function GroupHome() {
       <div className="home-hero home-hero--tall">
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <p className="home-hero-eyebrow">ATP Masters 1000 · Survivor fantasy</p>
+          <p className="home-hero-eyebrow">Tennis Survivor</p>
           <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
             Pick one player per round. If they lose, you're out.<br />
@@ -569,13 +569,13 @@ export function GroupHome() {
             <span className="hiw-step-icon">🎾</span>
             <div className="hiw-step-num">2</div>
             <h3 className="hiw-step-title">Pick one player</h3>
-            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
+            <p className="hiw-step-desc">Each round, pick one player you think will win their match. But choose wisely: you can never pick the same player twice, so save your strongest picks for when you need them most.</p>
           </div>
           <div className="hiw-step">
             <span className="hiw-step-icon">🥇</span>
             <div className="hiw-step-num">3</div>
             <h3 className="hiw-step-title">Last one standing wins</h3>
-            <p className="hiw-step-desc">If your player loses, you're out. Don't burn your best players too soon. Outlast everyone and take the prize pool.</p>
+            <p className="hiw-step-desc">If your player loses, you're eliminated. Outlast every other player in your pool and take the entire prize pool.</p>
           </div>
         </div>
       </section>

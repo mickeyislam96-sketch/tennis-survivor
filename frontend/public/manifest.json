@@ -1,7 +1,7 @@
 {
   "name": "Final Serve-ivor",
   "short_name": "Serve-ivor",
-  "description": "ATP Tennis Survivor Game — pick one player per round, last one standing wins.",
+  "description": "Tennis Survivor Game — pick one player per round, last one standing wins.",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#16a34a",
