@@ -346,7 +346,7 @@ const buildTournamentJoinHTML = ({
                   <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
-                        <td style="font-size:13px;color:#999;width:40%;">Group</td>
+                        <td style="font-size:13px;color:#999;width:40%;">Pool</td>
                         <td style="font-size:13px;font-weight:600;color:#222;text-align:right;">${groupName}</td>
                       </tr>
                     </table>
@@ -488,7 +488,7 @@ const buildTournamentJoinHTML = ({
             : `No action needed right now. We'll be in touch once the draw drops on ${drawDate}.`
           }
         </p>
-        <a href="${groupUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">View your group &rarr;</a>
+        <a href="${groupUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">${drawAvailable ? 'Make your first pick' : 'See who\\'s joined'} &rarr;</a>
       </td>
     </tr>
   `;
