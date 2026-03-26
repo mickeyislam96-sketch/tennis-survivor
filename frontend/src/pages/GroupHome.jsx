@@ -515,7 +515,7 @@ export function GroupHome() {
       <div className="home-hero home-hero--tall">
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <p className="home-hero-eyebrow">Tennis Survivor</p>
+          <p className="home-hero-eyebrow">Tennis Survivor Pool</p>
           <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
             Pick one player per round. If they lose, you're out.<br />
