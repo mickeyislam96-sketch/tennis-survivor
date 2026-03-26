@@ -145,7 +145,7 @@ groupsRouter.post('/', async (req, res) => {
   const prefix = groupName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
   const inviteCode = `${prefix}-${suffix}`;
-  const tournament = tournamentId || 'indian-wells-2026';
+  const tournament = tournamentId || 'monte-carlo-2026';
 
   if (isUUID(adminId)) {
     try {

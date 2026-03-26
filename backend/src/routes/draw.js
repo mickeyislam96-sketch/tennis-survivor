@@ -13,7 +13,7 @@ drawRouter.get('/debug', async (_, res) => {
   try {
     const raw = await getRawFixtures();
     if (!raw || raw.length === 0) {
-      return res.json({ message: 'No live API data — check TENNIS_API_KEY and INDIAN_WELLS_TOURNAMENT_KEY env vars', fixtures: [] });
+      return res.json({ message: 'No live API data — check TENNIS_API_KEY and TOURNAMENT_KEY env vars', fixtures: [] });
     }
     // Show all fixtures with the key fields we need to diagnose round splitting
     const all = raw.map(f => ({

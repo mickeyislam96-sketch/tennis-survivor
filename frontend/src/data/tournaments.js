@@ -4,21 +4,6 @@
  */
 export const TOURNAMENTS = [
   {
-    id: 'indian-wells-2026',
-    name: 'BNP Paribas Open',
-    shortName: 'Indian Wells',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-03-05',
-    endDate: '2026-03-16',
-    location: 'Indian Wells, CA',
-    surface: 'Hard',
-    status: 'completed',
-    drawDate: '2026-03-03',
-    drawAvailable: true,
-    entryOpen: false,
-  },
-  {
     id: 'miami-2026',
     name: 'Miami Open',
     shortName: 'Miami',
