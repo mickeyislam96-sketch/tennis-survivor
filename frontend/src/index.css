@@ -3330,16 +3330,25 @@ input, select { font-family: var(--font); }
   /* "You can change until the window closes" clips on narrow screens */
   .picked-card-hint { display: none; }
 
-  /* ── Invite box: prevent long URL from overflowing ── */
-  .invite-box-row { gap: 0.5rem; }
+  /* ── Invite box: stack URL + button vertically on mobile ── */
+  .invite-box-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
   .invite-box-code {
     min-width: 0;
-    flex: 1;
+    width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 0.8rem;
   }
-  .invite-copy-btn { flex-shrink: 0; }
+  .invite-copy-btn {
+    width: 100%;
+    text-align: center;
+    padding: 0.6rem 1rem;
+  }
 
   /* ── Leaderboard name: truncate long display names ── */
   .lb-display-name {
