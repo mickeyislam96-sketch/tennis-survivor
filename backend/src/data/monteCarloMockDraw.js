@@ -104,14 +104,14 @@ const MC_PLAYERS = [
   { id: 'mc-p56', name: 'Qualifier 2' },
 ];
 
-// Approximate round start times (UTC+2 is local, UTC below)
+// Round start times (UTC). Monte Carlo is CEST = UTC+2 in April.
 const ROUND_START_TIMES = {
-  R1:  '2026-04-06T09:00:00Z',
-  R32: '2026-04-07T09:00:00Z',
-  R16: '2026-04-09T09:00:00Z',
-  QF:  '2026-04-10T09:00:00Z',
-  SF:  '2026-04-11T09:00:00Z',
-  F:   '2026-04-13T10:00:00Z',
+  R1:  '2026-04-06T09:00:00Z', // Mon 6 Apr, 11:00 CEST
+  R32: '2026-04-07T09:00:00Z', // Tue 7 Apr, 11:00 CEST
+  R16: '2026-04-08T09:00:00Z', // Wed 8 Apr, 11:00 CEST
+  QF:  '2026-04-10T09:00:00Z', // Fri 10 Apr, 11:00 CEST
+  SF:  '2026-04-11T10:00:00Z', // Sat 11 Apr, 12:00 CEST
+  F:   '2026-04-12T12:00:00Z', // Sun 12 Apr, 14:00 CEST
 };
 
 function buildMonteCarloMatches() {

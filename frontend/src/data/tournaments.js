@@ -26,13 +26,13 @@ export const TOURNAMENTS = [
     year: 2026,
     tourLevel: 'ATP Masters 1000',
     startDate: '2026-04-05',
-    endDate: '2026-04-13',
+    endDate: '2026-04-12',
     location: 'Monte Carlo, Monaco',
     surface: 'Clay',
-    status: 'upcoming',   // change to 'active' when live
+    status: 'active',
     drawDate: '2026-04-04',
-    drawAvailable: false, // set to true once draw is released
-    entryOpen: true,      // entry is open
+    drawAvailable: true,
+    entryOpen: true,
     entryCloseAt: '2026-04-04T16:00:00Z',
   },
 ];

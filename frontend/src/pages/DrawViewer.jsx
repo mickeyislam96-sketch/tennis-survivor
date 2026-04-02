@@ -243,7 +243,8 @@ export function DrawViewer() {
 
             // If no bracket rounds (R32+) have data yet, default to list view
             // so users see live R1 matches rather than an empty bracket
-            const hasBracketData = BRACKET_ROUNDS.some((r) =>
+            // Check if any round beyond R1 has data (bracket view needs at least R32+)
+            const hasBracketData = rounds.filter(r => r !== 'R1').some((r) =>
               (d.matches || []).some((m) => m.round === r)
             );
             if (!hasBracketData) setView('list');
