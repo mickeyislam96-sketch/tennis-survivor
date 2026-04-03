@@ -134,8 +134,8 @@ export function JoinGroup() {
           <div className="beta-waiver-notice">
             <span className="beta-waiver-icon">🎁</span>
             <div>
-              <p className="beta-waiver-title">Entry fee waived for beta</p>
-              <p className="beta-waiver-sub">No payment will be taken. Join free for this test run.</p>
+              <p className="beta-waiver-title">Free entry</p>
+              <p className="beta-waiver-sub">No payment required for this tournament.</p>
             </div>
           </div>
         )}

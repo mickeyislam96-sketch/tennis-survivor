@@ -209,7 +209,7 @@ export function Leaderboard() {
           <tbody>
             {leaderboard.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                <td colSpan={currentRound ? 4 : 3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                   No entries yet — be the first to join!
                 </td>
               </tr>
