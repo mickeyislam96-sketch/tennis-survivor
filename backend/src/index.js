@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { autoProcessResults, sendPickReminders, sendRoundResultEmails } from './services/resultsProcessor.js';
+import { autoProcessResults } from './services/resultsProcessor.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -87,22 +87,8 @@ app.get('/api/db-check', async (req, res) => {
 
 // ── Automated results processor — every 15 minutes ───────────────────────────
 cron.schedule('*/15 * * * *', async () => {
-  try {
-    const results = await autoProcessResults();
-    // Send result emails for any rounds that were just processed
-    for (const r of results) {
-      if (r.picksUpdated > 0 || r.eliminated > 0 || r.nonPickers > 0) {
-        try { await sendRoundResultEmails(r.round); }
-        catch (err) { console.error(`[cron] Result emails error for ${r.round}:`, err.message); }
-      }
-    }
-  } catch (err) { console.error('[cron] Results error:', err.message); }
-});
-
-// ── Pick reminders — every 15 minutes ────────────────────────────────────────
-cron.schedule('*/15 * * * *', async () => {
-  try { await sendPickReminders(); }
-  catch (err) { console.error('[cron] Reminder error:', err.message); }
+  try { await autoProcessResults(); }
+  catch (err) { console.error('[cron] Results error:', err.message); }
 });
 
 // Admin routes — auth via ADMIN_SECRET env var
