@@ -571,3 +571,369 @@ const buildPasswordResetHTML = ({ email, displayName, resetUrl }) => {
 
   return emailWrapper(header, body, email);
 };
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared constants for tournament emails
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-finals', SF: 'Semi-finals', F: 'Final' };
+const ROUNDS_ORDER = ['R1', 'R32', 'R16', 'QF', 'SF', 'F'];
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. PICK REMINDER EMAIL — fires before pick window closes
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendPickReminderEmail = async ({
+  email, displayName, groupId, tournamentName, round, roundLabel,
+}) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping pick reminder to ${email} — email not configured.`);
+    return;
+  }
+  const subject = `You haven't picked yet — ${roundLabel} closes soon · Final Serve-ivor`;
+  try {
+    await sendViaBrevo({ to: email, subject, html: buildPickReminderHTML({
+      email, displayName, groupId, tournamentName, round, roundLabel,
+    }) });
+    console.log(`✅ Pick reminder sent to ${email} for ${round}`);
+  } catch (err) {
+    console.error(`❌ Failed to send pick reminder to ${email}:`, err.message);
+  }
+};
+
+const buildPickReminderHTML = ({ email, displayName, groupId, tournamentName, round, roundLabel }) => {
+  const pickUrl = `${APP_URL}/group/${groupId}/pick`;
+  const header = `
+    <tr>
+      <td style="background:linear-gradient(135deg,#7c2d12 0%,#c2410c 40%,#f97316 100%);padding:40px 40px 32px;text-align:center;">
+        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#ffffff;">&#9201; Time running out</p>
+        <h1 style="margin:0;font-size:30px;font-weight:700;color:#ffffff;line-height:1.2;">You haven't picked yet.</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.8);">${roundLabel} is closing soon. Miss it and you're out.</p>
+      </td>
+    </tr>`;
+  const body = `
+    <tr>
+      <td style="padding:32px 40px 8px;">
+        <p style="margin:0;font-size:15px;color:#444;line-height:1.7;">
+          Hey <strong>${displayName}</strong>, the ${roundLabel} pick window for <strong>${tournamentName}</strong> is closing soon and you still haven't submitted a pick.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:8px;">
+          <tr><td style="padding:18px 20px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="width:28px;font-size:18px;vertical-align:top;">&#9888;&#65039;</td>
+              <td style="padding-left:10px;vertical-align:top;">
+                <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#9a3412;">No pick = automatic elimination</p>
+                <p style="margin:0;font-size:13px;color:#c2410c;line-height:1.6;">If you don't submit a pick before the deadline, you'll be eliminated from the pool. This can't be undone.</p>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px 40px 36px;text-align:center;">
+        <a href="${pickUrl}" style="display:inline-block;padding:16px 44px;background:#f97316;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">Make your ${round} pick now &rarr;</a>
+      </td>
+    </tr>`;
+  return emailWrapper(header, body, email);
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. ROUND SURVIVAL EMAIL — fires after round completes, for survivors
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendSurvivalEmail = async ({
+  email, displayName, groupId, tournamentName,
+  round, roundLabel, pickedPlayerName, matchScore,
+  playersRemaining, totalPlayers, pickHistory,
+}) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping survival email to ${email} — email not configured.`);
+    return;
+  }
+  const subject = `You survived ${roundLabel} — ${tournamentName} · Final Serve-ivor`;
+  try {
+    await sendViaBrevo({ to: email, subject, html: buildSurvivalHTML({
+      email, displayName, groupId, tournamentName, round, roundLabel,
+      pickedPlayerName, matchScore, playersRemaining, totalPlayers, pickHistory,
+    }) });
+    console.log(`✅ Survival email sent to ${email} for ${round}`);
+  } catch (err) {
+    console.error(`❌ Failed to send survival email to ${email}:`, err.message);
+  }
+};
+
+const buildSurvivalHTML = ({
+  email, displayName, groupId, tournamentName, round, roundLabel,
+  pickedPlayerName, matchScore, playersRemaining, totalPlayers, pickHistory,
+}) => {
+  const pickUrl = `${APP_URL}/group/${groupId}/pick`;
+  const roundsSurvived = (pickHistory || []).length;
+  const historyRows = (pickHistory || []).map((p, i) => {
+    const isLast = i === pickHistory.length - 1;
+    return `<tr>
+      <td style="padding:10px 0;${isLast ? '' : 'border-bottom:1px solid #f0f0f0;'}font-size:13px;color:#999;width:30%;">${ROUND_LABELS[p.round] || p.round}</td>
+      <td style="padding:10px 0;${isLast ? '' : 'border-bottom:1px solid #f0f0f0;'}font-size:13px;font-weight:600;color:#16a34a;text-align:right;">${p.playerName} &#10003;</td>
+    </tr>`;
+  }).join('');
+
+  const header = `
+    <tr>
+      <td style="background:linear-gradient(135deg,#0a2e14 0%,#14532d 40%,#16a34a 100%);padding:40px 40px 32px;text-align:center;">
+        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#ffffff;">${tournamentName}</p>
+        <h1 style="margin:0;font-size:32px;font-weight:700;color:#ffffff;line-height:1.2;">You survived ${roundLabel}. &#10003;</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.7);">Your pick came through.</p>
+      </td>
+    </tr>`;
+  const body = `
+    <tr>
+      <td style="padding:32px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;overflow:hidden;">
+          <tr><td style="background:#dcfce7;padding:12px 20px;">
+            <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">Your ${round} pick</p>
+          </td></tr>
+          <tr><td style="padding:20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="vertical-align:middle;">
+                <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">${pickedPlayerName}</p>
+                ${matchScore ? `<p style="margin:4px 0 0;font-size:13px;color:#666;">${matchScore}</p>` : ''}
+              </td>
+              <td style="width:48px;text-align:right;vertical-align:middle;">
+                <div style="width:40px;height:40px;background:#16a34a;border-radius:50%;text-align:center;line-height:40px;font-size:20px;color:#fff;">&#10003;</div>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:24px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="width:50%;padding:12px 0;text-align:center;border-right:1px solid #f0f0f0;">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#16a34a;">${playersRemaining}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#999;font-weight:600;letter-spacing:0.5px;">PLAYERS LEFT</p>
+          </td>
+          <td style="width:50%;padding:12px 0;text-align:center;">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#0f172a;">${roundsSurvived}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#999;font-weight:600;letter-spacing:0.5px;">ROUNDS SURVIVED</p>
+          </td>
+        </tr></table>
+      </td>
+    </tr>
+    ${pickHistory && pickHistory.length > 0 ? `
+    <tr>
+      <td style="padding:28px 40px 0;">
+        <p style="margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#999;">Players used</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border:1px solid #e8e8e8;border-radius:8px;">
+          <tr><td style="padding:4px 20px 8px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${historyRows}</table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>` : ''}
+    ${divider}
+    <tr>
+      <td style="padding:24px 40px 8px;">
+        <p style="margin:0;font-size:15px;color:#444;line-height:1.7;">The next pick window is open. Head in and make your pick before it closes.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:16px 40px 36px;text-align:center;">
+        <a href="${pickUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">Make your next pick &rarr;</a>
+      </td>
+    </tr>`;
+  return emailWrapper(header, body, email);
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. ELIMINATION EMAIL — fires after round completes, for eliminated players
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendEliminationEmail = async ({
+  email, displayName, groupId, tournamentName,
+  round, roundLabel, pickedPlayerName, matchScore,
+  finishingPosition, totalPlayers, playersRemaining,
+}) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping elimination email to ${email} — email not configured.`);
+    return;
+  }
+  const subject = `Tough break — you're out of ${tournamentName} · Final Serve-ivor`;
+  try {
+    await sendViaBrevo({ to: email, subject, html: buildEliminationHTML({
+      email, displayName, groupId, tournamentName, round, roundLabel,
+      pickedPlayerName, matchScore, finishingPosition, totalPlayers, playersRemaining,
+    }) });
+    console.log(`✅ Elimination email sent to ${email} for ${round}`);
+  } catch (err) {
+    console.error(`❌ Failed to send elimination email to ${email}:`, err.message);
+  }
+};
+
+const buildEliminationHTML = ({
+  email, displayName, groupId, tournamentName, round, roundLabel,
+  pickedPlayerName, matchScore, finishingPosition, totalPlayers, playersRemaining,
+}) => {
+  const lbUrl = `${APP_URL}/group/${groupId}/leaderboard`;
+  const roundsSurvived = ROUNDS_ORDER.indexOf(round);
+  const header = `
+    <tr>
+      <td style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 40%,#4f46e5 100%);padding:40px 40px 32px;text-align:center;">
+        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#ffffff;">${tournamentName}</p>
+        <h1 style="margin:0;font-size:30px;font-weight:700;color:#ffffff;line-height:1.2;">Tough break.</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.7);">Your ${roundLabel} pick didn't come through.</p>
+      </td>
+    </tr>`;
+  const body = `
+    <tr>
+      <td style="padding:32px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden;">
+          <tr><td style="background:#fee2e2;padding:12px 20px;">
+            <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#dc2626;">Your ${round} pick</p>
+          </td></tr>
+          <tr><td style="padding:20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="vertical-align:middle;">
+                <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">${pickedPlayerName || 'No pick submitted'}</p>
+                ${matchScore ? `<p style="margin:4px 0 0;font-size:13px;color:#666;">${matchScore}</p>` : ''}
+              </td>
+              <td style="width:48px;text-align:right;vertical-align:middle;">
+                <div style="width:40px;height:40px;background:#dc2626;border-radius:50%;text-align:center;line-height:40px;font-size:20px;color:#fff;">&#10007;</div>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:24px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="width:33%;padding:12px 0;text-align:center;border-right:1px solid #f0f0f0;">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#0f172a;">${roundsSurvived}</p>
+            <p style="margin:4px 0 0;font-size:11px;color:#999;font-weight:600;letter-spacing:0.5px;">${roundsSurvived === 1 ? 'ROUND SURVIVED' : 'ROUNDS SURVIVED'}</p>
+          </td>
+          ${finishingPosition ? `<td style="width:33%;padding:12px 0;text-align:center;border-right:1px solid #f0f0f0;">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#0f172a;">${finishingPosition}<span style="font-size:14px;color:#999;">/${totalPlayers}</span></p>
+            <p style="margin:4px 0 0;font-size:11px;color:#999;font-weight:600;letter-spacing:0.5px;">FINISHING POSITION</p>
+          </td>` : ''}
+          <td style="padding:12px 0;text-align:center;">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#16a34a;">${playersRemaining}</p>
+            <p style="margin:4px 0 0;font-size:11px;color:#999;font-weight:600;letter-spacing:0.5px;">STILL ALIVE</p>
+          </td>
+        </tr></table>
+      </td>
+    </tr>
+    ${divider}
+    <tr>
+      <td style="padding:24px 40px 8px;">
+        <p style="margin:0;font-size:15px;color:#444;line-height:1.7;">You're out of the ${tournamentName} pool, but you can still follow the action. Check in to see who survives and who falls.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:16px 40px 36px;text-align:center;">
+        <a href="${lbUrl}" style="display:inline-block;padding:14px 36px;background:#4f46e5;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">View the leaderboard &rarr;</a>
+      </td>
+    </tr>`;
+  return emailWrapper(header, body, email);
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. WINNER EMAIL — fires when one player is left standing
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendWinnerEmail = async ({
+  email, displayName, groupId, tournamentName, pickHistory, totalPlayers,
+}) => {
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Skipping winner email to ${email} — email not configured.`);
+    return;
+  }
+  const subject = `You won ${tournamentName}! — Final Serve-ivor`;
+  try {
+    await sendViaBrevo({ to: email, subject, html: buildWinnerHTML({
+      email, displayName, groupId, tournamentName, pickHistory, totalPlayers,
+    }) });
+    console.log(`✅ Winner email sent to ${email}`);
+  } catch (err) {
+    console.error(`❌ Failed to send winner email to ${email}:`, err.message);
+  }
+};
+
+const buildWinnerHTML = ({ email, displayName, groupId, tournamentName, pickHistory, totalPlayers }) => {
+  const lbUrl = `${APP_URL}/group/${groupId}/leaderboard`;
+  const roundsSurvived = (pickHistory || []).length;
+  const historyRows = (pickHistory || []).map((p, i) => {
+    const isLast = i === pickHistory.length - 1;
+    return `<tr>
+      <td style="padding:10px 0;${isLast ? '' : 'border-bottom:1px solid #fde68a;'}font-size:13px;color:#92400e;width:30%;">${ROUND_LABELS[p.round] || p.round}</td>
+      <td style="padding:10px 0;${isLast ? '' : 'border-bottom:1px solid #fde68a;'}font-size:13px;font-weight:600;color:#16a34a;text-align:right;">${p.playerName} &#10003;</td>
+    </tr>`;
+  }).join('');
+
+  const header = `
+    <tr>
+      <td style="background:linear-gradient(135deg,#713f12 0%,#a16207 30%,#eab308 70%,#facc15 100%);padding:48px 40px 36px;text-align:center;">
+        <p style="margin:0 0 8px;font-size:48px;">&#127942;</p>
+        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.35);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#ffffff;">${tournamentName}</p>
+        <h1 style="margin:0;font-size:34px;font-weight:700;color:#ffffff;line-height:1.2;">You won.</h1>
+        <p style="margin:10px 0 0;font-size:16px;color:rgba(255,255,255,0.85);font-weight:500;">Last one standing. The pool is yours.</p>
+      </td>
+    </tr>`;
+  const body = `
+    <tr>
+      <td style="padding:36px 40px 8px;">
+        <p style="margin:0;font-size:15px;color:#444;line-height:1.7;">
+          <strong>${displayName}</strong>, you've outlasted every other player in the ${tournamentName} pool. ${totalPlayers} players entered. You're the only one left.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fffbeb;border:2px solid #fcd34d;border-radius:10px;overflow:hidden;">
+          <tr><td style="background:linear-gradient(90deg,#fef3c7,#fde68a);padding:14px 20px;">
+            <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#92400e;">Champion</p>
+          </td></tr>
+          <tr><td style="padding:20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="width:50%;padding:12px 0;text-align:center;border-right:1px solid #fde68a;">
+                <p style="margin:0;font-size:28px;font-weight:800;color:#92400e;">${roundsSurvived}</p>
+                <p style="margin:4px 0 0;font-size:11px;color:#a16207;font-weight:600;letter-spacing:0.5px;">ROUNDS SURVIVED</p>
+              </td>
+              <td style="width:50%;padding:12px 0;text-align:center;">
+                <p style="margin:0;font-size:28px;font-weight:800;color:#92400e;">${roundsSurvived}/${roundsSurvived}</p>
+                <p style="margin:4px 0 0;font-size:11px;color:#a16207;font-weight:600;letter-spacing:0.5px;">PICKS CORRECT</p>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+    ${pickHistory && pickHistory.length > 0 ? `
+    <tr>
+      <td style="padding:28px 40px 0;">
+        <p style="margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#999;">Your winning picks</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+          <tr><td style="padding:4px 20px 8px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${historyRows}</table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>` : ''}
+    ${divider}
+    <tr>
+      <td style="padding:28px 40px 36px;text-align:center;">
+        <p style="margin:0 0 20px;font-size:14px;color:#777;line-height:1.6;">View the final leaderboard and your complete pick history.</p>
+        <a href="${lbUrl}" style="display:inline-block;padding:14px 36px;background:#eab308;color:#422006;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">See the final standings &rarr;</a>
+      </td>
+    </tr>`;
+  return emailWrapper(header, body, email);
+};
