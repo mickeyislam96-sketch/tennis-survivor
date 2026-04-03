@@ -289,7 +289,6 @@ input, select { font-family: var(--font); }
 
 .player-row:hover { background: var(--surface-alt); }
 
-.player-name { flex: 1; font-weight: 500; }
 .player-used { opacity: 0.45; }
 .player-used-label { color: var(--text-muted); font-size: 0.82rem; font-weight: 400; }
 .seed {
@@ -1258,8 +1257,11 @@ input, select { font-family: var(--font); }
 }
 .player-seed-placeholder { min-width: 2.2rem; flex-shrink: 0; }
 
-.player-name { flex: 1; font-size: 0.95rem; font-weight: 500; }
+.player-name-col { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.player-name { font-size: 0.95rem; font-weight: 500; }
 .player-top-seed .player-name { font-weight: 700; }
+.player-opponent { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; }
+.player-opponent--tbd { font-style: italic; opacity: 0.7; }
 
 .player-used { opacity: 0.42; }
 .player-used .player-name { text-decoration: line-through; color: var(--text-muted); }
@@ -3289,6 +3291,7 @@ input, select { font-family: var(--font); }
   /* PickScreen: tighter player rows — 44px min touch target */
   .player-row  { padding: 0.6rem 0.75rem; min-height: 44px; }
   .player-name { font-size: 0.88rem; }
+  .player-opponent { font-size: 0.72rem; }
 
   /* GroupHome: pick CTA wraps cleanly */
   .pick-cta-section  { flex-direction: column; align-items: stretch; }

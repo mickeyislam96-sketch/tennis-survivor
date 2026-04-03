@@ -25,6 +25,87 @@ function rowToPick(p) {
   };
 }
 
+/**
+ * Build a map of playerId → { opponentName, opponentSeed, opponentStatus }
+ * for a given round's matches.
+ *
+ * Variations:
+ * - Both players known:  { opponentName: "Stan Wawrinka", opponentSeed: null }
+ * - One side TBD (prev round pending):  { opponentName: null, opponentPossible: ["Player A", "Player B"] }
+ * - Qualifier placeholder:  { opponentName: "Qualifier" }
+ * - Completely unknown:  not in map (no entry)
+ */
+function buildOpponentMap(roundMatches, allMatches, rounds, currentRound) {
+  const map = new Map();
+  const prevRoundIndex = rounds.indexOf(currentRound) - 1;
+  const prevRound = prevRoundIndex >= 0 ? rounds[prevRoundIndex] : null;
+  const prevMatches = prevRound
+    ? allMatches.filter(m => m.round === prevRound && !m.bye)
+    : [];
+
+  for (const m of roundMatches) {
+    if (m.bye) continue;
+    const p1 = m.player1Id;
+    const p2 = m.player2Id;
+    const p1Name = m.player1Name || null;
+    const p2Name = m.player2Name || null;
+
+    // For player1, find their opponent (player2) and vice versa
+    if (p1) {
+      if (p2 && p2Name) {
+        map.set(p1, { opponentName: p2Name, opponentId: p2 });
+      } else if (!p2 || !p2Name) {
+        // Opponent TBD — find the prev-round match that feeds into this slot
+        const possibles = findPossibleOpponents(p1, m, prevMatches);
+        if (possibles.length > 0) {
+          map.set(p1, { opponentName: null, opponentPossible: possibles });
+        } else {
+          map.set(p1, { opponentName: p2Name || null }); // might be "Qualifier" or null
+        }
+      }
+    }
+    if (p2) {
+      if (p1 && p1Name) {
+        map.set(p2, { opponentName: p1Name, opponentId: p1 });
+      } else if (!p1 || !p1Name) {
+        const possibles = findPossibleOpponents(p2, m, prevMatches);
+        if (possibles.length > 0) {
+          map.set(p2, { opponentName: null, opponentPossible: possibles });
+        } else {
+          map.set(p2, { opponentName: p1Name || null });
+        }
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * For a match where one side is TBD, try to find the two possible opponents
+ * from the previous round's unresolved matches.
+ */
+function findPossibleOpponents(knownPlayerId, match, prevMatches) {
+  // Look for an unresolved prev-round match where neither player is the known player
+  // and that could feed into this match slot.
+  // Heuristic: find prev-round matches where neither player matches knownPlayerId
+  // and the match has no winner yet.
+  const possibles = [];
+  for (const pm of prevMatches) {
+    if (pm.winnerId) continue; // already resolved
+    if (pm.player1Id === knownPlayerId || pm.player2Id === knownPlayerId) continue;
+    // Check if either player from this pending match could be the opponent
+    if (pm.player1Name && pm.player2Name) {
+      possibles.push(pm.player1Name, pm.player2Name);
+    }
+  }
+  // If we found too many (multiple pending matches), we can't determine which feeds here.
+  // In a structured bracket this would use match ordering, but for now just return
+  // the first pair found if exactly 2 names.
+  // Actually, let's be more careful: only return possibles if there's a clear pair.
+  // For now, return all found — the frontend will handle display.
+  return possibles.length <= 2 ? possibles : [];
+}
+
 async function getAvailablePlayers(userId, groupId, currentRound) {
   const draw = await getDraw(currentRound);
 
@@ -82,10 +163,18 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
         });
     }
 
+    // Build a lookup: playerId → opponent info from current round matches
+    const opponentMap = buildOpponentMap(roundMatches, draw.matches || [], ROUNDS, currentRound);
+
     const pool = (draw.players || [])
       .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
       .filter(p => !isQualifierPlaceholder(p))
-      .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+      .map(p => {
+        const enriched = pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : { ...p };
+        const opp = opponentMap.get(p.id);
+        if (opp) Object.assign(enriched, opp);
+        return enriched;
+      });
 
     // If the main path yields players, return them. If it yields zero (e.g. a mock
     // draw inconsistency where currentRound participants are already marked eliminated),

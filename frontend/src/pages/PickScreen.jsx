@@ -212,7 +212,9 @@ export function PickScreen() {
   const filtered = available.filter((p) => {
     const name = (p.name || '').toLowerCase().trim();
     const alive = !p.roundEliminated; // backend should omit eliminated players, but double-check here
-    const matchesSearch = !search.trim() || name.includes(search.trim().toLowerCase());
+    const q = search.trim().toLowerCase();
+    const oppName = (p.opponentName || '').toLowerCase();
+    const matchesSearch = !q || name.includes(q) || oppName.includes(q);
     return alive && matchesSearch;
   });
 
@@ -428,14 +430,25 @@ export function PickScreen() {
                   ) : (
                     <span className="player-seed-placeholder" />
                   )}
-                  <span className="player-name">
-                    {player.name}
-                    {usedInOtherRound && <span className="player-used-label">Already used</span>}
-                    {isCurrentPick && <span className="player-current-label">Your pick</span>}
-                    {!usedInOtherRound && player.pendingPrevRound && (
-                      <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
-                        ⚠️ {prevRound} result pending
-                      </span>
+                  <span className="player-name-col">
+                    <span className="player-name">
+                      {player.name}
+                      {usedInOtherRound && <span className="player-used-label">Already used</span>}
+                      {isCurrentPick && <span className="player-current-label">Your pick</span>}
+                      {!usedInOtherRound && player.pendingPrevRound && (
+                        <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
+                          ⚠️ {prevRound} result pending
+                        </span>
+                      )}
+                    </span>
+                    {player.opponentName && (
+                      <span className="player-opponent">vs {player.opponentName}</span>
+                    )}
+                    {!player.opponentName && player.opponentPossible?.length === 2 && (
+                      <span className="player-opponent player-opponent--tbd">vs {player.opponentPossible[0]} or {player.opponentPossible[1]}</span>
+                    )}
+                    {!player.opponentName && !player.opponentPossible && player.opponentName === 'Qualifier' && (
+                      <span className="player-opponent player-opponent--tbd">vs Qualifier</span>
                     )}
                   </span>
                   {rowError.id === player.id && (
