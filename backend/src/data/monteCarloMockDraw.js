@@ -1,107 +1,131 @@
 /**
- * Monte Carlo Masters 2026 — mock draw.
+ * Monte Carlo Masters 2026 — real draw.
  *
- * 56-player draw. Top 8 seeds get R1 byes (enter directly at R32).
+ * 64-player draw with 8 byes for top 8 seeds.
  * Layout:
- *   [0..7]   — 8 seeds in draw order (seed[i] faces R1 winner from match i)
- *   [8..55]  — 48 non-seeds in R1, in match-pair order
+ *   - 24 R1 matches among 48 unseeded/qualifier players
+ *   - 16 R32 matches (8 seeds with byes + 8 R1 winner pairs)
+ *   - R16/QF/SF/F bracket from R32 winners
  *
- * Rounds: R1 (24 matches) → R32 (16 matches) → R16 → QF → SF → F
+ * Seeds: Alcaraz(1), Sinner(2), Zverev(3), Musetti(4), de Minaur(5),
+ *        Auger-Aliassime(6), Medvedev(7), Bublik(8)
  *
- * NOTE: Player names are approximate based on typical Monte Carlo entries.
- * Update once the actual 2026 draw is released.
+ * Rounds: R1 (24) → R32 (16) → R16 (8) → QF (4) → SF (2) → F (1)
+ *
+ * Seeding rule: seeds are placed as player1 in their matches so they win in mock mode.
  */
 
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
 
-const SEEDS_WITH_BYES = 8; // Top 8 seeds enter at R32
-
 // ── Players ───────────────────────────────────────────────────────────────────
-// Seeds in draw order (each faces the winner of R1 match with matching index)
-const MC_PLAYERS = [
-  // ── Seeds (top 8 get byes into R32) ──────────────────────────────────────
-  { id: 'mc-s1',  name: 'Jannik Sinner',              seed: 1  }, // faces R1-M0 winner
-  { id: 'mc-s2',  name: 'Carlos Alcaraz',              seed: 2  }, // faces R1-M1 winner
-  { id: 'mc-s3',  name: 'Alexander Zverev',            seed: 3  }, // faces R1-M2 winner
-  { id: 'mc-s4',  name: 'Daniil Medvedev',             seed: 4  }, // faces R1-M3 winner
-  { id: 'mc-s5',  name: 'Casper Ruud',                 seed: 5  }, // faces R1-M4 winner
-  { id: 'mc-s6',  name: 'Stefanos Tsitsipas',          seed: 6  }, // faces R1-M5 winner
-  { id: 'mc-s7',  name: 'Andrey Rublev',               seed: 7  }, // faces R1-M6 winner
-  { id: 'mc-s8',  name: 'Holger Rune',                 seed: 8  }, // faces R1-M7 winner
 
-  // ── Non-seeds in R1 (24 matches = 48 players) ───────────────────────────
-  // M0 → winner vs Sinner (S1)
-  { id: 'mc-p9',  name: 'Sebastian Baez' },
-  { id: 'mc-p10', name: 'Alejandro Davidovich Fokina' },
-  // M1 → winner vs Alcaraz (S2)
-  { id: 'mc-p11', name: 'Arthur Fils' },
-  { id: 'mc-p12', name: 'Lorenzo Musetti' },
-  // M2 → winner vs Zverev (S3)
-  { id: 'mc-p13', name: 'Tommy Paul' },
-  { id: 'mc-p14', name: 'Alex de Minaur' },
-  // M3 → winner vs Medvedev (S4)
-  { id: 'mc-p15', name: 'Taylor Fritz' },
-  { id: 'mc-p16', name: 'Ben Shelton' },
-  // M4 → winner vs Ruud (S5)
-  { id: 'mc-p17', name: 'Hubert Hurkacz' },
-  { id: 'mc-p18', name: 'Felix Auger-Aliassime' },
-  // M5 → winner vs Tsitsipas (S6)
-  { id: 'mc-p19', name: 'Jack Draper' },
-  { id: 'mc-p20', name: 'Ugo Humbert' },
-  // M6 → winner vs Rublev (S7)
-  { id: 'mc-p21', name: 'Frances Tiafoe' },
-  { id: 'mc-p22', name: 'Sebastian Korda' },
-  // M7 → winner vs Rune (S8)
-  { id: 'mc-p23', name: 'Grigor Dimitrov' },
-  { id: 'mc-p24', name: 'Karen Khachanov' },
-  // M8 → R32 left half
-  { id: 'mc-p25', name: 'Nicolas Jarry' },
-  { id: 'mc-p26', name: 'Tomas Martin Etcheverry' },
-  // M9
-  { id: 'mc-p27', name: 'Flavio Cobolli' },
-  { id: 'mc-p28', name: 'Francisco Cerundolo' },
-  // M10
-  { id: 'mc-p29', name: 'Jiri Lehecka' },
-  { id: 'mc-p30', name: 'Alejandro Tabilo' },
-  // M11
-  { id: 'mc-p31', name: 'Jan-Lennard Struff' },
-  { id: 'mc-p32', name: 'Adrian Mannarino' },
-  // M12
-  { id: 'mc-p33', name: 'Matteo Berrettini' },
-  { id: 'mc-p34', name: 'Mariano Navone' },
-  // M13
-  { id: 'mc-p35', name: 'Jakub Mensik' },
-  { id: 'mc-p36', name: 'Miomir Kecmanovic' },
-  // M14
-  { id: 'mc-p37', name: 'Cameron Norrie' },
-  { id: 'mc-p38', name: 'Luciano Darderi' },
-  // M15
-  { id: 'mc-p39', name: 'Tomas Machac' },
-  { id: 'mc-p40', name: 'Matteo Arnaldi' },
-  // M16
-  { id: 'mc-p41', name: 'Alexandre Muller' },
-  { id: 'mc-p42', name: 'Alexander Bublik' },
-  // M17
-  { id: 'mc-p43', name: 'Quentin Halys' },
-  { id: 'mc-p44', name: 'Zhizhen Zhang' },
-  // M18
-  { id: 'mc-p45', name: 'Maxime Cressy' },
-  { id: 'mc-p46', name: 'Arthur Rinderknech' },
-  // M19
-  { id: 'mc-p47', name: 'Gabriel Diallo' },
-  { id: 'mc-p48', name: 'Botic van de Zandschulp' },
-  // M20
-  { id: 'mc-p49', name: 'Yibing Wu' },
-  { id: 'mc-p50', name: 'Valentin Royer' },
-  // M21
-  { id: 'mc-p51', name: 'Laslo Djere' },
-  { id: 'mc-p52', name: 'Corentin Moutet' },
-  // M22
-  { id: 'mc-p53', name: 'Benoit Paire' },
-  { id: 'mc-p54', name: 'Mikael Ymer' },
-  // M23 (last R1 match — winner faces a non-seeded R32 slot)
-  { id: 'mc-p55', name: 'Qualifier 1' },
-  { id: 'mc-p56', name: 'Qualifier 2' },
+const MC_PLAYERS = [
+  // ── Seeds (8 seeds with R1 byes, enter at R32) ───────────────────────────
+  { id: 'mc-s1',   name: 'Carlos Alcaraz',              seed: 1,  country: 'ESP' },
+  { id: 'mc-s2',   name: 'Jannik Sinner',               seed: 2,  country: 'ITA' },
+  { id: 'mc-s3',   name: 'Alexander Zverev',            seed: 3,  country: 'GER' },
+  { id: 'mc-s4',   name: 'Lorenzo Musetti',             seed: 4,  country: 'ITA' },
+  { id: 'mc-s5',   name: 'Alex de Minaur',              seed: 5,  country: 'AUS' },
+  { id: 'mc-s6',   name: 'Felix Auger-Aliassime',       seed: 6,  country: 'CAN' },
+  { id: 'mc-s7',   name: 'Daniil Medvedev',             seed: 7,  country: 'RUS' },
+  { id: 'mc-s8',   name: 'Alexander Bublik',            seed: 8,  country: 'KAZ' },
+
+  // ── R1 Non-seeds & Qualifiers (24 matches = 48 players) ─────────────────
+  // Match M0: Baez vs Wawrinka
+  { id: 'mc-p9',   name: 'Sebastian Baez',              country: 'ARG' },
+  { id: 'mc-p10',  name: 'Stan Wawrinka',               seed: 'WC', country: 'SUI' },
+
+  // Match M1: Etcheverry vs Dimitrov
+  { id: 'mc-p11',  name: 'Tomas Martin Etcheverry',     country: 'ARG' },
+  { id: 'mc-p12',  name: 'Grigor Dimitrov',             country: 'BUL' },
+
+  // Match M2: Atmane vs Tiafoe [14]
+  { id: 'mc-p13',  name: 'Terence Atmane',              country: 'FRA' },
+  { id: 'mc-p14',  name: 'Frances Tiafoe',              seed: 14, country: 'USA' },
+
+  // Match M3: Lehecka [11] vs Qualifier
+  { id: 'mc-p15',  name: 'Jiri Lehecka',                seed: 11, country: 'CZE' },
+  { id: 'mc-q1',   name: 'Qualifier',                   country: 'Q' },
+
+  // Match M4: Fucsovics vs Tabilo
+  { id: 'mc-p17',  name: 'Marton Fucsovics',            country: 'HUN' },
+  { id: 'mc-p18',  name: 'Alejandro Tabilo',            country: 'CHI' },
+
+  // Match M5: Monfils vs Griekspoor
+  { id: 'mc-p19',  name: 'Gael Monfils',                seed: 'WC', country: 'FRA' },
+  { id: 'mc-p20',  name: 'Tallon Griekspoor',           country: 'NED' },
+
+  // Match M6: Vacherot vs Majchrzak
+  { id: 'mc-p21',  name: 'Valentin Vacherot',           country: 'MON' },
+  { id: 'mc-p22',  name: 'Kamil Majchrzak',             country: 'POL' },
+
+  // Match M7: Mensik vs Marozsan
+  { id: 'mc-p23',  name: 'Jakub Mensik',                country: 'CZE' },
+  { id: 'mc-p24',  name: 'Fabian Marozsan',             country: 'HUN' },
+
+  // Match M8: Hurkacz vs Darderi [15]
+  { id: 'mc-p25',  name: 'Hubert Hurkacz',              country: 'POL' },
+  { id: 'mc-p26',  name: 'Luciano Darderi',             seed: 15, country: 'ITA' },
+
+  // Match M9: Cobolli [10] vs Qualifier
+  { id: 'mc-p27',  name: 'Flavio Cobolli',              seed: 10, country: 'ITA' },
+  { id: 'mc-q2',   name: 'Qualifier',                   country: 'Q' },
+
+  // Match M10: Shapovalov vs Qualifier
+  { id: 'mc-p29',  name: 'Denis Shapovalov',            country: 'CAN' },
+  { id: 'mc-q3',   name: 'Qualifier',                   country: 'Q' },
+
+  // Match M11: Norrie vs Kecmanovic
+  { id: 'mc-p31',  name: 'Cameron Norrie',              country: 'GBR' },
+  { id: 'mc-p32',  name: 'Miomir Kecmanovic',           country: 'SRB' },
+
+  // Match M12: Qualifier vs Berrettini [WC]
+  { id: 'mc-q4',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-p34',  name: 'Matteo Berrettini',           seed: 'WC', country: 'ITA' },
+
+  // Match M13: Fonseca vs Diallo
+  { id: 'mc-p35',  name: 'Joao Fonseca',                country: 'BRA' },
+  { id: 'mc-p36',  name: 'Gabriel Diallo',              country: 'CAN' },
+
+  // Match M14: Rinderknech vs Khachanov [12]
+  { id: 'mc-p37',  name: 'Arthur Rinderknech',          country: 'FRA' },
+  { id: 'mc-p38',  name: 'Karen Khachanov',             seed: 12, country: 'RUS' },
+
+  // Match M15: Rublev [13] vs Borges
+  { id: 'mc-p39',  name: 'Andrey Rublev',               seed: 13, country: 'RUS' },
+  { id: 'mc-p40',  name: 'Nuno Borges',                 country: 'POR' },
+
+  // Match M16: Bergs vs Mannarino
+  { id: 'mc-p41',  name: 'Zizou Bergs',                 country: 'BEL' },
+  { id: 'mc-p42',  name: 'Adrian Mannarino',            country: 'FRA' },
+
+  // Match M17: Qualifier vs Mpetshi Perricard
+  { id: 'mc-q5',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-p44',  name: 'Giovanni Mpetshi Perricard',  country: 'FRA' },
+
+  // Match M18: Cilic vs Qualifier
+  { id: 'mc-p45',  name: 'Marin Cilic',                 country: 'CRO' },
+  { id: 'mc-q6',   name: 'Qualifier',                   country: 'Q' },
+
+  // Match M19: Moutet vs Qualifier
+  { id: 'mc-p47',  name: 'Corentin Moutet',             country: 'FRA' },
+  { id: 'mc-q7',   name: 'Qualifier',                   country: 'Q' },
+
+  // Match M20: Popyrin vs Ruud [9]
+  { id: 'mc-p49',  name: 'Alexei Popyrin',              country: 'AUS' },
+  { id: 'mc-p50',  name: 'Casper Ruud',                 seed: 9,  country: 'NOR' },
+
+  // Match M21: Cerundolo [16] vs Tsitsipas
+  { id: 'mc-p51',  name: 'Francisco Cerundolo',         seed: 16, country: 'ARG' },
+  { id: 'mc-p52',  name: 'Stefanos Tsitsipas',          country: 'GRE' },
+
+  // Match M22: Altmaier vs Machac
+  { id: 'mc-p53',  name: 'Daniel Altmaier',             country: 'GER' },
+  { id: 'mc-p54',  name: 'Tomas Machac',                country: 'CZE' },
+
+  // Match M23: Kouame vs Humbert
+  { id: 'mc-p55',  name: 'Moise Kouame',                seed: 'WC', country: 'FRA' },
+  { id: 'mc-p56',  name: 'Ugo Humbert',                 country: 'FRA' },
 ];
 
 // Round start times (UTC). Monte Carlo is CEST = UTC+2 in April.
@@ -116,9 +140,11 @@ const ROUND_START_TIMES = {
 
 function buildMonteCarloMatches() {
   const matches = [];
+  const seeds = MC_PLAYERS.slice(0, 8);         // Seeds (indices 0-7)
+  const r1Players = MC_PLAYERS.slice(8);        // All non-seeds (indices 8-55)
 
-  // ── R1: 24 matches among 48 non-seeds ─────────────────────────────────────
-  const r1Players = MC_PLAYERS.slice(SEEDS_WITH_BYES); // indices 8..55
+  // ── R1: 24 matches among 48 non-seeds (indices 8-55) ────────────────────
+  // Pair up: [8,9], [10,11], [12,13], ..., [54,55]
   for (let i = 0; i < MATCHES_PER_ROUND.R1; i++) {
     const p1 = r1Players[i * 2];
     const p2 = r1Players[i * 2 + 1];
@@ -133,35 +159,56 @@ function buildMonteCarloMatches() {
     });
   }
 
-  // ── R32: 16 matches ──────────────────────────────────────────────────────
-  // First 8 matches: seed[i] vs R1 winner[i] (seeds 1-8)
-  // Next 8 matches:  R1 winner pairs (matches 8-23 in R1)
-  const seeds     = MC_PLAYERS.slice(0, SEEDS_WITH_BYES);
+  // ── R32: 16 matches (explicit bracket mapping) ────────────────────────────
+  // Correct Monte Carlo 2026 bracket structure (non-sequential seed placement).
+  // Seeds are placed as player1 (win in mock mode). Structure:
+  //   Match 0: Alcaraz [1] vs M0 winner
+  //   Match 1-2: R1 pairs
+  //   Match 3: Bublik [8] vs M5 winner
+  //   ... etc
+  const R32_BRACKET = [
+    { type: 'seed', seedIdx: 0, r1Idx: 0 },    // Alcaraz [1] vs M0
+    { type: 'r1r1', r1Idx1: 1, r1Idx2: 2 },    // M1 vs M2
+    { type: 'r1r1', r1Idx1: 3, r1Idx2: 4 },    // M3 vs M4
+    { type: 'seed', seedIdx: 7, r1Idx: 5 },     // Bublik [8] vs M5
+    { type: 'seed', seedIdx: 3, r1Idx: 6 },     // Musetti [4] vs M6
+    { type: 'r1r1', r1Idx1: 7, r1Idx2: 8 },    // M7 vs M8
+    { type: 'r1r1', r1Idx1: 9, r1Idx2: 10 },   // M9 vs M10
+    { type: 'seed', seedIdx: 4, r1Idx: 11 },    // de Minaur [5] vs M11
+    { type: 'seed', seedIdx: 6, r1Idx: 12 },    // Medvedev [7] vs M12
+    { type: 'r1r1', r1Idx1: 13, r1Idx2: 14 },  // M13 vs M14
+    { type: 'r1r1', r1Idx1: 15, r1Idx2: 16 },  // M15 vs M16
+    { type: 'seed', seedIdx: 2, r1Idx: 17 },    // Zverev [3] vs M17
+    { type: 'seed', seedIdx: 5, r1Idx: 18 },    // FAA [6] vs M18
+    { type: 'r1r1', r1Idx1: 19, r1Idx2: 20 },  // M19 vs M20
+    { type: 'r1r1', r1Idx1: 21, r1Idx2: 22 },  // M21 vs M22
+    { type: 'seed', seedIdx: 1, r1Idx: 23 },    // Sinner [2] vs M23
+  ];
+
   const r1Matches = matches.filter(m => m.round === 'R1');
 
-  // Seed matches: seed as player1 so seeds win in mock
-  for (let i = 0; i < SEEDS_WITH_BYES; i++) {
-    const r1Match  = r1Matches[i];
-    const r1Winner = { id: r1Match.player1Id, name: r1Match.player1Name };
-    const seed     = seeds[i];
+  for (let i = 0; i < R32_BRACKET.length; i++) {
+    const slot = R32_BRACKET[i];
+    let p1, p2;
+
+    if (slot.type === 'seed') {
+      // Seed vs R1 winner — seed as player1 (wins in mock mode)
+      const seed = seeds[slot.seedIdx];
+      const r1Match = r1Matches[slot.r1Idx];
+      p1 = { id: seed.id, name: seed.name };
+      p2 = { id: r1Match.player1Id, name: r1Match.player1Name };
+    } else {
+      // R1 winner vs R1 winner — player1 of first match wins in mock mode
+      const m1 = r1Matches[slot.r1Idx1];
+      const m2 = r1Matches[slot.r1Idx2];
+      p1 = { id: m1.player1Id, name: m1.player1Name };
+      p2 = { id: m2.player1Id, name: m2.player1Name };
+    }
+
     matches.push({
       id: `m-R32-${i}`,
-      round: 'R32', matchOrder: i,
-      player1Id: seed.id, player1Name: seed.name,     // seed wins in mock
-      player2Id: r1Winner.id, player2Name: r1Winner.name,
-      winnerId: null, winnerName: null,
-      status: 'scheduled', bye: false,
-    });
-  }
-  // Non-seeded R32 matches: R1 winners 8-23 pair up
-  for (let i = 0; i < 8; i++) {
-    const m1 = r1Matches[SEEDS_WITH_BYES + i * 2];
-    const m2 = r1Matches[SEEDS_WITH_BYES + i * 2 + 1];
-    const p1 = { id: m1.player1Id, name: m1.player1Name };
-    const p2 = { id: m2.player1Id, name: m2.player1Name };
-    matches.push({
-      id: `m-R32-${SEEDS_WITH_BYES + i}`,
-      round: 'R32', matchOrder: SEEDS_WITH_BYES + i,
+      round: 'R32',
+      matchOrder: i,
       player1Id: p1.id, player1Name: p1.name,
       player2Id: p2.id, player2Name: p2.name,
       winnerId: null, winnerName: null,
@@ -169,19 +216,22 @@ function buildMonteCarloMatches() {
     });
   }
 
-  // ── R16 → QF → SF → F: pair consecutive R32 winners ─────────────────────
-  const laterRounds   = ['R16', 'QF', 'SF', 'F'];
-  const r32Matches    = matches.filter(m => m.round === 'R32');
-  let prevWinners     = r32Matches.map(m => ({ id: m.player1Id, name: m.player1Name }));
+  // ── R16 → QF → SF → F: pair consecutive winners ────────────────────────
+  // All winners come from R32 matches (player1 wins in mock mode)
+  const laterRounds = ['R16', 'QF', 'SF', 'F'];
+  const r32Matches = matches.filter(m => m.round === 'R32');
+  let prevWinners = r32Matches.map(m => ({ id: m.player1Id, name: m.player1Name }));
 
   for (const round of laterRounds) {
-    const count       = MATCHES_PER_ROUND[round];
+    const count = MATCHES_PER_ROUND[round];
     const roundMatches = [];
     for (let i = 0; i < count; i++) {
       const p1 = prevWinners[i * 2];
       const p2 = prevWinners[i * 2 + 1];
       const m = {
-        id: `m-${round}-${i}`, round, matchOrder: i,
+        id: `m-${round}-${i}`,
+        round,
+        matchOrder: i,
         player1Id: p1.id, player1Name: p1.name,
         player2Id: p2.id, player2Name: p2.name,
         winnerId: null, winnerName: null,
@@ -190,6 +240,7 @@ function buildMonteCarloMatches() {
       matches.push(m);
       roundMatches.push(m);
     }
+    // Next round: winners are all player1s (seeds/strong players win in mock)
     prevWinners = roundMatches.map(m => ({ id: m.player1Id, name: m.player1Name }));
   }
 
@@ -200,21 +251,25 @@ function buildMonteCarloMatches() {
  * Return the Monte Carlo mock draw.
  *
  * currentRound: the round treated as "in progress" (no winner yet).
- * All rounds before currentRound are marked completed (player1 wins).
+ * All rounds before currentRound are marked completed (player1 wins in mock).
  * All rounds after are scheduled.
+ *
+ * Expected MATCHES_PER_ROUND:
+ *   R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1
  */
 export function getMonteCarlMockDraw(currentRound = 'R1') {
   const roundIndex = ROUNDS.indexOf(currentRound);
-  const players    = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null }));
-  const matches    = buildMonteCarloMatches();
+  const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null }));
+  const matches = buildMonteCarloMatches();
   const eliminated = new Set();
 
   matches.forEach(m => {
     const r = ROUNDS.indexOf(m.round);
     m.startTime = ROUND_START_TIMES[m.round] || null;
     if (r < roundIndex) {
-      m.status    = 'completed';
-      m.winnerId  = m.player1Id;
+      // Round completed: player1 wins (seeds/strong players dominate in mock)
+      m.status = 'completed';
+      m.winnerId = m.player1Id;
       m.winnerName = m.player1Name;
       eliminated.add(m.player2Id);
     } else if (r === roundIndex) {
@@ -222,6 +277,7 @@ export function getMonteCarlMockDraw(currentRound = 'R1') {
     }
   });
 
+  // Mark eliminated players with their elimination round
   eliminated.forEach(id => {
     const p = players.find(x => x.id === id);
     if (!p) return;
@@ -232,9 +288,12 @@ export function getMonteCarlMockDraw(currentRound = 'R1') {
   });
 
   return {
-    players, matches, rounds: ROUNDS, currentRound,
+    players,
+    matches,
+    rounds: ROUNDS,
+    currentRound,
     tournament: 'Rolex Monte-Carlo Masters 2026',
-    seedsWithByes: SEEDS_WITH_BYES,
+    seedsWithByes: 8,
     dataSource: 'mock',
   };
 }

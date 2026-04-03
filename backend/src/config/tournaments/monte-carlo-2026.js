@@ -30,7 +30,7 @@ export const MONTE_CARLO_2026 = {
   id: 'monte-carlo-2026',
   name: 'Rolex Monte-Carlo Masters',
   shortName: 'Monte Carlo',
-  apiTournamentKey: process.env.MONTE_CARLO_TOURNAMENT_KEY,
+  apiTournamentKey: process.env.MONTE_CARLO_TOURNAMENT_KEY || '1970',
 
   // Draw parameters
   drawSize: 56,
