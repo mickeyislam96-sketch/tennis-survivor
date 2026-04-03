@@ -523,9 +523,11 @@ export function GroupHome() {
           </p>
           {ctaPool && (
             <Link to={`/group/${ctaPool.id}`} className="btn primary btn-lg home-hero-cta">
-              {ctaPool.tournament?.status === 'upcoming'
-                ? `Enter ${ctaPool.tournament?.shortName || ''} free →`
-                : 'Enter now →'}
+              {ctaPool.isMember
+                ? `Go to ${ctaPool.tournament?.shortName || 'pool'} →`
+                : ctaPool.tournament?.status === 'upcoming'
+                  ? `Enter ${ctaPool.tournament?.shortName || ''} free →`
+                  : 'Enter now →'}
             </Link>
           )}
           {daysToStart !== null && daysToStart > 0 && (
