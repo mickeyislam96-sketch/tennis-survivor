@@ -83,6 +83,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 
     const pool = (draw.players || [])
       .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
+      .filter(p => !isQualifierPlaceholder(p))
       .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 
     // If the main path yields players, return them. If it yields zero (e.g. a mock
@@ -95,7 +96,13 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   // Return all non-eliminated players, tagging those with unresolved prev-round matches.
   return (draw.players || [])
     .filter(p => !p.roundEliminated)
+    .filter(p => !isQualifierPlaceholder(p))
     .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+}
+
+/** Qualifier placeholders are removed from the pick pool until real names are known. */
+function isQualifierPlaceholder(player) {
+  return player.name === 'Qualifier' || player.id?.startsWith('mc-q');
 }
 
 // GET /api/picks/available?userId=&groupId=&round=

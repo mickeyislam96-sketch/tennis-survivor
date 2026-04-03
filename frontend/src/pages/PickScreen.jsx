@@ -456,6 +456,7 @@ export function PickScreen() {
             })}
           </ul>
           {filtered.length > 80 && <p className="text-muted">Showing first 80. Use search to find others.</p>}
+          <p className="qualifier-disclaimer">Qualifiers will be added once the qualifying draw is finalised.</p>
         </>
       )}
 

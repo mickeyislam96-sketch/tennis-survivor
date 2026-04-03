@@ -207,6 +207,7 @@ input, select { font-family: var(--font); }
 }
 
 .text-muted { color: var(--text-muted); font-size: 0.9rem; }
+.qualifier-disclaimer { color: var(--text-muted); font-size: 0.85rem; text-align: center; margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; }
 .success-msg { color: var(--success); font-weight: 500; }
 
 /* ── Pick screen ─────────────────────────────────────────── */
