@@ -270,7 +270,7 @@ When the draw drops and picks open, users who already joined have no way of know
 
 ---
 
-## Current tournament state (as of 26 March 2026)
+## Current tournament state (as of 3 April 2026)
 
 ### Miami Open 2026 (practice — ended)
 - Tournament: ATP Miami Open 2026
@@ -279,25 +279,26 @@ When the draw drops and picks open, users who already joined have no way of know
 - Mode: Practice tournament — no prize money
 - Indian Wells test data removed from codebase (26 Mar)
 
-### Monte Carlo 2026 (upcoming — first competitive tournament)
+### Monte Carlo 2026 (LIVE — first competitive tournament)
 - Tournament: Rolex Monte-Carlo Masters 2026
-- Status: `upcoming` — registration open, draw not yet available
+- Status: `active` — draw published, R1 pick window open
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f` (PostgreSQL — persistent)
-- Invite code: `MONTECAR-406R3X` (regenerated 25 Mar)
+- Invite code: `MONTECAR-406R3X`
 - Entry: Free
-- Draw release: ~Fri 4 Apr
-- Tournament starts: Sun 5 Apr
-- Members: growing (joins persist in PostgreSQL)
+- R1 starts: Sun 5 Apr (lock time ~08:00 UTC)
+- Members: 9 (as of 3 Apr — invites going out tonight)
+- API-Tennis: returning mock fallback (key may be wrong — health check shows `TOURNAMENT_KEY` present but API returns bad response). Mock draw has correct 56-draw structure with 8 seed byes.
 
-### Pre-launch actions (before 4 Apr)
-1. **Railway billing** — trial expires ~7 Apr. Upgrade to Hobby plan ($5/month) before 5 Apr or backend dies mid-tournament
-2. **`MONTE_CARLO_TOURNAMENT_KEY`** — obtain from API-Tennis and set in Railway env vars (~4 Apr)
-3. **Lock time overrides** — add `LOCKTIME_OVERRIDES` for each round once schedule published
-4. **Draw release deployment** — set `drawAvailable: true` + `status: 'active'` in both `frontend/src/data/tournaments.js` and `backend/src/data/tournaments.js`
-5. ~~**OG image**~~ — DONE (25 Mar session 3). `og-image.png` created and deployed.
-6. **Custom bracket viewer** — replace Sofascore widget with custom bracket seeded from official draw. Mickey provides draw on ~4 Apr; build seed file + bracket UI.
+### Outstanding actions
+1. **Railway billing** — trial expires ~7 Apr. Upgrade to Hobby plan ($5/month) ASAP or backend dies mid-tournament
+2. ~~**`MONTE_CARLO_TOURNAMENT_KEY`**~~ — set in Railway env vars (confirmed 3 Apr). However, API-Tennis is returning bad responses — needs investigation. Backend falls back to mock data.
+3. ~~**Lock time overrides**~~ — DONE (3 Apr). All rounds have `LOCKTIME_OVERRIDES` set.
+4. ~~**Draw release deployment**~~ — DONE (3 Apr). `drawAvailable: true` + `status: 'active'` set.
+5. ~~**OG image**~~ — DONE (25 Mar session 3).
+6. ~~**Custom bracket viewer**~~ — DONE (3 Apr). Built from static mock draw with correct 56-draw structure, 8 seed byes, matchOrder sorting.
 7. **SPF/DKIM for Brevo** — set up domain authentication for `finalserveivor.com` in Brevo before paid tournaments.
-8. **"Draw is live" notification email** — no email currently triggers when draw drops. Users who already joined won't know picks are open unless they check the site. Build a notify endpoint or scheduled task.
+8. **Transactional emails (pick reminder, survival, elimination, winner)** — HTML templates designed and approved but REVERTED from production (3 Apr). Need: `emails_sent` tracking table for deduplication, dry-run testing mode, proper integration testing before re-deploying. Code saved in git history (commit `c7a16d1`).
+9. **API-Tennis investigation** — health check shows tournament key present but API returns `{success: 1}` with no fixture data. Either key is wrong, rate-limited, or tournament not yet in their system. Once live API works, mock fallback auto-disengages.
 
 ---
 
@@ -314,4 +315,5 @@ When the draw drops and picks open, users who already joined have no way of know
 | 25 Mar 2026 (session 1) | Added Monte Carlo "Coming Soon" card to landing page (mock g3 in mockGroups.js). Verified admin endpoints work (auth uses `?secret=` query param, not header). Updated CLAUDE.md admin auth docs. |
 | 25 Mar 2026 (session 2) | Landing page design improvements: added OG meta tags + Twitter card to `frontend/index.html`; created `frontend/public/favicon.svg` (green tennis ball); added hero CTA button "Enter Monte Carlo free →" for non-members in GroupHome.jsx; added social proof "X already registered" badge on upcoming pool cards; updated hero copy. **Critical bug fix:** mock group joins (g3) were stored in-memory only (`MOCK_MEMBERS.push()`), wiped on every Railway deploy. Fix: created real PostgreSQL group `2d0d1477-0761-49c8-aaf7-d54ad466062f` for Monte Carlo via API call. Pools endpoint auto-filters mock g3 via `dbTournamentIds` Set. All joins now persist in PostgreSQL. Verified hero CTA links to real DB group and group page loads correctly. **Still needed:** `og-image.png` (1200×630) for social sharing previews; invite code cosmetic fix ("POO" truncation). |
 | 25 Mar 2026 (session 3) | **Pre-launch audit + fixes.** Three commits pushed: (1) `8b95785` critical security fixes — CORS restricted to specific origins, password reset URL fixed, admin hardcoded secret removed, `eliminateNonPickers` safety guard added; (2) `2824af0` comprehensive fixes — leaderboard mock fallback ternary fix, auto-join after registration, OG image created, invite code generator fixed, rate limiting on auth endpoints; (3) `274cd59` emergency CORS fix — added `www.finalserveivor.com` to allowed origins (site was broken because domain redirects to www). Verified site fully working. Set `ADMIN_SECRET` and `FRONTEND_URL` env vars in Railway. Regenerated Monte Carlo invite code to `MONTECAR-406R3X`. Verified Brevo email delivery working (2-3 min delay, acceptable). Created `FSV_Service_Infrastructure_Map.xlsx` with full service audit, scaling limits, cost projections. Agreed plan: replace Sofascore bracket widget with custom bracket seeded from static draw for Monte Carlo (~4 Apr session). |
+| 3 Apr 2026 | **Go-live session for Monte Carlo.** Activated tournament (status, schedule, lock times for all rounds). Built custom 56-draw bracket with 8 seed byes and matchOrder sorting. Fixed R1 start date (Sun 5 Apr, not Mon 6 Apr). Fixed bracket showing checkmarks on TBD matches (null===null bug). Fixed mock draw projecting results into future rounds. Removed Qualifier placeholders from pick pool (41 real players). Fixed hero CTA for existing members. Fixed leaderboard colSpan for empty state. Updated join page copy (removed beta language). Fixed email.js syntax error crashing Railway. Fixed Railway healthcheck timeout (server now starts before DB init). Fixed R32 bracket pairings with explicit seed mapping. Added tournament key fallback '1970'. **Email system:** designed 4 transactional emails (pick reminder, survival with growing pick history, elimination, winner), got approval, built and deployed — then REVERTED because code had no deduplication/email tracking (would send duplicates every cron cycle). Rolled back to safe state: only welcome, password reset, and tournament join emails active. **Mobile:** improved touch targets (44px min-height on buttons, player rows, round tabs), fixed search input overflow. Verified all pages load correctly via Chrome. 11 commits pushed. |
 | 26 Mar 2026 | **Comprehensive backend audit + hardening.** Full code audit of all backend routes found 20 issues. Commits pushed: (1) `eb24252` auto-join fix — users registering via header auth modal now auto-join pre-launch groups; (2) `e64307c` hardening — group membership check on picks (was missing), double-submit guard on pick button, join endpoint returns 200 for already-joined users, `betaFree` flag exposed on group endpoints; (3) `adf796e` Indian Wells test data cleanup; (4) `38820f2` email copy fix — "Group" → "Pool" in tournament join email, context-aware CTA button ("See who's joined" pre-launch / "Make your first pick" when draw live); (5) `ca011be` mobile invite box fix — stacked URL + copy button vertically (was overflowing off-screen); (6) `28bc9fe` homepage copy overhaul — hero eyebrow generalised from "ATP Masters 1000 · Survivor fantasy" to "Tennis Survivor"; How It Works step 2 now explains no-reuse rule and strategy; step 3 clearer elimination language; footer tagline changed to "Outsmart. Outlast. Win."; all meta tags (title, OG, Twitter, manifest) updated to remove ATP-specific references. Email mockups generated for all 3 templates (welcome, tournament join, password reset). Identified future issues: no auth on API (issue #12), no transaction wrapping on results (issue #13), no "draw is live" notification email (issue #14). |
