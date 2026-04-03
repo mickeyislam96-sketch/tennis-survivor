@@ -488,7 +488,7 @@ const buildTournamentJoinHTML = ({
             : `No action needed right now. We'll be in touch once the draw drops on ${drawDate}.`
           }
         </p>
-        <a href="${groupUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">${drawAvailable ? 'Make your first pick' : 'See who\\'s joined'} &rarr;</a>
+        <a href="${groupUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;">${drawAvailable ? 'Make your first pick' : "See who's joined"} &rarr;</a>
       </td>
     </tr>
   `;
