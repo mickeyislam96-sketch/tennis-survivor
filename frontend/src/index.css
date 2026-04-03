@@ -271,7 +271,7 @@ input, select { font-family: var(--font); }
 .countdown-value { font-family: var(--font-mono); font-weight: 600; color: #78350f; }
 
 .search-row { margin-bottom: 1rem; }
-.search-input { min-width: 300px; }
+.search-input { min-width: 300px; width: 100%; box-sizing: border-box; }
 
 .available-count { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 500; }
 
@@ -3276,18 +3276,18 @@ input, select { font-family: var(--font); }
 @media (max-width: 680px) {
   /* Header: shrink auth buttons so they fit beside the logo */
   .header-auth-btns { gap: 0.35rem; }
-  .btn-signin  { font-size: 0.78rem; padding: 0.32rem 0.6rem; }
-  .btn-register { font-size: 0.78rem; padding: 0.32rem 0.6rem; }
+  .btn-signin  { font-size: 0.78rem; padding: 0.42rem 0.7rem; min-height: 36px; }
+  .btn-register { font-size: 0.78rem; padding: 0.42rem 0.7rem; min-height: 36px; }
 
   /* PickScreen: search bar should fill its row */
   .search-row  { width: 100%; }
   .search-input { min-width: 0; width: 100%; box-sizing: border-box; }
 
-  /* PickScreen: tighter round tabs */
-  .round-tab { font-size: 0.78rem; padding: 0.3rem 0.6rem; }
+  /* PickScreen: tighter round tabs — keep tappable */
+  .round-tab { font-size: 0.78rem; padding: 0.45rem 0.6rem; }
 
-  /* PickScreen: tighter player rows */
-  .player-row  { padding: 0.6rem 0.75rem; }
+  /* PickScreen: tighter player rows — 44px min touch target */
+  .player-row  { padding: 0.6rem 0.75rem; min-height: 44px; }
   .player-name { font-size: 0.88rem; }
 
   /* GroupHome: pick CTA wraps cleanly */
@@ -3386,9 +3386,9 @@ input, select { font-family: var(--font); }
     margin-left: 0.3rem;
   }
 
-  /* ── Minimum tap targets for buttons ── */
-  .btn-sm { min-height: 36px; }
-  .round-tab { min-height: 36px; }
+  /* ── Minimum tap targets for buttons (Apple HIG: 44px) ── */
+  .btn-sm { min-height: 44px; }
+  .round-tab { min-height: 44px; }
 
   /* ── Pick screen: tighten spacing ── */
   .pick-screen { padding-top: 0; }
