@@ -120,8 +120,8 @@ function BracketCard({ match }) {
       </div>
     );
   }
-  const p1w  = match.winnerId === match.player1Id;
-  const p2w  = match.winnerId === match.player2Id;
+  const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
+  const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
   const done = match.status === 'completed';
   const live = isLive(match.status);
 
@@ -163,8 +163,8 @@ function BracketCol({ round, matches, totalHeight, matchCount }) {
 
 // ─── List-view match card ─────────────────────────────────────────────────────
 function ListCard({ match }) {
-  const p1w  = match.winnerId === match.player1Id;
-  const p2w  = match.winnerId === match.player2Id;
+  const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
+  const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
   const done = match.status === 'completed';
   const live = isLive(match.status);
   const date = match.startTime
