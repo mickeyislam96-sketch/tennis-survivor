@@ -334,8 +334,31 @@ export async function getDraw(roundFilter = null) {
     const draw = buildDrawFromFixtures(fixtures);
     return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
   }
-  const mockDraw = getMockDraw(roundFilter || ROUNDS[0]);
+  // Mock fallback: determine current round from the tournament schedule, NOT
+  // from the frontend's roundFilter (which is just "how much of the bracket to
+  // show"). Passing roundFilter here was causing the mock to mark all earlier
+  // rounds as completed when the frontend requested ?round=F.
+  const currentRound = getCurrentRoundFromSchedule();
+  const mockDraw = getMockDraw(currentRound);
   return { ...mockDraw, dataSource: 'mock' };
+}
+
+/**
+ * Determine which round is "current" based on the tournament schedule dates.
+ * Returns the latest round whose start date has passed, or the first round
+ * if the tournament hasn't started yet.
+ */
+function getCurrentRoundFromSchedule() {
+  const now = new Date();
+  const roundDates = TOURNAMENT.roundDates || {};
+  let current = ROUNDS[0];
+  for (const round of ROUNDS) {
+    const startDate = roundDates[round];
+    if (startDate && now >= new Date(startDate)) {
+      current = round;
+    }
+  }
+  return current;
 }
 
 export function getRounds() { return [...ROUNDS]; }
