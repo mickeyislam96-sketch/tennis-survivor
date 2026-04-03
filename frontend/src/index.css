@@ -2178,6 +2178,18 @@ input, select { font-family: var(--font); }
   opacity: 0.55;
 }
 
+.bc-card--bye {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  opacity: 0.7;
+}
+
+.bc-bye-label {
+  font-style: italic;
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
 .bc-live-dot {
   font-size: 0.6rem;
   font-weight: 800;

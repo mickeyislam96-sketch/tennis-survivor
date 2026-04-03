@@ -120,6 +120,18 @@ function BracketCard({ match }) {
       </div>
     );
   }
+
+  // Bye card: seed has a first-round bye
+  if (match.bye) {
+    return (
+      <div className="bc-card bc-card--bye">
+        <div className="bc-row bc-won"><span className="bc-name">{match.player1Name}</span></div>
+        <div className="bc-divider" />
+        <div className="bc-row bc-row--tbd"><span className="bc-name bc-bye-label">BYE</span></div>
+      </div>
+    );
+  }
+
   const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
   const done = match.status === 'completed';
@@ -295,6 +307,13 @@ export function DrawViewer() {
   const bracketRounds  = rounds.filter(r => (matchesByRound[r] || []).length > 0);
   const orderedBracket = buildOrderedBracket(matchesByRound, bracketRounds);
 
+  // Sort each round by matchOrder (set by backend for correct bracket alignment).
+  // This fixes positioning when DFS cannot follow the bracket tree (e.g. pre-tournament
+  // state where R32 player references are null and feeders become orphans).
+  bracketRounds.forEach(round => {
+    orderedBracket[round].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
+  });
+
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
     if (i > 0) {
@@ -363,12 +382,17 @@ export function DrawViewer() {
               </button>
             ))}
           </div>
+          {/* Filter out bye entries from the list view — users only see real matches */}
+          {(() => {
+            const listMatches = (matchesByRound[listRound] || []).filter(m => !m.bye);
+            return (
+              <>
           <div className="draw-round-label">
             {ROUND_FULL[listRound] || listRound}
-            <span className="draw-round-count"> · {(matchesByRound[listRound] || []).length} matches</span>
+            <span className="draw-round-count"> · {listMatches.length} matches</span>
           </div>
 
-          {(matchesByRound[listRound] || []).length === 0 ? (
+          {listMatches.length === 0 ? (
             <div className="draw-empty-state">
               <span className="draw-empty-icon">🎾</span>
               <p className="draw-empty-title">No fixtures yet</p>
@@ -376,11 +400,14 @@ export function DrawViewer() {
             </div>
           ) : (
             <div className="lc-grid">
-              {(matchesByRound[listRound] || []).map((m, idx) => (
+              {listMatches.map((m, idx) => (
                 <ListCard key={m.id || idx} match={m} />
               ))}
             </div>
           )}
+              </>
+            );
+          })()}
         </>
       )}
 

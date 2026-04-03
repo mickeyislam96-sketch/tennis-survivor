@@ -128,30 +128,53 @@ const MC_PLAYERS = [
   { id: 'mc-p56',  name: 'Ugo Humbert',                 country: 'FRA' },
 ];
 
-// Round start times (UTC). Monte Carlo is CEST = UTC+2 in April.
+// Round start times (UTC). Monte Carlo is CEST = UTC+2 in April. UK is BST = UTC+1.
+// Main draw confirmed: Sunday 5 Apr, first match 10:00 BST (11:00 CEST / 09:00 UTC).
 const ROUND_START_TIMES = {
-  R1:  '2026-04-06T09:00:00Z', // Mon 6 Apr, 11:00 CEST
-  R32: '2026-04-07T09:00:00Z', // Tue 7 Apr, 11:00 CEST
-  R16: '2026-04-08T09:00:00Z', // Wed 8 Apr, 11:00 CEST
-  QF:  '2026-04-10T09:00:00Z', // Fri 10 Apr, 11:00 CEST
-  SF:  '2026-04-11T10:00:00Z', // Sat 11 Apr, 12:00 CEST
-  F:   '2026-04-12T12:00:00Z', // Sun 12 Apr, 14:00 CEST
+  R1:  '2026-04-05T09:00:00Z', // Sun 5 Apr, 10:00 BST / 11:00 CEST
+  R32: '2026-04-07T09:00:00Z', // Tue 7 Apr, 10:00 BST / 11:00 CEST
+  R16: '2026-04-08T09:00:00Z', // Wed 8 Apr, 10:00 BST / 11:00 CEST
+  QF:  '2026-04-10T09:00:00Z', // Fri 10 Apr, 10:00 BST / 11:00 CEST
+  SF:  '2026-04-11T10:00:00Z', // Sat 11 Apr, 11:00 BST / 12:00 CEST
+  F:   '2026-04-12T12:00:00Z', // Sun 12 Apr, 13:00 BST / 14:00 CEST
 };
+
+// R32 bracket structure: defines how R1 matches and seed byes feed into R32.
+// 'seed' = seed has a bye (enters at R32), paired with one R1 match.
+// 'r1r1' = two R1 matches feed into this R32 slot.
+const R32_BRACKET = [
+  { type: 'seed', seedIdx: 0, r1Idx: 0 },    // Alcaraz [1] vs M0
+  { type: 'r1r1', r1Idx1: 1, r1Idx2: 2 },    // M1 vs M2
+  { type: 'r1r1', r1Idx1: 3, r1Idx2: 4 },    // M3 vs M4
+  { type: 'seed', seedIdx: 7, r1Idx: 5 },     // Bublik [8] vs M5
+  { type: 'seed', seedIdx: 3, r1Idx: 6 },     // Musetti [4] vs M6
+  { type: 'r1r1', r1Idx1: 7, r1Idx2: 8 },    // M7 vs M8
+  { type: 'r1r1', r1Idx1: 9, r1Idx2: 10 },   // M9 vs M10
+  { type: 'seed', seedIdx: 4, r1Idx: 11 },    // de Minaur [5] vs M11
+  { type: 'seed', seedIdx: 6, r1Idx: 12 },    // Medvedev [7] vs M12
+  { type: 'r1r1', r1Idx1: 13, r1Idx2: 14 },  // M13 vs M14
+  { type: 'r1r1', r1Idx1: 15, r1Idx2: 16 },  // M15 vs M16
+  { type: 'seed', seedIdx: 2, r1Idx: 17 },    // Zverev [3] vs M17
+  { type: 'seed', seedIdx: 5, r1Idx: 18 },    // FAA [6] vs M18
+  { type: 'r1r1', r1Idx1: 19, r1Idx2: 20 },  // M19 vs M20
+  { type: 'r1r1', r1Idx1: 21, r1Idx2: 22 },  // M21 vs M22
+  { type: 'seed', seedIdx: 1, r1Idx: 23 },    // Sinner [2] vs M23
+];
 
 function buildMonteCarloMatches() {
   const matches = [];
   const seeds = MC_PLAYERS.slice(0, 8);         // Seeds (indices 0-7)
   const r1Players = MC_PLAYERS.slice(8);        // All non-seeds (indices 8-55)
 
-  // ── R1: 24 matches among 48 non-seeds (indices 8-55) ────────────────────
-  // Pair up: [8,9], [10,11], [12,13], ..., [54,55]
+  // ── R1: build 24 real matches (no matchOrder yet — set from bracket below) ──
+  const r1Real = [];
   for (let i = 0; i < MATCHES_PER_ROUND.R1; i++) {
     const p1 = r1Players[i * 2];
     const p2 = r1Players[i * 2 + 1];
-    matches.push({
+    r1Real.push({
       id: `m-R1-${i}`,
       round: 'R1',
-      matchOrder: i,
+      matchOrder: 0, // overwritten below
       player1Id: p1.id, player1Name: p1.name,
       player2Id: p2.id, player2Name: p2.name,
       winnerId: null, winnerName: null,
@@ -159,48 +182,48 @@ function buildMonteCarloMatches() {
     });
   }
 
-  // ── R32: 16 matches (explicit bracket mapping) ────────────────────────────
-  // Correct Monte Carlo 2026 bracket structure (non-sequential seed placement).
-  // Seeds are placed as player1 (win in mock mode). Structure:
-  //   Match 0: Alcaraz [1] vs M0 winner
-  //   Match 1-2: R1 pairs
-  //   Match 3: Bublik [8] vs M5 winner
-  //   ... etc
-  const R32_BRACKET = [
-    { type: 'seed', seedIdx: 0, r1Idx: 0 },    // Alcaraz [1] vs M0
-    { type: 'r1r1', r1Idx1: 1, r1Idx2: 2 },    // M1 vs M2
-    { type: 'r1r1', r1Idx1: 3, r1Idx2: 4 },    // M3 vs M4
-    { type: 'seed', seedIdx: 7, r1Idx: 5 },     // Bublik [8] vs M5
-    { type: 'seed', seedIdx: 3, r1Idx: 6 },     // Musetti [4] vs M6
-    { type: 'r1r1', r1Idx1: 7, r1Idx2: 8 },    // M7 vs M8
-    { type: 'r1r1', r1Idx1: 9, r1Idx2: 10 },   // M9 vs M10
-    { type: 'seed', seedIdx: 4, r1Idx: 11 },    // de Minaur [5] vs M11
-    { type: 'seed', seedIdx: 6, r1Idx: 12 },    // Medvedev [7] vs M12
-    { type: 'r1r1', r1Idx1: 13, r1Idx2: 14 },  // M13 vs M14
-    { type: 'r1r1', r1Idx1: 15, r1Idx2: 16 },  // M15 vs M16
-    { type: 'seed', seedIdx: 2, r1Idx: 17 },    // Zverev [3] vs M17
-    { type: 'seed', seedIdx: 5, r1Idx: 18 },    // FAA [6] vs M18
-    { type: 'r1r1', r1Idx1: 19, r1Idx2: 20 },  // M19 vs M20
-    { type: 'r1r1', r1Idx1: 21, r1Idx2: 22 },  // M21 vs M22
-    { type: 'seed', seedIdx: 1, r1Idx: 23 },    // Sinner [2] vs M23
-  ];
+  // ── R1 bracket ordering: 32 slots (24 real matches + 8 seed byes) ─────────
+  // Each pair of R1 slots feeds into one R32 match. Seed bye slots are placed
+  // so they align with the corresponding R32 seed-bye match in the bracket.
+  let r1Order = 0;
+  for (const slot of R32_BRACKET) {
+    if (slot.type === 'seed') {
+      // Bye entry for the seed — occupies one R1 bracket slot
+      const seed = seeds[slot.seedIdx];
+      matches.push({
+        id: `bye-${seed.id}`,
+        round: 'R1',
+        matchOrder: r1Order++,
+        player1Id: seed.id, player1Name: seed.name,
+        player2Id: null, player2Name: 'BYE',
+        winnerId: seed.id, winnerName: seed.name,
+        status: 'bye', bye: true,
+      });
+      // The real R1 match that feeds the other side of this R32 slot
+      r1Real[slot.r1Idx].matchOrder = r1Order++;
+      matches.push(r1Real[slot.r1Idx]);
+    } else {
+      // Two real R1 matches feeding one R32 slot
+      r1Real[slot.r1Idx1].matchOrder = r1Order++;
+      matches.push(r1Real[slot.r1Idx1]);
+      r1Real[slot.r1Idx2].matchOrder = r1Order++;
+      matches.push(r1Real[slot.r1Idx2]);
+    }
+  }
 
-  const r1Matches = matches.filter(m => m.round === 'R1');
-
+  // ── R32: 16 matches ───────────────────────────────────────────────────────
   for (let i = 0; i < R32_BRACKET.length; i++) {
     const slot = R32_BRACKET[i];
     let p1, p2;
 
     if (slot.type === 'seed') {
-      // Seed vs R1 winner — seed as player1 (wins in mock mode)
       const seed = seeds[slot.seedIdx];
-      const r1Match = r1Matches[slot.r1Idx];
+      const r1Match = r1Real[slot.r1Idx];
       p1 = { id: seed.id, name: seed.name };
       p2 = { id: r1Match.player1Id, name: r1Match.player1Name };
     } else {
-      // R1 winner vs R1 winner — player1 of first match wins in mock mode
-      const m1 = r1Matches[slot.r1Idx1];
-      const m2 = r1Matches[slot.r1Idx2];
+      const m1 = r1Real[slot.r1Idx1];
+      const m2 = r1Real[slot.r1Idx2];
       p1 = { id: m1.player1Id, name: m1.player1Name };
       p2 = { id: m2.player1Id, name: m2.player1Name };
     }
@@ -217,7 +240,6 @@ function buildMonteCarloMatches() {
   }
 
   // ── R16 → QF → SF → F: pair consecutive winners ────────────────────────
-  // All winners come from R32 matches (player1 wins in mock mode)
   const laterRounds = ['R16', 'QF', 'SF', 'F'];
   const r32Matches = matches.filter(m => m.round === 'R32');
   let prevWinners = r32Matches.map(m => ({ id: m.player1Id, name: m.player1Name }));
@@ -240,7 +262,6 @@ function buildMonteCarloMatches() {
       matches.push(m);
       roundMatches.push(m);
     }
-    // Next round: winners are all player1s (seeds/strong players win in mock)
     prevWinners = roundMatches.map(m => ({ id: m.player1Id, name: m.player1Name }));
   }
 
@@ -271,6 +292,7 @@ export function getMonteCarlMockDraw(currentRound = null) {
 
   // ── Step 1: set match statuses ──────────────────────────────────────────
   matches.forEach(m => {
+    if (m.bye) return; // Bye entries keep their permanent status
     const r = ROUNDS.indexOf(m.round);
     m.startTime = ROUND_START_TIMES[m.round] || null;
     if (roundIndex >= 0 && r < roundIndex) {

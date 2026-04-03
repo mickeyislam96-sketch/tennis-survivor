@@ -13,8 +13,9 @@
  * Qualifying: Sat 4 Apr – Sun 5 Apr
  * Main draw play: Mon 6 Apr – Sun 12 Apr
  *
- * Schedule (from ATP / search results):
- *   Mon 6 Apr  — First round (R1)
+ * Schedule (confirmed from ATP / LTA / search results):
+ *   Sun 5 Apr  — First round (R1), starts 10:00 BST / 11:00 CEST
+ *   Mon 6 Apr  — First round continued (R1)
  *   Tue 7 Apr  — Second round (R32, seeds enter)
  *   Wed 8 Apr  — Third round (R16)
  *   Thu 9 Apr  — Third round continued (R16)
@@ -52,29 +53,30 @@ export const MONTE_CARLO_2026 = {
 
   // Lock time overrides — 1h before first match of each round.
   // These take precedence over API-derived and fallback times.
-  // Play typically starts 11:00 CEST (09:00 UTC).
+  // Play typically starts 10:00 BST / 11:00 CEST (09:00 UTC).
+  // Main draw confirmed: starts Sunday 5 April (not Monday 6).
   lockTimeOverrides: {
-    R1:  '2026-04-06T08:00:00Z', // Mon 6 Apr, 10:00 CEST — 1h before first match
-    R32: '2026-04-07T08:00:00Z', // Tue 7 Apr, 10:00 CEST
-    R16: '2026-04-08T08:00:00Z', // Wed 8 Apr, 10:00 CEST
-    QF:  '2026-04-10T08:00:00Z', // Fri 10 Apr, 10:00 CEST
-    SF:  '2026-04-11T09:00:00Z', // Sat 11 Apr, 11:00 CEST (later start)
-    F:   '2026-04-12T11:00:00Z', // Sun 12 Apr, 13:00 CEST (typical final time)
+    R1:  '2026-04-05T08:00:00Z', // Sun 5 Apr, 09:00 BST / 10:00 CEST — 1h before first match
+    R32: '2026-04-07T08:00:00Z', // Tue 7 Apr, 09:00 BST / 10:00 CEST
+    R16: '2026-04-08T08:00:00Z', // Wed 8 Apr, 09:00 BST / 10:00 CEST
+    QF:  '2026-04-10T08:00:00Z', // Fri 10 Apr, 09:00 BST / 10:00 CEST
+    SF:  '2026-04-11T09:00:00Z', // Sat 11 Apr, 10:00 BST / 11:00 CEST (later start)
+    F:   '2026-04-12T11:00:00Z', // Sun 12 Apr, 12:00 BST / 13:00 CEST (typical final time)
   },
 
   // Fallback schedule — used when API returns no data at all.
   roundDates: {
-    R1:  '2026-04-06T09:00:00Z', // Mon 6 Apr, 11:00 CEST
-    R32: '2026-04-07T09:00:00Z', // Tue 7 Apr, 11:00 CEST
-    R16: '2026-04-08T09:00:00Z', // Wed 8 Apr, 11:00 CEST
-    QF:  '2026-04-10T09:00:00Z', // Fri 10 Apr, 11:00 CEST
-    SF:  '2026-04-11T10:00:00Z', // Sat 11 Apr, 12:00 CEST
-    F:   '2026-04-12T12:00:00Z', // Sun 12 Apr, 14:00 CEST
+    R1:  '2026-04-05T09:00:00Z', // Sun 5 Apr, 10:00 BST / 11:00 CEST
+    R32: '2026-04-07T09:00:00Z', // Tue 7 Apr, 10:00 BST / 11:00 CEST
+    R16: '2026-04-08T09:00:00Z', // Wed 8 Apr, 10:00 BST / 11:00 CEST
+    QF:  '2026-04-10T09:00:00Z', // Fri 10 Apr, 10:00 BST / 11:00 CEST
+    SF:  '2026-04-11T10:00:00Z', // Sat 11 Apr, 11:00 BST / 12:00 CEST
+    F:   '2026-04-12T12:00:00Z', // Sun 12 Apr, 13:00 BST / 14:00 CEST
   },
 
   // Round date fallback — API has fixtures but no start times yet.
   roundDateFallback: {
-    R1:  '2026-04-06T09:00:00Z',
+    R1:  '2026-04-05T09:00:00Z',
     R32: '2026-04-07T09:00:00Z',
     R16: '2026-04-08T09:00:00Z',
     QF:  '2026-04-10T09:00:00Z',

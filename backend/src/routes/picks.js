@@ -31,12 +31,13 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   // Build pending/confirmed sets from the previous round up-front.
   // This runs regardless of whether the current round's draw exists yet —
   // so the fallback path can still tag players whose prev-round match is pending.
+  // Bye entries (m.bye) are excluded — they represent seed byes, not real matches.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
   const pendingFromPrevRound = new Set();
   if (prevRoundIndex >= 0) {
     const prevRound = ROUNDS[prevRoundIndex];
     (draw.matches || [])
-      .filter(m => m.round === prevRound)
+      .filter(m => m.round === prevRound && !m.bye)
       .forEach(m => {
         if (!m.winnerId) {
           if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
@@ -46,8 +47,8 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   }
 
   // Build the set of players who actually have a match this round.
-  // This correctly excludes seeded players in R1 (they have byes and don't play).
-  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound);
+  // Bye entries are excluded so seeds don't appear in R1 pick pool.
+  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound && !m.bye);
   if (roundMatches.length > 0) {
     const playingThisRound = new Set(
       roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
