@@ -3,6 +3,6 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "node src/index.js"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 120
+healthcheckPath = "/ping"
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
