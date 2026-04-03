@@ -250,34 +250,68 @@ function buildMonteCarloMatches() {
 /**
  * Return the Monte Carlo mock draw.
  *
- * currentRound: the round treated as "in progress" (no winner yet).
- * All rounds before currentRound are marked completed (player1 wins in mock).
- * All rounds after are scheduled.
+ * currentRound: the round treated as "in progress" (no winner yet), or
+ *               null if the tournament hasn't started yet.
+ *
+ * Only KNOWN information is shown:
+ *   - R1 matchups are always visible (they come from the official draw)
+ *   - R32 seed bye slots show the seed name; opponent is TBD until R1 completes
+ *   - All other future-round slots are TBD
+ *   - Completed rounds show mock winners (player1 wins)
  *
  * Expected MATCHES_PER_ROUND:
  *   R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1
  */
-export function getMonteCarlMockDraw(currentRound = 'R1') {
-  const roundIndex = ROUNDS.indexOf(currentRound);
+export function getMonteCarlMockDraw(currentRound = null) {
+  const roundIndex = currentRound ? ROUNDS.indexOf(currentRound) : -1;
   const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null }));
   const matches = buildMonteCarloMatches();
   const eliminated = new Set();
+  const seedIds = new Set(MC_PLAYERS.slice(0, 8).map(p => p.id));
 
+  // ── Step 1: set match statuses ──────────────────────────────────────────
   matches.forEach(m => {
     const r = ROUNDS.indexOf(m.round);
     m.startTime = ROUND_START_TIMES[m.round] || null;
-    if (r < roundIndex) {
+    if (roundIndex >= 0 && r < roundIndex) {
       // Round completed: player1 wins (seeds/strong players dominate in mock)
       m.status = 'completed';
       m.winnerId = m.player1Id;
       m.winnerName = m.player1Name;
       eliminated.add(m.player2Id);
-    } else if (r === roundIndex) {
+    } else if (roundIndex >= 0 && r === roundIndex) {
       m.status = 'in_progress';
+    }
+    // else: stays 'scheduled' (default from buildMonteCarloMatches)
+  });
+
+  // ── Step 2: clear player info for rounds whose matchups aren't known yet ─
+  // R1 matchups are always known (from the official draw).
+  // For rounds after the current round, only show confirmed information:
+  //   - R32 seed bye slots: seed name is known, opponent is TBD
+  //   - Everything else in future rounds: TBD
+  matches.forEach(m => {
+    if (m.round === 'R1') return; // R1 matchups always known
+
+    const r = ROUNDS.indexOf(m.round);
+    const isFutureRound = roundIndex < 0 || r > roundIndex;
+
+    if (isFutureRound) {
+      if (m.round === 'R32') {
+        // Keep seed names (they have byes into R32), clear R1-winner placeholders
+        if (!seedIds.has(m.player1Id)) { m.player1Id = null; m.player1Name = null; }
+        if (!seedIds.has(m.player2Id)) { m.player2Id = null; m.player2Name = null; }
+      } else {
+        // R16+: all TBD
+        m.player1Id = null; m.player1Name = null;
+        m.player2Id = null; m.player2Name = null;
+      }
+      m.winnerId = null;
+      m.winnerName = null;
     }
   });
 
-  // Mark eliminated players with their elimination round
+  // ── Step 3: mark eliminated players ─────────────────────────────────────
   eliminated.forEach(id => {
     const p = players.find(x => x.id === id);
     if (!p) return;
@@ -291,7 +325,7 @@ export function getMonteCarlMockDraw(currentRound = 'R1') {
     players,
     matches,
     rounds: ROUNDS,
-    currentRound,
+    currentRound: currentRound || ROUNDS[0],
     tournament: 'Rolex Monte-Carlo Masters 2026',
     seedsWithByes: 8,
     dataSource: 'mock',

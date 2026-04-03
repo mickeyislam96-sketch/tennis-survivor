@@ -345,13 +345,13 @@ export async function getDraw(roundFilter = null) {
 
 /**
  * Determine which round is "current" based on the tournament schedule dates.
- * Returns the latest round whose start date has passed, or the first round
- * if the tournament hasn't started yet.
+ * Returns the latest round whose start date has passed, or null if the
+ * tournament hasn't started yet.
  */
 function getCurrentRoundFromSchedule() {
   const now = new Date();
   const roundDates = TOURNAMENT.roundDates || {};
-  let current = ROUNDS[0];
+  let current = null;
   for (const round of ROUNDS) {
     const startDate = roundDates[round];
     if (startDate && now >= new Date(startDate)) {
