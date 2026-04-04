@@ -59,24 +59,66 @@ function winPct(won, lost) {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
+// Check if a player name represents an unknown/placeholder
+function isUnknownPlayer(name) {
+  if (!name) return true;
+  return ['Qualifier', 'TBD', 'BYE'].includes(name);
+}
+
 export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, onClose }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
 
+  const p1Unknown = isUnknownPlayer(player1Name);
+  const p2Unknown = isUnknownPlayer(player2Name);
+  const hasOnlyOnePlayer = p1Unknown !== p2Unknown;
+
   useEffect(() => {
-    if (!player1Id || !player2Id) return;
     setLoading(true);
     setError(null);
 
-    fetch(`${API}/matchup/${player1Id}/${player2Id}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(d => { setData(d); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
-  }, [player1Id, player2Id]);
+    // Both players known: fetch full H2H
+    if (player1Id && player2Id && !p1Unknown && !p2Unknown) {
+      fetch(`${API}/matchup/${player1Id}/${player2Id}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(d => { setData(d); setLoading(false); })
+        .catch(e => { setError(e.message); setLoading(false); });
+      return;
+    }
+
+    // One player known: fetch just their profile via the matchup endpoint
+    // using a dummy second key — the endpoint still returns player1 profile data
+    const knownId = p1Unknown ? player2Id : player1Id;
+    if (knownId) {
+      // Fetch single player by requesting H2H with themselves (gives us their profile + recent form)
+      fetch(`${API}/matchup/${knownId}/${knownId}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(d => {
+          // Restructure: put the known player data in the right slot
+          const knownData = d.player1;
+          const emptyPlayer = { name: null, country: null, rank: null, clay: { won: 0, lost: 0 }, overall: { won: 0, lost: 0 }, recent: [] };
+          setData({
+            player1: p1Unknown ? emptyPlayer : knownData,
+            player2: p2Unknown ? emptyPlayer : knownData,
+            h2h: { player1Wins: 0, player2Wins: 0, meetings: [] },
+          });
+          setLoading(false);
+        })
+        .catch(e => { setError(e.message); setLoading(false); });
+      return;
+    }
+
+    // Neither has a real ID
+    setLoading(false);
+    setError('No player data available');
+  }, [player1Id, player2Id, p1Unknown, p2Unknown]);
 
   // Close on Escape
   useEffect(() => {
@@ -164,52 +206,70 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
         <div className="mu-h2h-bar">
           <div className="mu-player">
             <div className="mu-player-name">{p1Name}</div>
-            <div className="mu-player-meta">{p1.country}{p1.rank ? ` · #${p1.rank}` : ''}</div>
-          </div>
-          <div className="mu-vs">
-            <div className="mu-vs-label">Head to Head</div>
-            <div className="mu-vs-score">
-              <span className={`mu-wins ${h2h.player1Wins > h2h.player2Wins ? 'mu-wins-leading' : ''}`}>{h2h.player1Wins}</span>
-              <span className="mu-divider">-</span>
-              <span className={`mu-wins ${h2h.player2Wins > h2h.player1Wins ? 'mu-wins-leading' : ''}`}>{h2h.player2Wins}</span>
+            <div className="mu-player-meta">
+              {p1Unknown ? 'TBC' : `${p1.country || ''}${p1.rank ? ` · #${p1.rank}` : ''}`}
             </div>
           </div>
+          {!hasOnlyOnePlayer ? (
+            <div className="mu-vs">
+              <div className="mu-vs-label">Head to Head</div>
+              <div className="mu-vs-score">
+                <span className={`mu-wins ${h2h.player1Wins > h2h.player2Wins ? 'mu-wins-leading' : ''}`}>{h2h.player1Wins}</span>
+                <span className="mu-divider">-</span>
+                <span className={`mu-wins ${h2h.player2Wins > h2h.player1Wins ? 'mu-wins-leading' : ''}`}>{h2h.player2Wins}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="mu-vs">
+              <div className="mu-vs-label">vs</div>
+            </div>
+          )}
           <div className="mu-player">
             <div className="mu-player-name">{p2Name}</div>
-            <div className="mu-player-meta">{p2.country}{p2.rank ? ` · #${p2.rank}` : ''}</div>
+            <div className="mu-player-meta">
+              {p2Unknown ? 'TBC' : `${p2.country || ''}${p2.rank ? ` · #${p2.rank}` : ''}`}
+            </div>
           </div>
         </div>
 
         {/* Season stats */}
         <div className="mu-section">
-          <div className="mu-section-title">{p1.season ? `${p1.season} Season Stats` : 'Season Stats'}</div>
+          <div className="mu-section-title">{p1.season || p2.season ? `${p1.season || p2.season} Season Stats` : 'Season Stats'}</div>
           <div className={`mu-stats-grid${hasClay ? '' : ' mu-stats-single'}`}>
             {hasClay && (
               <div className="mu-stat-card">
                 <div className="mu-stat-label">Clay Record</div>
                 <div className="mu-stat-values">
-                  <div>
-                    <div className={`mu-stat-num mu-stat-green${p1ClayBetter ? ' mu-stat-bold' : ''}`}>{p1.clay.won}-{p1.clay.lost}</div>
-                    <div className="mu-stat-sub">{p1Surname}</div>
-                  </div>
-                  <div>
-                    <div className={`mu-stat-num mu-stat-green${p2ClayBetter ? ' mu-stat-bold' : ''}`}>{p2.clay.won}-{p2.clay.lost}</div>
-                    <div className="mu-stat-sub">{p2Surname}</div>
-                  </div>
+                  {!p1Unknown && (
+                    <div>
+                      <div className={`mu-stat-num mu-stat-green${p1ClayBetter ? ' mu-stat-bold' : ''}`}>{p1.clay.won}-{p1.clay.lost}</div>
+                      <div className="mu-stat-sub">{p1Surname}</div>
+                    </div>
+                  )}
+                  {!p2Unknown && (
+                    <div>
+                      <div className={`mu-stat-num mu-stat-green${p2ClayBetter ? ' mu-stat-bold' : ''}`}>{p2.clay.won}-{p2.clay.lost}</div>
+                      <div className="mu-stat-sub">{p2Surname}</div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
             <div className="mu-stat-card">
               <div className="mu-stat-label">Overall Record</div>
               <div className="mu-stat-values">
-                <div>
-                  <div className={`mu-stat-num${p1OverallBetter ? ' mu-stat-bold' : ''}`}>{p1.overall.won}-{p1.overall.lost}</div>
-                  <div className="mu-stat-sub">{p1Surname}</div>
-                </div>
-                <div>
-                  <div className={`mu-stat-num${p2OverallBetter ? ' mu-stat-bold' : ''}`}>{p2.overall.won}-{p2.overall.lost}</div>
-                  <div className="mu-stat-sub">{p2Surname}</div>
-                </div>
+                {!p1Unknown && (
+                  <div>
+                    <div className={`mu-stat-num${!hasOnlyOnePlayer && p1OverallBetter ? ' mu-stat-bold' : ''}`}>{p1.overall.won}-{p1.overall.lost}</div>
+                    <div className="mu-stat-sub">{p1Surname}</div>
+                  </div>
+                )}
+                {!p2Unknown && (
+                  <div>
+                    <div className={`mu-stat-num${!hasOnlyOnePlayer && p2OverallBetter ? ' mu-stat-bold' : ''}`}>{p2.overall.won}-{p2.overall.lost}</div>
+                    <div className="mu-stat-sub">{p2Surname}</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -243,39 +303,43 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
         {(p1Recent.length > 0 || p2Recent.length > 0) && (
           <div className="mu-section">
             <div className="mu-section-title">Recent Form</div>
-            <div className="mu-form-cols">
-              <div>
-                <div className="mu-form-header">{p1Surname}</div>
-                {p1Recent.map((r, i) => {
-                  const roundLabel = shortRound(r.round);
-                  return (
-                    <div key={i} className="mu-form-row">
-                      <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
-                      <div className="mu-form-detail">
-                        <div className="mu-form-opp">{r.opponent}</div>
-                        <div className="mu-form-event">{r.tournament}{roundLabel ? ` · ${roundLabel}` : ''}</div>
+            <div className={`mu-form-cols${hasOnlyOnePlayer ? ' mu-form-single' : ''}`}>
+              {!p1Unknown && p1Recent.length > 0 && (
+                <div>
+                  <div className="mu-form-header">{p1Surname}</div>
+                  {p1Recent.map((r, i) => {
+                    const roundLabel = shortRound(r.round);
+                    return (
+                      <div key={i} className="mu-form-row">
+                        <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                        <div className="mu-form-detail">
+                          <div className="mu-form-opp">{r.opponent}</div>
+                          <div className="mu-form-event">{r.tournament}{roundLabel ? ` · ${roundLabel}` : ''}</div>
+                        </div>
+                        <div className="mu-form-score">{formatMatchScore(r.scores)}</div>
                       </div>
-                      <div className="mu-form-score">{formatMatchScore(r.scores)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div>
-                <div className="mu-form-header">{p2Surname}</div>
-                {p2Recent.map((r, i) => {
-                  const roundLabel = shortRound(r.round);
-                  return (
-                    <div key={i} className="mu-form-row">
-                      <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
-                      <div className="mu-form-detail">
-                        <div className="mu-form-opp">{r.opponent}</div>
-                        <div className="mu-form-event">{r.tournament}{roundLabel ? ` · ${roundLabel}` : ''}</div>
+                    );
+                  })}
+                </div>
+              )}
+              {!p2Unknown && p2Recent.length > 0 && (
+                <div>
+                  <div className="mu-form-header">{p2Surname}</div>
+                  {p2Recent.map((r, i) => {
+                    const roundLabel = shortRound(r.round);
+                    return (
+                      <div key={i} className="mu-form-row">
+                        <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                        <div className="mu-form-detail">
+                          <div className="mu-form-opp">{r.opponent}</div>
+                          <div className="mu-form-event">{r.tournament}{roundLabel ? ` · ${roundLabel}` : ''}</div>
+                        </div>
+                        <div className="mu-form-score">{formatMatchScore(r.scores)}</div>
                       </div>
-                      <div className="mu-form-score">{formatMatchScore(r.scores)}</div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

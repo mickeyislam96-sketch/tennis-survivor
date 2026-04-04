@@ -113,12 +113,13 @@ function isLive(status) {
 
 function canShowMatchup(match) {
   if (!match || match.bye) return false;
-  const skip = ['TBD', 'Qualifier', 'BYE'];
+  const skip = ['TBD', 'BYE'];
   const p1 = match.player1Name;
   const p2 = match.player2Name;
-  return match.player1Id && match.player2Id
-    && p1 && !skip.includes(p1)
-    && p2 && !skip.includes(p2);
+  // Clickable if at least one real player is present
+  const p1Real = p1 && !skip.includes(p1);
+  const p2Real = p2 && !skip.includes(p2);
+  return p1Real || p2Real;
 }
 
 function BracketCard({ match, onMatchClick }) {

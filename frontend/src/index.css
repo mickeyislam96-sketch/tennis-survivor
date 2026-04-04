@@ -4147,6 +4147,9 @@ input, select { font-family: var(--font); }
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+.mu-form-cols.mu-form-single {
+  grid-template-columns: 1fr;
+}
 .mu-form-header {
   font-size: 0.75rem;
   font-weight: 700;
