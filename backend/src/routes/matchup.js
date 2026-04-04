@@ -139,6 +139,15 @@ function parsePlayerStats(profile) {
   };
 }
 
+// ── Exhibition filter ────────────────────────────────────────────────────────
+// API-Tennis marks exhibitions (UTS, World Tennis League, etc.) with
+// event_type_type containing "Exhibition". We exclude these from both
+// H2H meetings and recent form since they don't reflect competitive play.
+
+function isExhibition(match) {
+  return (match.event_type_type || '').toLowerCase().includes('exhibition');
+}
+
 // ── Parse H2H meetings ──────────────────────────────────────────────────────
 
 function parseH2HMeetings(h2hMatches, player1Key, player2Key) {
@@ -150,7 +159,7 @@ function parseH2HMeetings(h2hMatches, player1Key, player2Key) {
   let player2Wins = 0;
 
   const meetings = h2hMatches
-    .filter(m => m.event_status === 'Finished')
+    .filter(m => m.event_status === 'Finished' && !isExhibition(m))
     .map(m => {
       const p1IsFirst = String(m.first_player_key) === String(player1Key);
       const winnerIsFirst = m.event_winner === 'First Player';
@@ -177,7 +186,7 @@ function parseH2HMeetings(h2hMatches, player1Key, player2Key) {
 function annotateResults(matches, playerKey) {
   if (!Array.isArray(matches)) return [];
   return matches
-    .filter(m => m.event_status === 'Finished')
+    .filter(m => m.event_status === 'Finished' && !isExhibition(m))
     .slice(0, 5)
     .map(m => {
       const isFirstPlayer = String(m.first_player_key) === String(playerKey);
