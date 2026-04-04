@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
+import { MatchupModal } from '../components/MatchupModal';
 
 // Round labels — extended to cover any tournament structure
 const ROUND_LABELS = {
@@ -110,7 +111,13 @@ function isLive(status) {
          s === '4' || s === '5' || s.startsWith('set');
 }
 
-function BracketCard({ match }) {
+function canShowMatchup(match) {
+  return match && !match.bye && match.player1Id && match.player2Id
+    && match.player1Name && match.player1Name !== 'TBD'
+    && match.player2Name && match.player2Name !== 'TBD';
+}
+
+function BracketCard({ match, onMatchClick }) {
   if (!match) {
     return (
       <div className="bc-card bc-card--tbd">
@@ -136,9 +143,13 @@ function BracketCard({ match }) {
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
   const done = match.status === 'completed';
   const live = isLive(match.status);
+  const clickable = canShowMatchup(match);
 
   return (
-    <div className={`bc-card${done ? ' bc-done' : ''}${live ? ' bc-live' : ''}`}>
+    <div
+      className={`bc-card${done ? ' bc-done' : ''}${live ? ' bc-live' : ''}${clickable ? ' bc-clickable' : ''}`}
+      onClick={clickable ? () => onMatchClick(match) : undefined}
+    >
       {live && <span className="bc-live-pip" />}
       <div className={`bc-row${p1w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
         <span className="bc-name">{match.player1Name || 'TBD'}</span>
@@ -156,7 +167,7 @@ function BracketCard({ match }) {
   );
 }
 
-function BracketCol({ round, matches, totalHeight, matchCount }) {
+function BracketCol({ round, matches, totalHeight, matchCount, onMatchClick }) {
   const count  = matchCount || MATCH_COUNTS_FALLBACK[round] || 1;
   const padded = Array.from({ length: count }, (_, i) => matches[i] || null);
   return (
@@ -165,7 +176,7 @@ function BracketCol({ round, matches, totalHeight, matchCount }) {
       <div className="bc-col-body" style={{ height: totalHeight }}>
         {padded.map((m, i) => (
           <div key={i} className="bc-slot">
-            <BracketCard match={m} />
+            <BracketCard match={m} onMatchClick={onMatchClick} />
           </div>
         ))}
       </div>
@@ -174,17 +185,21 @@ function BracketCol({ round, matches, totalHeight, matchCount }) {
 }
 
 // ─── List-view match card ─────────────────────────────────────────────────────
-function ListCard({ match }) {
+function ListCard({ match, onMatchClick }) {
   const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
   const done = match.status === 'completed';
   const live = isLive(match.status);
+  const clickable = canShowMatchup(match);
   const date = match.startTime
     ? new Date(match.startTime).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
     : null;
 
   return (
-    <div className={`lc${done ? ' lc--done' : live ? ' lc--live' : ' lc--upcoming'}`}>
+    <div
+      className={`lc${done ? ' lc--done' : live ? ' lc--live' : ' lc--upcoming'}${clickable ? ' lc-clickable' : ''}`}
+      onClick={clickable ? () => onMatchClick(match) : undefined}
+    >
       {live && <div className="lc-live-bar">● LIVE</div>}
       <div className="lc-body">
         <div className="lc-players">
@@ -220,6 +235,15 @@ export function DrawViewer() {
   const [view, setView]             = useState('bracket');
   const [listRound, setListRound]   = useState('R1');
   const [tournamentId, setTournamentId] = useState(null);
+  const [selectedMatch, setSelectedMatch] = useState(null);
+
+  const handleMatchClick = useCallback((match) => {
+    setSelectedMatch(match);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedMatch(null);
+  }, []);
 
   useEffect(() => {
     if (!groupId) return;
@@ -328,6 +352,7 @@ export function DrawViewer() {
         matches={orderedBracket[round] || []}
         totalHeight={BRACKET_H_DYN}
         matchCount={matchCounts[round]}
+        onMatchClick={handleMatchClick}
       />
     );
   });
@@ -401,7 +426,7 @@ export function DrawViewer() {
           ) : (
             <div className="lc-grid">
               {listMatches.map((m, idx) => (
-                <ListCard key={m.id || idx} match={m} />
+                <ListCard key={m.id || idx} match={m} onMatchClick={handleMatchClick} />
               ))}
             </div>
           )}
@@ -412,6 +437,16 @@ export function DrawViewer() {
       )}
 
       <p className="draw-footer-note">Results update automatically as matches complete.</p>
+
+      {selectedMatch && (
+        <MatchupModal
+          player1Id={selectedMatch.player1Id}
+          player2Id={selectedMatch.player2Id}
+          player1Name={selectedMatch.player1Name}
+          player2Name={selectedMatch.player2Name}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }
