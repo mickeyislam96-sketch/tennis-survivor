@@ -108,7 +108,12 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
     );
   }
 
-  const { player1: p1, player2: p2, h2h } = data;
+  const NO_RECORD = { won: 0, lost: 0 };
+  const raw1 = data.player1 || {};
+  const raw2 = data.player2 || {};
+  const p1 = { ...raw1, clay: raw1.clay || NO_RECORD, overall: raw1.overall || NO_RECORD };
+  const p2 = { ...raw2, clay: raw2.clay || NO_RECORD, overall: raw2.overall || NO_RECORD };
+  const h2h = data.h2h || { player1Wins: 0, player2Wins: 0, meetings: [] };
 
   return (
     <div className="mu-backdrop" onClick={handleBackdrop}>
