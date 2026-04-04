@@ -112,9 +112,13 @@ function isLive(status) {
 }
 
 function canShowMatchup(match) {
-  return match && !match.bye && match.player1Id && match.player2Id
-    && match.player1Name && match.player1Name !== 'TBD'
-    && match.player2Name && match.player2Name !== 'TBD';
+  if (!match || match.bye) return false;
+  const skip = ['TBD', 'Qualifier', 'BYE'];
+  const p1 = match.player1Name;
+  const p2 = match.player2Name;
+  return match.player1Id && match.player2Id
+    && p1 && !skip.includes(p1)
+    && p2 && !skip.includes(p2);
 }
 
 function BracketCard({ match, onMatchClick }) {
