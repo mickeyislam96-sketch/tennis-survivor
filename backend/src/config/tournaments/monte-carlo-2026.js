@@ -56,7 +56,7 @@ export const MONTE_CARLO_2026 = {
   // Play typically starts 10:00 BST / 11:00 CEST (09:00 UTC).
   // Main draw confirmed: starts Sunday 5 April (not Monday 6).
   lockTimeOverrides: {
-    R1:  '2026-04-05T08:00:00Z', // Sun 5 Apr, 09:00 BST / 10:00 CEST — 1h before first match
+    R1:  '2026-04-05T11:30:00Z', // Sun 5 Apr, 12:30 BST — qualifying in the morning
     R32: '2026-04-07T08:00:00Z', // Tue 7 Apr, 09:00 BST / 10:00 CEST
     R16: '2026-04-08T08:00:00Z', // Wed 8 Apr, 09:00 BST / 10:00 CEST
     QF:  '2026-04-10T08:00:00Z', // Fri 10 Apr, 09:00 BST / 10:00 CEST
