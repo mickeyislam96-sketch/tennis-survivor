@@ -85,32 +85,57 @@ function parseRecentResults(matches, limit = 5) {
     }));
 }
 
-// ── Parse player profile for clay stats ──────────────────────────────────────
+// ── Parse player profile for season stats ────────────────────────────────────
+//
+// Strategy: use 2025 as the primary season for overall/clay stats because
+// it's the most recent complete season with meaningful sample sizes.
+// Early 2026 data is too sparse (1-3 matches) to be useful for comparison.
+//
+// Rank: always from the most recent season entry (current ranking).
+// Clay: if the chosen season has empty clay stats, fall back to the most
+// recent season that has clay data.
+
+const PREFERRED_SEASON = '2025';
 
 function parsePlayerStats(profile) {
-  if (!profile) return { name: null, country: null, logo: null, rank: null, clay: { won: 0, lost: 0 } };
+  if (!profile) return { name: null, country: null, logo: null, rank: null, clay: { won: 0, lost: 0 }, overall: { won: 0, lost: 0 }, season: null };
 
-  // Get most recent singles season stats
   const singlesStats = (profile.stats || [])
     .filter(s => s.type === 'singles')
     .sort((a, b) => parseInt(b.season) - parseInt(a.season));
 
-  const latest = singlesStats[0] || {};
+  if (singlesStats.length === 0) {
+    return { name: profile.player_name || null, country: profile.player_country || null, logo: profile.player_logo || null, rank: null, clay: { won: 0, lost: 0 }, overall: { won: 0, lost: 0 }, season: null };
+  }
+
+  // Current rank from most recent entry
+  const mostRecent = singlesStats[0];
+  const rank = mostRecent.rank || null;
+
+  // Use preferred season for overall stats; fall back to most recent if not available
+  const preferred = singlesStats.find(s => s.season === PREFERRED_SEASON) || mostRecent;
+
+  // Clay: use preferred season if it has data, otherwise find most recent with clay
+  let claySeason = preferred;
+  if (!parseInt(preferred.clay_won) && !parseInt(preferred.clay_lost)) {
+    claySeason = singlesStats.find(s => parseInt(s.clay_won) || parseInt(s.clay_lost)) || preferred;
+  }
 
   return {
     name:    profile.player_name || null,
     country: profile.player_country || null,
     logo:    profile.player_logo || null,
-    rank:    latest.rank || null,
+    rank,
     clay: {
-      won:  parseInt(latest.clay_won) || 0,
-      lost: parseInt(latest.clay_lost) || 0,
+      won:  parseInt(claySeason.clay_won) || 0,
+      lost: parseInt(claySeason.clay_lost) || 0,
     },
+    claySeason: claySeason.season !== preferred.season ? claySeason.season : null,
     overall: {
-      won:  parseInt(latest.matches_won) || 0,
-      lost: parseInt(latest.matches_lost) || 0,
+      won:  parseInt(preferred.matches_won) || 0,
+      lost: parseInt(preferred.matches_lost) || 0,
     },
-    season: latest.season || null,
+    season: preferred.season || null,
   };
 }
 

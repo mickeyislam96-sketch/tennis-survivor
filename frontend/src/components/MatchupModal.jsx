@@ -167,8 +167,8 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
   const NO_RECORD = { won: 0, lost: 0 };
   const raw1 = data.player1 || {};
   const raw2 = data.player2 || {};
-  const p1 = { ...raw1, clay: raw1.clay || NO_RECORD, overall: raw1.overall || NO_RECORD };
-  const p2 = { ...raw2, clay: raw2.clay || NO_RECORD, overall: raw2.overall || NO_RECORD };
+  const p1 = { ...raw1, clay: raw1.clay || NO_RECORD, overall: raw1.overall || NO_RECORD, claySeason: raw1.claySeason || null };
+  const p2 = { ...raw2, clay: raw2.clay || NO_RECORD, overall: raw2.overall || NO_RECORD, claySeason: raw2.claySeason || null };
   const h2h = data.h2h || { player1Wins: 0, player2Wins: 0, meetings: [] };
 
   const p1Name = p1.name || player1Name;
@@ -234,11 +234,11 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
 
         {/* Season stats */}
         <div className="mu-section">
-          <div className="mu-section-title">{p1.season || p2.season ? `${p1.season || p2.season} Season Stats` : 'Season Stats'}</div>
+          <div className="mu-section-title">{p1.season || p2.season ? `${p1.season || p2.season} Season` : 'Season Stats'}</div>
           <div className={`mu-stats-grid${hasClay ? '' : ' mu-stats-single'}`}>
             {hasClay && (
               <div className="mu-stat-card">
-                <div className="mu-stat-label">Clay Record</div>
+                <div className="mu-stat-label">Clay Record{(p1.claySeason || p2.claySeason) ? ` (${p1.claySeason || p2.claySeason})` : ''}</div>
                 <div className="mu-stat-values">
                   {!p1Unknown && (
                     <div>
