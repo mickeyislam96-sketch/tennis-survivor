@@ -397,10 +397,18 @@ export async function getDeadlines() {
       else if (lockOverrides[round])    lockAtDate = new Date(lockOverrides[round]);
       const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
       const isLocked = lockAtDate ? now >= lockAtDate : false;
+      // Each round opens when the previous round locks
       let opensAt = null;
       if (i > 0) {
-        const prevDate = roundDates[ROUNDS[i - 1]] ? new Date(roundDates[ROUNDS[i - 1]]) : null;
-        if (prevDate) opensAt = new Date(prevDate.getTime() + 12 * 60 * 60 * 1000).toISOString();
+        const prevRound = ROUNDS[i - 1];
+        let prevLockAt = null;
+        if (runtimeLockOverrides[prevRound])     prevLockAt = new Date(runtimeLockOverrides[prevRound]);
+        else if (lockOverrides[prevRound])        prevLockAt = new Date(lockOverrides[prevRound]);
+        else {
+          const prevDate = roundDates[prevRound] ? new Date(roundDates[prevRound]) : null;
+          if (prevDate) prevLockAt = new Date(prevDate.getTime() - 60 * 60 * 1000);
+        }
+        if (prevLockAt) opensAt = prevLockAt.toISOString();
       }
       const hasOpened = i === 0 || (opensAt && now >= new Date(opensAt));
       const isOpen    = hasOpened && !isLocked;
@@ -429,22 +437,29 @@ export async function getDeadlines() {
     const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
     const isLocked = lockAtDate ? now >= lockAtDate : false;
 
+    // Each round opens when the previous round locks
     let opensAt = null;
     if (index > 0) {
-      let prevFirstStart = null;
-      for (let pi = index - 1; pi >= 0; pi--) {
-        const prevRound   = ROUNDS[pi];
+      const prevRound = ROUNDS[index - 1];
+      // Compute previous round's lock time using the same priority chain
+      let prevLockAt = null;
+      if (runtimeLockOverrides[prevRound]) {
+        prevLockAt = new Date(runtimeLockOverrides[prevRound]);
+      } else if (lockOverrides[prevRound]) {
+        prevLockAt = new Date(lockOverrides[prevRound]);
+      } else {
+        // Derive from previous round's first match start - 1h
         const prevMatches = matchesByRnd[prevRound] || [];
-        const apiPrev     = prevMatches
+        const apiPrev = prevMatches
           .map((m) => (m.startTime ? new Date(m.startTime) : null))
           .filter((d) => d && !Number.isNaN(d.getTime()))
           .sort((a, b) => a - b)[0] || null;
         const fallbackPrev = roundFallback[prevRound] ? new Date(roundFallback[prevRound]) : null;
-        prevFirstStart = apiPrev || fallbackPrev;
-        if (prevFirstStart) break;
+        const prevFirstStart = apiPrev || fallbackPrev;
+        if (prevFirstStart) prevLockAt = new Date(prevFirstStart.getTime() - 60 * 60 * 1000);
       }
-      if (prevFirstStart) {
-        opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
+      if (prevLockAt) {
+        opensAt = prevLockAt.toISOString();
       }
     }
 

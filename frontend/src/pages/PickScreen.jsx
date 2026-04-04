@@ -79,13 +79,32 @@ export function PickScreen() {
     fetchDeadlines();
   }, []);
 
-  useEffect(() => {
+  const fetchAvailable = () => {
     if (!groupId || !userId) return;
     fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`)
       .then((r) => r.json())
       .then(setAvailable)
       .catch(() => setAvailable([]));
-  }, [groupId, userId, currentRound]);
+  };
+
+  useEffect(() => {
+    fetchAvailable();
+  }, [groupId, userId, currentRound]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh available players and picks every 60s so status badges update
+  // as previous-round results come in.
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchAvailable();
+      if (groupId && userId) {
+        fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
+          .then((r) => r.json())
+          .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
+          .catch(() => {});
+      }
+    }, 60000);
+    return () => clearInterval(id);
+  }, [groupId, userId, currentRound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [allPicks, setAllPicks] = useState([]);
 
@@ -386,10 +405,39 @@ export function PickScreen() {
       {/* Window is still open: show current pick banner (if any) + full player list */}
       {isOpen && userId && (
         <>
+          {/* At-risk warning: user's pick is for a player still in the previous round */}
+          {myPickThisRound && (() => {
+            const pickedPlayer = available.find(p => p.id === myPickThisRound.playerId);
+            const pickEliminated = myPickThisRound.survived === false;
+            if (pickEliminated) {
+              return (
+                <div className="pick-warning-banner pick-warning-banner--eliminated">
+                  <span className="pick-warning-icon">✗</span>
+                  <div className="pick-warning-body">
+                    <p className="pick-warning-title">{myPickThisRound.playerName} was eliminated in {prevRound}</p>
+                    <p className="pick-warning-sub">Your {currentRound} pick is no longer valid. Choose a new player before the window closes or you will be eliminated.</p>
+                  </div>
+                </div>
+              );
+            }
+            if (pickedPlayer?.status === 'at_risk') {
+              return (
+                <div className="pick-warning-banner pick-warning-banner--at-risk">
+                  <span className="pick-warning-icon">⚠️</span>
+                  <div className="pick-warning-body">
+                    <p className="pick-warning-title">{myPickThisRound.playerName} is still playing in {prevRound}</p>
+                    <p className="pick-warning-sub">If they lose, your pick becomes invalid and you'll be eliminated. Monitor results and switch if needed.</p>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {myPickThisRound && (
-            <div className="picked-card picked-card--changeable">
+            <div className={`picked-card picked-card--changeable${myPickThisRound.survived === false ? ' picked-card--invalid' : ''}`}>
               <div className="picked-card-inner">
-                <span className="picked-card-icon">✓</span>
+                <span className="picked-card-icon">{myPickThisRound.survived === false ? '✗' : '✓'}</span>
                 <div>
                   <p className="picked-card-label">Current {currentRound} pick</p>
                   <p className="picked-card-player">{myPickThisRound.playerName}</p>
@@ -435,9 +483,9 @@ export function PickScreen() {
                       {player.name}
                       {usedInOtherRound && <span className="player-used-label">Already used</span>}
                       {isCurrentPick && <span className="player-current-label">Your pick</span>}
-                      {!usedInOtherRound && player.pendingPrevRound && (
-                        <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
-                          ⚠️ {prevRound} result pending
+                      {!usedInOtherRound && player.status === 'at_risk' && (
+                        <span className="player-pending-badge" title={`Still in ${prevRound} — if they lose, your pick is invalid`}>
+                          ⚠️ In {prevRound}
                         </span>
                       )}
                     </span>
@@ -469,6 +517,13 @@ export function PickScreen() {
             })}
           </ul>
           {filtered.length > 80 && <p className="text-muted">Showing first 80. Use search to find others.</p>}
+          {prevRound && available.some(p => p.status === 'at_risk') && (
+            <div className="speculative-pick-notice">
+              <p className="speculative-pick-text">
+                <strong>Some players are still in {prevRound}.</strong> Players marked "In {prevRound}" may be eliminated before {currentRound} begins. If you pick one and they lose, your pick becomes invalid and you will be eliminated. It is your responsibility to monitor results and change your pick if needed.
+              </p>
+            </div>
+          )}
           <p className="qualifier-disclaimer">Qualifiers will be added once the qualifying draw is finalised.</p>
         </>
       )}

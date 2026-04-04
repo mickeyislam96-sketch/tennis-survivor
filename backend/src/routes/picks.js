@@ -109,18 +109,26 @@ function findPossibleOpponents(knownPlayerId, match, prevMatches) {
 async function getAvailablePlayers(userId, groupId, currentRound) {
   const draw = await getDraw(currentRound);
 
-  // Build pending/confirmed sets from the previous round up-front.
-  // This runs regardless of whether the current round's draw exists yet —
-  // so the fallback path can still tag players whose prev-round match is pending.
-  // Bye entries (m.bye) are excluded — they represent seed byes, not real matches.
+  // Build status sets from the previous round up-front.
+  // "confirmed" = won their prev-round match OR have a bye into this round.
+  // "at_risk"   = prev-round match hasn't finished yet.
+  // "confirmed" (default) = no previous round or seed with bye.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
   const pendingFromPrevRound = new Set();
+  const confirmedFromPrevRound = new Set();
   if (prevRoundIndex >= 0) {
     const prevRound = ROUNDS[prevRoundIndex];
     (draw.matches || [])
-      .filter(m => m.round === prevRound && !m.bye)
+      .filter(m => m.round === prevRound)
       .forEach(m => {
-        if (!m.winnerId) {
+        if (m.bye && m.winnerId) {
+          // Seed with bye — confirmed for the next round
+          confirmedFromPrevRound.add(m.winnerId);
+        } else if (m.winnerId) {
+          // Completed match — winner is confirmed
+          confirmedFromPrevRound.add(m.winnerId);
+        } else if (!m.bye) {
+          // Pending match — both players are at risk
           if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
           if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
         }
@@ -170,7 +178,15 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
       .filter(p => !isQualifierPlaceholder(p))
       .map(p => {
-        const enriched = pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : { ...p };
+        const enriched = { ...p };
+        if (pendingFromPrevRound.has(p.id)) {
+          enriched.pendingPrevRound = true;
+          enriched.status = 'at_risk';
+        } else if (confirmedFromPrevRound.has(p.id) || prevRoundIndex < 0) {
+          enriched.status = 'confirmed';
+        } else {
+          enriched.status = 'confirmed';
+        }
         const opp = opponentMap.get(p.id);
         if (opp) Object.assign(enriched, opp);
         return enriched;
@@ -187,7 +203,12 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   return (draw.players || [])
     .filter(p => !p.roundEliminated)
     .filter(p => !isQualifierPlaceholder(p))
-    .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+    .map(p => {
+      if (pendingFromPrevRound.has(p.id)) return { ...p, pendingPrevRound: true, status: 'at_risk' };
+      if (confirmedFromPrevRound.has(p.id)) return { ...p, status: 'confirmed' };
+      // No previous round (R1) or seed with bye — confirmed by default
+      return { ...p, status: prevRoundIndex < 0 ? 'confirmed' : 'confirmed' };
+    });
 }
 
 /** Qualifier placeholders are removed from the pick pool until real names are known. */

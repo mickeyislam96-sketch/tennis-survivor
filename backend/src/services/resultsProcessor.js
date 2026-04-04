@@ -66,8 +66,49 @@ export async function processRoundResults(round) {
     eliminated += e.rowCount;
   }
 
+  // ── Invalidate future-round picks for players who just lost ──────────────
+  // If someone picked a loser for the NEXT round (speculative pick made while
+  // this round was still in progress), mark that pick as survived=false now.
+  const nextRoundIndex = ROUNDS.indexOf(round) + 1;
+  let futurePicksInvalidated = 0;
+  if (nextRoundIndex < ROUNDS.length) {
+    const nextRound = ROUNDS[nextRoundIndex];
+    for (const m of completed) {
+      const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+      const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
+
+      // Mark future picks for this loser as failed
+      const inv = await pool.query(
+        `UPDATE picks SET survived = false
+           WHERE round = $1 AND survived IS NULL
+             AND (player_id = $2 OR (player_id IS NULL AND lower(player_name) = lower($3)))`,
+        [nextRound, loserId, loserName || '']
+      );
+      futurePicksInvalidated += inv.rowCount;
+
+      // Eliminate group members whose future pick just became invalid
+      if (inv.rowCount > 0) {
+        await pool.query(
+          `UPDATE group_members gm
+               SET is_alive = false, eliminated_round = $1
+             FROM picks p
+            WHERE p.round = $1
+              AND (p.player_id = $2 OR (p.player_id IS NULL AND lower(p.player_name) = lower($3)))
+              AND p.survived = false
+              AND p.user_id  = gm.user_id
+              AND p.group_id = gm.group_id
+              AND gm.is_alive = true`,
+          [nextRound, loserId, loserName || '']
+        );
+      }
+    }
+    if (futurePicksInvalidated > 0) {
+      console.log(`[results] ${round}: ${futurePicksInvalidated} future ${nextRound} picks invalidated (player lost in ${round})`);
+    }
+  }
+
   console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks graded, ${eliminated} eliminated`);
-  return { round, processed: completed.length, picksUpdated, eliminated, nonPickers: 0 };
+  return { round, processed: completed.length, picksUpdated, eliminated, nonPickers: 0, futurePicksInvalidated };
 }
 
 /**
