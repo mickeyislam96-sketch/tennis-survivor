@@ -273,17 +273,15 @@ input, select { font-family: var(--font); }
 .search-row { margin-bottom: 1rem; }
 .search-input { min-width: 300px; width: 100%; box-sizing: border-box; }
 
-.available-count { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500; }
+.available-count { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 500; }
 
 .bracket-hint {
-  display: block;
   font-size: 0.82rem;
-  color: var(--accent-dark);
-  margin-bottom: 0.75rem;
-  text-decoration: none;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
   font-weight: 500;
+  text-align: center;
 }
-.bracket-hint:hover { text-decoration: underline; }
 
 .player-list { list-style: none; padding: 0; margin: 0; }
 

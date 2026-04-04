@@ -457,9 +457,6 @@ export function PickScreen() {
             />
           </div>
           <p className="available-count">{filtered.length} players available</p>
-          <Link to={`/group/${groupId}/draw`} className="bracket-hint">
-            Tap a matchup in the bracket to compare players before you pick →
-          </Link>
           <ul className="player-list">
             {filtered.slice(0, 80).map((player) => {
               const name = (player.name || '').toLowerCase().trim();

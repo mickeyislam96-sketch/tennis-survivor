@@ -384,6 +384,8 @@ export function DrawViewer() {
         </button>
       </div>
 
+      <p className="bracket-hint">Tap a matchup to compare players before you pick</p>
+
       {view === 'bracket' ? (
         bracketEls.length === 0 ? (
           <div className="draw-empty-state">
