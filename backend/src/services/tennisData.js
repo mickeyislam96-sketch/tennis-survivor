@@ -332,7 +332,20 @@ export async function getDraw(roundFilter = null) {
   }
   if (fixtures && fixtures.length > 0) {
     const draw = buildDrawFromFixtures(fixtures);
-    return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
+
+    // Only switch to live data if it covers more than just the first round.
+    // Early in a tournament the API may only have R1 fixtures — no seeds,
+    // no byes, no later-round structure. Using that partial data destroys
+    // the bracket (the mock draw has the full 56-player structure).
+    // Once R32+ matches appear in the API, we switch over seamlessly.
+    const hasLaterRounds = draw.matches.some(m => m.round !== ROUNDS[0]);
+    if (hasLaterRounds) {
+      return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
+    }
+    console.warn(
+      `[tennisData] Live data has ${draw.matches.length} matches but only in ${ROUNDS[0]} — ` +
+      `using mock draw for full bracket structure until later rounds appear`
+    );
   }
   // Mock fallback: determine current round from the tournament schedule, NOT
   // from the frontend's roundFilter (which is just "how much of the bracket to
