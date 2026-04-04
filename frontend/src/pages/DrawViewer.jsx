@@ -440,8 +440,8 @@ export function DrawViewer() {
 
       {selectedMatch && (
         <MatchupModal
-          player1Id={selectedMatch.player1Id}
-          player2Id={selectedMatch.player2Id}
+          player1Id={selectedMatch.player1ApiKey || selectedMatch.player1Id}
+          player2Id={selectedMatch.player2ApiKey || selectedMatch.player2Id}
           player1Name={selectedMatch.player1Name}
           player2Name={selectedMatch.player2Name}
           onClose={handleCloseModal}

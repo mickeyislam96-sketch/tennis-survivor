@@ -17,6 +17,63 @@
 
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
 
+// ── API-Tennis player key lookup ─────────────────────────────────────────────
+// Maps mock draw IDs (mc-*) to real API-Tennis player_key values.
+// Used by the matchup modal to fetch H2H data from API-Tennis.
+const API_KEY_MAP = {
+  // Seeds (verified via global fixture search 2026-03-20 to 2026-04-03)
+  'mc-s1': '2382',   // Alcaraz
+  'mc-s2': '2072',   // Sinner
+  'mc-s3': '1980',   // Zverev
+  'mc-s4': '2849',   // Musetti
+  'mc-s5': '1106',   // de Minaur
+  'mc-s6': '2073',   // Auger-Aliassime
+  'mc-s7': '1093',   // Medvedev
+  'mc-s8': '1895',   // Bublik
+  // Non-seeds (verified via MC 2026 fixture data + global search)
+  'mc-p9':  '1101',  // Baez
+  'mc-p10': '2168',  // Wawrinka
+  'mc-p11': '1777',  // Etcheverry
+  'mc-p12': '2384',  // Dimitrov
+  'mc-p13': '13091', // Atmane
+  'mc-p14': '2846',  // Tiafoe
+  'mc-p15': '2959',  // Lehecka
+  'mc-p17': '2833',  // Fucsovics
+  'mc-p18': '2982',  // Tabilo
+  'mc-p19': '2845',  // Monfils
+  'mc-p20': '427',   // Griekspoor
+  'mc-p21': '1852',  // Vacherot
+  'mc-p22': '1096',  // Majchrzak
+  'mc-p23': '902',   // Mensik
+  'mc-p24': '10148', // Marozsan
+  'mc-p25': '2841',  // Hurkacz
+  'mc-p26': '8781',  // Darderi
+  'mc-p27': '372',   // Cobolli
+  'mc-p29': '431',   // Shapovalov
+  'mc-p31': '1103',  // Norrie
+  'mc-p32': '2848',  // Kecmanovic
+  'mc-p34': '2844',  // Berrettini
+  'mc-p35': '40058', // Fonseca
+  'mc-p36': '9909',  // Diallo
+  'mc-p37': '1902',  // Rinderknech
+  'mc-p38': '435',   // Khachanov
+  'mc-p39': '2847',  // Rublev
+  'mc-p40': '358',   // Borges
+  'mc-p41': '1064',  // Bergs
+  'mc-p42': '438',   // Mannarino
+  'mc-p44': '9222',  // Mpetshi Perricard
+  'mc-p45': '2167',  // Cilic
+  'mc-p47': '2674',  // Moutet
+  'mc-p49': '1926',  // Popyrin
+  'mc-p50': '430',   // Ruud
+  'mc-p51': '1104',  // F. Cerundolo
+  'mc-p52': '1906',  // Tsitsipas
+  'mc-p53': '1099',  // Altmaier
+  'mc-p54': '2981',  // Machac
+  'mc-p55': '68751', // Kouame
+  'mc-p56': '1105',  // Humbert
+};
+
 // ── Players ───────────────────────────────────────────────────────────────────
 
 const MC_PLAYERS = [
@@ -264,6 +321,12 @@ function buildMonteCarloMatches() {
     }
     prevWinners = roundMatches.map(m => ({ id: m.player1Id, name: m.player1Name }));
   }
+
+  // ── Inject API-Tennis keys for the matchup modal ────────────────────────
+  matches.forEach(m => {
+    m.player1ApiKey = API_KEY_MAP[m.player1Id] || null;
+    m.player2ApiKey = API_KEY_MAP[m.player2Id] || null;
+  });
 
   return matches;
 }
