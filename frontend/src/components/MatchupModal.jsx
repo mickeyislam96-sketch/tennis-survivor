@@ -27,13 +27,14 @@ function formatMatchScore(scores) {
 function shortRound(roundStr) {
   if (!roundStr) return '';
   const r = roundStr.toLowerCase();
-  if (r.includes('final') && !r.includes('quarter') && !r.includes('semi')) return 'F';
-  if (r.includes('semi'))    return 'SF';
-  if (r.includes('quarter')) return 'QF';
-  if (r.includes('1/8'))     return 'R16';
-  if (r.includes('1/16'))    return 'R32';
-  if (r.includes('1/32'))    return 'R64';
+  // Check fraction-based rounds FIRST — "1/32-finals" contains "final" but isn't the Final
   if (r.includes('1/64'))    return 'R128';
+  if (r.includes('1/32'))    return 'R64';
+  if (r.includes('1/16'))    return 'R32';
+  if (r.includes('1/8'))     return 'R16';
+  if (r.includes('quarter')) return 'QF';
+  if (r.includes('semi'))    return 'SF';
+  if (r.includes('final'))   return 'F';
   return roundStr.replace(/^.*?-\s*/, '');
 }
 
