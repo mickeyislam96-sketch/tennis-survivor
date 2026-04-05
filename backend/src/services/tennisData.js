@@ -329,16 +329,79 @@ export function getRuntimeLockOverrides() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getDraw(roundFilter = null) {
-  // Frontend bracket: use mock draw for full structure (all rounds, byes,
-  // seeds). Pass null as currentRound so all matches show as 'scheduled'.
-  const mockDraw = getMockDraw(null);
+  // Use the schedule-derived current round so mock draw shows correct
+  // structure (completed rounds, in-progress, future TBDs).
+  const scheduleRound = getCurrentRoundFromSchedule();
+  const mockDraw = getMockDraw(scheduleRound);
+
+  // Overlay live API results onto the mock bracket so the draw page
+  // shows real winners, scores, and match statuses.
+  let fixtures = await fetchApiDraw();
+  if (!fixtures || fixtures.length === 0) {
+    fixtures = await fetchSofascoreFixtures();
+  }
+  if (fixtures && fixtures.length > 0) {
+    const liveDraw = buildDrawFromFixtures(fixtures);
+    if (liveDraw.matches.length > 0) {
+      // Build lookup: sorted pair of API player IDs → live match.
+      // Live matches use raw API keys; mock matches carry player1ApiKey/player2ApiKey.
+      const liveByPlayers = new Map();
+      for (const lm of liveDraw.matches) {
+        if (!lm.player1Id || !lm.player2Id) continue;
+        const key = [String(lm.player1Id), String(lm.player2Id)].sort().join('|');
+        liveByPlayers.set(key, lm);
+      }
+
+      for (const mm of mockDraw.matches) {
+        if (mm.bye) continue;
+        const k1 = mm.player1ApiKey || mm.player1Id;
+        const k2 = mm.player2ApiKey || mm.player2Id;
+        if (!k1 || !k2) continue;
+        const key = [String(k1), String(k2)].sort().join('|');
+        const lm = liveByPlayers.get(key);
+        if (!lm) continue;
+
+        // Overlay live data onto mock match
+        if (lm.winnerId) {
+          const winnerIsMockP1 = String(lm.winnerId) === String(k1);
+          mm.status = 'completed';
+          mm.winnerId = winnerIsMockP1 ? mm.player1Id : mm.player2Id;
+          mm.winnerName = winnerIsMockP1 ? mm.player1Name : mm.player2Name;
+        } else if (lm.status && lm.status !== 'scheduled') {
+          mm.status = lm.status;
+        }
+        if (lm.score) mm.score = lm.score;
+        if (lm.startTime) mm.startTime = lm.startTime;
+      }
+
+      // Re-derive roundEliminated from overlaid results
+      const eliminated = new Set();
+      for (const round of ROUNDS) {
+        for (const m of mockDraw.matches.filter(x => x.round === round)) {
+          if (m.status !== 'completed' || !m.winnerId) continue;
+          const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+          if (loserId) eliminated.add(loserId);
+        }
+      }
+      for (const p of mockDraw.players) {
+        if (!eliminated.has(p.id)) continue;
+        const lostMatch = mockDraw.matches.find(
+          m => m.status === 'completed' && (m.player1Id === p.id || m.player2Id === p.id) && m.winnerId !== p.id
+        );
+        if (lostMatch) p.roundEliminated = lostMatch.round;
+      }
+
+      return { ...mockDraw, dataSource: 'live_overlay' };
+    }
+  }
+
   return { ...mockDraw, dataSource: 'mock' };
 }
 
 /**
  * Fetch live draw from API-Tennis for results processing.
  * Returns real match statuses, winners, and scores.
- * Used by resultsProcessor — NOT by the frontend bracket.
+ * Used by resultsProcessor and picks endpoint.
  */
 export async function getLiveDraw(roundFilter = null) {
   let fixtures = await fetchApiDraw();
