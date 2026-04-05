@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDraw, getRounds, getDeadlines, getRawFixtures } from '../services/tennisData.js';
+import { getDraw, getLiveDraw, getRounds, getDeadlines, getRawFixtures } from '../services/tennisData.js';
 
 export const drawRouter = Router();
 
@@ -19,7 +19,9 @@ drawRouter.get('/debug', async (_, res) => {
     const all = raw.map(f => ({
       key: f.event_key,
       p1: f.event_first_player,
+      p1key: f.first_player_key,
       p2: f.event_second_player,
+      p2key: f.second_player_key,
       date: f.event_date,
       status: f.event_status,
       winner: f.event_winner,
@@ -34,6 +36,27 @@ drawRouter.get('/debug', async (_, res) => {
       byRound[r] = (byRound[r] || 0) + 1;
     });
     res.json({ total: raw.length, byRound, all_fields: Object.keys(raw[0]), fixtures: all });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Diagnostic: what the results processor sees (getLiveDraw completed matches)
+drawRouter.get('/live-completed', async (_, res) => {
+  try {
+    const draw = await getLiveDraw();
+    const completed = (draw.matches || []).filter(m => m.status === 'completed' && m.winnerId);
+    res.json({
+      dataSource: draw.dataSource,
+      totalMatches: (draw.matches || []).length,
+      completed: completed.map(m => ({
+        id: m.id, round: m.round,
+        p1Id: m.player1Id, p1Name: m.player1Name,
+        p2Id: m.player2Id, p2Name: m.player2Name,
+        winnerId: m.winnerId, winnerName: m.winnerName,
+        score: m.score,
+      })),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
