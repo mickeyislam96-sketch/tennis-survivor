@@ -87,6 +87,29 @@ app.get('/api/db-check', async (req, res) => {
 
 
 
+// ── One-time migration: fix R1 picks stored as R32 ──────────────────────────
+// Picks submitted while the round mapping bug was active (API "1/32-finals"
+// mapped to R32 instead of R1) need renaming. Safe to run repeatedly — the
+// check for existing R1 picks prevents double-migration.
+schemaReady.then(async () => {
+  try {
+    const { rows } = await pool.query(`SELECT COUNT(*) FROM picks WHERE round = 'R1'`);
+    if (Number(rows[0].count) === 0) {
+      const result = await pool.query(
+        `UPDATE picks SET round = 'R1' WHERE round = 'R32' RETURNING id`
+      );
+      if (result.rowCount > 0) {
+        console.log(`[migration] Renamed ${result.rowCount} picks from R32 → R1`);
+        // Immediately process results so R1 wins/losses get graded
+        await autoProcessResults();
+        console.log('[migration] Results processing complete after pick rename');
+      }
+    }
+  } catch (err) {
+    console.error('[migration] fix-r1-picks error:', err.message);
+  }
+});
+
 // ── Automated results processor — every 15 minutes ───────────────────────────
 cron.schedule('*/15 * * * *', async () => {
   try { await autoProcessResults(); }
