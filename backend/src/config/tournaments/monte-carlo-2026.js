@@ -61,7 +61,7 @@ export const MONTE_CARLO_2026 = {
   // Takes precedence over the default "opens when previous round locks" logic.
   // Use to delay a window opening (e.g. to fix bugs before users can pick).
   windowOpensOverrides: {
-    R32: '2026-04-05T14:00:00Z', // Delayed: opens 3PM BST / 14:00 UTC (was immediate after R1 lock)
+    R32: '2026-04-05T15:00:00Z', // Delayed: opens 4PM BST / 15:00 UTC — waiting for qualifiers to enter main draw
   },
 
   // Lock time overrides — 1h before first match of each round.
