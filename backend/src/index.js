@@ -90,7 +90,7 @@ app.get('/api/db-check', async (req, res) => {
 // ── One-time migrations ─────────────────────────────────────────────────────
 // 1. Fix R1 picks stored as R32 (round mapping bug)
 // 2. Replace mock player IDs (mc-*) with real API keys (pre-API_KEY_MAP picks)
-import { API_KEY_MAP } from './data/monteCarloMockDraw.js';
+import { API_KEY_MAP, MC_PLAYERS } from './data/monteCarloMockDraw.js';
 
 schemaReady.then(async () => {
   try {
@@ -120,12 +120,8 @@ schemaReady.then(async () => {
     // Migration 3: Normalise player names to canonical mock draw names.
     // Some picks stored API-abbreviated names ("A. Rublev", "C. Norrie")
     // instead of full names ("Andrey Rublev", "Cameron Norrie").
-    const { getMockDraw } = await import('./data/mockDraw.js');
-    const mockDraw = getMockDraw();
-    const mockPlayers = mockDraw.players || [];
-    // Build API key → canonical name map
     const apiKeyToName = new Map();
-    for (const p of mockPlayers) {
+    for (const p of MC_PLAYERS) {
       const apiKey = API_KEY_MAP[p.id];
       if (apiKey) apiKeyToName.set(String(apiKey), p.name);
       apiKeyToName.set(p.id, p.name); // also map mock ID just in case
