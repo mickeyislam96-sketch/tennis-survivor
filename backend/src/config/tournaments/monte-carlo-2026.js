@@ -73,6 +73,10 @@ export const MONTE_CARLO_2026 = {
     F:   '2026-04-12T11:00:00Z', // Sun 12 Apr, 12:00 BST / 13:00 CEST (typical final time)
   },
 
+  // How many hours after the previous round locks before the next pick window opens.
+  // Gives admins time to review results and correct errors before players submit.
+  pickWindowBufferHours: 4,
+
   // Fallback schedule — used when API returns no data at all.
   roundDates: {
     R1:  '2026-04-05T09:00:00Z', // Sun 5 Apr, 10:00 BST / 11:00 CEST

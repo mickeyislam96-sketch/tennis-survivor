@@ -497,6 +497,10 @@ export async function getDeadlines() {
   const roundDates      = TOURNAMENT.roundDates           || {};
   const roundFallback   = TOURNAMENT.roundDateFallback    || {};
 
+  // Buffer between previous round locking and next round's pick window opening.
+  // Gives admins time to review results before players can submit new picks.
+  const bufferMs = (TOURNAMENT.pickWindowBufferHours || 0) * 60 * 60 * 1000;
+
   if (!fixtures || fixtures.length === 0) {
     return ROUNDS.map((round, i) => {
       const firstStart = roundDates[round] ? new Date(roundDates[round]) : null;
@@ -505,7 +509,7 @@ export async function getDeadlines() {
       else if (lockOverrides[round])    lockAtDate = new Date(lockOverrides[round]);
       const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
       const isLocked = lockAtDate ? now >= lockAtDate : false;
-      // Each round opens when the previous round locks (or at windowOpensOverride)
+      // Each round opens [bufferMs] after the previous round locks (or at windowOpensOverride)
       let opensAt = null;
       if (windowOverrides[round]) {
         opensAt = new Date(windowOverrides[round]).toISOString();
@@ -518,7 +522,7 @@ export async function getDeadlines() {
           const prevDate = roundDates[prevRound] ? new Date(roundDates[prevRound]) : null;
           if (prevDate) prevLockAt = new Date(prevDate.getTime() - 60 * 60 * 1000);
         }
-        if (prevLockAt) opensAt = prevLockAt.toISOString();
+        if (prevLockAt) opensAt = new Date(prevLockAt.getTime() + bufferMs).toISOString();
       }
       const hasOpened = i === 0 || (opensAt && now >= new Date(opensAt));
       const isOpen    = hasOpened && !isLocked;
@@ -569,7 +573,7 @@ export async function getDeadlines() {
         if (prevFirstStart) prevLockAt = new Date(prevFirstStart.getTime() - 60 * 60 * 1000);
       }
       if (prevLockAt) {
-        opensAt = prevLockAt.toISOString();
+        opensAt = new Date(prevLockAt.getTime() + bufferMs).toISOString();
       }
     }
 
