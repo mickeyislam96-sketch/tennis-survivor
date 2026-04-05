@@ -330,12 +330,8 @@ function buildMonteCarloMatches() {
     prevWinners = roundMatches.map(m => ({ id: m.player1Id, name: m.player1Name }));
   }
 
-  // ── Inject API-Tennis keys for the matchup modal ────────────────────────
-  matches.forEach(m => {
-    m.player1ApiKey = API_KEY_MAP[m.player1Id] || null;
-    m.player2ApiKey = API_KEY_MAP[m.player2Id] || null;
-  });
-
+  // API keys are injected by the caller (getMonteCarlMockDraw) using
+  // the dynamic key map from tennisData.getApiKeyMap().
   return matches;
 }
 
@@ -354,10 +350,16 @@ function buildMonteCarloMatches() {
  * Expected MATCHES_PER_ROUND:
  *   R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1
  */
-export function getMonteCarlMockDraw(currentRound = null) {
+export function getMonteCarlMockDraw(currentRound = null, keyMap = null) {
+  const keys = keyMap || API_KEY_MAP;
   const roundIndex = currentRound ? ROUNDS.indexOf(currentRound) : -1;
-  const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null, apiKey: API_KEY_MAP[p.id] || null }));
+  const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null, apiKey: keys[p.id] || null }));
   const matches = buildMonteCarloMatches();
+  // Inject API keys from the (possibly dynamic) key map
+  matches.forEach(m => {
+    m.player1ApiKey = keys[m.player1Id] || null;
+    m.player2ApiKey = keys[m.player2Id] || null;
+  });
   const eliminated = new Set();
   const seedIds = new Set(MC_PLAYERS.slice(0, 8).map(p => p.id));
 

@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getDraw, getLiveDraw, getDeadlines } from '../services/tennisData.js';
+import { getDraw, getLiveDraw, getDeadlines, getApiKeyMap } from '../services/tennisData.js';
 import { getRounds } from '../services/tennisData.js';
 import { MOCK_PICKS } from '../data/mockGroups.js';
-import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
 
 export const picksRouter = Router();
 
@@ -117,14 +116,14 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   // Build a reverse map: API player key → mock player ID
   const apiToMock = new Map();
   const mockToApi = new Map();
-  for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
     if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
     apiToMock.set(String(apiKey), mockId);
     mockToApi.set(mockId, String(apiKey));
   }
 
   // Back-fill from live overlay: getDraw() discovers API keys via name matching
-  // for players missing from API_KEY_MAP. Harvest those discovered keys.
+  // for players missing from getApiKeyMap(). Harvest those discovered keys.
   for (const m of (mockDraw.matches || [])) {
     if (m.player1ApiKey && !mockToApi.has(m.player1Id)) {
       mockToApi.set(m.player1Id, String(m.player1ApiKey));
@@ -283,7 +282,7 @@ picksRouter.get('/history', async (req, res) => {
 
   // Build a live grader from current draw data so survived is always fresh
   const mockToApi = new Map();
-  for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
     if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
     mockToApi.set(mockId, String(apiKey));
   }

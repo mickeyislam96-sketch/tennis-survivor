@@ -107,6 +107,7 @@ schemaReady.then(async () => {
     // Migration 2: Replace mock IDs with API keys
     let idFixCount = 0;
     for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+      if (apiKey == null) continue; // skip entries with unknown keys
       const upd = await pool.query(
         `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id`,
         [apiKey, mockId]

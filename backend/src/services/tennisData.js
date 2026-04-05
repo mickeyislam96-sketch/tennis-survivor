@@ -13,10 +13,80 @@
 
 import { TOURNAMENT, ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
 import { getMockDraw } from '../data/mockDraw.js';
+import { MC_PLAYERS, API_KEY_MAP as STATIC_API_KEY_MAP } from '../data/monteCarloMockDraw.js';
 import nodeFetch from 'node-fetch';
 import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
+
+// ── Dynamic API key discovery ────────────────────────────────────────────────
+// Auto-builds the mock-ID → API-key map from live fixture data by matching
+// player names. No more manual key lookups for qualifiers or replacements.
+const dynamicKeyMap = new Map(); // mock ID → API key (string)
+let keyMapBuilt = false;
+
+const normForMatch = (n) =>
+  (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+function buildDynamicKeyMap(fixtures) {
+  if (!fixtures || fixtures.length === 0) return;
+
+  // Index mock players by normalised surname for fast lookup
+  const bySurname = new Map(); // surname → [{ id, fullNorm }]
+  for (const p of MC_PLAYERS) {
+    const norm = normForMatch(p.name);
+    const parts = norm.split(/\s+/);
+    const surname = parts[parts.length - 1];
+    if (!bySurname.has(surname)) bySurname.set(surname, []);
+    bySurname.get(surname).push({ id: p.id, fullNorm: norm });
+  }
+
+  // For each fixture player, try to match to a mock player and capture the API key
+  for (const f of fixtures) {
+    const pairs = [
+      { name: f.event_first_player, key: f.first_player_key },
+      { name: f.event_second_player, key: f.second_player_key },
+    ];
+    for (const { name, key } of pairs) {
+      if (!name || !key) continue;
+      const norm = normForMatch(name);
+      const parts = norm.split(/\s+/);
+      const surname = parts[parts.length - 1];
+      const candidates = bySurname.get(surname);
+      if (!candidates) continue;
+      // Prefer exact full-name match, fall back to surname-only if unique
+      const exact = candidates.find(c => c.fullNorm === norm);
+      const match = exact || (candidates.length === 1 ? candidates[0] : null);
+      if (match && !dynamicKeyMap.has(match.id)) {
+        dynamicKeyMap.set(match.id, String(key));
+      }
+    }
+  }
+
+  if (dynamicKeyMap.size > 0) {
+    const newKeys = [...dynamicKeyMap.entries()]
+      .filter(([id]) => !STATIC_API_KEY_MAP[id])
+      .map(([id, k]) => `${id}=${k}`);
+    if (newKeys.length > 0) {
+      console.log(`[tennisData] Auto-discovered ${newKeys.length} new API keys: ${newKeys.join(', ')}`);
+    }
+    keyMapBuilt = true;
+  }
+}
+
+/**
+ * Get the merged API key map: static (hardcoded) + dynamic (auto-discovered).
+ * Consumers should call this instead of importing API_KEY_MAP directly.
+ */
+export function getApiKeyMap() {
+  const merged = { ...STATIC_API_KEY_MAP };
+  for (const [id, key] of dynamicKeyMap) {
+    if (!merged[id] || merged[id] == null) {
+      merged[id] = key;
+    }
+  }
+  return merged;
+}
 
 // ── Global round name map (tournament-agnostic) ───────────────────────────────
 const GLOBAL_ROUND_MAP = {
@@ -154,6 +224,8 @@ async function fetchApiDraw() {
         cache.fetchedAt = Date.now();
         cache.error     = null;
         console.log(`[tennisData] API OK: ${data.result.length} fixtures (attempt ${attempt})`);
+        // Auto-discover API keys from fixture data
+        if (!keyMapBuilt) buildDynamicKeyMap(data.result);
         return data.result;
       } catch (e) {
         lastError = e;
@@ -332,10 +404,9 @@ export async function getDraw(roundFilter = null) {
   // Use the schedule-derived current round so mock draw shows correct
   // structure (completed rounds, in-progress, future TBDs).
   const scheduleRound = getCurrentRoundFromSchedule();
-  const mockDraw = getMockDraw(scheduleRound);
 
-  // Overlay live API results onto the mock bracket so the draw page
-  // shows real winners, scores, and match statuses.
+  // Fetch live fixtures FIRST so we can auto-discover API keys before
+  // building the mock draw (which needs keys for overlay matching).
   // API-Tennis is primary; Sofascore supplements any gaps (e.g. qualifier
   // fixtures that API-Tennis hasn't indexed yet).
   let fixtures = await fetchApiDraw();
@@ -358,8 +429,16 @@ export async function getDraw(roundFilter = null) {
         merged++;
       }
     }
-    if (merged > 0) console.log(`[tennisData] Merged ${merged} Sofascore fixtures not in API-Tennis`);
+    if (merged > 0) {
+      console.log(`[tennisData] Merged ${merged} Sofascore fixtures not in API-Tennis`);
+    }
   }
+  // Auto-discover API keys from all available fixtures (API-Tennis + Sofascore)
+  if (fixtures && fixtures.length > 0) buildDynamicKeyMap(fixtures);
+
+  // Build mock draw with dynamic key map so all players have API keys
+  const mockDraw = getMockDraw(scheduleRound, getApiKeyMap());
+
   if (fixtures && fixtures.length > 0) {
     const liveDraw = buildDrawFromFixtures(fixtures);
     if (liveDraw.matches.length > 0) {

@@ -1,14 +1,16 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
-import { getRounds, getDeadlines, getDraw, getLiveDraw } from '../services/tennisData.js';
-import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
+import { getRounds, getDeadlines, getDraw, getLiveDraw, getApiKeyMap } from '../services/tennisData.js';
 
-// Reverse map: mock ID → API key (skip null entries for qualifiers/LLs)
-const mockToApiMap = new Map();
-for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
-  if (apiKey == null) continue;
-  mockToApiMap.set(mockId, String(apiKey));
+// Build reverse map dynamically from the merged key map
+function getMockToApiMap() {
+  const map = new Map();
+  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
+    if (apiKey == null) continue;
+    map.set(mockId, String(apiKey));
+  }
+  return map;
 }
 
 const ROUNDS = getRounds();
@@ -66,7 +68,7 @@ function buildGrader(draw) {
     if (lostRounds[playerId]?.has(round)) return false;
     if (wonRounds[playerId]?.has(round))  return true;
     // Secondary: if pick has a mock ID, translate to API key and try again
-    const translated = mockToApiMap.get(playerId);
+    const translated = getMockToApiMap().get(playerId);
     if (translated) {
       if (lostRounds[translated]?.has(round)) return false;
       if (wonRounds[translated]?.has(round))  return true;

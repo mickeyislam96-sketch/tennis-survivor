@@ -4,16 +4,19 @@
  * Idempotent — safe to run multiple times for the same round.
  */
 import { pool } from '../db/pool.js';
-import { getLiveDraw, getDeadlines } from './tennisData.js';
+import { getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
 import { ROUNDS } from '../config/tournament.js';
-import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
 
-// Build reverse map: API key → mock ID, so we can match picks stored with either format
-const apiToMock = new Map();
-const mockToApi = new Map();
-for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
-  apiToMock.set(String(apiKey), mockId);
-  mockToApi.set(mockId, String(apiKey));
+// Build reverse maps dynamically (includes auto-discovered keys)
+function getReverseMaps() {
+  const apiToMock = new Map();
+  const mockToApi = new Map();
+  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
+    if (apiKey == null) continue;
+    apiToMock.set(String(apiKey), mockId);
+    mockToApi.set(mockId, String(apiKey));
+  }
+  return { apiToMock, mockToApi };
 }
 
 /**
@@ -24,6 +27,7 @@ for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
  */
 export async function processRoundResults(round) {
   console.log(`[results] Processing ${round}...`);
+  const { apiToMock, mockToApi } = getReverseMaps();
   const draw = await getLiveDraw(round);
   const completed = (draw.matches || []).filter(
     m => m.round === round && m.status === 'completed' && m.winnerId

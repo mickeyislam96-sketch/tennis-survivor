@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDraw, getLiveDraw, getRounds, getDeadlines, getRawFixtures } from '../services/tennisData.js';
+import { getDraw, getLiveDraw, getRounds, getDeadlines, getRawFixtures, getApiKeyMap } from '../services/tennisData.js';
 
 export const drawRouter = Router();
 
@@ -53,14 +53,14 @@ drawRouter.get('/debug', requireAdmin, async (_, res) => {
 // One-shot migration: replace mock player IDs with API keys
 drawRouter.get('/fix-mock-ids', requireAdmin, async (_, res) => {
   try {
-    const { API_KEY_MAP } = await import('../data/monteCarloMockDraw.js');
+    const keyMap = getApiKeyMap(); // dynamic: includes auto-discovered keys
     const { pool: dbPool } = await import('../db/pool.js');
     const { autoProcessResults } = await import('../services/resultsProcessor.js');
 
     let fixed = 0;
     const details = [];
-    for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
-      if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
+    for (const [mockId, apiKey] of Object.entries(keyMap)) {
+      if (apiKey == null) continue;
       const upd = await dbPool.query(
         `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id, player_name`,
         [apiKey, mockId]
@@ -85,11 +85,12 @@ drawRouter.get('/fix-mock-ids', requireAdmin, async (_, res) => {
 // One-shot fix: normalise abbreviated player names to canonical mock draw names
 drawRouter.get('/fix-names', requireAdmin, async (_, res) => {
   try {
-    const { API_KEY_MAP, MC_PLAYERS } = await import('../data/monteCarloMockDraw.js');
+    const { MC_PLAYERS } = await import('../data/monteCarloMockDraw.js');
+    const keyMap = getApiKeyMap(); // dynamic
     const { pool: dbPool } = await import('../db/pool.js');
     const apiKeyToName = new Map();
     for (const p of MC_PLAYERS) {
-      const apiKey = API_KEY_MAP[p.id];
+      const apiKey = keyMap[p.id];
       if (apiKey) apiKeyToName.set(String(apiKey), p.name);
     }
     let fixed = 0;
