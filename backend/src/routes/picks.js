@@ -258,7 +258,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 
 /** Qualifier placeholders are removed from the pick pool until real names are known. */
 function isQualifierPlaceholder(player) {
-  return player.name === 'Qualifier' || player.id?.startsWith('mc-q');
+  return player.name === 'Qualifier' || player.name === 'TBD';
 }
 
 // GET /api/picks/available?userId=&groupId=&round=
