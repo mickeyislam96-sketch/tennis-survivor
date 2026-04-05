@@ -41,6 +41,37 @@ drawRouter.get('/debug', async (_, res) => {
   }
 });
 
+// One-shot migration: replace mock player IDs with API keys
+drawRouter.get('/fix-mock-ids', async (_, res) => {
+  try {
+    const { API_KEY_MAP } = await import('../data/monteCarloMockDraw.js');
+    const { pool: dbPool } = await import('../db/pool.js');
+    const { autoProcessResults } = await import('../services/resultsProcessor.js');
+
+    let fixed = 0;
+    const details = [];
+    for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+      const upd = await dbPool.query(
+        `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id, player_name`,
+        [apiKey, mockId]
+      );
+      if (upd.rowCount > 0) {
+        fixed += upd.rowCount;
+        details.push({ mockId, apiKey, updated: upd.rows.map(r => r.player_name) });
+      }
+    }
+
+    let gradeResult = null;
+    if (fixed > 0) {
+      gradeResult = await autoProcessResults();
+    }
+
+    res.json({ ok: true, fixed, details, gradeResult });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message, stack: e.stack });
+  }
+});
+
 // Diagnostic: dump all picks for a group to debug grading
 drawRouter.get('/debug-picks', async (req, res) => {
   try {
