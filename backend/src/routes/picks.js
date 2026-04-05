@@ -118,8 +118,22 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   const apiToMock = new Map();
   const mockToApi = new Map();
   for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+    if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
     apiToMock.set(String(apiKey), mockId);
     mockToApi.set(mockId, String(apiKey));
+  }
+
+  // Back-fill from live overlay: getDraw() discovers API keys via name matching
+  // for players missing from API_KEY_MAP. Harvest those discovered keys.
+  for (const m of (mockDraw.matches || [])) {
+    if (m.player1ApiKey && !mockToApi.has(m.player1Id)) {
+      mockToApi.set(m.player1Id, String(m.player1ApiKey));
+      apiToMock.set(String(m.player1ApiKey), m.player1Id);
+    }
+    if (m.player2ApiKey && !mockToApi.has(m.player2Id)) {
+      mockToApi.set(m.player2Id, String(m.player2ApiKey));
+      apiToMock.set(String(m.player2ApiKey), m.player2Id);
+    }
   }
 
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
@@ -270,6 +284,7 @@ picksRouter.get('/history', async (req, res) => {
   // Build a live grader from current draw data so survived is always fresh
   const mockToApi = new Map();
   for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+    if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
     mockToApi.set(mockId, String(apiKey));
   }
   let liveGrade = null;

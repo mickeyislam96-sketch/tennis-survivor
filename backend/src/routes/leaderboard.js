@@ -4,9 +4,10 @@ import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
 import { getRounds, getDeadlines, getDraw, getLiveDraw } from '../services/tennisData.js';
 import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
 
-// Reverse map: mock ID → API key
+// Reverse map: mock ID → API key (skip null entries for qualifiers/LLs)
 const mockToApiMap = new Map();
 for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+  if (apiKey == null) continue;
   mockToApiMap.set(mockId, String(apiKey));
 }
 

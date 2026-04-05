@@ -343,13 +343,19 @@ export async function getDraw(roundFilter = null) {
   if (fixtures && fixtures.length > 0) {
     const liveDraw = buildDrawFromFixtures(fixtures);
     if (liveDraw.matches.length > 0) {
-      // Build lookup: sorted pair of API player IDs → live match.
-      // Live matches use raw API keys; mock matches carry player1ApiKey/player2ApiKey.
+      // Build lookups: sorted pair of API player IDs → live match,
+      // plus a name-based fallback for players missing API keys (qualifiers/LLs).
       const liveByPlayers = new Map();
+      const liveByNames   = new Map();
+      const normName = (n) => (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       for (const lm of liveDraw.matches) {
         if (!lm.player1Id || !lm.player2Id) continue;
         const key = [String(lm.player1Id), String(lm.player2Id)].sort().join('|');
         liveByPlayers.set(key, lm);
+        // Name-based fallback key (sorted normalised surnames)
+        const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
+        const nameKey = [surname(lm.player1Name), surname(lm.player2Name)].sort().join('|');
+        liveByNames.set(nameKey, lm);
       }
 
       for (const mm of mockDraw.matches) {
@@ -358,12 +364,36 @@ export async function getDraw(roundFilter = null) {
         const k2 = mm.player2ApiKey || mm.player2Id;
         if (!k1 || !k2) continue;
         const key = [String(k1), String(k2)].sort().join('|');
-        const lm = liveByPlayers.get(key);
+        let lm = liveByPlayers.get(key);
+
+        // Fallback: match by normalised surname when API key lookup fails
+        // (handles qualifiers/LLs whose API keys aren't in API_KEY_MAP yet)
+        if (!lm) {
+          const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
+          const nameKey = [surname(mm.player1Name), surname(mm.player2Name)].sort().join('|');
+          lm = liveByNames.get(nameKey);
+          // Back-fill discovered API keys so downstream code (propagation, H2H) can use them
+          if (lm) {
+            const lmN1 = normName(lm.player1Name), mmN1 = normName(mm.player1Name);
+            const sameOrder = lmN1.includes(normName(mm.player1Name).split(/\s+/).pop());
+            if (sameOrder) {
+              if (!mm.player1ApiKey) mm.player1ApiKey = String(lm.player1Id);
+              if (!mm.player2ApiKey) mm.player2ApiKey = String(lm.player2Id);
+            } else {
+              if (!mm.player1ApiKey) mm.player1ApiKey = String(lm.player2Id);
+              if (!mm.player2ApiKey) mm.player2ApiKey = String(lm.player1Id);
+            }
+          }
+        }
         if (!lm) continue;
 
         // Overlay live data onto mock match
+        // Determine which live player maps to mock player1 using API keys
+        const p1Key = mm.player1ApiKey || k1;
+        const winnerIsMockP1 = lm.winnerId
+          ? String(lm.winnerId) === String(p1Key)
+          : false;
         if (lm.winnerId) {
-          const winnerIsMockP1 = String(lm.winnerId) === String(k1);
           mm.status = 'completed';
           mm.winnerId = winnerIsMockP1 ? mm.player1Id : mm.player2Id;
           mm.winnerName = winnerIsMockP1 ? mm.player1Name : mm.player2Name;

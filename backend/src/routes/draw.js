@@ -60,6 +60,7 @@ drawRouter.get('/fix-mock-ids', requireAdmin, async (_, res) => {
     let fixed = 0;
     const details = [];
     for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+      if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
       const upd = await dbPool.query(
         `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id, player_name`,
         [apiKey, mockId]
