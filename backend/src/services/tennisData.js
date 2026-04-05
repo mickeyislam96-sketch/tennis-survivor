@@ -383,6 +383,42 @@ export async function getDraw(roundFilter = null) {
         if (mm.status === 'in_progress') mm.status = 'scheduled';
       }
 
+      // Propagate winners forward into next-round bracket slots.
+      // The mock draw's Step 2 clears future-round names to TBD. Use the
+      // standard binary bracket pairing: every 2 consecutive matches in
+      // round N feed 1 match in round N+1 (slot i gets matches 2i and 2i+1).
+      for (let ri = 0; ri < ROUNDS.length - 1; ri++) {
+        const thisRound = ROUNDS[ri];
+        const nextRound = ROUNDS[ri + 1];
+        // Get matches sorted by matchOrder (includes byes for R1)
+        const thisMatches = mockDraw.matches
+          .filter(m => m.round === thisRound)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+        const nextMatches = mockDraw.matches
+          .filter(m => m.round === nextRound && !m.bye)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+
+        for (let i = 0; i < nextMatches.length; i++) {
+          const nm = nextMatches[i];
+          const feeder1 = thisMatches[i * 2];
+          const feeder2 = thisMatches[i * 2 + 1];
+          // Fill player1 slot from feeder1's winner
+          if (nm.player1Id == null && feeder1?.winnerId) {
+            nm.player1Id = feeder1.winnerId;
+            nm.player1Name = feeder1.winnerName;
+            const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
+            nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
+          }
+          // Fill player2 slot from feeder2's winner
+          if (nm.player2Id == null && feeder2?.winnerId) {
+            nm.player2Id = feeder2.winnerId;
+            nm.player2Name = feeder2.winnerName;
+            const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
+            nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
+          }
+        }
+      }
+
       // Re-derive roundEliminated from overlaid results
       const eliminated = new Set();
       for (const round of ROUNDS) {
