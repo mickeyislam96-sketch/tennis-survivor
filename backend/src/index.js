@@ -87,30 +87,43 @@ app.get('/api/db-check', async (req, res) => {
 
 
 
-// ── One-time migration: fix R1 picks stored as R32 ──────────────────────────
-// Picks submitted while the round mapping bug was active (API "1/32-finals"
-// mapped to R32 instead of R1) need renaming. Runs on every boot but is
-// idempotent — only renames picks that are still labelled R32 and were created
-// before the R32 window officially opened (i.e. before R1 lock time).
+// ── One-time migrations ─────────────────────────────────────────────────────
+// 1. Fix R1 picks stored as R32 (round mapping bug)
+// 2. Replace mock player IDs (mc-*) with real API keys (pre-API_KEY_MAP picks)
+import { API_KEY_MAP } from './data/monteCarloMockDraw.js';
+
 schemaReady.then(async () => {
   try {
-    // Rename any R32 picks created before the R32 window opened.
-    // R1 locked at 2026-04-05T11:30:00Z — any R32 pick before that is a
-    // mislabelled R1 pick from the round mapping bug era.
-    const result = await pool.query(
+    // Migration 1: Rename mislabelled R32 picks to R1
+    const r32picks = await pool.query(
       `UPDATE picks SET round = 'R1'
-       WHERE round = 'R32'
-         AND created_at < '2026-04-05T11:30:00Z'
+       WHERE round = 'R32' AND created_at < '2026-04-05T11:30:00Z'
        RETURNING id`
     );
-    if (result.rowCount > 0) {
-      console.log(`[migration] Renamed ${result.rowCount} picks from R32 → R1`);
-      // Immediately process results so R1 wins/losses get graded
+    if (r32picks.rowCount > 0) {
+      console.log(`[migration] Renamed ${r32picks.rowCount} picks from R32 → R1`);
+    }
+
+    // Migration 2: Replace mock IDs with API keys
+    let idFixCount = 0;
+    for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+      const upd = await pool.query(
+        `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id`,
+        [apiKey, mockId]
+      );
+      idFixCount += upd.rowCount;
+    }
+    if (idFixCount > 0) {
+      console.log(`[migration] Replaced ${idFixCount} mock player IDs with API keys`);
+    }
+
+    // Run results processing after migrations
+    if (r32picks.rowCount > 0 || idFixCount > 0) {
       await autoProcessResults();
-      console.log('[migration] Results processing complete after pick rename');
+      console.log('[migration] Results processing complete after migrations');
     }
   } catch (err) {
-    console.error('[migration] fix-r1-picks error:', err.message);
+    console.error('[migration] error:', err.message);
   }
 });
 
