@@ -336,9 +336,29 @@ export async function getDraw(roundFilter = null) {
 
   // Overlay live API results onto the mock bracket so the draw page
   // shows real winners, scores, and match statuses.
+  // API-Tennis is primary; Sofascore supplements any gaps (e.g. qualifier
+  // fixtures that API-Tennis hasn't indexed yet).
   let fixtures = await fetchApiDraw();
+  const sofascoreFixtures = await fetchSofascoreFixtures();
   if (!fixtures || fixtures.length === 0) {
-    fixtures = await fetchSofascoreFixtures();
+    fixtures = sofascoreFixtures;
+  } else if (sofascoreFixtures && sofascoreFixtures.length > 0) {
+    // Merge: add Sofascore fixtures whose player pairs aren't in API-Tennis.
+    // This fills the gap for qualifier/LL matches missing from API-Tennis.
+    const apiPairs = new Set();
+    for (const f of fixtures) {
+      const k = [String(f.first_player_key || ''), String(f.second_player_key || '')].sort().join('|');
+      apiPairs.add(k);
+    }
+    let merged = 0;
+    for (const sf of sofascoreFixtures) {
+      const k = [String(sf.first_player_key || ''), String(sf.second_player_key || '')].sort().join('|');
+      if (!apiPairs.has(k)) {
+        fixtures.push(sf);
+        merged++;
+      }
+    }
+    if (merged > 0) console.log(`[tennisData] Merged ${merged} Sofascore fixtures not in API-Tennis`);
   }
   if (fixtures && fixtures.length > 0) {
     const liveDraw = buildDrawFromFixtures(fixtures);
@@ -480,8 +500,20 @@ export async function getDraw(roundFilter = null) {
  */
 export async function getLiveDraw(roundFilter = null) {
   let fixtures = await fetchApiDraw();
+  const sofascoreFixtures = await fetchSofascoreFixtures();
   if (!fixtures || fixtures.length === 0) {
-    fixtures = await fetchSofascoreFixtures();
+    fixtures = sofascoreFixtures;
+  } else if (sofascoreFixtures && sofascoreFixtures.length > 0) {
+    // Merge Sofascore supplements (same logic as getDraw)
+    const apiPairs = new Set();
+    for (const f of fixtures) {
+      const k = [String(f.first_player_key || ''), String(f.second_player_key || '')].sort().join('|');
+      apiPairs.add(k);
+    }
+    for (const sf of sofascoreFixtures) {
+      const k = [String(sf.first_player_key || ''), String(sf.second_player_key || '')].sort().join('|');
+      if (!apiPairs.has(k)) fixtures.push(sf);
+    }
   }
   if (fixtures && fixtures.length > 0) {
     const draw = buildDrawFromFixtures(fixtures);

@@ -14,16 +14,17 @@ import { TOURNAMENT } from '../config/tournament.js';
 // ── Tournament config ─────────────────────────────────────────────────────────
 // Reads from active tournament config. Sofascore IDs must be set via env var
 // (find IDs by browsing Sofascore and inspecting network requests).
-const TOURNAMENT_ID = parseInt(process.env.SOFASCORE_TOURNAMENT_ID || '0', 10);
-const DATE_START    = process.env.SOFASCORE_DATE_START || TOURNAMENT.apiDateStart;
-const DATE_END      = process.env.SOFASCORE_DATE_END   || TOURNAMENT.apiDateStop;
+const TOURNAMENT_ID        = parseInt(process.env.SOFASCORE_TOURNAMENT_ID || '0', 10);
+const UNIQUE_TOURNAMENT_ID = TOURNAMENT.sofascoreUniqueTournamentId || 0;
+const DATE_START           = process.env.SOFASCORE_DATE_START || TOURNAMENT.apiDateStart;
+const DATE_END             = process.env.SOFASCORE_DATE_END   || TOURNAMENT.apiDateStop;
 
 // Sofascore roundInfo.round → our internal round key.
 // The round number = players remaining AFTER this round completes.
-// Works for any 96-draw Masters (Miami, Indian Wells):
-//   64 players remain after R1 → round: 64 → R1
-//   32 remain after R64        → round: 32 → R64  etc.
-const SOFASCORE_ROUND_MAP = {
+// Uses tournament config's fractionDenomMap when available (handles
+// MC's 56-draw where round 32 = R1, not R64).
+// Fallback works for 96-draw Masters (Miami, Indian Wells).
+const DEFAULT_SOFASCORE_ROUND_MAP = {
   64: 'R1',
   32: 'R64',
   16: 'R32',
@@ -32,6 +33,10 @@ const SOFASCORE_ROUND_MAP = {
   2:  'SF',
   1:  'F',
 };
+// Build round map: prefer tournament config (fractionDenomMap), fall back to default
+const SOFASCORE_ROUND_MAP = TOURNAMENT.fractionDenomMap
+  ? { ...DEFAULT_SOFASCORE_ROUND_MAP, ...TOURNAMENT.fractionDenomMap }
+  : DEFAULT_SOFASCORE_ROUND_MAP;
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 function getDatesInRange(startStr, endStr) {
@@ -83,7 +88,10 @@ async function fetchDateEvents(date) {
       return [];
     }
     const data   = await res.json();
-    const events = (data.events || []).filter(e => e.tournament?.id === TOURNAMENT_ID);
+    const events = (data.events || []).filter(e =>
+      (TOURNAMENT_ID && e.tournament?.id === TOURNAMENT_ID) ||
+      (UNIQUE_TOURNAMENT_ID && e.tournament?.uniqueTournament?.id === UNIQUE_TOURNAMENT_ID)
+    );
     dateCache[date] = { events, fetchedAt: Date.now() };
     return events;
   } catch (e) {
