@@ -72,6 +72,36 @@ drawRouter.get('/fix-mock-ids', async (_, res) => {
   }
 });
 
+// One-shot fix: normalise abbreviated player names to canonical mock draw names
+drawRouter.get('/fix-names', async (_, res) => {
+  try {
+    const { API_KEY_MAP, MC_PLAYERS } = await import('../data/monteCarloMockDraw.js');
+    const { pool: dbPool } = await import('../db/pool.js');
+    const apiKeyToName = new Map();
+    for (const p of MC_PLAYERS) {
+      const apiKey = API_KEY_MAP[p.id];
+      if (apiKey) apiKeyToName.set(String(apiKey), p.name);
+    }
+    let fixed = 0;
+    const details = [];
+    for (const [apiKey, canonicalName] of apiKeyToName) {
+      const upd = await dbPool.query(
+        `UPDATE picks SET player_name = $1
+         WHERE player_id = $2 AND player_name IS DISTINCT FROM $1
+         RETURNING id, player_name AS old_name`,
+        [canonicalName, apiKey]
+      );
+      if (upd.rowCount > 0) {
+        fixed += upd.rowCount;
+        details.push({ apiKey, canonicalName, oldNames: upd.rows.map(r => r.old_name) });
+      }
+    }
+    res.json({ ok: true, fixed, details });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message, stack: e.stack });
+  }
+});
+
 // Diagnostic: dump all picks for a group to debug grading
 drawRouter.get('/debug-picks', async (req, res) => {
   try {
