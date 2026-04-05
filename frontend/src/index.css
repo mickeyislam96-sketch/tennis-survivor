@@ -2185,9 +2185,9 @@ input, select { font-family: var(--font); }
   overflow-x: auto;
   overflow-y: auto;
   max-height: 82vh;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #f9fafb;
+  border: 1px solid #14532d;
+  border-radius: var(--radius);
+  background: #14532d;
   padding: 1rem 1.25rem 1rem 0.75rem;
 }
 
@@ -2204,7 +2204,7 @@ input, select { font-family: var(--font); }
   margin-top: 2rem; /* offset for col header */
 }
 .bc-connector g {
-  stroke: #94a3b8;
+  stroke: rgba(255,255,255,0.35);
   stroke-width: 2;
 }
 
@@ -2221,11 +2221,11 @@ input, select { font-family: var(--font); }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--accent-dark);
+  color: #fff;
   padding: 0.35rem 0.5rem 0.4rem;
   margin: 0 4px 0;
   width: 156px;
-  background: var(--accent-light);
+  background: rgba(255,255,255,0.12);
   border-radius: 6px;
   border-bottom: none;
   position: sticky;
@@ -2270,14 +2270,17 @@ input, select { font-family: var(--font); }
 }
 
 .bc-card--tbd {
-  background: var(--bg);
-  border: 1px dashed #d1d5db;
-  opacity: 0.5;
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed rgba(255,255,255,0.2);
+  opacity: 0.6;
   box-shadow: none;
+  color: rgba(255,255,255,0.5);
 }
+.bc-card--tbd .bc-row { color: rgba(255,255,255,0.4); }
+.bc-card--tbd .bc-divider { background: rgba(255,255,255,0.1); }
 
 .bc-card--bye {
-  background: var(--accent-light);
+  background: rgba(255,255,255,0.85);
   border-color: #bbf7d0;
   opacity: 1;
 }
