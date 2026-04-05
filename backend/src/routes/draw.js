@@ -41,6 +41,26 @@ drawRouter.get('/debug', async (_, res) => {
   }
 });
 
+// Diagnostic: dump all picks for a group to debug grading
+drawRouter.get('/debug-picks', async (req, res) => {
+  try {
+    const groupId = req.query.groupId || '2d0d1477-0761-49c8-aaf7-d54ad466062f';
+    const { pool: dbPool } = await import('../db/pool.js');
+    const result = await dbPool.query(
+      `SELECT p.round, p.player_id, p.player_name, p.survived, p.created_at,
+              gm.display_name
+       FROM picks p
+       JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = p.user_id
+       WHERE p.group_id = $1::uuid
+       ORDER BY p.round, gm.display_name`,
+      [groupId]
+    );
+    res.json({ count: result.rowCount, picks: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Diagnostic: what the results processor sees (getLiveDraw completed matches)
 drawRouter.get('/live-completed', async (_, res) => {
   try {

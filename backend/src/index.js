@@ -89,21 +89,25 @@ app.get('/api/db-check', async (req, res) => {
 
 // ── One-time migration: fix R1 picks stored as R32 ──────────────────────────
 // Picks submitted while the round mapping bug was active (API "1/32-finals"
-// mapped to R32 instead of R1) need renaming. Safe to run repeatedly — the
-// check for existing R1 picks prevents double-migration.
+// mapped to R32 instead of R1) need renaming. Runs on every boot but is
+// idempotent — only renames picks that are still labelled R32 and were created
+// before the R32 window officially opened (i.e. before R1 lock time).
 schemaReady.then(async () => {
   try {
-    const { rows } = await pool.query(`SELECT COUNT(*) FROM picks WHERE round = 'R1'`);
-    if (Number(rows[0].count) === 0) {
-      const result = await pool.query(
-        `UPDATE picks SET round = 'R1' WHERE round = 'R32' RETURNING id`
-      );
-      if (result.rowCount > 0) {
-        console.log(`[migration] Renamed ${result.rowCount} picks from R32 → R1`);
-        // Immediately process results so R1 wins/losses get graded
-        await autoProcessResults();
-        console.log('[migration] Results processing complete after pick rename');
-      }
+    // Rename any R32 picks created before the R32 window opened.
+    // R1 locked at 2026-04-05T11:30:00Z — any R32 pick before that is a
+    // mislabelled R1 pick from the round mapping bug era.
+    const result = await pool.query(
+      `UPDATE picks SET round = 'R1'
+       WHERE round = 'R32'
+         AND created_at < '2026-04-05T11:30:00Z'
+       RETURNING id`
+    );
+    if (result.rowCount > 0) {
+      console.log(`[migration] Renamed ${result.rowCount} picks from R32 → R1`);
+      // Immediately process results so R1 wins/losses get graded
+      await autoProcessResults();
+      console.log('[migration] Results processing complete after pick rename');
     }
   } catch (err) {
     console.error('[migration] fix-r1-picks error:', err.message);
