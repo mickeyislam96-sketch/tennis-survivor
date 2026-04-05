@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 4 April 2026. Keep this file updated at the end of every session.
+> Last updated: 5 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -141,7 +141,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 
 | File | What it does |
 |---|---|
-| `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()`, `LOCKTIME_OVERRIDES`, `ROUND_DATES`, `ROUND_DATE_FALLBACK`, round normalisation, fallback chain |
+| `backend/src/services/tennisData.js` | Core data logic — `getDraw()` (mock bracket for frontend), `getLiveDraw()` (real API data for results/picks/leaderboard), `fetchApiDraw()`, `getDeadlines()`, `LOCKTIME_OVERRIDES`, `ROUND_DATES`, `ROUND_DATE_FALLBACK`, round normalisation, fallback chain |
 | `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — builds the pool of eligible players for a round, tags `pendingPrevRound` flag |
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
@@ -234,8 +234,8 @@ The site is mobile-optimised for 390px+ (iPhone size). Key CSS notes:
 ### 1. ~~R64 picks pool — only 18 players showing~~ — FIXED
 Resolved in session 20 Mar: `getAvailablePlayers()` now includes R1 winners and seeded players who have R64 matches.
 
-### 2. Bracket tab only shows R16 onwards — OPEN
-Sofascore embed widget limitation. Fix: build custom bracket from API-Tennis data.
+### 2. ~~Bracket tab only shows R16 onwards~~ — FIXED
+Custom bracket built with DFS traversal, SVG connectors, round-by-round list view. Monte Carlo uses custom bracket (bracketWidget: null in FE config).
 
 ### 3. ~~Mock draw fallback bug~~ — FIXED (23 Mar 2026)
 `buildMiamiMatches()` now places seeds as `player1` in R64 (so seeds win in mock) and propagates actual winners into `prevWinners` each round. R16/QF/SF/F now return the correct 16/8/4/2 player pools when the mock is used.
@@ -249,8 +249,8 @@ Players already in the R32 draw (e.g. Jorda) were still showing the `⚠️ R64 
 ### 6. API `round: null` gap — OPEN
 ~6 R64 matches in the API currently have `round: null`. `normalizeRound()` returns null so they are not detected as pending R64 matches — affected players don't get the `⚠️ R64 result pending` badge. Root cause: API hasn't assigned the round name yet for these fixtures.
 
-### 7. Future round dates not verified — ACTION NEEDED
-`ROUND_DATES` and `ROUND_DATE_FALLBACK` fallback dates for R16, QF, SF, F are estimates. Once confirmed, add a `LOCKTIME_OVERRIDE` for each round set to 1 hour before the first match.
+### 7. ~~Future round dates not verified~~ — FIXED (3 Apr 2026)
+Lock time overrides set for all rounds (R1 through F) in commit `69cddfd`.
 
 ### 8. ~~Mock group joins not persisting~~ — FIXED (25 Mar 2026)
 Mock group joins (e.g. g3 for Monte Carlo) used `MOCK_MEMBERS.push()` — in-memory only, wiped on every Railway deploy. Fix: created a real PostgreSQL group via `POST /api/groups` API. The pools endpoint's `dbTournamentIds` filter automatically hides mock g3 when a real DB group exists for `monte-carlo-2026`. All future joins persist in PostgreSQL. Real group ID: `2d0d1477-0761-49c8-aaf7-d54ad466062f`.
@@ -275,7 +275,7 @@ When the draw drops and picks open, users who already joined have no way of know
 
 ---
 
-## Current tournament state (as of 4 April 2026)
+## Current tournament state (as of 5 April 2026)
 
 ### Miami Open 2026 (practice — ended)
 - Tournament: ATP Miami Open 2026
@@ -291,12 +291,12 @@ When the draw drops and picks open, users who already joined have no way of know
 - Invite code: `MONTECAR-406R3X`
 - Entry: Free
 - R1 starts: Sun 5 Apr (lock time ~08:00 UTC)
-- Members: 9+
-- API-Tennis: `apiSeason` fixed from `'2025'` to `'2026'` (confirmed season 2026 returns MC fixtures, 2025 returns empty). Live draw auto-engages once R32+ matches appear in API. Mock draw has correct 56-draw structure with 8 seed byes and `API_KEY_MAP` for H2H lookups.
+- Members: 11
+- API-Tennis: `apiSeason` fixed to `'2026'`. Confirmed 37 fixtures returning (16 main draw R1 + qualifying). Qualifying filtered via `event_qualification` field. **Architecture:** `getDraw()` returns mock bracket (full structure for frontend display); `getLiveDraw()` fetches real API data for results processing, pick pool, leaderboard grading. Mock draw has correct 56-draw structure with 8 seed byes and `API_KEY_MAP` for H2H lookups.
 - Matchup modal: H2H modal on draw page — click any match to see player stats, head-to-head, recent form. Backend endpoint at `/api/matchup/:key1/:key2` with 1h cache.
 
 ### Outstanding actions
-1. **Railway billing** — trial expires ~7 Apr. Upgrade to Hobby plan ($5/month) ASAP or backend dies mid-tournament
+1. ~~**Railway billing**~~ — DONE. Hobby plan confirmed active.
 2. ~~**`MONTE_CARLO_TOURNAMENT_KEY`**~~ — set in Railway env vars (confirmed 3 Apr).
 3. ~~**Lock time overrides**~~ — DONE (3 Apr). All rounds have `LOCKTIME_OVERRIDES` set.
 4. ~~**Draw release deployment**~~ — DONE (3 Apr). `drawAvailable: true` + `status: 'active'` set.
@@ -323,6 +323,7 @@ When the draw drops and picks open, users who already joined have no way of know
 | 25 Mar 2026 (session 2) | Landing page design improvements: added OG meta tags + Twitter card to `frontend/index.html`; created `frontend/public/favicon.svg` (green tennis ball); added hero CTA button "Enter Monte Carlo free →" for non-members in GroupHome.jsx; added social proof "X already registered" badge on upcoming pool cards; updated hero copy. **Critical bug fix:** mock group joins (g3) were stored in-memory only (`MOCK_MEMBERS.push()`), wiped on every Railway deploy. Fix: created real PostgreSQL group `2d0d1477-0761-49c8-aaf7-d54ad466062f` for Monte Carlo via API call. Pools endpoint auto-filters mock g3 via `dbTournamentIds` Set. All joins now persist in PostgreSQL. Verified hero CTA links to real DB group and group page loads correctly. **Still needed:** `og-image.png` (1200×630) for social sharing previews; invite code cosmetic fix ("POO" truncation). |
 | 25 Mar 2026 (session 3) | **Pre-launch audit + fixes.** Three commits pushed: (1) `8b95785` critical security fixes — CORS restricted to specific origins, password reset URL fixed, admin hardcoded secret removed, `eliminateNonPickers` safety guard added; (2) `2824af0` comprehensive fixes — leaderboard mock fallback ternary fix, auto-join after registration, OG image created, invite code generator fixed, rate limiting on auth endpoints; (3) `274cd59` emergency CORS fix — added `www.finalserveivor.com` to allowed origins (site was broken because domain redirects to www). Verified site fully working. Set `ADMIN_SECRET` and `FRONTEND_URL` env vars in Railway. Regenerated Monte Carlo invite code to `MONTECAR-406R3X`. Verified Brevo email delivery working (2-3 min delay, acceptable). Created `FSV_Service_Infrastructure_Map.xlsx` with full service audit, scaling limits, cost projections. Agreed plan: replace Sofascore bracket widget with custom bracket seeded from static draw for Monte Carlo (~4 Apr session). |
 | 3 Apr 2026 | **Go-live session for Monte Carlo.** Activated tournament (status, schedule, lock times for all rounds). Built custom 56-draw bracket with 8 seed byes and matchOrder sorting. Fixed R1 start date (Sun 5 Apr, not Mon 6 Apr). Fixed bracket showing checkmarks on TBD matches (null===null bug). Fixed mock draw projecting results into future rounds. Removed Qualifier placeholders from pick pool (41 real players). Fixed hero CTA for existing members. Fixed leaderboard colSpan for empty state. Updated join page copy (removed beta language). Fixed email.js syntax error crashing Railway. Fixed Railway healthcheck timeout (server now starts before DB init). Fixed R32 bracket pairings with explicit seed mapping. Added tournament key fallback '1970'. **Email system:** designed 4 transactional emails (pick reminder, survival with growing pick history, elimination, winner), got approval, built and deployed — then REVERTED because code had no deduplication/email tracking (would send duplicates every cron cycle). Rolled back to safe state: only welcome, password reset, and tournament join emails active. **Mobile:** improved touch targets (44px min-height on buttons, player rows, round tabs), fixed search input overflow. Verified all pages load correctly via Chrome. 11 commits pushed. |
+| 5 Apr 2026 | **Draw page design + data pipeline + CSS audit.** Confirmed API-Tennis now returning live data (37 fixtures, 16 main draw R1 matches). Round normalisation working (`roundNameOverrides` maps "ATP Monte Carlo - 1/32-finals" to "R1"). Qualifying matches filtered via `event_qualification` field. **Critical architecture fix:** split `getDraw()` into two functions — `getDraw()` (mock bracket for frontend display, all rounds, no fake statuses) and `getLiveDraw()` (real API data for results processing, pick pool, leaderboard). Updated `resultsProcessor.js`, `picks.js`, `leaderboard.js` to use `getLiveDraw()` with mock fallback. Without this, results processor would never find completed matches. Added bracket hint to draw page ("Tap a matchup to compare players before you pick"). **Design overhaul:** explored 3 bracket design options (Court Green, Clean Light, Dark Court). Chose Option B (Clean Light) with A-style round headers — white card container with border/shadow, green underline headers, grey TBD cards, light green bye cards. Matches existing site aesthetic. **CSS audit + token cleanup:** consolidated duplicate `.dvt-btn` definitions (hardcoded hex → CSS variables), replaced hardcoded `white` on `.bc-card` and `.lc` with `var(--surface)`, replaced hardcoded borders with `var(--border)`. Removed redundant override blocks. Verified all pages visually consistent via Chrome (bracket, list view, pick screen, leaderboard, group home). 11 members in Monte Carlo group, all R1 picks showing correctly. |
 | 4 Apr 2026 (session 2) | **Matchup modal fix + API key verification.** Root cause of modal showing no data: mock draw uses `mc-*` fake IDs which API-Tennis doesn't recognise. Fix: added `API_KEY_MAP` to `monteCarloMockDraw.js` mapping all 50+ mock IDs to verified real API-Tennis player keys. Injected `player1ApiKey`/`player2ApiKey` into every match object via post-processing in `buildMonteCarloMatches()`. Updated `DrawViewer.jsx` to pass `player1ApiKey \|\| player1Id` to the modal (live data path already uses real keys as player1Id). Verified all 8 seed keys + 6 corrected non-seed keys via `get_players` API: Alcaraz=2382, Sinner=2072, Zverev=1980, Musetti=2849, de Minaur=1106, FAA=2073, Medvedev=1093, Bublik=1895, Lehecka=2959, Berrettini=2844, Cobolli=372, Cilic=2167, Moutet=2674, Mpetshi Perricard=9222. **Critical fix:** `apiSeason` in `monte-carlo-2026.js` changed from `'2025'` to `'2026'` — season 2025 returns 0 fixtures for MC 2026 dates. Updated CLAUDE.md. |
 | 4 Apr 2026 (session 1) | **Matchup modal backend + frontend build.** Built H2H matchup endpoint (`/api/matchup/:key1/:key2`) with 1h cache, player profile stats, recent form. Built `MatchupModal.jsx` React component with score formatting (API decimal tiebreak notation), loading/error states, escape/backdrop close. Integrated into `DrawViewer.jsx` with clickable match cards. Added ~200 lines of `.mu-*` CSS with mobile bottom-sheet. Fixed TypeError crash (safe defaults for missing stats). Pushed to GitHub — auto-deployed to Vercel + Railway. Updated matchup modal prototype HTML with real live data. |
 | 26 Mar 2026 | **Comprehensive backend audit + hardening.** Full code audit of all backend routes found 20 issues. Commits pushed: (1) `eb24252` auto-join fix — users registering via header auth modal now auto-join pre-launch groups; (2) `e64307c` hardening — group membership check on picks (was missing), double-submit guard on pick button, join endpoint returns 200 for already-joined users, `betaFree` flag exposed on group endpoints; (3) `adf796e` Indian Wells test data cleanup; (4) `38820f2` email copy fix — "Group" → "Pool" in tournament join email, context-aware CTA button ("See who's joined" pre-launch / "Make your first pick" when draw live); (5) `ca011be` mobile invite box fix — stacked URL + copy button vertically (was overflowing off-screen); (6) `28bc9fe` homepage copy overhaul — hero eyebrow generalised from "ATP Masters 1000 · Survivor fantasy" to "Tennis Survivor"; How It Works step 2 now explains no-reuse rule and strategy; step 3 clearer elimination language; footer tagline changed to "Outsmart. Outlast. Win."; all meta tags (title, OG, Twitter, manifest) updated to remove ATP-specific references. Email mockups generated for all 3 templates (welcome, tournament join, password reset). Identified future issues: no auth on API (issue #12), no transaction wrapping on results (issue #13), no "draw is live" notification email (issue #14). |
