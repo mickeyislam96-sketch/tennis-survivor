@@ -2157,22 +2157,22 @@ input, select { font-family: var(--font); }
 
 .dvt-btn {
   padding: 0.35rem 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--surface);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  color: #374151;
+  color: var(--text);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.dvt-btn:hover { background: #f3f4f6; }
+.dvt-btn:hover { background: var(--surface-alt); }
 
 .dvt-btn.dvt-active {
   background: #14532d;
   border-color: #14532d;
-  color: white;
+  color: #fff;
 }
 
 .bracket-help-text {
@@ -2252,8 +2252,8 @@ input, select { font-family: var(--font); }
 /* Bracket match card */
 .bc-card {
   width: 100%;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
   font-size: 0.78rem;
@@ -2871,8 +2871,8 @@ input, select { font-family: var(--font); }
   padding: 1rem 0;
 }
 .lc {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   font-size: 0.88rem;
@@ -3688,18 +3688,7 @@ input, select { font-family: var(--font); }
 /* ── Modal tabs: tighter when inside auth body ─────────────── */
 .modal-auth-body .modal-tabs { margin-bottom: 0.25rem; }
 
-/* ── Draw viewer: use CSS tokens instead of hardcoded hex ──── */
-.dvt-btn {
-  border-color: var(--border);
-  color: var(--text);
-  background: var(--surface);
-}
-.dvt-btn:hover { background: var(--surface-alt); }
-.dvt-btn.dvt-active {
-  background: #14532d;
-  border-color: #14532d;
-  color: #fff;
-}
+/* ── Draw viewer: dvt-btn tokens consolidated in main declaration ── */
 
 /* ── Bracket scroll area: tokens set in main declaration ────── */
 
