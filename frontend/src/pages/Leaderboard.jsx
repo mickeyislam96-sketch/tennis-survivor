@@ -269,7 +269,7 @@ export function Leaderboard() {
         <PickHistoryModal
           member={selectedMember}
           groupId={groupId}
-          currentRound={currentRound}
+          currentRound={data.openRound || null}
           onClose={() => setSelectedMember(null)}
         />
       )}

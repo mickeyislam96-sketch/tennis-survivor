@@ -263,8 +263,42 @@ picksRouter.get('/available', async (req, res) => {
 });
 
 // GET /api/picks/history?userId=&groupId=
+// Returns picks with live-graded survived status (no cron dependency).
 picksRouter.get('/history', async (req, res) => {
   const { userId, groupId } = req.query;
+
+  // Build a live grader from current draw data so survived is always fresh
+  const mockToApi = new Map();
+  for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+    mockToApi.set(mockId, String(apiKey));
+  }
+  let liveGrade = null;
+  try {
+    const draw = await getLiveDraw();
+    if (draw.matches && draw.matches.length > 0) {
+      const wonRounds = {};
+      const lostRounds = {};
+      for (const m of draw.matches) {
+        if (m.status !== 'completed' || !m.winnerId) continue;
+        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+        if (!wonRounds[m.winnerId]) wonRounds[m.winnerId] = new Set();
+        wonRounds[m.winnerId].add(m.round);
+        if (!lostRounds[loserId]) lostRounds[loserId] = new Set();
+        lostRounds[loserId].add(m.round);
+      }
+      liveGrade = (playerId, round) => {
+        if (lostRounds[playerId]?.has(round)) return false;
+        if (wonRounds[playerId]?.has(round)) return true;
+        // Try translating mock ID to API key
+        const translated = mockToApi.get(playerId);
+        if (translated) {
+          if (lostRounds[translated]?.has(round)) return false;
+          if (wonRounds[translated]?.has(round)) return true;
+        }
+        return null;
+      };
+    }
+  } catch (_) {}
 
   if (isUUID(userId) && isUUID(groupId)) {
     try {
@@ -275,7 +309,15 @@ picksRouter.get('/history', async (req, res) => {
          ORDER BY array_position($3::text[], round)`,
         [userId, groupId, ROUNDS]
       );
-      return res.json(result.rows.map(rowToPick));
+      const picks = result.rows.map(rowToPick).map(p => {
+        // Overlay live grading if DB hasn't caught up yet
+        if (p.survived == null && liveGrade) {
+          const live = liveGrade(p.playerId, p.round);
+          if (live !== null) return { ...p, survived: live };
+        }
+        return p;
+      });
+      return res.json(picks);
     } catch (e) {
       console.error('DB picks history error:', e.message);
     }

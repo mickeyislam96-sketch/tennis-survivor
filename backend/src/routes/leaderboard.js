@@ -120,6 +120,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   // If no round is locked yet, no pick column is shown.
   let currentRound = null;
   let roundIsLocked = false;
+  let openRound = null; // the currently open round (picks hidden in modal)
   try {
     const deadlines = await getDeadlines();
     const lastLocked = [...deadlines].filter((d) => d.isLocked).pop();
@@ -127,6 +128,8 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       currentRound  = lastLocked.round;
       roundIsLocked = true;
     }
+    const currentlyOpen = deadlines.find((d) => d.isOpen);
+    if (currentlyOpen) openRound = currentlyOpen.round;
   } catch (_) {}
 
   // Get live draw data for grading picks.
@@ -213,6 +216,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         aliveCount: alive.length,
         currentRound,
         roundIsLocked,
+        openRound,
       });
     } catch (e) {
       console.error('DB leaderboard error:', e.message);
