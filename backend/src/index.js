@@ -191,6 +191,72 @@ app.post('/api/admin/approve-emails', async (req, res) => {
   }
 });
 
+// GET version — one-click approve from digest email link
+// GET /api/admin/approve-emails?secret=X&confirm=true
+app.get('/api/admin/approve-emails', async (req, res) => {
+  const { secret, confirm } = req.query;
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret || secret !== adminSecret) {
+    return res.status(401).send('<html><body style="font-family:sans-serif;padding:40px;"><h2>Unauthorised</h2></body></html>');
+  }
+
+  try {
+    if (confirm === 'true') {
+      const result = await sendPendingEmails();
+      const rows = (result.results || []).map(r =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${r.to}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${r.type}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:${r.status === 'sent' ? '#16a34a' : '#dc2626'}">${r.status}</td>
+        </tr>`
+      ).join('');
+      res.send(`
+        <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px;max-width:600px;margin:0 auto;">
+          <h2 style="color:#16a34a;">Emails sent</h2>
+          <p>${result.sent} sent, ${result.failed} failed out of ${result.total} total.</p>
+          ${rows ? `<table style="width:100%;border-collapse:collapse;margin-top:16px;">
+            <thead><tr style="background:#f5f5f5;">
+              <th style="padding:8px 12px;text-align:left;">Recipient</th>
+              <th style="padding:8px 12px;text-align:left;">Type</th>
+              <th style="padding:8px 12px;text-align:left;">Status</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>` : '<p>No pending emails.</p>'}
+        </body></html>
+      `);
+    } else {
+      // Preview mode — show what's pending with an approve button
+      const pending = await getPendingEmailsSummary();
+      const approveUrl = `https://tennis-survivor-production.up.railway.app/api/admin/approve-emails?secret=${encodeURIComponent(secret)}&confirm=true`;
+      const rows = pending.map(e =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${e.recipient_email}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${e.email_type}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${e.round}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${e.subject || ''}</td>
+        </tr>`
+      ).join('');
+      res.send(`
+        <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px;max-width:700px;margin:0 auto;">
+          <h2>${pending.length} email${pending.length === 1 ? '' : 's'} pending</h2>
+          ${rows ? `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+            <thead><tr style="background:#f5f5f5;">
+              <th style="padding:8px 12px;text-align:left;">Recipient</th>
+              <th style="padding:8px 12px;text-align:left;">Type</th>
+              <th style="padding:8px 12px;text-align:left;">Round</th>
+              <th style="padding:8px 12px;text-align:left;">Subject</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>` : '<p>Nothing pending.</p>'}
+          ${pending.length > 0 ? `<a href="${approveUrl}" style="display:inline-block;margin-top:16px;padding:14px 36px;background:#16a34a;color:#fff;font-weight:700;text-decoration:none;border-radius:6px;">Approve &amp; Send All</a>` : ''}
+        </body></html>
+      `);
+    }
+  } catch (err) {
+    res.status(500).send(`<html><body style="font-family:sans-serif;padding:40px;"><h2>Error</h2><p>${err.message}</p></body></html>`);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);
 });

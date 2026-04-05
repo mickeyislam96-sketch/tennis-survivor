@@ -171,7 +171,10 @@ export async function sendAdminDigest() {
     }
   }
 
-  const adminUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
+  const adminSecret = process.env.ADMIN_SECRET || '';
+  const baseUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
+  const previewUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}`;
+  const approveUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&confirm=true`;
 
   const html = `
     <!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
@@ -192,11 +195,20 @@ export async function sendAdminDigest() {
           <tbody>${summaryRows}</tbody>
         </table>
 
-        <p style="margin:0 0 12px;font-size:13px;color:#555;">To approve and send, make a POST request:</p>
-        <code style="display:block;background:#f5f5f5;padding:12px;border-radius:4px;font-size:12px;color:#333;word-break:break-all;margin-bottom:16px;">
-          curl -X POST "${adminUrl}" -H "Content-Type: application/json" -d '{"secret":"YOUR_ADMIN_SECRET","confirm":true}'
-        </code>
-        <p style="margin:0;font-size:12px;color:#aaa;">To preview without sending, omit the confirm field.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+          <tr>
+            <td align="center" style="padding:0 0 12px;">
+              <a href="${approveUrl}" style="display:inline-block;padding:14px 36px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:6px;">Approve &amp; Send All</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+              <a href="${previewUrl}" style="display:inline-block;padding:10px 24px;background:#f5f5f5;color:#555;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;border:1px solid #ddd;">Preview first</a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin:16px 0 0;font-size:11px;color:#bbb;text-align:center;">Do not forward this email. The links contain your admin credentials.</p>
       </div>
     </body></html>
   `;
