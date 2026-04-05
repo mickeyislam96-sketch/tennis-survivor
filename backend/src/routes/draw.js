@@ -3,13 +3,22 @@ import { getDraw, getLiveDraw, getRounds, getDeadlines, getRawFixtures } from '.
 
 export const drawRouter = Router();
 
+// Admin guard — diagnostic/fix endpoints require ?secret=ADMIN_SECRET
+function requireAdmin(req, res, next) {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.query.secret !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
 drawRouter.get('/rounds', (_, res) => {
   res.json(getRounds());
 });
 
 // Debug endpoint — shows raw API fixture fields so we can verify round mapping.
 // Visit /api/draw/debug in browser or curl to inspect.
-drawRouter.get('/debug', async (_, res) => {
+drawRouter.get('/debug', requireAdmin, async (_, res) => {
   try {
     const raw = await getRawFixtures();
     if (!raw || raw.length === 0) {
@@ -42,7 +51,7 @@ drawRouter.get('/debug', async (_, res) => {
 });
 
 // One-shot migration: replace mock player IDs with API keys
-drawRouter.get('/fix-mock-ids', async (_, res) => {
+drawRouter.get('/fix-mock-ids', requireAdmin, async (_, res) => {
   try {
     const { API_KEY_MAP } = await import('../data/monteCarloMockDraw.js');
     const { pool: dbPool } = await import('../db/pool.js');
@@ -73,7 +82,7 @@ drawRouter.get('/fix-mock-ids', async (_, res) => {
 });
 
 // One-shot fix: normalise abbreviated player names to canonical mock draw names
-drawRouter.get('/fix-names', async (_, res) => {
+drawRouter.get('/fix-names', requireAdmin, async (_, res) => {
   try {
     const { API_KEY_MAP, MC_PLAYERS } = await import('../data/monteCarloMockDraw.js');
     const { pool: dbPool } = await import('../db/pool.js');
@@ -103,7 +112,7 @@ drawRouter.get('/fix-names', async (_, res) => {
 });
 
 // Diagnostic: dump all picks for a group to debug grading
-drawRouter.get('/debug-picks', async (req, res) => {
+drawRouter.get('/debug-picks', requireAdmin, async (req, res) => {
   try {
     const groupId = req.query.groupId || '2d0d1477-0761-49c8-aaf7-d54ad466062f';
     const { pool: dbPool } = await import('../db/pool.js');
@@ -123,7 +132,7 @@ drawRouter.get('/debug-picks', async (req, res) => {
 });
 
 // Diagnostic: what the results processor sees (getLiveDraw completed matches)
-drawRouter.get('/live-completed', async (_, res) => {
+drawRouter.get('/live-completed', requireAdmin, async (_, res) => {
   try {
     const draw = await getLiveDraw();
     const completed = (draw.matches || []).filter(m => m.status === 'completed' && m.winnerId);
