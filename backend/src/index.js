@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { autoProcessResults } from './services/resultsProcessor.js';
+import { autoProcessResults, processRoundResults } from './services/resultsProcessor.js';
+import { checkPickReminders } from './services/emailScheduler.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -8,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './db/pool.js';
-import { sendWelcomeEmail, sendPasswordResetEmail } from './utils/email.js';
+import { sendWelcomeEmail, sendPasswordResetEmail, getPendingEmailsSummary, sendPendingEmails, sendAdminDigest } from './utils/email.js';
 import { groupsRouter } from './routes/groups.js';
 import { picksRouter } from './routes/picks.js';
 import { drawRouter } from './routes/draw.js';
@@ -151,14 +152,44 @@ schemaReady.then(async () => {
   }
 });
 
-// ── Automated results processor — every 15 minutes ───────────────────────────
+// ── Automated results processor + email scheduler — every 15 minutes ─────────
 cron.schedule('*/15 * * * *', async () => {
   try { await autoProcessResults(); }
   catch (err) { console.error('[cron] Results error:', err.message); }
+
+  try { await checkPickReminders(); }
+  catch (err) { console.error('[cron] Pick reminder error:', err.message); }
+
+  // Notify admin if there are new emails waiting for approval
+  try { await sendAdminDigest(); }
+  catch (err) { console.error('[cron] Admin digest error:', err.message); }
 });
 
 // Admin routes — auth via ADMIN_SECRET env var
 app.use('/api/admin', adminRouter);
+
+// Admin: preview or approve pending emails
+// POST /api/admin/approve-emails { secret }          → preview (list what's queued)
+// POST /api/admin/approve-emails { secret, confirm }  → send all pending emails
+app.post('/api/admin/approve-emails', async (req, res) => {
+  const { secret, confirm } = req.body;
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret || secret !== adminSecret) {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+
+  try {
+    if (confirm) {
+      const result = await sendPendingEmails();
+      res.json({ ok: true, action: 'sent', ...result });
+    } else {
+      const pending = await getPendingEmailsSummary();
+      res.json({ ok: true, action: 'preview', count: pending.length, emails: pending });
+    }
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);

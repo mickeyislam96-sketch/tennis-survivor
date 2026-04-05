@@ -88,3 +88,28 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON password_reset_tokens(user_id);
+
+-- Email dedup + approval tracking.
+-- The UNIQUE constraint is the dedup key: one email per (user, group, round, type).
+-- status: 'pending' = queued awaiting approval, 'sent' = delivered via Brevo.
+-- Emails are inserted as 'pending' by the cron. An admin endpoint approves and sends them.
+CREATE TABLE IF NOT EXISTS emails_sent (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  round TEXT NOT NULL,
+  email_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  subject TEXT,
+  recipient_email TEXT,
+  recipient_name TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  sent_at TIMESTAMPTZ,
+  UNIQUE(user_id, group_id, round, email_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_emails_sent_lookup
+  ON emails_sent(user_id, group_id, round, email_type);
+CREATE INDEX IF NOT EXISTS idx_emails_sent_pending
+  ON emails_sent(status) WHERE status = 'pending';

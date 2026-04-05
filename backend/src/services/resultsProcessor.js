@@ -6,6 +6,7 @@
 import { pool } from '../db/pool.js';
 import { getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
 import { ROUNDS } from '../config/tournament.js';
+import { sendRoundResultEmail } from '../utils/email.js';
 
 // Build reverse maps dynamically (includes auto-discovered keys)
 function getReverseMaps() {
@@ -131,6 +132,11 @@ export async function processRoundResults(round) {
     }
   }
 
+  // Send round result emails for all picks that now have a result.
+  // sendWithDedup ensures each user only gets one email per round,
+  // even if this function runs multiple times.
+  await sendResultEmails(round);
+
   console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks graded, ${eliminated} eliminated`);
   return { round, processed: completed.length, picksUpdated, eliminated, nonPickers: 0, futurePicksInvalidated };
 }
@@ -233,5 +239,47 @@ export async function autoProcessResults() {
 
   if (summary.length === 0) console.log('[results] Nothing to process.');
   return summary;
+}
+
+/**
+ * Send round result emails for all resolved picks in a round.
+ * Uses sendWithDedup — safe to call repeatedly; duplicates are impossible.
+ */
+async function sendResultEmails(round) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT p.user_id, p.group_id, p.player_name, p.survived,
+              u.email, u.display_name
+         FROM picks p
+         JOIN users u ON u.id = p.user_id
+        WHERE p.round = $1
+          AND p.survived IS NOT NULL
+          AND u.email IS NOT NULL`,
+      [round]
+    );
+
+    let queued = 0;
+    for (const row of rows) {
+      try {
+        const result = await sendRoundResultEmail({
+          userId: row.user_id,
+          groupId: row.group_id,
+          round,
+          email: row.email,
+          displayName: row.display_name,
+          playerName: row.player_name,
+          survived: row.survived,
+        });
+        if (result.queued) queued++;
+      } catch (err) {
+        // Non-fatal — log and continue to next user
+        console.error(`[results-email] Failed for ${row.email}: ${err.message}`);
+      }
+    }
+    console.log(`[results-email] ${round}: ${queued} result emails queued (${rows.length} total picks)`);
+  } catch (err) {
+    // Non-fatal — don't let email failures break results processing
+    console.error(`[results-email] Error querying picks for ${round}: ${err.message}`);
+  }
 }
 
