@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js';
 import { getDraw, getLiveDraw, getDeadlines } from '../services/tennisData.js';
 import { getRounds } from '../services/tennisData.js';
 import { MOCK_PICKS } from '../data/mockGroups.js';
+import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
 
 export const picksRouter = Router();
 
@@ -107,112 +108,139 @@ function findPossibleOpponents(knownPlayerId, match, prevMatches) {
 }
 
 async function getAvailablePlayers(userId, groupId, currentRound) {
-  // Try live API data first (has real results/winners), fall back to mock
-  let draw = await getLiveDraw(currentRound);
-  if (!draw.matches || draw.matches.length === 0) {
-    draw = await getDraw(currentRound);
+  // Get both live API data (real results) and mock draw (complete structure).
+  // Live draw may only have current/future round fixtures (e.g. R32 but no R1).
+  // Mock draw always has the full player list and bracket structure.
+  const liveDraw = await getLiveDraw(currentRound);
+  const mockDraw = await getDraw(currentRound);
+
+  // Build a reverse map: API player key → mock player ID
+  const apiToMock = new Map();
+  const mockToApi = new Map();
+  for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+    apiToMock.set(String(apiKey), mockId);
+    mockToApi.set(mockId, String(apiKey));
   }
 
-  // Build status sets from the previous round up-front.
-  // "confirmed" = won their prev-round match OR have a bye into this round.
-  // "at_risk"   = prev-round match hasn't finished yet.
-  // "confirmed" (default) = no previous round or seed with bye.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
-  const pendingFromPrevRound = new Set();
-  const confirmedFromPrevRound = new Set();
+  const pendingFromPrevRound = new Set();   // mock IDs
+  const confirmedFromPrevRound = new Set(); // mock IDs
+  const eliminatedFromPrevRound = new Set(); // mock IDs
+
   if (prevRoundIndex >= 0) {
     const prevRound = ROUNDS[prevRoundIndex];
-    (draw.matches || [])
-      .filter(m => m.round === prevRound)
-      .forEach(m => {
-        if (m.bye && m.winnerId) {
-          // Seed with bye — confirmed for the next round
-          confirmedFromPrevRound.add(m.winnerId);
-        } else if (m.winnerId) {
-          // Completed match — winner is confirmed
-          confirmedFromPrevRound.add(m.winnerId);
-        } else if (!m.bye) {
-          // Pending match — both players are at risk
-          if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
-          if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
-        }
-      });
-  }
 
-  // Build the set of players who actually have a match this round.
-  // Bye entries are excluded so seeds don't appear in R1 pick pool.
-  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound && !m.bye);
-  if (roundMatches.length > 0) {
-    const playingThisRound = new Set(
-      roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
-    );
-
-    // Supplement with players from the previous round who may still advance.
-    // Winners are confirmed; players in unresolved matches are added speculatively
-    // and flagged pendingPrevRound:true so the UI can warn of the risk.
-    if (prevRoundIndex >= 0) {
-      const prevRound = ROUNDS[prevRoundIndex];
-      (draw.matches || [])
-        .filter(m => m.round === prevRound)
-        .forEach(m => {
-          if (m.winnerId) {
-            playingThisRound.add(m.winnerId);
-          } else {
-            // Pending in the API — but check whether one player is already
-            // confirmed in the current round's fixtures. If so, the match is
-            // effectively settled (walkover / withdrawal / API lag) and we must
-            // not speculatively add the other player.
-            const p1Confirmed = m.player1Id && playingThisRound.has(m.player1Id);
-            const p2Confirmed = m.player2Id && playingThisRound.has(m.player2Id);
-            if (!p1Confirmed && !p2Confirmed) {
-              // Genuinely pending — add both speculatively.
-              if (m.player1Id) playingThisRound.add(m.player1Id);
-              if (m.player2Id) playingThisRound.add(m.player2Id);
-            }
-            // If one side is already confirmed, skip — they are already in the
-            // set and the other player should not be added (Musetti / Jorda case).
-          }
-        });
+    // 1) Check live API for prev-round results (uses API player IDs)
+    const livePrevMatches = (liveDraw.matches || []).filter(m => m.round === prevRound);
+    const liveConfirmedApi = new Set(); // API IDs confirmed by live data
+    const liveEliminatedApi = new Set(); // API IDs eliminated by live data
+    for (const m of livePrevMatches) {
+      if (m.bye && m.winnerId) {
+        liveConfirmedApi.add(String(m.winnerId));
+      } else if (m.winnerId) {
+        liveConfirmedApi.add(String(m.winnerId));
+        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+        if (loserId) liveEliminatedApi.add(String(loserId));
+      }
+      // If no winner, both players are still pending — handled below via mock
     }
 
-    // Build a lookup: playerId → opponent info from current round matches
-    const opponentMap = buildOpponentMap(roundMatches, draw.matches || [], ROUNDS, currentRound);
+    // 2) Use mock draw for the complete prev-round structure
+    const mockPrevMatches = (mockDraw.matches || []).filter(m => m.round === prevRound);
+    for (const m of mockPrevMatches) {
+      if (m.bye && m.winnerId) {
+        // Seed with bye — confirmed
+        confirmedFromPrevRound.add(m.winnerId);
+      } else if (!m.bye) {
+        const p1Mock = m.player1Id;
+        const p2Mock = m.player2Id;
+        const p1Api = mockToApi.get(p1Mock);
+        const p2Api = mockToApi.get(p2Mock);
 
-    const pool = (draw.players || [])
-      .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
-      .filter(p => !isQualifierPlaceholder(p))
-      .map(p => {
-        const enriched = { ...p };
-        if (pendingFromPrevRound.has(p.id)) {
-          enriched.pendingPrevRound = true;
-          enriched.status = 'at_risk';
-        } else if (confirmedFromPrevRound.has(p.id) || prevRoundIndex < 0) {
-          enriched.status = 'confirmed';
-        } else {
-          enriched.status = 'confirmed';
-        }
-        const opp = opponentMap.get(p.id);
-        if (opp) Object.assign(enriched, opp);
-        return enriched;
-      });
+        // Check if live API has a result for this match
+        const p1LiveConfirmed = p1Api && liveConfirmedApi.has(p1Api);
+        const p2LiveConfirmed = p2Api && liveConfirmedApi.has(p2Api);
+        const p1LiveEliminated = p1Api && liveEliminatedApi.has(p1Api);
+        const p2LiveEliminated = p2Api && liveEliminatedApi.has(p2Api);
 
-    // If the main path yields players, return them. If it yields zero (e.g. a mock
-    // draw inconsistency where currentRound participants are already marked eliminated),
-    // fall through to the non-round-filtered fallback below.
-    if (pool.length > 0) return pool;
+        if (p1LiveConfirmed) confirmedFromPrevRound.add(p1Mock);
+        else if (p1LiveEliminated) eliminatedFromPrevRound.add(p1Mock);
+        else if (p1Mock) pendingFromPrevRound.add(p1Mock);
+
+        if (p2LiveConfirmed) confirmedFromPrevRound.add(p2Mock);
+        else if (p2LiveEliminated) eliminatedFromPrevRound.add(p2Mock);
+        else if (p2Mock) pendingFromPrevRound.add(p2Mock);
+      }
+    }
   }
 
-  // Fallback: the current round's draw isn't published yet (or main path was empty).
-  // Return all non-eliminated players, tagging those with unresolved prev-round matches.
-  return (draw.players || [])
-    .filter(p => !p.roundEliminated)
-    .filter(p => !isQualifierPlaceholder(p))
-    .map(p => {
-      if (pendingFromPrevRound.has(p.id)) return { ...p, pendingPrevRound: true, status: 'at_risk' };
-      if (confirmedFromPrevRound.has(p.id)) return { ...p, status: 'confirmed' };
-      // No previous round (R1) or seed with bye — confirmed by default
-      return { ...p, status: prevRoundIndex < 0 ? 'confirmed' : 'confirmed' };
-    });
+  // Build the set of mock player IDs eligible for the current round.
+  // This prevents seeds appearing in R1 pool, R1 players in R16 pool, etc.
+  const eligibleMockIds = new Set();
+
+  // Players in mock matches for the current round (non-bye)
+  const mockRoundMatches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
+  for (const m of mockRoundMatches) {
+    if (m.player1Id) eligibleMockIds.add(m.player1Id);
+    if (m.player2Id) eligibleMockIds.add(m.player2Id);
+  }
+
+  // Players confirmed/pending from previous round also eligible
+  for (const id of confirmedFromPrevRound) eligibleMockIds.add(id);
+  for (const id of pendingFromPrevRound) eligibleMockIds.add(id);
+
+  // Players in live API matches for current round (translate API IDs to mock IDs)
+  const liveRoundMatches = (liveDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
+  for (const m of liveRoundMatches) {
+    if (m.player1Id) {
+      const mockId = apiToMock.get(String(m.player1Id));
+      if (mockId) eligibleMockIds.add(mockId);
+    }
+    if (m.player2Id) {
+      const mockId = apiToMock.get(String(m.player2Id));
+      if (mockId) eligibleMockIds.add(mockId);
+    }
+  }
+
+  // Build opponent info from current round matches (prefer live, fall back to mock)
+  const allMatches = [...(liveDraw.matches || []), ...(mockDraw.matches || [])];
+  const opponentMap = liveRoundMatches.length > 0
+    ? buildOpponentMap(liveRoundMatches, allMatches, ROUNDS, currentRound)
+    : buildOpponentMap(mockRoundMatches, allMatches, ROUNDS, currentRound);
+
+  // Build the pick pool from mock draw's player list, filtered to eligible players.
+  const mockPlayers = mockDraw.players || [];
+  const playerPool = [];
+  for (const p of mockPlayers) {
+    if (isQualifierPlaceholder(p)) continue;
+    if (!eligibleMockIds.has(p.id)) continue;
+    if (eliminatedFromPrevRound.has(p.id)) continue;
+    if (p.roundEliminated) continue;
+
+    // Use the API ID if available (so picks match the results processor)
+    const apiId = mockToApi.get(p.id);
+    const playerId = apiId || p.id;
+
+    const enriched = { ...p, id: playerId };
+    const mockId = p.id;
+
+    if (pendingFromPrevRound.has(mockId)) {
+      enriched.pendingPrevRound = true;
+      enriched.status = 'at_risk';
+    } else if (confirmedFromPrevRound.has(mockId) || prevRoundIndex < 0) {
+      enriched.status = 'confirmed';
+    } else {
+      enriched.status = 'confirmed';
+    }
+
+    // Add opponent info (check both API and mock IDs)
+    const opp = opponentMap.get(playerId) || opponentMap.get(mockId);
+    if (opp) Object.assign(enriched, opp);
+
+    playerPool.push(enriched);
+  }
+
+  return playerPool;
 }
 
 /** Qualifier placeholders are removed from the pick pool until real names are known. */
