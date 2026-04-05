@@ -6,6 +6,15 @@
 import { pool } from '../db/pool.js';
 import { getLiveDraw, getDeadlines } from './tennisData.js';
 import { ROUNDS } from '../config/tournament.js';
+import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
+
+// Build reverse map: API key → mock ID, so we can match picks stored with either format
+const apiToMock = new Map();
+const mockToApi = new Map();
+for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+  apiToMock.set(String(apiKey), mockId);
+  mockToApi.set(mockId, String(apiKey));
+}
 
 /**
  * Process results for a single round.
@@ -31,13 +40,19 @@ export async function processRoundResults(round) {
   for (const m of completed) {
     const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
 
-    // Grade picks by player_id first, fall back to player_name
+    // Grade picks — match by API key, mock ID, or player name.
+    // Picks may be stored with either format depending on when they were created.
+    const winnerMockId = apiToMock.get(String(m.winnerId)) || null;
+    const loserMockId  = apiToMock.get(String(loserId)) || null;
+    const loserName    = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '';
+
     // Winner picks → survived = true
     const w = await pool.query(
       `UPDATE picks SET survived = true
          WHERE round = $1 AND survived IS NULL
-           AND (player_id = $2 OR (player_id IS NULL AND lower(player_name) = lower($3)))`,
-      [round, m.winnerId, m.winnerName || '']
+           AND (player_id = $2 OR player_id = $3
+                OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
+      [round, String(m.winnerId), winnerMockId || '', m.winnerName || '']
     );
     picksUpdated += w.rowCount;
 
@@ -45,8 +60,9 @@ export async function processRoundResults(round) {
     const l = await pool.query(
       `UPDATE picks SET survived = false
          WHERE round = $1 AND survived IS NULL
-           AND (player_id = $2 OR (player_id IS NULL AND lower(player_name) = lower($3)))`,
-      [round, loserId, (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '']
+           AND (player_id = $2 OR player_id = $3
+                OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
+      [round, String(loserId), loserMockId || '', loserName]
     );
     picksUpdated += l.rowCount;
 
@@ -56,12 +72,13 @@ export async function processRoundResults(round) {
            SET is_alive = false, eliminated_round = $1
          FROM picks p
         WHERE p.round = $1
-          AND (p.player_id = $2 OR (p.player_id IS NULL AND lower(p.player_name) = lower($3)))
+          AND (p.player_id = $2 OR p.player_id = $3
+               OR (p.player_id IS NULL AND lower(p.player_name) = lower($4)))
           AND p.survived = false
           AND p.user_id  = gm.user_id
           AND p.group_id = gm.group_id
           AND gm.is_alive = true`,
-      [round, loserId, (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '']
+      [round, String(loserId), loserMockId || '', loserName]
     );
     eliminated += e.rowCount;
   }
@@ -76,13 +93,15 @@ export async function processRoundResults(round) {
     for (const m of completed) {
       const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
       const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
+      const loserMockId = apiToMock.get(String(loserId)) || '';
 
       // Mark future picks for this loser as failed
       const inv = await pool.query(
         `UPDATE picks SET survived = false
            WHERE round = $1 AND survived IS NULL
-             AND (player_id = $2 OR (player_id IS NULL AND lower(player_name) = lower($3)))`,
-        [nextRound, loserId, loserName || '']
+             AND (player_id = $2 OR player_id = $3
+                  OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
+        [nextRound, String(loserId), loserMockId, loserName || '']
       );
       futurePicksInvalidated += inv.rowCount;
 
@@ -93,12 +112,13 @@ export async function processRoundResults(round) {
                SET is_alive = false, eliminated_round = $1
              FROM picks p
             WHERE p.round = $1
-              AND (p.player_id = $2 OR (p.player_id IS NULL AND lower(p.player_name) = lower($3)))
+              AND (p.player_id = $2 OR p.player_id = $3
+                   OR (p.player_id IS NULL AND lower(p.player_name) = lower($4)))
               AND p.survived = false
               AND p.user_id  = gm.user_id
               AND p.group_id = gm.group_id
               AND gm.is_alive = true`,
-          [nextRound, loserId, loserName || '']
+          [nextRound, String(loserId), loserMockId, loserName || '']
         );
       }
     }

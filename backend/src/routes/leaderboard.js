@@ -2,6 +2,13 @@ import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
 import { getRounds, getDeadlines, getDraw, getLiveDraw } from '../services/tennisData.js';
+import { API_KEY_MAP } from '../data/monteCarloMockDraw.js';
+
+// Reverse map: mock ID → API key
+const mockToApiMap = new Map();
+for (const [mockId, apiKey] of Object.entries(API_KEY_MAP)) {
+  mockToApiMap.set(mockId, String(apiKey));
+}
 
 const ROUNDS = getRounds();
 
@@ -54,10 +61,16 @@ function buildGrader(draw) {
   }
 
   return function grade(playerId, round, playerName) {
-    // Primary: match by player ID
+    // Primary: match by player ID (API key)
     if (lostRounds[playerId]?.has(round)) return false;
     if (wonRounds[playerId]?.has(round))  return true;
-    // Fallback: match by normalised player name (handles mock-vs-real ID mismatch)
+    // Secondary: if pick has a mock ID, translate to API key and try again
+    const translated = mockToApiMap.get(playerId);
+    if (translated) {
+      if (lostRounds[translated]?.has(round)) return false;
+      if (wonRounds[translated]?.has(round))  return true;
+    }
+    // Tertiary: match by normalised player name
     const normName = (playerName || '').toLowerCase().trim();
     if (normName) {
       if (lostRoundsByName[normName]?.has(round)) return false;
