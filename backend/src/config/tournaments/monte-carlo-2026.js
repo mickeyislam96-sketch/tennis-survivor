@@ -47,10 +47,13 @@ export const MONTE_CARLO_2026 = {
   matchesPerRound: { R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
 
   // Explicit fraction denominator mapping for 56-draw.
-  // API "1/N-finals" means N players remain. For MC:
-  //   32 players = R32 (seeds enter), 16 = R16, 8 = QF, 4 = SF, 2 = F
-  // R1 has 48 players — no standard fraction, API labels it separately.
-  fractionDenomMap: { 32: 'R32', 16: 'R16', 8: 'QF', 4: 'SF', 2: 'F' },
+  // API "1/N-finals" labels the round that PRODUCES N players, not the round
+  // where N players compete.  For MC's 56-draw:
+  //   1/32-finals = R1 (48 non-seeds play off, producing 24 + 8 byes = 32)
+  //   1/16-finals = R32 (seeds enter, 32 → 16)
+  //   1/8-finals  = R16, 1/4 = QF, 1/2 = SF
+  // Evidence: API returns 17 non-qual fixtures under 1/32-finals (= 24 R1 - 7 qual slots).
+  fractionDenomMap: { 32: 'R1', 16: 'R32', 8: 'R16', 4: 'QF', 2: 'SF' },
 
   // Date range to query from API-Tennis (covers qualifying through final)
   apiDateStart: '2026-04-04',
@@ -91,38 +94,37 @@ export const MONTE_CARLO_2026 = {
   },
 
   // API round name mappings for Monte Carlo.
-  // VERIFIED against /api/draw/debug: API returns "1/32-finals" for the round with
-  // 32 players (16 matches, seeds enter) = our R32.  NOT R1.
-  // MC 56-draw: R1 has 48 players (24 matches), R32 has 32 players (16 matches).
-  // API fraction denominator = number of players remaining, so:
-  //   1/32-finals = R32 (seeds enter), 1/16-finals = R16, etc.
+  // CORRECTED 2026-04-05: API "1/32-finals" = R1 (preliminary round), NOT R32.
+  // Evidence: 17 non-qual fixtures under "1/32-finals" = 24 R1 matches - 7 qual slots.
+  // Fixtures are non-seed vs non-seed (e.g. Norrie vs Kecmanovic) on R1 day (Apr 5).
+  // The API labels the round that PRODUCES N remaining players, not the round OF N.
   roundNameOverrides: {
     // With hyphen (Monte-Carlo)
-    'atp monte-carlo - 1/32-finals': 'R32',
-    'atp monte-carlo - 1/16-finals': 'R16',
-    'atp monte-carlo - 1/8-finals':  'QF',
-    'atp monte-carlo - 1/4-finals':  'SF',
-    'atp monte-carlo - 1/2-finals':  'F',
+    'atp monte-carlo - 1/32-finals': 'R1',
+    'atp monte-carlo - 1/16-finals': 'R32',
+    'atp monte-carlo - 1/8-finals':  'R16',
+    'atp monte-carlo - 1/4-finals':  'QF',
+    'atp monte-carlo - 1/2-finals':  'SF',
     'atp monte-carlo - final':       'F',
     // Without hyphen
-    'atp monte carlo - 1/32-finals': 'R32',
-    'atp monte carlo - 1/16-finals': 'R16',
-    'atp monte carlo - 1/8-finals':  'QF',
-    'atp monte carlo - 1/4-finals':  'SF',
-    'atp monte carlo - 1/2-finals':  'F',
+    'atp monte carlo - 1/32-finals': 'R1',
+    'atp monte carlo - 1/16-finals': 'R32',
+    'atp monte carlo - 1/8-finals':  'R16',
+    'atp monte carlo - 1/4-finals':  'QF',
+    'atp monte carlo - 1/2-finals':  'SF',
     'atp monte carlo - final':       'F',
     // Rolex prefix variant
-    'rolex monte-carlo masters - 1/32-finals': 'R32',
-    'rolex monte-carlo masters - 1/16-finals': 'R16',
-    'rolex monte-carlo masters - 1/8-finals':  'QF',
-    'rolex monte-carlo masters - 1/4-finals':  'SF',
-    'rolex monte-carlo masters - 1/2-finals':  'F',
+    'rolex monte-carlo masters - 1/32-finals': 'R1',
+    'rolex monte-carlo masters - 1/16-finals': 'R32',
+    'rolex monte-carlo masters - 1/8-finals':  'R16',
+    'rolex monte-carlo masters - 1/4-finals':  'QF',
+    'rolex monte-carlo masters - 1/2-finals':  'SF',
     'rolex monte-carlo masters - final':       'F',
-    // Bare fraction names (safety fallback — if prefix stripping yields just the fraction)
-    '1/32-finals': 'R32',
-    '1/16-finals': 'R16',
-    '1/8-finals':  'QF',
-    '1/4-finals':  'SF',
-    '1/2-finals':  'F',
+    // Bare fraction names (safety fallback)
+    '1/32-finals': 'R1',
+    '1/16-finals': 'R32',
+    '1/8-finals':  'R16',
+    '1/4-finals':  'QF',
+    '1/2-finals':  'SF',
   },
 };
