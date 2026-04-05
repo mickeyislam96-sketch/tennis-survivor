@@ -2188,7 +2188,7 @@ input, select { font-family: var(--font); }
   border: 1px solid #14532d;
   border-radius: var(--radius);
   background: #14532d;
-  padding: 1rem 1.25rem 1rem 0.75rem;
+  padding: 1.5rem 1.25rem 1rem 0.75rem;
 }
 
 .bracket-wrap {
@@ -2222,10 +2222,10 @@ input, select { font-family: var(--font); }
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: #fff;
-  padding: 0.35rem 0.5rem 0.4rem;
-  margin: 0 4px 0;
+  padding: 0.4rem 0.5rem;
+  margin: 0 4px 0.5rem;
   width: 156px;
-  background: rgba(255,255,255,0.12);
+  background: #1a6b3a;
   border-radius: 6px;
   border-bottom: none;
   position: sticky;
@@ -2269,15 +2269,15 @@ input, select { font-family: var(--font); }
   border-color: #f87171;
 }
 
-.bc-card--tbd {
-  background: rgba(255,255,255,0.06);
-  border: 1px dashed rgba(255,255,255,0.2);
-  opacity: 0.6;
+.bc-card.bc-card--tbd {
+  background: rgba(255,255,255,0.08);
+  border: 1px dashed rgba(255,255,255,0.18);
+  opacity: 0.7;
   box-shadow: none;
-  color: rgba(255,255,255,0.5);
 }
 .bc-card--tbd .bc-row { color: rgba(255,255,255,0.4); }
-.bc-card--tbd .bc-divider { background: rgba(255,255,255,0.1); }
+.bc-card--tbd .bc-row--tbd { color: rgba(255,255,255,0.35); }
+.bc-card--tbd .bc-divider { background: rgba(255,255,255,0.08); }
 
 .bc-card--bye {
   background: rgba(255,255,255,0.85);
