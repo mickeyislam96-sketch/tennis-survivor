@@ -2203,6 +2203,10 @@ input, select { font-family: var(--font); }
   align-self: flex-start;
   margin-top: 2rem; /* offset for col header */
 }
+.bc-connector g {
+  stroke: #94a3b8;
+  stroke-width: 2;
+}
 
 /* Round column */
 .bc-col {
@@ -2217,11 +2221,16 @@ input, select { font-family: var(--font); }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #6b7280;
-  padding: 0.3rem 0 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 0;
-  width: 164px;
+  color: var(--accent-dark);
+  padding: 0.35rem 0.5rem 0.4rem;
+  margin: 0 4px 0;
+  width: 156px;
+  background: var(--accent-light);
+  border-radius: 6px;
+  border-bottom: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .bc-col-body {
@@ -2243,10 +2252,12 @@ input, select { font-family: var(--font); }
 .bc-card {
   width: 100%;
   background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   font-size: 0.78rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: box-shadow var(--transition), border-color var(--transition);
 }
 
 .bc-card--done {
@@ -2259,15 +2270,16 @@ input, select { font-family: var(--font); }
 }
 
 .bc-card--tbd {
-  background: #f9fafb;
-  border-color: #e5e7eb;
-  opacity: 0.55;
+  background: var(--bg);
+  border: 1px dashed #d1d5db;
+  opacity: 0.5;
+  box-shadow: none;
 }
 
 .bc-card--bye {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  opacity: 0.7;
+  background: var(--accent-light);
+  border-color: #bbf7d0;
+  opacity: 1;
 }
 
 .bc-bye-label {
@@ -4296,7 +4308,10 @@ input, select { font-family: var(--font); }
 
 /* Clickable match cards */
 .bc-card.bc-clickable { cursor: pointer; }
-.bc-card.bc-clickable:hover { box-shadow: 0 0 0 2px var(--accent-light); }
+.bc-card.bc-clickable:hover {
+  box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(22,163,74,0.12);
+  border-color: var(--accent);
+}
 .lc.lc-clickable { cursor: pointer; }
 .lc.lc-clickable:hover { box-shadow: 0 0 0 2px var(--accent-light); }
 

@@ -395,7 +395,6 @@ export function DrawViewer() {
           </div>
         ) : (
           <>
-            <p className="bracket-help-text">Follow each player's path through the draw</p>
             <div className="bracket-scroll-wrap">
               <div className="bracket-wrap">{bracketEls}</div>
             </div>
