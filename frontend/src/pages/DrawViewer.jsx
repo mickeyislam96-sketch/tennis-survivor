@@ -387,11 +387,11 @@ export function DrawViewer() {
       <p className="bracket-hint">Tap a matchup to compare players before you pick</p>
 
       {view === 'bracket' ? (
-        bracketEls.length === 0 ? (
+        bracketRounds.length <= 1 ? (
           <div className="draw-empty-state">
             <span className="draw-empty-icon">🎾</span>
-            <p className="draw-empty-title">Bracket not yet available</p>
-            <p className="draw-empty-sub">Switch to "By Round" to see individual match data, or check back once more fixtures are published.</p>
+            <p className="draw-empty-title">Full bracket builds as the tournament progresses</p>
+            <p className="draw-empty-sub">Switch to "By Round" to see R1 matchups and compare players. The bracket will fill in as results come through.</p>
           </div>
         ) : (
           <>
