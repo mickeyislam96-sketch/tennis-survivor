@@ -370,7 +370,11 @@ picksRouter.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Player not available for pick' });
     }
 
-    const resolvedName = playerName || available.find(p => p.id === playerId)?.name || '';
+    // Always prefer the canonical name from the mock draw (full names like
+    // "Andrey Rublev") over whatever the frontend sends (which might be an
+    // API-abbreviated form like "A. Rublev").
+    const canonicalName = available.find(p => p.id === playerId)?.name;
+    const resolvedName = canonicalName || playerName || '';
 
     if (isUUID(userId) && isUUID(groupId)) {
       try {

@@ -117,6 +117,33 @@ schemaReady.then(async () => {
       console.log(`[migration] Replaced ${idFixCount} mock player IDs with API keys`);
     }
 
+    // Migration 3: Normalise player names to canonical mock draw names.
+    // Some picks stored API-abbreviated names ("A. Rublev", "C. Norrie")
+    // instead of full names ("Andrey Rublev", "Cameron Norrie").
+    const { getMockDraw } = await import('./data/mockDraw.js');
+    const mockDraw = getMockDraw();
+    const mockPlayers = mockDraw.players || [];
+    // Build API key → canonical name map
+    const apiKeyToName = new Map();
+    for (const p of mockPlayers) {
+      const apiKey = API_KEY_MAP[p.id];
+      if (apiKey) apiKeyToName.set(String(apiKey), p.name);
+      apiKeyToName.set(p.id, p.name); // also map mock ID just in case
+    }
+    let nameFixCount = 0;
+    for (const [playerId, canonicalName] of apiKeyToName) {
+      const upd = await pool.query(
+        `UPDATE picks SET player_name = $1
+         WHERE player_id = $2 AND player_name IS DISTINCT FROM $1
+         RETURNING id`,
+        [canonicalName, playerId]
+      );
+      nameFixCount += upd.rowCount;
+    }
+    if (nameFixCount > 0) {
+      console.log(`[migration] Normalised ${nameFixCount} player names to canonical form`);
+    }
+
     // Run results processing after migrations
     if (r32picks.rowCount > 0 || idFixCount > 0) {
       await autoProcessResults();
