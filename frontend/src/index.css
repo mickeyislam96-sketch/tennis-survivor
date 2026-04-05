@@ -2185,10 +2185,11 @@ input, select { font-family: var(--font); }
   overflow-x: auto;
   overflow-y: auto;
   max-height: 82vh;
-  border: 1px solid #14532d;
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  background: #14532d;
+  background: var(--surface);
   padding: 1.5rem 1.25rem 1rem 0.75rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .bracket-wrap {
@@ -2204,8 +2205,8 @@ input, select { font-family: var(--font); }
   margin-top: 2rem; /* offset for col header */
 }
 .bc-connector g {
-  stroke: rgba(255,255,255,0.35);
-  stroke-width: 2;
+  stroke: var(--border);
+  stroke-width: 1.5;
 }
 
 /* Round column */
@@ -2221,13 +2222,13 @@ input, select { font-family: var(--font); }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #fff;
-  padding: 0.4rem 0.5rem;
+  color: var(--accent-dark);
+  padding: 0.35rem 0.5rem 0.4rem;
   margin: 0 4px 0.5rem;
   width: 156px;
-  background: #1a6b3a;
-  border-radius: 6px;
-  border-bottom: none;
+  background: var(--surface);
+  border-radius: 0;
+  border-bottom: 2px solid var(--accent);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -2270,17 +2271,17 @@ input, select { font-family: var(--font); }
 }
 
 .bc-card.bc-card--tbd {
-  background: rgba(255,255,255,0.08);
-  border: 1px dashed rgba(255,255,255,0.18);
-  opacity: 0.7;
+  background: var(--surface-alt);
+  border: 1px dashed var(--border);
+  opacity: 0.55;
   box-shadow: none;
 }
-.bc-card--tbd .bc-row { color: rgba(255,255,255,0.4); }
-.bc-card--tbd .bc-row--tbd { color: rgba(255,255,255,0.35); }
-.bc-card--tbd .bc-divider { background: rgba(255,255,255,0.08); }
+.bc-card--tbd .bc-row { color: #94a3b8; }
+.bc-card--tbd .bc-row--tbd { color: #94a3b8; }
+.bc-card--tbd .bc-divider { background: #f1f5f9; }
 
 .bc-card--bye {
-  background: rgba(255,255,255,0.85);
+  background: #f0fdf4;
   border-color: #bbf7d0;
   opacity: 1;
 }
@@ -3700,11 +3701,7 @@ input, select { font-family: var(--font); }
   color: #fff;
 }
 
-/* ── Bracket scroll area: use design tokens ─────────────────── */
-.bracket-scroll-wrap {
-  border-color: var(--border);
-  background: var(--surface-alt);
-}
+/* ── Bracket scroll area: tokens set in main declaration ────── */
 
 /* ── Improved empty state for player list (pick screen) ──────── */
 .player-list-empty {
