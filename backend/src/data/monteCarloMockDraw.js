@@ -348,7 +348,7 @@ function buildMonteCarloMatches() {
  */
 export function getMonteCarlMockDraw(currentRound = null) {
   const roundIndex = currentRound ? ROUNDS.indexOf(currentRound) : -1;
-  const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null }));
+  const players = MC_PLAYERS.map(p => ({ ...p, roundEliminated: null, apiKey: API_KEY_MAP[p.id] || null }));
   const matches = buildMonteCarloMatches();
   const eliminated = new Set();
   const seedIds = new Set(MC_PLAYERS.slice(0, 8).map(p => p.id));

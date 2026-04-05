@@ -330,23 +330,65 @@ export async function getDraw(roundFilter = null) {
   if (!fixtures || fixtures.length === 0) {
     fixtures = await fetchSofascoreFixtures();
   }
-  if (fixtures && fixtures.length > 0) {
-    const draw = buildDrawFromFixtures(fixtures);
-
-    // Use live data whenever the API returns matches. The frontend already
-    // defaults to list view when bracket rounds (R32+) have no data yet,
-    // so R1-only data displays correctly. Once later rounds appear, the
-    // bracket view populates seamlessly.
-    if (draw.matches.length > 0) {
-      return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
-    }
-  }
-  // Mock fallback: determine current round from the tournament schedule, NOT
-  // from the frontend's roundFilter (which is just "how much of the bracket to
-  // show"). Passing roundFilter here was causing the mock to mark all earlier
-  // rounds as completed when the frontend requested ?round=F.
+  // Always start with the mock draw for full bracket structure (all rounds,
+  // byes, seeds). Then overlay live API data for statuses and results.
   const currentRound = getCurrentRoundFromSchedule();
   const mockDraw = getMockDraw(currentRound);
+
+  if (fixtures && fixtures.length > 0) {
+    const liveDraw = buildDrawFromFixtures(fixtures);
+
+    if (liveDraw.matches.length > 0) {
+      // Build a lookup from API player key → live match data.
+      // Live matches use API player keys as IDs; mock uses mc-* IDs.
+      // The mock draw's API_KEY_MAP bridges them (exported via player objects).
+      const liveByPlayers = new Map();
+      for (const m of liveDraw.matches) {
+        // Key by sorted player IDs so order doesn't matter
+        const key = [m.player1Id, m.player2Id].sort().join('|');
+        liveByPlayers.set(key, m);
+      }
+
+      // Build reverse map: API key → mc-* ID from mock players
+      const apiKeyToMockId = new Map();
+      for (const p of mockDraw.players || []) {
+        if (p.apiKey) apiKeyToMockId.set(String(p.apiKey), p.id);
+      }
+
+      // Overlay live data onto mock matches
+      for (const mock of mockDraw.matches) {
+        if (mock.bye) continue;
+        // Resolve mock player IDs to API keys
+        const p1Api = (mockDraw.players || []).find(p => p.id === mock.player1Id)?.apiKey;
+        const p2Api = (mockDraw.players || []).find(p => p.id === mock.player2Id)?.apiKey;
+        if (!p1Api && !p2Api) continue;
+
+        // Find matching live match
+        const key = [String(p1Api), String(p2Api)].filter(Boolean).sort().join('|');
+        const live = liveByPlayers.get(key);
+        if (!live) continue;
+
+        // Overlay live status, result, score, and start time
+        mock.status = live.status;
+        mock.score = live.score;
+        mock.startTime = live.startTime;
+
+        // Map winner back to mock IDs
+        if (live.winnerId) {
+          if (String(p1Api) === String(live.winnerId)) {
+            mock.winnerId = mock.player1Id;
+            mock.winnerName = mock.player1Name;
+          } else if (String(p2Api) === String(live.winnerId)) {
+            mock.winnerId = mock.player2Id;
+            mock.winnerName = mock.player2Name;
+          }
+        }
+      }
+
+      return { ...mockDraw, dataSource: 'live_hybrid' };
+    }
+  }
+
   return { ...mockDraw, dataSource: 'mock' };
 }
 
