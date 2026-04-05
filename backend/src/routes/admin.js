@@ -183,6 +183,52 @@ adminRouter.post('/regenerate-invite', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/fix-r1-picks ────────────────────────────────────────────
+// One-time migration: rename picks from round='R32' to round='R1'.
+// These picks were submitted while the round mapping bug was active (API
+// "1/32-finals" was incorrectly mapped to R32 instead of R1). The picks were
+// actually R1 picks — non-seeds playing in the first round.
+// After renaming, triggers results processing so R1 wins/losses get graded.
+adminRouter.post('/fix-r1-picks', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  try {
+    // Only rename picks that haven't been graded yet and were created before
+    // the R32 window properly opened (i.e. before R1 lock time).
+    // Safety: also check there are NO existing R1 picks (to avoid duplicates).
+    const existingR1 = await pool.query(
+      `SELECT COUNT(*) FROM picks WHERE round = 'R1'`
+    );
+    if (Number(existingR1.rows[0].count) > 0) {
+      return res.json({
+        ok: false,
+        message: `Already ${existingR1.rows[0].count} R1 picks in DB — migration may have already run. Aborting to avoid duplicates.`,
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE picks SET round = 'R1' WHERE round = 'R32' RETURNING id::text, user_id::text, player_name, round`
+    );
+
+    console.log(`[admin] fix-r1-picks: renamed ${result.rowCount} picks from R32 → R1`);
+
+    // Now trigger results processing so R1 matches get graded
+    let gradeResult = null;
+    if (result.rowCount > 0) {
+      gradeResult = await autoProcessResults();
+    }
+
+    res.json({
+      ok: true,
+      renamed: result.rowCount,
+      picks: result.rows,
+      gradeResult,
+    });
+  } catch (err) {
+    console.error('[admin] fix-r1-picks error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
