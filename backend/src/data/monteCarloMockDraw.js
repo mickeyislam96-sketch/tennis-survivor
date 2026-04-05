@@ -36,14 +36,14 @@ const API_KEY_MAP = {
   'mc-p11': '1777',  // Etcheverry
   'mc-p12': '2384',  // Dimitrov
   'mc-p13': '13091', // Atmane
-  'mc-p14': '2846',  // Tiafoe
+  'mc-p14': null,     // Quinn (LL, replacing Tiafoe — key TBD)
   'mc-p15': '2959',  // Lehecka
   'mc-p17': '2833',  // Fucsovics
   'mc-p18': '2982',  // Tabilo
   'mc-p19': '2845',  // Monfils
   'mc-p20': '427',   // Griekspoor
   'mc-p21': '1852',  // Vacherot
-  'mc-p22': '1096',  // Majchrzak
+  'mc-p22': null,     // J.M. Cerundolo (replacing Majchrzak — key TBD)
   'mc-p23': '902',   // Mensik
   'mc-p24': '10148', // Marozsan
   'mc-p25': '2841',  // Hurkacz
@@ -61,7 +61,7 @@ const API_KEY_MAP = {
   'mc-p40': '358',   // Borges
   'mc-p41': '1064',  // Bergs
   'mc-p42': '438',   // Mannarino
-  'mc-p44': '9222',  // Mpetshi Perricard
+  'mc-p44': null,     // Garin (LL, replacing Mpetshi Perricard — key TBD)
   'mc-p45': '2167',  // Cilic
   'mc-p47': '2674',  // Moutet
   'mc-p49': '1926',  // Popyrin
@@ -72,6 +72,14 @@ const API_KEY_MAP = {
   'mc-p54': '2981',  // Machac
   'mc-p55': '68751', // Kouame
   'mc-p56': '1105',  // Humbert
+  // Qualifiers / late replacements (keys TBD — not yet in API-Tennis fixtures)
+  'mc-q1':  null,     // Nava
+  'mc-q2':  null,     // Comesana
+  'mc-q3':  null,     // Blockx
+  'mc-q4':  null,     // Bautista Agut
+  'mc-q5':  null,     // Arnaldi
+  'mc-q6':  null,     // Shevchenko
+  'mc-q7':  null,     // Muller
 };
 
 // ── Players ───────────────────────────────────────────────────────────────────
@@ -96,13 +104,13 @@ const MC_PLAYERS = [
   { id: 'mc-p11',  name: 'Tomas Martin Etcheverry',     country: 'ARG' },
   { id: 'mc-p12',  name: 'Grigor Dimitrov',             country: 'BUL' },
 
-  // Match M2: Atmane vs Tiafoe [14]
+  // Match M2: Atmane vs Quinn [LL]
   { id: 'mc-p13',  name: 'Terence Atmane',              country: 'FRA' },
-  { id: 'mc-p14',  name: 'Frances Tiafoe',              seed: 14, country: 'USA' },
+  { id: 'mc-p14',  name: 'Ethan Quinn',                 country: 'USA' },
 
-  // Match M3: Lehecka [11] vs Qualifier
+  // Match M3: Lehecka [11] vs Nava
   { id: 'mc-p15',  name: 'Jiri Lehecka',                seed: 11, country: 'CZE' },
-  { id: 'mc-q1',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-q1',   name: 'Emilio Nava',                 country: 'USA' },
 
   // Match M4: Fucsovics vs Tabilo
   { id: 'mc-p17',  name: 'Marton Fucsovics',            country: 'HUN' },
@@ -112,9 +120,9 @@ const MC_PLAYERS = [
   { id: 'mc-p19',  name: 'Gael Monfils',                seed: 'WC', country: 'FRA' },
   { id: 'mc-p20',  name: 'Tallon Griekspoor',           country: 'NED' },
 
-  // Match M6: Vacherot vs Majchrzak
+  // Match M6: Vacherot vs J.M. Cerundolo
   { id: 'mc-p21',  name: 'Valentin Vacherot',           country: 'MON' },
-  { id: 'mc-p22',  name: 'Kamil Majchrzak',             country: 'POL' },
+  { id: 'mc-p22',  name: 'Juan Manuel Cerundolo',       country: 'ARG' },
 
   // Match M7: Mensik vs Marozsan
   { id: 'mc-p23',  name: 'Jakub Mensik',                country: 'CZE' },
@@ -124,20 +132,20 @@ const MC_PLAYERS = [
   { id: 'mc-p25',  name: 'Hubert Hurkacz',              country: 'POL' },
   { id: 'mc-p26',  name: 'Luciano Darderi',             seed: 15, country: 'ITA' },
 
-  // Match M9: Cobolli [10] vs Qualifier
+  // Match M9: Cobolli [10] vs Comesaña
   { id: 'mc-p27',  name: 'Flavio Cobolli',              seed: 10, country: 'ITA' },
-  { id: 'mc-q2',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-q2',   name: 'Francisco Comesana',          country: 'ARG' },
 
-  // Match M10: Shapovalov vs Qualifier
+  // Match M10: Shapovalov vs Blockx
   { id: 'mc-p29',  name: 'Denis Shapovalov',            country: 'CAN' },
-  { id: 'mc-q3',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-q3',   name: 'Alexander Blockx',            country: 'BEL' },
 
   // Match M11: Norrie vs Kecmanovic
   { id: 'mc-p31',  name: 'Cameron Norrie',              country: 'GBR' },
   { id: 'mc-p32',  name: 'Miomir Kecmanovic',           country: 'SRB' },
 
-  // Match M12: Qualifier vs Berrettini [WC]
-  { id: 'mc-q4',   name: 'Qualifier',                   country: 'Q' },
+  // Match M12: Bautista Agut vs Berrettini [WC]
+  { id: 'mc-q4',   name: 'Roberto Bautista Agut',       country: 'ESP' },
   { id: 'mc-p34',  name: 'Matteo Berrettini',           seed: 'WC', country: 'ITA' },
 
   // Match M13: Fonseca vs Diallo
@@ -156,17 +164,17 @@ const MC_PLAYERS = [
   { id: 'mc-p41',  name: 'Zizou Bergs',                 country: 'BEL' },
   { id: 'mc-p42',  name: 'Adrian Mannarino',            country: 'FRA' },
 
-  // Match M17: Qualifier vs Mpetshi Perricard
-  { id: 'mc-q5',   name: 'Qualifier',                   country: 'Q' },
-  { id: 'mc-p44',  name: 'Giovanni Mpetshi Perricard',  country: 'FRA' },
+  // Match M17: Arnaldi vs Garin [LL]
+  { id: 'mc-q5',   name: 'Matteo Arnaldi',              country: 'ITA' },
+  { id: 'mc-p44',  name: 'Cristian Garin',              country: 'CHI' },
 
-  // Match M18: Cilic vs Qualifier
+  // Match M18: Cilic vs Shevchenko
   { id: 'mc-p45',  name: 'Marin Cilic',                 country: 'CRO' },
-  { id: 'mc-q6',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-q6',   name: 'Alexander Shevchenko',        country: 'KAZ' },
 
-  // Match M19: Moutet vs Qualifier
+  // Match M19: Moutet vs Muller
   { id: 'mc-p47',  name: 'Corentin Moutet',             country: 'FRA' },
-  { id: 'mc-q7',   name: 'Qualifier',                   country: 'Q' },
+  { id: 'mc-q7',   name: 'Alexandre Muller',            country: 'FRA' },
 
   // Match M20: Popyrin vs Ruud [9]
   { id: 'mc-p49',  name: 'Alexei Popyrin',              country: 'AUS' },
