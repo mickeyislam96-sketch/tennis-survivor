@@ -164,28 +164,29 @@ export async function autoProcessResults() {
   const summary   = [];
 
   for (const round of ROUNDS) {
-    const completed = (draw.matches || []).filter(
-      m => m.round === round && m.status === 'completed' && m.winnerId
-    );
-    if (completed.length === 0) continue;
-
-    // Check for unprocessed picks
-    const { rows } = await pool.query(
-      `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL`,
-      [round]
-    );
-    if (Number(rows[0].count) > 0) {
-      console.log(`[results] ${round}: ${rows[0].count} ungraded picks`);
-      const result = await processRoundResults(round);
-      summary.push(result);
-    }
-
-    // Check whether the pick window is locked — only then eliminate non-pickers
     const roundDeadline = deadlines.find(d => d.round === round);
     const windowLocked  = roundDeadline?.isLocked === true;
 
+    // Process match results if there are completed matches
+    const completed = (draw.matches || []).filter(
+      m => m.round === round && m.status === 'completed' && m.winnerId
+    );
+    if (completed.length > 0) {
+      const { rows } = await pool.query(
+        `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL`,
+        [round]
+      );
+      if (Number(rows[0].count) > 0) {
+        console.log(`[results] ${round}: ${rows[0].count} ungraded picks`);
+        const result = await processRoundResults(round);
+        summary.push(result);
+      }
+    }
+
+    // Eliminate non-pickers as soon as the pick window locks —
+    // even if no matches have completed yet. Users who missed the
+    // window are out immediately when the round begins.
     if (windowLocked) {
-      // Check if any alive members have no pick for this round
       const { rows: noPick } = await pool.query(
         `SELECT COUNT(*) FROM group_members gm
           WHERE gm.is_alive = true
@@ -199,7 +200,6 @@ export async function autoProcessResults() {
       );
       if (Number(noPick[0].count) > 0) {
         const nonPickers = await eliminateNonPickers(round);
-        // Update the last summary entry if it exists, or add one
         const existing = summary.find(s => s.round === round);
         if (existing) existing.nonPickers = nonPickers;
         else summary.push({ round, processed: completed.length, picksUpdated: 0, eliminated: 0, nonPickers });

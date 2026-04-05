@@ -56,10 +56,13 @@ if (TOURNAMENT.roundNameOverrides) {
 }
 
 // Fraction-notation denominator → round key.
-// Derived from ROUNDS array: first round gets the largest denominator (2^(n-1)).
-// Miami  7 rounds (R1,R64,R32,R16,QF,SF,F): 64→R1, 32→R64, 16→R32, 8→R16, 4→QF, 2→SF
-// MC     6 rounds (R1,R32,R16,QF,SF,F):     32→R1, 16→R32,  8→R16, 4→QF, 2→SF
-function buildFractionMap(rounds) {
+// Tournament config can provide an explicit fractionDenomMap (e.g. MC 56-draw
+// where 1/32-finals = R32 not R1). Falls back to power-of-2 auto-derivation
+// which works for standard 96/128-draw tournaments.
+function buildFractionMap(rounds, tournament) {
+  // Prefer explicit map from tournament config if provided
+  if (tournament.fractionDenomMap) return { ...tournament.fractionDenomMap };
+  // Auto-derive: first round gets the largest denominator (2^(n-1))
   const map = {};
   const n = rounds.length;
   for (let i = 0; i < n - 1; i++) {
@@ -68,7 +71,7 @@ function buildFractionMap(rounds) {
   }
   return map;
 }
-const FRACTION_MAP = buildFractionMap(ROUNDS);
+const FRACTION_MAP = buildFractionMap(ROUNDS, TOURNAMENT);
 
 function normalizeRound(apiRound) {
   if (apiRound === null || apiRound === undefined || apiRound === '') return null;

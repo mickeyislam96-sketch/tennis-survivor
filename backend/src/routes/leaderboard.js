@@ -102,32 +102,17 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   const { groupId } = req.params;
 
   // Determine which round's pick to show on the leaderboard.
-  // If a pick window is actively open → hide all picks.
-  // Otherwise → reveal picks from the most recently locked round.
+  // ALWAYS show the most recently locked round's picks (visible to all).
+  // Users want to see each other's picks once a window closes.
+  // If no round is locked yet, no pick column is shown.
   let currentRound = null;
   let roundIsLocked = false;
   try {
     const deadlines = await getDeadlines();
-    const now = new Date();
-    // "Actively open" means the window has started AND not yet closed
-    // A round is "actively open" when its pick window has started AND not yet closed.
-    // R1 is special: opensAt is null (always open from the start), so we must not
-    // require opensAt to be non-null — we use d.isOpen which already handles R1.
-    const activeOpenRound = deadlines.find((d) => {
-      const lockAt = d.lockAt ? new Date(d.lockAt) : null;
-      const withinLock = !lockAt || now < lockAt;
-      return d.isOpen && !d.isLocked && withinLock;
-    });
-    if (activeOpenRound) {
-      currentRound  = activeOpenRound.round;
-      roundIsLocked = false;
-    } else {
-      // No active pick window — reveal picks for the last locked round
-      const lastLocked = [...deadlines].filter((d) => d.isLocked).pop();
-      if (lastLocked) {
-        currentRound  = lastLocked.round;
-        roundIsLocked = true;
-      }
+    const lastLocked = [...deadlines].filter((d) => d.isLocked).pop();
+    if (lastLocked) {
+      currentRound  = lastLocked.round;
+      roundIsLocked = true;
     }
   } catch (_) {}
 

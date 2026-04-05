@@ -46,6 +46,12 @@ export const MONTE_CARLO_2026 = {
   // R16: 8 matches, QF: 4, SF: 2, F: 1
   matchesPerRound: { R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
 
+  // Explicit fraction denominator mapping for 56-draw.
+  // API "1/N-finals" means N players remain. For MC:
+  //   32 players = R32 (seeds enter), 16 = R16, 8 = QF, 4 = SF, 2 = F
+  // R1 has 48 players — no standard fraction, API labels it separately.
+  fractionDenomMap: { 32: 'R32', 16: 'R16', 8: 'QF', 4: 'SF', 2: 'F' },
+
   // Date range to query from API-Tennis (covers qualifying through final)
   apiDateStart: '2026-04-04',
   apiDateStop:  '2026-04-13',
