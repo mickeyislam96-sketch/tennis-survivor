@@ -57,6 +57,13 @@ export const MONTE_CARLO_2026 = {
   apiDateStop:  '2026-04-13',
   apiSeason:    '2026',  // Confirmed: tournament_season=2026 returns MC fixtures (2025 returns empty)
 
+  // Window open overrides — force a round's pick window to open at a specific time.
+  // Takes precedence over the default "opens when previous round locks" logic.
+  // Use to delay a window opening (e.g. to fix bugs before users can pick).
+  windowOpensOverrides: {
+    R32: '2026-04-05T14:00:00Z', // Delayed: opens 3PM BST / 14:00 UTC (was immediate after R1 lock)
+  },
+
   // Lock time overrides — 1h before first match of each round.
   // These take precedence over API-derived and fallback times.
   // Play typically starts 10:00 BST / 11:00 CEST (09:00 UTC).

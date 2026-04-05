@@ -384,9 +384,10 @@ export async function getRawFixtures() {
 export async function getDeadlines() {
   const fixtures    = await fetchApiDraw();
   const now         = new Date();
-  const lockOverrides = TOURNAMENT.lockTimeOverrides  || {};
-  const roundDates    = TOURNAMENT.roundDates          || {};
-  const roundFallback = TOURNAMENT.roundDateFallback   || {};
+  const lockOverrides   = TOURNAMENT.lockTimeOverrides   || {};
+  const windowOverrides = TOURNAMENT.windowOpensOverrides || {};
+  const roundDates      = TOURNAMENT.roundDates           || {};
+  const roundFallback   = TOURNAMENT.roundDateFallback    || {};
 
   if (!fixtures || fixtures.length === 0) {
     return ROUNDS.map((round, i) => {
@@ -396,9 +397,11 @@ export async function getDeadlines() {
       else if (lockOverrides[round])    lockAtDate = new Date(lockOverrides[round]);
       const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
       const isLocked = lockAtDate ? now >= lockAtDate : false;
-      // Each round opens when the previous round locks
+      // Each round opens when the previous round locks (or at windowOpensOverride)
       let opensAt = null;
-      if (i > 0) {
+      if (windowOverrides[round]) {
+        opensAt = new Date(windowOverrides[round]).toISOString();
+      } else if (i > 0) {
         const prevRound = ROUNDS[i - 1];
         let prevLockAt = null;
         if (runtimeLockOverrides[prevRound])     prevLockAt = new Date(runtimeLockOverrides[prevRound]);
@@ -436,18 +439,18 @@ export async function getDeadlines() {
     const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
     const isLocked = lockAtDate ? now >= lockAtDate : false;
 
-    // Each round opens when the previous round locks
+    // Each round opens when the previous round locks (or at windowOpensOverride)
     let opensAt = null;
-    if (index > 0) {
+    if (windowOverrides[round]) {
+      opensAt = new Date(windowOverrides[round]).toISOString();
+    } else if (index > 0) {
       const prevRound = ROUNDS[index - 1];
-      // Compute previous round's lock time using the same priority chain
       let prevLockAt = null;
       if (runtimeLockOverrides[prevRound]) {
         prevLockAt = new Date(runtimeLockOverrides[prevRound]);
       } else if (lockOverrides[prevRound]) {
         prevLockAt = new Date(lockOverrides[prevRound]);
       } else {
-        // Derive from previous round's first match start - 1h
         const prevMatches = matchesByRnd[prevRound] || [];
         const apiPrev = prevMatches
           .map((m) => (m.startTime ? new Date(m.startTime) : null))
