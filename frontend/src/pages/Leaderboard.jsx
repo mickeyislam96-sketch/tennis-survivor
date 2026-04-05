@@ -202,14 +202,13 @@ export function Leaderboard() {
             <tr>
               <th>Player</th>
               <th className="lb-th-status">Status</th>
-              <th className="lb-th-progress">Progress</th>
-              {currentRound && <th className="lb-th-pick">{currentRound} Pick</th>}
+              {currentRound && <th className="lb-th-pick">{ROUND_LABELS[currentRound] || currentRound} Pick</th>}
             </tr>
           </thead>
           <tbody>
             {leaderboard.length === 0 && (
               <tr>
-                <td colSpan={currentRound ? 4 : 3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                <td colSpan={currentRound ? 3 : 2} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                   No entries yet — be the first to join!
                 </td>
               </tr>
@@ -241,27 +240,12 @@ export function Leaderboard() {
                     {isYou && <span className="lb-you-tag">You</span>}
                   </td>
                   <td className="lb-td-status">
-                    {m.isAlive
-                      ? <span className="status-alive-solid">Alive</span>
-                      : <span className="status-out-solid">Eliminated</span>
-                    }
-                  </td>
-                  <td className="lb-td-progress">
                     {m.isAlive ? (
                       survived === 0
-                        ? <span className="lb-progress-pending">No results yet</span>
-                        : <span className="lb-progress-alive">
-                            {survived} {survived === 1 ? 'round' : 'rounds'} survived
-                          </span>
+                        ? <span className="status-alive-solid">Active</span>
+                        : <span className="status-alive-solid">Survived {survived} {survived === 1 ? 'round' : 'rounds'}</span>
                     ) : (
-                      <span className="lb-progress-out">
-                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
-                        {survived > 0 && (
-                          <span className="lb-progress-sub">
-                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'}
-                          </span>
-                        )}
-                      </span>
+                      <span className="status-out-solid">Eliminated {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || ''}</span>
                     )}
                   </td>
                   {currentRound && (

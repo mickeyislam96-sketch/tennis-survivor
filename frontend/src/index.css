@@ -2824,12 +2824,7 @@ input, select { font-family: var(--font); }
 .lb-th-status,
 .lb-td-status { text-align: center; }
 
-.lb-th-progress,
-.lb-td-progress { text-align: right; }
-
-.lb-progress-alive  { font-weight: 600; color: var(--accent-dark); }
-.lb-progress-out    { color: var(--text); font-weight: 600; }
-.lb-progress-sub    { font-weight: 400; color: var(--text-muted); font-size: 0.85rem; }
+/* Progress classes kept for pick history modal */
 .lb-progress-pending { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
 
 /* ── Bracket card (updated classes) ──────────────────────────── */
@@ -3415,10 +3410,11 @@ input, select { font-family: var(--font); }
   .bc-col-hdr,
   .bc-col-body { width: 140px; }
 
-  /* Leaderboard: make Pick column readable on mobile */
-  .lb-th-pick, .lb-td-pick { width: 6.5rem; font-size: 0.8rem; }
+  /* Leaderboard: 3-column layout — status pills can wrap on mobile */
+  .lb-th-pick, .lb-td-pick { font-size: 0.8rem; }
   .lb-pick-alive, .lb-pick-out { font-size: 0.78rem; }
   .lb-pick-hidden { font-size: 0.72rem; }
+  .status-alive-solid, .status-out-solid { font-size: 0.7rem; padding: 0.18rem 0.5rem; white-space: normal; text-align: center; line-height: 1.3; }
 
   /* Urgency banner: stack vertically on narrow screens */
   .pick-urgency-banner { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
@@ -3911,7 +3907,6 @@ input, select { font-family: var(--font); }
   background: var(--success);
   border-radius: 999px;
   padding: 0.22rem 0.65rem;
-  white-space: nowrap;
 }
 .status-out-solid {
   display: inline-block;
@@ -3921,7 +3916,6 @@ input, select { font-family: var(--font); }
   background: var(--danger);
   border-radius: 999px;
   padding: 0.22rem 0.65rem;
-  white-space: nowrap;
 }
 
 /* ── Pick screen: massive countdown ─────────────────────────── */
