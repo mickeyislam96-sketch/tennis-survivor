@@ -4,7 +4,7 @@
  * Idempotent — safe to run multiple times for the same round.
  */
 import { pool } from '../db/pool.js';
-import { getDraw, getDeadlines } from './tennisData.js';
+import { getLiveDraw, getDeadlines } from './tennisData.js';
 import { ROUNDS } from '../config/tournament.js';
 
 /**
@@ -15,7 +15,7 @@ import { ROUNDS } from '../config/tournament.js';
  */
 export async function processRoundResults(round) {
   console.log(`[results] Processing ${round}...`);
-  const draw = await getDraw(round);
+  const draw = await getLiveDraw(round);
   const completed = (draw.matches || []).filter(
     m => m.round === round && m.status === 'completed' && m.winnerId
   );
@@ -159,7 +159,7 @@ export async function eliminateNonPickers(round) {
 export async function autoProcessResults() {
   console.log('[results] Auto-processing...');
 
-  const draw      = await getDraw();
+  const draw      = await getLiveDraw();
   const deadlines = await getDeadlines();
   const summary   = [];
 

@@ -326,15 +326,30 @@ export function getRuntimeLockOverrides() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getDraw(roundFilter = null) {
+  // Frontend bracket: use mock draw for full structure (all rounds, byes,
+  // seeds). Pass null as currentRound so all matches show as 'scheduled'.
+  const mockDraw = getMockDraw(null);
+  return { ...mockDraw, dataSource: 'mock' };
+}
+
+/**
+ * Fetch live draw from API-Tennis for results processing.
+ * Returns real match statuses, winners, and scores.
+ * Used by resultsProcessor — NOT by the frontend bracket.
+ */
+export async function getLiveDraw(roundFilter = null) {
   let fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
     fixtures = await fetchSofascoreFixtures();
   }
-  // Use mock draw for full bracket structure. Pass null as currentRound
-  // so all matches show as 'scheduled' — no fake LIVE/completed statuses.
-  // Live results processing uses a separate code path (resultsProcessor).
-  const mockDraw = getMockDraw(null);
-  return { ...mockDraw, dataSource: 'mock' };
+  if (fixtures && fixtures.length > 0) {
+    const draw = buildDrawFromFixtures(fixtures);
+    if (draw.matches.length > 0) {
+      return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
+    }
+  }
+  // No live data — return empty so results processor knows not to grade anything
+  return { matches: [], rounds: ROUNDS, players: [], dataSource: 'no_live_data' };
 }
 
 /**

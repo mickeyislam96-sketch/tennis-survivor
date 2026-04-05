@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getDraw, getDeadlines } from '../services/tennisData.js';
+import { getDraw, getLiveDraw, getDeadlines } from '../services/tennisData.js';
 import { getRounds } from '../services/tennisData.js';
 import { MOCK_PICKS } from '../data/mockGroups.js';
 
@@ -107,7 +107,11 @@ function findPossibleOpponents(knownPlayerId, match, prevMatches) {
 }
 
 async function getAvailablePlayers(userId, groupId, currentRound) {
-  const draw = await getDraw(currentRound);
+  // Try live API data first (has real results/winners), fall back to mock
+  let draw = await getLiveDraw(currentRound);
+  if (!draw.matches || draw.matches.length === 0) {
+    draw = await getDraw(currentRound);
+  }
 
   // Build status sets from the previous round up-front.
   // "confirmed" = won their prev-round match OR have a bye into this round.

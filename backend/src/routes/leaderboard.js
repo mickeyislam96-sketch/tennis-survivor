@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
-import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
+import { getRounds, getDeadlines, getDraw, getLiveDraw } from '../services/tennisData.js';
 
 const ROUNDS = getRounds();
 
@@ -136,7 +136,8 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   // giving maximum grading coverage even when the live API is unavailable.
   let grade = () => null; // default: all pending
   try {
-    const draw = await getDraw('F');
+    let draw = await getLiveDraw('F');
+    if (!draw.matches || draw.matches.length === 0) draw = await getDraw('F');
     const completedMatches = (draw.matches || []).filter(m => m.status === 'completed').length;
     console.log(`[leaderboard] draw source: ${completedMatches > 0 ? 'has data' : 'empty'}, completed matches: ${completedMatches}`);
     grade = buildGrader(draw);
