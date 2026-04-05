@@ -374,6 +374,15 @@ export async function getDraw(roundFilter = null) {
         if (lm.startTime) mm.startTime = lm.startTime;
       }
 
+      // Clear misleading 'in_progress' from mock. The mock sets all
+      // current-round matches to in_progress based on the schedule, but
+      // unmatched matches (e.g. qualifier slots) keep that status and show
+      // a red dot on the draw page. Reset to 'scheduled' — only 'completed'
+      // (from live results) should be a definitive status.
+      for (const mm of mockDraw.matches) {
+        if (mm.status === 'in_progress') mm.status = 'scheduled';
+      }
+
       // Re-derive roundEliminated from overlaid results
       const eliminated = new Set();
       for (const round of ROUNDS) {
