@@ -10,7 +10,7 @@ import { getDeadlines } from './tennisData.js';
 import { TOURNAMENT } from '../config/tournament.js';
 import { sendPickReminderEmail } from '../utils/email.js';
 
-const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const REMINDER_WINDOW_MS = 14 * 60 * 60 * 1000; // 14 hours
 
 /**
  * Check all rounds and send pick reminders where needed.
