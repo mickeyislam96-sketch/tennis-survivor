@@ -259,6 +259,13 @@ export function PickScreen() {
   const showPrevPickPending =
     isOpen && prevRoundPick && prevRoundPick.survived === null && prevRoundIsLocked;
 
+  // ── Round overlap tip ───────────────────────────────────────────────────────
+  // When the current round's pick window is open and some available players
+  // still have unresolved previous-round matches, show a helpful hint telling
+  // the user there's no rush — they can wait for today's play to finish.
+  const hasPendingPlayers = available.some((p) => p.pendingPrevRound);
+  const showOverlapTip = isOpen && hasPendingPlayers && prevRound;
+
   if (!drawAvailable) {
     return (
       <div className="page pick-screen">
@@ -334,6 +341,21 @@ export function PickScreen() {
               Closes: {formatWindowTime(deadline)}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Round overlap tip — previous round still in progress */}
+      {showOverlapTip && (
+        <div className="overlap-tip">
+          <span className="overlap-tip-icon">💡</span>
+          <div className="overlap-tip-body">
+            <p className="overlap-tip-title">No rush — {prevRound} matches still in play</p>
+            <p className="overlap-tip-sub">
+              Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
+              You can wait until today's play finishes to see the full picture before picking.
+              Look for players whose opponent is already known — they're the safest bets right now.
+            </p>
+          </div>
         </div>
       )}
 

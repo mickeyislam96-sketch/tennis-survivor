@@ -3508,6 +3508,36 @@ input, select { font-family: var(--font); }
 .auth-prompt { display: flex; justify-content: center; padding: 2.5rem 1rem; }
 .auth-prompt-text { font-size: 1rem; color: var(--text-muted); text-align: center; }
 
+/* ── Round overlap tip — calm info banner when prev round still in play ──── */
+.overlap-tip {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.875rem 1rem;
+  margin: 0.75rem 0;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+}
+.overlap-tip-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+.overlap-tip-body { flex: 1; }
+.overlap-tip-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 0.25rem;
+}
+.overlap-tip-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* ── Masters 1000 overlap: pending previous round pick banner ─────────────── */
 .pending-prev-pick-banner {
   display: flex;
