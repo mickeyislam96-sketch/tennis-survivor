@@ -45,7 +45,7 @@ healthRouter.get('/', async (_req, res) => {
       `${API_BASE}/?method=get_fixtures` +
       `&APIkey=${apiKey}` +
       `&tournament_key=${tournamentKey}` +
-      `&tournament_season=${TOURNAMENT.apiSeason}` +
+      (TOURNAMENT.apiSeason ? `&tournament_season=${TOURNAMENT.apiSeason}` : '') +
       `&date_start=${TOURNAMENT.apiDateStart}` +
       `&date_stop=${TOURNAMENT.apiDateStart}`; // just first day
 

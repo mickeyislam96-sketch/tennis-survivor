@@ -59,7 +59,9 @@ export const MONTE_CARLO_2026 = {
   // Date range to query from API-Tennis (covers qualifying through final)
   apiDateStart: '2026-04-04',
   apiDateStop:  '2026-04-13',
-  apiSeason:    '2026',  // Confirmed: tournament_season=2026 returns MC fixtures (2025 returns empty)
+  // apiSeason omitted — API-Tennis returns empty when tournament_season is
+  // included for Monte Carlo. Omitting it returns correct fixtures.
+  apiSeason:    null,
 
   // Lock time overrides — 1h before first match of each round.
   // These take precedence over API-derived and fallback times.
