@@ -260,11 +260,20 @@ export function PickScreen() {
     isOpen && prevRoundPick && prevRoundPick.survived === null && prevRoundIsLocked;
 
   // ── Round overlap tip ───────────────────────────────────────────────────────
-  // When the current round's pick window is open and some available players
-  // still have unresolved previous-round matches, show a helpful hint telling
-  // the user there's no rush — they can wait for today's play to finish.
-  const hasPendingPlayers = available.some((p) => p.pendingPrevRound);
-  const showOverlapTip = isOpen && hasPendingPlayers && prevRound;
+  // Show only when a large portion (>30%) of the available pool is still
+  // waiting on previous-round results, AND the lock deadline is not today
+  // (UK time) — if it's closing today the user needs to act, not wait.
+  const pendingCount = available.filter((p) => p.pendingPrevRound).length;
+  const pendingRatio = available.length > 0 ? pendingCount / available.length : 0;
+  const lockIsToday = (() => {
+    if (!deadline) return false;
+    const now = new Date();
+    const lock = new Date(deadline);
+    // Compare dates in Europe/London timezone
+    const fmt = (d) => d.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
+    return fmt(now) === fmt(lock);
+  })();
+  const showOverlapTip = isOpen && prevRound && pendingRatio > 0.3 && !lockIsToday;
 
   if (!drawAvailable) {
     return (
