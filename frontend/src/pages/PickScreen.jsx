@@ -361,7 +361,7 @@ export function PickScreen() {
             <p className="overlap-tip-title">No rush — {prevRound} matches still in play</p>
             <p className="overlap-tip-sub">
               Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
-              You can wait until today's play finishes to see the full picture before picking.
+              You can wait until today's play finishes for a clearer picture before picking.
               Look for players whose opponent is already known — they're the safest bets right now.
             </p>
           </div>
