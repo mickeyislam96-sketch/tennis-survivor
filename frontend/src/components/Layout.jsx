@@ -119,10 +119,25 @@ function AuthModal({ onClose, initialMode = 'login' }) {
 
   const switchMode = (m) => { setMode(m); setError(''); setSuccess(''); setPassword(''); };
 
+  const isValidEmail = (addr) => {
+    if (!addr || /\s/.test(addr.trim())) return false;
+    const parts = addr.trim().split('@');
+    if (parts.length !== 2 || !parts[0]) return false;
+    const domain = parts[1];
+    if (!domain || !domain.includes('.')) return false;
+    if (domain.startsWith('.') || domain.endsWith('.')) return false;
+    return !domain.split('.').some(l => l.length === 0);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address (e.g. name@gmail.com).');
+      return;
+    }
 
     if (mode === 'register' && password.length < 8) {
       setError('Password must be at least 8 characters.');
