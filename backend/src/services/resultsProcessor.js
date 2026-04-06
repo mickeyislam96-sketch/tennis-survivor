@@ -5,7 +5,7 @@
  */
 import { pool } from '../db/pool.js';
 import { getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
-import { ROUNDS } from '../config/tournament.js';
+import { ROUNDS, TOURNAMENT } from '../config/tournament.js';
 import { sendRoundResultEmail } from '../utils/email.js';
 
 // Build reverse maps dynamically (includes auto-discovered keys)
@@ -252,10 +252,12 @@ async function sendResultEmails(round) {
               u.email, u.display_name
          FROM picks p
          JOIN users u ON u.id = p.user_id
+         JOIN groups g ON g.id = p.group_id
         WHERE p.round = $1
           AND p.survived IS NOT NULL
-          AND u.email IS NOT NULL`,
-      [round]
+          AND u.email IS NOT NULL
+          AND g.tournament_id = $2`,
+      [round, TOURNAMENT.id]
     );
 
     let queued = 0;
