@@ -142,13 +142,15 @@ schemaReady.then(async () => {
       console.log(`[migration] Normalised ${nameFixCount} player names to canonical form`);
     }
 
-    // Migration 4: Clear incorrectly queued pending emails.
+    // Migration 4: One-time clear of incorrectly queued pending emails (6 Apr 2026).
     // sendResultEmails() was not filtering by tournament, so emails were
     // queued for both Miami (practice, finished) and Monte Carlo (active).
-    // Delete all pending emails so they can be re-queued correctly by the
-    // now-fixed cron (which filters by active tournament).
+    // Only deletes emails created before this fix was deployed.
     const emailCleanup = await pool.query(
-      `DELETE FROM emails_sent WHERE status = 'pending' RETURNING id`
+      `DELETE FROM emails_sent
+        WHERE status = 'pending'
+          AND created_at < '2026-04-06T09:00:00Z'
+        RETURNING id`
     );
     if (emailCleanup.rowCount > 0) {
       console.log(`[migration] Cleared ${emailCleanup.rowCount} incorrectly queued pending emails`);
