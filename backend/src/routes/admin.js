@@ -298,6 +298,48 @@ adminRouter.get('/api-diag', async (req, res) => {
   res.json({ ok: true, ...results });
 });
 
+// ── GET /api/admin/user/:userId ──────────────────────────────────────────────
+// Look up a user's details (for debugging / email fixes).
+adminRouter.get('/user/:userId', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  try {
+    const result = await pool.query(
+      'SELECT id::text, email, display_name, created_at FROM users WHERE id = $1::uuid',
+      [req.params.userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true, user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── POST /api/admin/fix-email ────────────────────────────────────────────────
+// Correct a user's email address.
+// Body: { secret, userId, newEmail }
+adminRouter.post('/fix-email', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { userId, newEmail } = req.body;
+  if (!userId || !newEmail) {
+    return res.status(400).json({ error: 'userId and newEmail are required' });
+  }
+  try {
+    const current = await pool.query(
+      'SELECT id::text, email, display_name FROM users WHERE id = $1::uuid',
+      [userId]
+    );
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const oldEmail = current.rows[0].email;
+    await pool.query('UPDATE users SET email = $1 WHERE id = $2::uuid', [newEmail, userId]);
+    console.log(`[admin] fix-email: ${current.rows[0].display_name} email changed from ${oldEmail} to ${newEmail}`);
+    res.json({ ok: true, userId, oldEmail, newEmail, displayName: current.rows[0].display_name });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
