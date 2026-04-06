@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect, forwardRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
@@ -79,26 +79,73 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
   return ordered;
 }
 
-// ─── SVG bracket connectors ───────────────────────────────────────────────────
-function ConnectorSVG({ fromCount, totalHeight }) {
-  const h       = totalHeight || 2048;
-  const toCount = fromCount / 2;
-  const lines   = [];
-  function cy(idx, total) { return ((2 * idx + 1) * h) / (2 * total); }
-  for (let k = 0; k < toCount; k++) {
-    const topY = cy(k * 2,     fromCount);
-    const botY = cy(k * 2 + 1, fromCount);
-    const midY = cy(k,          toCount);
-    lines.push(
-      <line key={`ht${k}`} x1="0"  y1={topY} x2="16" y2={topY} />,
-      <line key={`hb${k}`} x1="0"  y1={botY} x2="16" y2={botY} />,
-      <line key={`v${k}`}  x1="16" y1={topY} x2="16" y2={botY} />,
-      <line key={`hm${k}`} x1="16" y1={midY} x2="32" y2={midY} />,
-    );
-  }
+// ─── SVG bracket connectors (DOM-measured) ────────────────────────────────────
+// Reads actual slot positions from the adjacent BracketCol DOM nodes so that
+// connector lines always align with card centres, even when completed cards
+// (which include a score row) are taller than pending ones.
+
+function DomConnector({ leftColRef, rightColRef, totalHeight }) {
+  const svgRef = useRef(null);
+  const [lines, setLines] = useState([]);
+
+  useLayoutEffect(() => {
+    function measure() {
+      const svg = svgRef.current;
+      const leftBody  = leftColRef?.current?.querySelector('.bc-col-body');
+      const rightBody = rightColRef?.current?.querySelector('.bc-col-body');
+      if (!svg || !leftBody || !rightBody) return;
+
+      const svgRect   = svg.getBoundingClientRect();
+      const leftSlots  = [...leftBody.querySelectorAll(':scope > .bc-slot')];
+      const rightSlots = [...rightBody.querySelectorAll(':scope > .bc-slot')];
+
+      // Centre Y of each slot relative to the SVG's top edge
+      const leftCentres  = leftSlots.map(el => {
+        const r = el.getBoundingClientRect();
+        return r.top + r.height / 2 - svgRect.top;
+      });
+      const rightCentres = rightSlots.map(el => {
+        const r = el.getBoundingClientRect();
+        return r.top + r.height / 2 - svgRect.top;
+      });
+
+      const newLines = [];
+      // Each right-column match is fed by a pair of left-column matches
+      for (let k = 0; k < rightCentres.length; k++) {
+        const topIdx = k * 2;
+        const botIdx = k * 2 + 1;
+        const topY = leftCentres[topIdx]  ?? 0;
+        const botY = leftCentres[botIdx]  ?? topY;
+        const midY = rightCentres[k]      ?? (topY + botY) / 2;
+
+        newLines.push(
+          { key: `ht${k}`, x1: 0,  y1: topY, x2: 16, y2: topY },
+          { key: `hb${k}`, x1: 0,  y1: botY, x2: 16, y2: botY },
+          { key: `v${k}`,  x1: 16, y1: topY, x2: 16, y2: botY },
+          { key: `hm${k}`, x1: 16, y1: midY, x2: 32, y2: midY },
+        );
+      }
+      setLines(newLines);
+    }
+
+    // Measure after paint
+    measure();
+
+    // Re-measure if card sizes change (e.g. results loading in)
+    const leftBody  = leftColRef?.current?.querySelector('.bc-col-body');
+    const rightBody = rightColRef?.current?.querySelector('.bc-col-body');
+    const observer = new ResizeObserver(measure);
+    if (leftBody)  observer.observe(leftBody);
+    if (rightBody) observer.observe(rightBody);
+    return () => observer.disconnect();
+  }, [leftColRef, rightColRef]);
+
+  const h = totalHeight || 2048;
   return (
-    <svg width="32" height={h} className="bc-connector" aria-hidden="true">
-      <g stroke="#d1d5db" strokeWidth="1.5" fill="none">{lines}</g>
+    <svg ref={svgRef} width="32" height={h} className="bc-connector" aria-hidden="true">
+      <g stroke="#d1d5db" strokeWidth="1.5" fill="none">
+        {lines.map(l => <line key={l.key} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
+      </g>
     </svg>
   );
 }
@@ -172,11 +219,11 @@ function BracketCard({ match, onMatchClick }) {
   );
 }
 
-function BracketCol({ round, matches, totalHeight, matchCount, onMatchClick }) {
+const BracketCol = forwardRef(function BracketCol({ round, matches, totalHeight, matchCount, onMatchClick }, ref) {
   const count  = matchCount || MATCH_COUNTS_FALLBACK[round] || 1;
   const padded = Array.from({ length: count }, (_, i) => matches[i] || null);
   return (
-    <div className="bc-col">
+    <div className="bc-col" ref={ref}>
       <div className="bc-col-hdr">{ROUND_FULL[round] || round}</div>
       <div className="bc-col-body" style={{ height: totalHeight }}>
         {padded.map((m, i) => (
@@ -187,7 +234,7 @@ function BracketCol({ round, matches, totalHeight, matchCount, onMatchClick }) {
       </div>
     </div>
   );
-}
+});
 
 // ─── List-view match card ─────────────────────────────────────────────────────
 function ListCard({ match, onMatchClick }) {
@@ -343,16 +390,30 @@ export function DrawViewer() {
     orderedBracket[round].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
   });
 
+  // Refs for each bracket column — connectors read these to measure slot positions
+  const colRefs = useRef({});
+  function getColRef(round) {
+    if (!colRefs.current[round]) colRefs.current[round] = { current: null };
+    return colRefs.current[round];
+  }
+
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
     if (i > 0) {
+      const prevRound = bracketRounds[i - 1];
       bracketEls.push(
-        <ConnectorSVG key={`conn-${round}`} fromCount={matchCounts[bracketRounds[i - 1]] || 2} totalHeight={BRACKET_H_DYN} />
+        <DomConnector
+          key={`conn-${round}`}
+          leftColRef={getColRef(prevRound)}
+          rightColRef={getColRef(round)}
+          totalHeight={BRACKET_H_DYN}
+        />
       );
     }
     bracketEls.push(
       <BracketCol
         key={round}
+        ref={getColRef(round)}
         round={round}
         matches={orderedBracket[round] || []}
         totalHeight={BRACKET_H_DYN}
