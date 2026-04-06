@@ -382,10 +382,10 @@ export function DrawViewer() {
   });
 
   // Bracket shows all rounds. Fixed height based on the first round (most matches).
-  // 64px per slot gives enough room for the match cards without excessive scrolling.
+  // 80px per slot — completed cards with score rows are ~74px tall; 80px avoids clipping.
   const firstRound    = rounds[0];
   const firstCount    = matchCounts[firstRound] || 1;
-  const BRACKET_H_DYN = Math.max(firstCount * 64, 512);
+  const BRACKET_H_DYN = Math.max(firstCount * 80, 512);
 
   // All rounds with data form the bracket
   const bracketRounds  = rounds.filter(r => (matchesByRound[r] || []).length > 0);

@@ -2237,7 +2237,6 @@ input, select { font-family: var(--font); }
 .bc-col-body {
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
   width: 164px;
   height: 1280px;
 }
@@ -2247,6 +2246,9 @@ input, select { font-family: var(--font); }
   align-items: center;
   justify-content: center;
   padding: 2px 6px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Bracket match card */
