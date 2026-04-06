@@ -229,6 +229,75 @@ adminRouter.post('/fix-r1-picks', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/api-diag ──────────────────────────────────────────────────
+// Diagnostic: test API-Tennis connectivity, look up correct tournament key,
+// and try fetching Monte Carlo fixtures.
+adminRouter.get('/api-diag', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const apiKey = process.env.TENNIS_API_KEY;
+  const configuredKey = TOURNAMENT.apiTournamentKey;
+  const results = { apiKey: apiKey ? 'present' : 'MISSING', configuredTournamentKey: configuredKey };
+
+  if (!apiKey) return res.json({ ok: false, ...results, error: 'No TENNIS_API_KEY set' });
+
+  const API_BASE = 'https://api.api-tennis.com/tennis';
+
+  // 1. Test API key by calling get_tournaments (lightweight)
+  try {
+    const tourRes = await fetch(
+      `${API_BASE}/?method=get_tournaments&APIkey=${apiKey}`
+    );
+    const tourData = await tourRes.json();
+    if (!tourData?.success) {
+      results.keyTest = { status: 'FAIL', response: JSON.stringify(tourData).slice(0, 500) };
+    } else if (!Array.isArray(tourData.result)) {
+      results.keyTest = { status: 'FAIL', message: 'success=1 but no result array — key may be expired', raw: JSON.stringify(tourData).slice(0, 500) };
+    } else {
+      results.keyTest = { status: 'ok', tournamentCount: tourData.result.length };
+      // 2. Search for Monte Carlo in the tournament list
+      const mc = tourData.result.filter(t =>
+        (t.tournament_name || '').toLowerCase().includes('monte carlo') ||
+        (t.tournament_name || '').toLowerCase().includes('monte-carlo')
+      );
+      results.monteCarloMatches = mc.map(t => ({
+        key: t.tournament_key,
+        name: t.tournament_name,
+        eventType: t.event_type_key || t.event_type,
+      }));
+    }
+  } catch (err) {
+    results.keyTest = { status: 'ERROR', message: err.message };
+  }
+
+  // 3. Test the configured tournament key with current date range
+  try {
+    const url =
+      `${API_BASE}/?method=get_fixtures` +
+      `&APIkey=${apiKey}` +
+      `&tournament_key=${configuredKey}` +
+      `&tournament_season=${TOURNAMENT.apiSeason}` +
+      `&date_start=${TOURNAMENT.apiDateStart}` +
+      `&date_stop=${TOURNAMENT.apiDateStop}`;
+    const fixRes = await fetch(url);
+    const fixData = await fixRes.json();
+    results.fixtureTest = {
+      url: url.replace(apiKey, 'REDACTED'),
+      success: fixData?.success,
+      hasResult: Array.isArray(fixData?.result),
+      fixtureCount: Array.isArray(fixData?.result) ? fixData.result.length : 0,
+      raw: JSON.stringify(fixData).slice(0, 500),
+    };
+    // Show first fixture for debugging
+    if (Array.isArray(fixData?.result) && fixData.result.length > 0) {
+      results.sampleFixture = fixData.result[0];
+    }
+  } catch (err) {
+    results.fixtureTest = { status: 'ERROR', message: err.message };
+  }
+
+  res.json({ ok: true, ...results });
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
