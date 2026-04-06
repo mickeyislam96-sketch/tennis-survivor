@@ -297,6 +297,14 @@ export function DrawViewer() {
     setSelectedMatch(null);
   }, []);
 
+  // Refs for each bracket column — connectors read these to measure slot positions.
+  // Must be declared here (before early returns) to satisfy React's rules of hooks.
+  const colRefs = useRef({});
+  function getColRef(round) {
+    if (!colRefs.current[round]) colRefs.current[round] = { current: null };
+    return colRefs.current[round];
+  }
+
   useEffect(() => {
     if (!groupId) return;
 
@@ -389,13 +397,6 @@ export function DrawViewer() {
   bracketRounds.forEach(round => {
     orderedBracket[round].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
   });
-
-  // Refs for each bracket column — connectors read these to measure slot positions
-  const colRefs = useRef({});
-  function getColRef(round) {
-    if (!colRefs.current[round]) colRefs.current[round] = { current: null };
-    return colRefs.current[round];
-  }
 
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
