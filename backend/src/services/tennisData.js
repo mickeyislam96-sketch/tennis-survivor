@@ -570,7 +570,12 @@ export async function getDraw(roundFilter = null) {
         }
       }
 
-      // Re-derive roundEliminated from overlaid results
+      // Re-derive roundEliminated from overlaid results.
+      // IMPORTANT: clear ALL roundEliminated first — the mock's Step 3 marks
+      // player2 of every R1 match as eliminated (player1 always wins in mock).
+      // After the live overlay corrects winners, some of those player2 entries
+      // are actually winners. Without clearing first, they stay eliminated.
+      for (const p of mockDraw.players) { p.roundEliminated = null; }
       const eliminated = new Set();
       for (const round of ROUNDS) {
         for (const m of mockDraw.matches.filter(x => x.round === round)) {
