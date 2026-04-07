@@ -510,26 +510,6 @@ export async function getDraw(roundFilter = null) {
         if (lm.startTime) mm.startTime = lm.startTime;
       }
 
-      // ── Manual result overrides ───────────────────────────────────────
-      // For matches that API-Tennis doesn't index (e.g. qualifier fixtures).
-      // Defined in tournament config as { winnerId, winnerName, loserId, round }.
-      if (TOURNAMENT.manualResults) {
-        for (const ovr of TOURNAMENT.manualResults) {
-          const mm = mockDraw.matches.find(
-            m => m.round === ovr.round && !m.bye &&
-              ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
-               (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
-          );
-          if (mm) {
-            mm.status = 'completed';
-            mm.winnerId = ovr.winnerId;
-            mm.winnerName = ovr.winnerName;
-            overlaidMatchIds.add(mm.id);
-            console.log(`[tennisData] Manual override applied: ${ovr.winnerName} beats ${ovr.loserId} in ${ovr.round}`);
-          }
-        }
-      }
-
       // Clear misleading statuses from mock. The mock marks past-round
       // matches as 'completed' (player1 always wins) and current-round
       // matches as 'in_progress'. For any match NOT confirmed by live API
@@ -598,6 +578,30 @@ export async function getDraw(roundFilter = null) {
             const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
               .some(p => p.id === nm.player2Id);
             if (!isSeed) { nm.player2Name = null; nm.player2ApiKey = null; }
+          }
+        }
+      }
+
+      // ── Manual result overrides ───────────────────────────────────────
+      // For matches that API-Tennis doesn't index (e.g. qualifier fixtures).
+      // IMPORTANT: runs AFTER propagation so R32+ matches have correct player IDs
+      // (propagation fills winner from previous round into next-round slots).
+      // Defined in tournament config as { winnerId, winnerName, loserId, round }.
+      if (TOURNAMENT.manualResults) {
+        for (const ovr of TOURNAMENT.manualResults) {
+          const mm = mockDraw.matches.find(
+            m => m.round === ovr.round && !m.bye &&
+              ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
+               (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
+          );
+          if (mm) {
+            mm.status = 'completed';
+            mm.winnerId = ovr.winnerId;
+            mm.winnerName = ovr.winnerName;
+            overlaidMatchIds.add(mm.id);
+            console.log(`[tennisData] Manual override applied: ${ovr.winnerName} beats ${ovr.loserId} in ${ovr.round}`);
+          } else {
+            console.warn(`[tennisData] Manual override NOT matched: ${ovr.winnerName} (${ovr.winnerId}) vs ${ovr.loserId} in ${ovr.round}`);
           }
         }
       }
