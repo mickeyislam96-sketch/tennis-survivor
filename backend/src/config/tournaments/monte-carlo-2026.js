@@ -71,6 +71,9 @@ export const MONTE_CARLO_2026 = {
     // RBA (mc-q4) has no API key; API-Tennis never indexed this fixture.
     // Berrettini beat Bautista Agut in R1 (confirmed 7 Apr).
     { winnerId: 'mc-p34', winnerName: 'Matteo Berrettini', loserId: 'mc-q4', round: 'R1' },
+    // Dzumhur (mc-p23) replaced Mensik as LL; API-Tennis never indexed this fixture.
+    // Marozsan beat Dzumhur 6-2 6-1 in R1 (confirmed 7 Apr).
+    { winnerId: 'mc-p24', winnerName: 'Fabian Marozsan', loserId: 'mc-p23', round: 'R1' },
   ],
 
   // Lock time overrides — 1h before first match of each round.
