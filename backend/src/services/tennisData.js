@@ -606,6 +606,64 @@ export async function getDraw(roundFilter = null) {
         }
       }
 
+      // ── Second propagation pass ──────────────────────────────────────
+      // Manual results above may have completed matches (e.g. R1 or R32).
+      // Re-run propagation so those winners flow into the next round slots
+      // (e.g. R32 manual winner -> R16 player slot).
+      // Second propagation pass (post-manual-results) into next-round bracket slots.
+      // The mock draw's Step 2 clears future-round names to TBD. Use the
+      // standard binary bracket pairing: every 2 consecutive matches in
+      // round N feed 1 match in round N+1 (slot i gets matches 2i and 2i+1).
+      for (let ri = 0; ri < ROUNDS.length - 1; ri++) {
+        const thisRound = ROUNDS[ri];
+        const nextRound = ROUNDS[ri + 1];
+        // Get matches sorted by matchOrder (includes byes for R1)
+        const thisMatches = mockDraw.matches
+          .filter(m => m.round === thisRound)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+        const nextMatches = mockDraw.matches
+          .filter(m => m.round === nextRound && !m.bye)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+
+        for (let i = 0; i < nextMatches.length; i++) {
+          const nm = nextMatches[i];
+          const feeder1 = thisMatches[i * 2];
+          const feeder2 = thisMatches[i * 2 + 1];
+          // Fill player1 slot from feeder1's winner.
+          // Always overwrite when feeder has a winner — the mock pre-fills
+          // slots with assumed winners (player1 always wins) which may be
+          // wrong after live overlay or manual overrides correct the result.
+          // If feeder has NO winner (match not played), clear the slot to TBD
+          // so the bracket doesn't show a fake progression.
+          // The pick pool (getAvailablePlayers) does NOT depend on bracket slots —
+          // for R32+ it shows all non-eliminated players regardless of slot data.
+          if (feeder1?.winnerId) {
+            nm.player1Id = feeder1.winnerId;
+            nm.player1Name = feeder1.winnerName;
+            const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
+            nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
+          } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
+            // Feeder match not resolved — clear name for bracket display (shows TBD)
+            // but KEEP the player ID so the pick pool can still find this player
+            // via pendingFromPrevRound / eligibleMockIds.
+            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
+              .some(p => p.id === nm.player1Id);
+            if (!isSeed) { nm.player1Name = null; nm.player1ApiKey = null; }
+          }
+          // Fill player2 slot from feeder2's winner
+          if (feeder2?.winnerId) {
+            nm.player2Id = feeder2.winnerId;
+            nm.player2Name = feeder2.winnerName;
+            const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
+            nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
+          } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
+            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
+              .some(p => p.id === nm.player2Id);
+            if (!isSeed) { nm.player2Name = null; nm.player2ApiKey = null; }
+          }
+        }
+      }
+
       // Re-derive roundEliminated from overlaid results.
       // IMPORTANT: clear ALL roundEliminated first — the mock's Step 3 marks
       // player2 of every R1 match as eliminated (player1 always wins in mock).
