@@ -4,11 +4,9 @@
  * Falls back to Monte Carlo mock (the current active tournament).
  */
 import { TOURNAMENT } from '../config/tournament.js';
-import { getMiamiMockDraw } from './miamiDraw.js';
 import { getMonteCarlMockDraw } from './monteCarloMockDraw.js';
 
 const MOCK_REGISTRY = {
-  'miami-2026':       getMiamiMockDraw,
   'monte-carlo-2026': getMonteCarlMockDraw,
 };
 
