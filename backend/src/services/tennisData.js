@@ -581,10 +581,12 @@ export async function getDraw(roundFilter = null) {
             const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
             nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
           } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
-            // Feeder match not resolved — clear pre-filled slot to TBD
+            // Feeder match not resolved — clear name for bracket display (shows TBD)
+            // but KEEP the player ID so the pick pool can still find this player
+            // via pendingFromPrevRound / eligibleMockIds.
             const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
               .some(p => p.id === nm.player1Id);
-            if (!isSeed) { nm.player1Id = null; nm.player1Name = null; nm.player1ApiKey = null; }
+            if (!isSeed) { nm.player1Name = null; nm.player1ApiKey = null; }
           }
           // Fill player2 slot from feeder2's winner
           if (feeder2?.winnerId) {
@@ -595,7 +597,7 @@ export async function getDraw(roundFilter = null) {
           } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
             const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
               .some(p => p.id === nm.player2Id);
-            if (!isSeed) { nm.player2Id = null; nm.player2Name = null; nm.player2ApiKey = null; }
+            if (!isSeed) { nm.player2Name = null; nm.player2ApiKey = null; }
           }
         }
       }
