@@ -499,8 +499,12 @@ export async function getDraw(roundFilter = null) {
           mm.status = 'completed';
           mm.winnerId = winnerIsMockP1 ? mm.player1Id : mm.player2Id;
           mm.winnerName = winnerIsMockP1 ? mm.player1Name : mm.player2Name;
-        } else if (lm.status && lm.status !== 'scheduled') {
-          mm.status = lm.status;
+        } else {
+          // Live fixture found but no winner — match not yet resolved.
+          // Reset any fake 'completed' status from the mock.
+          mm.status = lm.status || 'scheduled';
+          mm.winnerId = null;
+          mm.winnerName = null;
         }
         if (lm.score) mm.score = lm.score;
         if (lm.startTime) mm.startTime = lm.startTime;
