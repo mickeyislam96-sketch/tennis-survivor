@@ -63,6 +63,16 @@ export const MONTE_CARLO_2026 = {
   // included for Monte Carlo. Omitting it returns correct fixtures.
   apiSeason:    null,
 
+  // Manual result overrides — for matches where API-Tennis has no fixture
+  // (e.g. qualifiers/LLs missing from their index). Each entry maps a mock
+  // player ID (the WINNER) to the mock player ID of the loser.
+  // Format: { winnerId, winnerName, loserId, round }
+  manualResults: [
+    // RBA (mc-q4) has no API key; API-Tennis never indexed this fixture.
+    // Berrettini beat Bautista Agut in R1 (confirmed 7 Apr).
+    { winnerId: 'mc-p34', winnerName: 'Matteo Berrettini', loserId: 'mc-q4', round: 'R1' },
+  ],
+
   // Lock time overrides — 1h before first match of each round.
   // These take precedence over API-derived and fallback times.
   // Play typically starts 10:00 BST / 11:00 CEST (09:00 UTC).

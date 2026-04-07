@@ -503,6 +503,25 @@ export async function getDraw(roundFilter = null) {
         if (lm.startTime) mm.startTime = lm.startTime;
       }
 
+      // ── Manual result overrides ───────────────────────────────────────
+      // For matches that API-Tennis doesn't index (e.g. qualifier fixtures).
+      // Defined in tournament config as { winnerId, winnerName, loserId, round }.
+      if (TOURNAMENT.manualResults) {
+        for (const ovr of TOURNAMENT.manualResults) {
+          const mm = mockDraw.matches.find(
+            m => m.round === ovr.round && !m.bye &&
+              ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
+               (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
+          );
+          if (mm) {
+            mm.status = 'completed';
+            mm.winnerId = ovr.winnerId;
+            mm.winnerName = ovr.winnerName;
+            console.log(`[tennisData] Manual override applied: ${ovr.winnerName} beats ${ovr.loserId} in ${ovr.round}`);
+          }
+        }
+      }
+
       // Clear misleading 'in_progress' from mock. The mock sets all
       // current-round matches to in_progress based on the schedule, but
       // unmatched matches (e.g. qualifier slots) keep that status and show
