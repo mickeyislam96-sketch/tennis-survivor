@@ -5,22 +5,6 @@
  */
 export const TOURNAMENTS = [
   {
-    id: 'miami-2026',
-    name: 'Miami Open',
-    shortName: 'Miami',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-03-19',
-    endDate: '2026-03-30',
-    location: 'Miami, FL, USA',
-    surface: 'Hard (outdoor)',
-    status: 'completed',
-    drawDate: 'March 16, 2026',
-    drawAvailable: true,
-    pickWindowOpen: null,
-    pickWindowClose: null,
-  },
-  {
     id: 'monte-carlo-2026',
     name: 'Rolex Monte-Carlo Masters',
     shortName: 'Monte Carlo',
