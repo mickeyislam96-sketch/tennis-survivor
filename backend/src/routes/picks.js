@@ -187,46 +187,37 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     }
   }
 
-  // Build the set of mock player IDs eligible for the current round.
-  // This prevents seeds appearing in R1 pool, R1 players in R16 pool, etc.
-  const eligibleMockIds = new Set();
-
-  // Players in mock matches for the current round (non-bye)
-  const mockRoundMatches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
-  for (const m of mockRoundMatches) {
-    if (m.player1Id) eligibleMockIds.add(m.player1Id);
-    if (m.player2Id) eligibleMockIds.add(m.player2Id);
-  }
-
-  // Players confirmed/pending from previous round also eligible
-  for (const id of confirmedFromPrevRound) eligibleMockIds.add(id);
-  for (const id of pendingFromPrevRound) eligibleMockIds.add(id);
-
-  // Players in live API matches for current round (translate API IDs to mock IDs)
-  const liveRoundMatches = (liveDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
-  for (const m of liveRoundMatches) {
-    if (m.player1Id) {
-      const mockId = apiToMock.get(String(m.player1Id));
-      if (mockId) eligibleMockIds.add(mockId);
-    }
-    if (m.player2Id) {
-      const mockId = apiToMock.get(String(m.player2Id));
-      if (mockId) eligibleMockIds.add(mockId);
+  // Simplified eligibility: for R1, only players in R1 matches (seeds have
+  // byes and shouldn't be pickable in R1). For R32+, ALL non-eliminated
+  // non-qualifier players are eligible — no dependency on bracket slot data.
+  // This avoids the fragile coupling between bracket propagation and pick pool.
+  let r1PlayerIds = null;
+  if (currentRound === ROUNDS[0]) {
+    // First round: restrict to players actually playing this round
+    r1PlayerIds = new Set();
+    const r1Matches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
+    for (const m of r1Matches) {
+      if (m.player1Id) r1PlayerIds.add(m.player1Id);
+      if (m.player2Id) r1PlayerIds.add(m.player2Id);
     }
   }
 
   // Build opponent info from current round matches (prefer live, fall back to mock)
+  const mockRoundMatches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
+  const liveRoundMatches = (liveDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
   const allMatches = [...(liveDraw.matches || []), ...(mockDraw.matches || [])];
   const opponentMap = liveRoundMatches.length > 0
     ? buildOpponentMap(liveRoundMatches, allMatches, ROUNDS, currentRound)
     : buildOpponentMap(mockRoundMatches, allMatches, ROUNDS, currentRound);
 
-  // Build the pick pool from mock draw's player list, filtered to eligible players.
+  // Build the pick pool from mock draw's full player list.
+  // R1: filtered to R1 match participants only (excludes seeds with byes).
+  // R32+: all non-eliminated players (simple and robust).
   const mockPlayers = mockDraw.players || [];
   const playerPool = [];
   for (const p of mockPlayers) {
     if (isQualifierPlaceholder(p)) continue;
-    if (!eligibleMockIds.has(p.id)) continue;
+    if (r1PlayerIds && !r1PlayerIds.has(p.id)) continue; // R1 restriction
     if (eliminatedFromPrevRound.has(p.id)) continue;
     if (p.roundEliminated) continue;
 

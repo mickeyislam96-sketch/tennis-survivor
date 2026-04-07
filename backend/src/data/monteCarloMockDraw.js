@@ -44,7 +44,7 @@ const API_KEY_MAP = {
   'mc-p20': '427',   // Griekspoor
   'mc-p21': '1852',  // Vacherot
   'mc-p22': null,     // J.M. Cerundolo (replacing Majchrzak — key TBD)
-  'mc-p23': '902',   // Mensik
+  'mc-p23': null,     // Dzumhur (LL, replacing Mensik — key TBD)
   'mc-p24': '10148', // Marozsan
   'mc-p25': '2841',  // Hurkacz
   'mc-p26': '8781',  // Darderi
@@ -124,8 +124,8 @@ const MC_PLAYERS = [
   { id: 'mc-p21',  name: 'Valentin Vacherot',           country: 'MON' },
   { id: 'mc-p22',  name: 'Juan Manuel Cerundolo',       country: 'ARG' },
 
-  // Match M7: Mensik vs Marozsan
-  { id: 'mc-p23',  name: 'Jakub Mensik',                country: 'CZE' },
+  // Match M7: Dzumhur vs Marozsan (Dzumhur replaces withdrawn Mensik)
+  { id: 'mc-p23',  name: 'Damir Dzumhur',               country: 'BIH' },
   { id: 'mc-p24',  name: 'Fabian Marozsan',             country: 'HUN' },
 
   // Match M8: Hurkacz vs Darderi [15]

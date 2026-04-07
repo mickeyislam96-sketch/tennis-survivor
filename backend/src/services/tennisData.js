@@ -573,8 +573,8 @@ export async function getDraw(roundFilter = null) {
           // wrong after live overlay or manual overrides correct the result.
           // If feeder has NO winner (match not played), clear the slot to TBD
           // so the bracket doesn't show a fake progression.
-          // The pick pool (getAvailablePlayers) does NOT depend on these slots —
-          // it uses confirmedFromPrevRound / pendingFromPrevRound instead.
+          // The pick pool (getAvailablePlayers) does NOT depend on bracket slots —
+          // for R32+ it shows all non-eliminated players regardless of slot data.
           if (feeder1?.winnerId) {
             nm.player1Id = feeder1.winnerId;
             nm.player1Name = feeder1.winnerName;
