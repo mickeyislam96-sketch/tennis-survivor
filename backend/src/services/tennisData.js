@@ -552,11 +552,9 @@ export async function getDraw(roundFilter = null) {
       // The mock draw's Step 2 clears future-round names to TBD. Use the
       // standard binary bracket pairing: every 2 consecutive matches in
       // round N feed 1 match in round N+1 (slot i gets matches 2i and 2i+1).
-      const scheduleRoundIdx = ROUNDS.indexOf(scheduleRound);
       for (let ri = 0; ri < ROUNDS.length - 1; ri++) {
         const thisRound = ROUNDS[ri];
         const nextRound = ROUNDS[ri + 1];
-        const nextRoundIdx = ri + 1;
         // Get matches sorted by matchOrder (includes byes for R1)
         const thisMatches = mockDraw.matches
           .filter(m => m.round === thisRound)
@@ -564,11 +562,6 @@ export async function getDraw(roundFilter = null) {
         const nextMatches = mockDraw.matches
           .filter(m => m.round === nextRound && !m.bye)
           .sort((a, b) => a.matchOrder - b.matchOrder);
-
-        // Only clear slots to TBD for rounds AFTER the current schedule round.
-        // For the current round and past rounds, keep mock pre-filled players —
-        // those matches are live/completed and the pick pool relies on them.
-        const canClearSlots = nextRoundIdx > scheduleRoundIdx;
 
         for (let i = 0; i < nextMatches.length; i++) {
           const nm = nextMatches[i];
@@ -579,14 +572,16 @@ export async function getDraw(roundFilter = null) {
           // slots with assumed winners (player1 always wins) which may be
           // wrong after live overlay or manual overrides correct the result.
           // If feeder has NO winner (match not played), clear the slot to TBD
-          // so the bracket doesn't show a fake opponent — but only for future rounds.
+          // so the bracket doesn't show a fake progression.
+          // The pick pool (getAvailablePlayers) does NOT depend on these slots —
+          // it uses confirmedFromPrevRound / pendingFromPrevRound instead.
           if (feeder1?.winnerId) {
             nm.player1Id = feeder1.winnerId;
             nm.player1Name = feeder1.winnerName;
             const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
             nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
-          } else if (canClearSlots && feeder1 && !feeder1.bye && !feeder1.winnerId) {
-            // Feeder match not resolved and next round is future — clear pre-filled slot
+          } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
+            // Feeder match not resolved — clear pre-filled slot to TBD
             const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
               .some(p => p.id === nm.player1Id);
             if (!isSeed) { nm.player1Id = null; nm.player1Name = null; nm.player1ApiKey = null; }
@@ -597,7 +592,7 @@ export async function getDraw(roundFilter = null) {
             nm.player2Name = feeder2.winnerName;
             const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
             nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
-          } else if (canClearSlots && feeder2 && !feeder2.bye && !feeder2.winnerId) {
+          } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
             const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
               .some(p => p.id === nm.player2Id);
             if (!isSeed) { nm.player2Id = null; nm.player2Name = null; nm.player2ApiKey = null; }
