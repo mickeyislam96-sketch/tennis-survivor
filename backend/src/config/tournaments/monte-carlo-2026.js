@@ -85,7 +85,7 @@ export const MONTE_CARLO_2026 = {
   lockTimeOverrides: {
     R1:  '2026-04-05T11:30:00Z', // Sun 5 Apr, 12:30 BST — qualifying in the morning
     R32: '2026-04-07T10:00:00Z', // Tue 7 Apr, 11:00 BST / 12:00 CEST — no R32 matches before 11:30 BST
-    R16: '2026-04-08T10:00:00Z', // Wed 8 Apr, 11:00 BST / 12:00 CEST
+    R16: '2026-04-09T09:00:00Z', // Wed 8 Apr, 11:00 BST / 12:00 CEST
     QF:  '2026-04-10T08:00:00Z', // Fri 10 Apr, 09:00 BST / 10:00 CEST
     SF:  '2026-04-11T09:00:00Z', // Sat 11 Apr, 10:00 BST / 11:00 CEST (later start)
     F:   '2026-04-12T11:00:00Z', // Sun 12 Apr, 12:00 BST / 13:00 CEST (typical final time)
