@@ -550,15 +550,18 @@ export async function getDraw(roundFilter = null) {
           const nm = nextMatches[i];
           const feeder1 = thisMatches[i * 2];
           const feeder2 = thisMatches[i * 2 + 1];
-          // Fill player1 slot from feeder1's winner
-          if (nm.player1Id == null && feeder1?.winnerId) {
+          // Fill player1 slot from feeder1's winner.
+          // Always overwrite when feeder has a winner — the mock pre-fills
+          // slots with assumed winners (player1 always wins) which may be
+          // wrong after live overlay or manual overrides correct the result.
+          if (feeder1?.winnerId) {
             nm.player1Id = feeder1.winnerId;
             nm.player1Name = feeder1.winnerName;
             const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
             nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
           }
           // Fill player2 slot from feeder2's winner
-          if (nm.player2Id == null && feeder2?.winnerId) {
+          if (feeder2?.winnerId) {
             nm.player2Id = feeder2.winnerId;
             nm.player2Name = feeder2.winnerName;
             const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
