@@ -2,16 +2,14 @@
  * Active tournament configuration.
  *
  * Set the ACTIVE_TOURNAMENT env var on Railway to switch tournaments.
- * Valid values: 'miami-2026', 'monte-carlo-2026'
+ * Valid values: 'monte-carlo-2026'
  *
  * Defaults to 'monte-carlo-2026' — the next upcoming tournament.
  */
 
-import { MIAMI_2026 } from './tournaments/miami-2026.js';
 import { MONTE_CARLO_2026 } from './tournaments/monte-carlo-2026.js';
 
 const TOURNAMENT_REGISTRY = {
-  'miami-2026':       MIAMI_2026,
   'monte-carlo-2026': MONTE_CARLO_2026,
 };
 
@@ -32,5 +30,3 @@ export const TOURNAMENT = activeTournament;
 export const ROUNDS            = activeTournament.rounds;
 export const MATCHES_PER_ROUND = activeTournament.matchesPerRound;
 
-// Legacy export kept for any old references
-export const INDIAN_WELLS_2026 = MIAMI_2026;
