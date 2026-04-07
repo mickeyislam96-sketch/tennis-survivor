@@ -44,15 +44,13 @@ git push -u origin main
    |---|---|
    | `NODE_ENV` | `production` |
    | `TENNIS_API_KEY` | Your API-Tennis key |
-   | `MIAMI_TOURNAMENT_KEY` | Miami Open 2026 tournament key from API-Tennis |
-   | `RESEND_API_KEY` | Your Resend key (for password reset emails) |
-   | `RESEND_FROM` | `noreply@finalserveivor.com` (or verified sender) |
+   | `ACTIVE_TOURNAMENT` | Tournament config to load (e.g. `monte-carlo-2026`) |
+   | `ADMIN_SECRET` | Secret for admin/diagnostic endpoints |
    | `APP_URL` | `https://finalserveivor.com` |
    | `FRONTEND_URL` | `https://finalserveivor.com` *(update after Step 2)* |
 
-   > **Note on `MIAMI_TOURNAMENT_KEY`:** Find the Miami Open 2026 key in your API-Tennis dashboard.
-   > The old `INDIAN_WELLS_TOURNAMENT_KEY` still works as a fallback but should be replaced.
-   > If neither key is set, the app falls back to the static Miami draw (fully functional).
+   > Tournament-specific API keys and config are defined in `backend/src/config/tournaments/`.
+   > If `TENNIS_API_KEY` is missing, the app silently falls back to mock draw data.
 
 6. Go to **Settings → Networking → Generate Domain**. Copy the URL —
    it looks like `https://tennis-survivor-production.up.railway.app`.
@@ -117,7 +115,7 @@ If you don't have the custom domain yet, use the Vercel URL temporarily.
 - [ ] `https://your-railway-url.up.railway.app/api/health` returns `{"ok":true}`
 - [ ] Sign up with a test account
 - [ ] Create or join a pool
-- [ ] Navigate to Make Pick — players should show from the Miami draw
+- [ ] Navigate to Make Pick — players should show from the active tournament draw
 - [ ] Pick window shows a countdown to the correct lock time
 - [ ] Leaderboard loads and rows are clickable
 
