@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, Navigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
 import { getTournament } from '../data/tournaments';
@@ -200,6 +200,12 @@ export function GroupHome() {
     };
 
     const tournament = getTournament(group.tournamentId);
+
+    // Completed tournaments go straight to the leaderboard
+    if (tournament?.status === 'completed') {
+      return <Navigate to={`/group/${groupId}/leaderboard`} replace />;
+    }
+
     const preLaunch  = isPreLaunch(tournament);
     // Entry closes 1 hour before R1 picks lock (gives new joiners time to make their first pick).
     // Falls back to the tournament's explicit entryOpen flag if the deadline isn't loaded yet.
