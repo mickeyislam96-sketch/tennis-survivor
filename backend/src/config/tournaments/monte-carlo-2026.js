@@ -90,6 +90,12 @@ export const MONTE_CARLO_2026 = {
   // Gives admins time to review results and correct errors before players submit.
   pickWindowBufferHours: 4,
 
+  // Per-round overrides for when the pick window opens.
+  // Takes precedence over the buffer calculation.
+  windowOpensOverrides: {
+    R16: '2026-04-07T16:00:00Z', // Mon 7 Apr, 5pm BST — let R32 results settle before R16 opens
+  },
+
   // Fallback schedule — used when API returns no data at all.
   roundDates: {
     R1:  '2026-04-05T09:00:00Z', // Sun 5 Apr, 10:00 BST / 11:00 CEST
