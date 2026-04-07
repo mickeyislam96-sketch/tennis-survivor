@@ -26,7 +26,7 @@ function rowToPick(p) {
 }
 
 /**
- * Build a map of playerId → { opponentName, opponentSeed, opponentStatus }
+ * Build a map of playerId â { opponentName, opponentSeed, opponentStatus }
  * for a given round's matches.
  *
  * Variations:
@@ -55,7 +55,7 @@ function buildOpponentMap(roundMatches, allMatches, rounds, currentRound) {
       if (p2 && p2Name) {
         map.set(p1, { opponentName: p2Name, opponentId: p2 });
       } else if (!p2 || !p2Name) {
-        // Opponent TBD — find the prev-round match that feeds into this slot
+        // Opponent TBD â find the prev-round match that feeds into this slot
         const possibles = findPossibleOpponents(p1, m, prevMatches);
         if (possibles.length > 0) {
           map.set(p1, { opponentName: null, opponentPossible: possibles });
@@ -102,7 +102,7 @@ function findPossibleOpponents(knownPlayerId, match, prevMatches) {
   // In a structured bracket this would use match ordering, but for now just return
   // the first pair found if exactly 2 names.
   // Actually, let's be more careful: only return possibles if there's a clear pair.
-  // For now, return all found — the frontend will handle display.
+  // For now, return all found â the frontend will handle display.
   return possibles.length <= 2 ? possibles : [];
 }
 
@@ -113,7 +113,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
   const liveDraw = await getLiveDraw(currentRound);
   const mockDraw = await getDraw(currentRound);
 
-  // Build a reverse map: API player key → mock player ID
+  // Build a reverse map: API player key â mock player ID
   const apiToMock = new Map();
   const mockToApi = new Map();
   for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
@@ -155,14 +155,14 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
         const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
         if (loserId) liveEliminatedApi.add(String(loserId));
       }
-      // If no winner, both players are still pending — handled below via mock
+      // If no winner, both players are still pending â handled below via mock
     }
 
     // 2) Use mock draw for the complete prev-round structure
     const mockPrevMatches = (mockDraw.matches || []).filter(m => m.round === prevRound);
     for (const m of mockPrevMatches) {
       if (m.bye && m.winnerId) {
-        // Seed with bye — confirmed
+        // Seed with bye â confirmed
         confirmedFromPrevRound.add(m.winnerId);
       } else if (!m.bye) {
         const p1Mock = m.player1Id;
@@ -189,7 +189,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 
   // Simplified eligibility: for R1, only players in R1 matches (seeds have
   // byes and shouldn't be pickable in R1). For R32+, ALL non-eliminated
-  // non-qualifier players are eligible — no dependency on bracket slot data.
+  // non-qualifier players are eligible â no dependency on bracket slot data.
   // This avoids the fragile coupling between bracket propagation and pick pool.
   let r1PlayerIds = null;
   if (currentRound === ROUNDS[0]) {
@@ -384,7 +384,7 @@ picksRouter.post('/', async (req, res) => {
     if (isUUID(userId) && isUUID(groupId)) {
       try {
         // Check player not already used in a DIFFERENT round by this user in this group.
-        // We exclude the current round so that changing a pick mid-window is allowed —
+        // We exclude the current round so that changing a pick mid-window is allowed â
         // the existing pick for THIS round is being replaced, not double-counted.
         const usedResult = await pool.query(
           'SELECT player_id, player_name FROM picks WHERE user_id = $1 AND group_id = $2 AND round != $3',
@@ -401,7 +401,17 @@ picksRouter.post('/', async (req, res) => {
           return res.status(400).json({ error: 'Player already used in a previous round' });
         }
 
-        // UPSERT — insert new pick, or update player if they're changing within the open window.
+        // Re-check deadline right before write (closes race window between initial check and DB write)
+        const freshDeadlines = await getDeadlines();
+        const freshRD = Array.isArray(freshDeadlines) ? freshDeadlines.find(d => d.round === round) : null;
+        if (freshRD) {
+          const lockAt2 = freshRD.lockAt ? new Date(freshRD.lockAt) : null;
+          if (lockAt2 && new Date() >= lockAt2) {
+            return res.status(400).json({ error: 'Picks for this round are locked' });
+          }
+        }
+
+        // UPSERT â insert new pick, or update player if they're changing within the open window.
         // The survived field is reset to NULL on change since the round hasn't been graded yet.
         const result = await pool.query(
           `INSERT INTO picks (group_id, user_id, round, player_id, player_name, survived)
