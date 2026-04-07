@@ -457,6 +457,8 @@ export async function getDraw(roundFilter = null) {
         liveByNames.set(nameKey, lm);
       }
 
+      const overlaidMatchIds = new Set(); // Track which mock matches got real data
+
       for (const mm of mockDraw.matches) {
         if (mm.bye) continue;
         const k1 = mm.player1ApiKey || mm.player1Id;
@@ -485,6 +487,7 @@ export async function getDraw(roundFilter = null) {
           }
         }
         if (!lm) continue;
+        overlaidMatchIds.add(mm.id);
 
         // Overlay live data onto mock match
         // Determine which live player maps to mock player1 using API keys
@@ -517,18 +520,28 @@ export async function getDraw(roundFilter = null) {
             mm.status = 'completed';
             mm.winnerId = ovr.winnerId;
             mm.winnerName = ovr.winnerName;
+            overlaidMatchIds.add(mm.id);
             console.log(`[tennisData] Manual override applied: ${ovr.winnerName} beats ${ovr.loserId} in ${ovr.round}`);
           }
         }
       }
 
-      // Clear misleading 'in_progress' from mock. The mock sets all
-      // current-round matches to in_progress based on the schedule, but
-      // unmatched matches (e.g. qualifier slots) keep that status and show
-      // a red dot on the draw page. Reset to 'scheduled' — only 'completed'
-      // (from live results) should be a definitive status.
+      // Clear misleading statuses from mock. The mock marks past-round
+      // matches as 'completed' (player1 always wins) and current-round
+      // matches as 'in_progress'. For any match NOT confirmed by live API
+      // or manual override, these statuses are fake — reset to 'scheduled'.
       for (const mm of mockDraw.matches) {
-        if (mm.status === 'in_progress') mm.status = 'scheduled';
+        if (mm.bye) continue;
+        if (overlaidMatchIds.has(mm.id)) continue; // confirmed by real data
+        if (mm.status === 'in_progress') {
+          mm.status = 'scheduled';
+        } else if (mm.status === 'completed') {
+          // Fake completion from mock — no live data to confirm it
+          mm.status = 'scheduled';
+          mm.winnerId = null;
+          mm.winnerName = null;
+          mm.score = null;
+        }
       }
 
       // Propagate winners forward into next-round bracket slots.
@@ -554,11 +567,18 @@ export async function getDraw(roundFilter = null) {
           // Always overwrite when feeder has a winner — the mock pre-fills
           // slots with assumed winners (player1 always wins) which may be
           // wrong after live overlay or manual overrides correct the result.
+          // If feeder has NO winner (match not played), clear the slot to TBD
+          // so the bracket doesn't show a fake opponent.
           if (feeder1?.winnerId) {
             nm.player1Id = feeder1.winnerId;
             nm.player1Name = feeder1.winnerName;
             const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
             nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
+          } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
+            // Feeder match not resolved — clear pre-filled slot
+            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
+              .some(p => p.id === nm.player1Id);
+            if (!isSeed) { nm.player1Id = null; nm.player1Name = null; nm.player1ApiKey = null; }
           }
           // Fill player2 slot from feeder2's winner
           if (feeder2?.winnerId) {
@@ -566,6 +586,10 @@ export async function getDraw(roundFilter = null) {
             nm.player2Name = feeder2.winnerName;
             const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
             nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
+          } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
+            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
+              .some(p => p.id === nm.player2Id);
+            if (!isSeed) { nm.player2Id = null; nm.player2Name = null; nm.player2ApiKey = null; }
           }
         }
       }
