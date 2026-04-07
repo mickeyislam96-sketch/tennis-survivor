@@ -23,7 +23,6 @@ const API_BASE = 'https://api.api-tennis.com/tennis';
 // Auto-builds the mock-ID → API-key map from live fixture data by matching
 // player names. No more manual key lookups for qualifiers or replacements.
 const dynamicKeyMap = new Map(); // mock ID → API key (string)
-let keyMapBuilt = false;
 
 const normForMatch = (n) =>
   (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -70,7 +69,6 @@ function buildDynamicKeyMap(fixtures) {
     if (newKeys.length > 0) {
       console.log(`[tennisData] Auto-discovered ${newKeys.length} new API keys: ${newKeys.join(', ')}`);
     }
-    keyMapBuilt = true;
   }
 }
 
@@ -225,7 +223,7 @@ async function fetchApiDraw() {
         cache.error     = null;
         console.log(`[tennisData] API OK: ${data.result.length} fixtures (attempt ${attempt})`);
         // Auto-discover API keys from fixture data
-        if (!keyMapBuilt) buildDynamicKeyMap(data.result);
+        buildDynamicKeyMap(data.result);
         return data.result;
       } catch (e) {
         lastError = e;
