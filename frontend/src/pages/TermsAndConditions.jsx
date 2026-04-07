@@ -6,7 +6,7 @@ export function TermsAndConditions() {
       <div className="terms-header">
         <div>
           <h1>Terms &amp; Conditions</h1>
-          <p className="terms-updated">Last updated: 25 March 2026</p>
+          <p className="terms-updated">Last updated: 7 April 2026</p>
         </div>
         <Link to="/" className="back-link">← Back to home</Link>
       </div>
@@ -144,6 +144,19 @@ export function TermsAndConditions() {
           If both players are unable to complete the match and the ATP removes the match from
           the draw entirely or assigns a replacement, the operator will determine how affected
           picks are handled and will communicate the decision to all participants.
+        </p>
+        <p>
+          <strong>Post-lock withdrawals.</strong> If a player withdraws from the tournament after
+          the pick window for that round has closed (meaning participants could not have known
+          about the withdrawal when submitting their pick), the operator may, at its sole
+          discretion, allow affected participants to select a replacement player. This decision
+          will take into account the stage of the round (for example, whether other matches in
+          the round have already been completed), the number of affected participants, and any
+          other factors the operator considers relevant to fairness. Where a replacement pick is
+          permitted, the operator will notify the affected participant(s) directly and provide a
+          reasonable deadline for resubmission. If no replacement pick is permitted, the standard
+          elimination rule applies: a withdrawn player is treated as having lost, and any
+          participant who selected that player is eliminated.
         </p>
       </section>
 
