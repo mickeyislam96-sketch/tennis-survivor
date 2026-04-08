@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 import { TOURNAMENTS } from '../data/tournaments.js';
 import { sendTournamentJoinEmail } from '../utils/email.js';
+import { getDeadlines } from '../services/tennisData.js';
 
 export const groupsRouter = Router();
 
@@ -122,7 +123,39 @@ groupsRouter.get('/:id', async (req, res) => {
         );
         const groupData = rowToGroup(g);
         const betaFree = groupData.entryFeeCents === 0;
-        return res.json({ ...groupData, betaFree, members: membersResult.rows.map(rowToMember) });
+        let members = membersResult.rows.map(rowToMember);
+
+        // Self-healing: if a member was eliminated in a round whose pick
+        // window is still open, they shouldn't be eliminated yet (they can
+        // still change their pick). Override to alive and fix the DB.
+        try {
+          const deadlines = await getDeadlines();
+          const openRounds = new Set(deadlines.filter(d => d.isOpen).map(d => d.round));
+          for (const m of members) {
+            if (!m.isAlive && m.eliminatedRound && openRounds.has(m.eliminatedRound)) {
+              const badRound = m.eliminatedRound;
+              console.log(`[groups] Self-healing: ${m.displayName} was eliminated in ${badRound} but window is still open — overriding to alive`);
+              m.isAlive = true;
+              m.eliminatedRound = null;
+              // Also fix the DB so this doesn't repeat every request
+              pool.query(
+                'UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE id = $1::uuid',
+                [m.id]
+              ).then(() => {
+                // Also reset the pick for that round so it's changeable
+                return pool.query(
+                  'UPDATE picks SET survived = NULL WHERE group_id = $1::uuid AND user_id = $2::uuid AND round = $3 AND survived = false',
+                  [m.groupId, m.userId, badRound]
+                );
+              }).catch(err => console.error('[groups] Self-healing DB fix error:', err.message));
+            }
+          }
+        } catch (err) {
+          // Non-fatal — if deadlines fail, just return raw DB data
+          console.warn('[groups] Could not check deadlines for self-healing:', err.message);
+        }
+
+        return res.json({ ...groupData, betaFree, members });
       }
     } catch (e) {
       console.error('DB group lookup error:', e.message);

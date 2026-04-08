@@ -340,6 +340,44 @@ adminRouter.post('/fix-email', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/revive-member ────────────────────────────────────────────
+// Revive a member who was incorrectly eliminated.
+// Body: { secret, userId, groupId }
+// Also resets their pick for the eliminated round to survived=NULL.
+adminRouter.post('/revive-member', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { userId, groupId } = req.body;
+  if (!userId || !groupId) {
+    return res.status(400).json({ error: 'userId and groupId are required' });
+  }
+  try {
+    const member = await pool.query(
+      'SELECT id::text, user_id::text, display_name, is_alive, eliminated_round FROM group_members WHERE group_id = $1::uuid AND user_id = $2::uuid',
+      [groupId, userId]
+    );
+    if (member.rows.length === 0) return res.status(404).json({ error: 'Member not found' });
+    const m = member.rows[0];
+    if (m.is_alive) return res.json({ ok: true, message: 'Member is already alive', member: m });
+
+    const eliminatedRound = m.eliminated_round;
+    await pool.query(
+      'UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE group_id = $1::uuid AND user_id = $2::uuid',
+      [groupId, userId]
+    );
+    // Reset the pick for the eliminated round to NULL so they can change it
+    if (eliminatedRound) {
+      await pool.query(
+        'UPDATE picks SET survived = NULL WHERE group_id = $1::uuid AND user_id = $2::uuid AND round = $3',
+        [groupId, userId, eliminatedRound]
+      );
+    }
+    console.log(`[admin] revive-member: ${m.display_name} revived (was eliminated in ${eliminatedRound})`);
+    res.json({ ok: true, userId, groupId, displayName: m.display_name, previouslyEliminatedIn: eliminatedRound });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {

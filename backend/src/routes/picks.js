@@ -361,14 +361,29 @@ picksRouter.post('/', async (req, res) => {
     // Validate user is actually a member of this group AND still alive
     if (isUUID(userId) && isUUID(groupId)) {
       const memberCheck = await pool.query(
-        'SELECT id, is_alive FROM group_members WHERE group_id = $1 AND user_id = $2',
+        'SELECT id, is_alive, eliminated_round FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, userId]
       );
       if (memberCheck.rows.length === 0) {
         return res.status(403).json({ error: 'You must join the group before making a pick' });
       }
-      if (memberCheck.rows[0].is_alive === false) {
-        return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
+      const mem = memberCheck.rows[0];
+      if (mem.is_alive === false) {
+        // Self-healing: if eliminated in a round whose window is still open,
+        // the elimination was premature. Revive them so they can pick.
+        if (mem.eliminated_round === round) {
+          console.log(`[picks] Self-healing: reviving user ${userId} (eliminated in ${round} but window still open)`);
+          await pool.query(
+            'UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE id = $1',
+            [mem.id]
+          );
+          await pool.query(
+            'UPDATE picks SET survived = NULL WHERE group_id = $1 AND user_id = $2 AND round = $3 AND survived = false',
+            [groupId, userId, round]
+          );
+        } else {
+          return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
+        }
       }
     }
 
