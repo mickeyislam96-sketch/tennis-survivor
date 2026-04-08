@@ -473,8 +473,13 @@ export async function getDraw(roundFilter = null) {
           lm = liveByNames.get(nameKey);
           // Back-fill discovered API keys so downstream code (propagation, H2H) can use them
           if (lm) {
-            const lmN1 = normName(lm.player1Name), mmN1 = normName(mm.player1Name);
-            const sameOrder = lmN1.includes(normName(mm.player1Name).split(/\s+/).pop());
+            // Use exact surname comparison (not includes()) to avoid false
+            // matches when one surname is a substring of another (e.g.
+            // "Paul" inside "De Paula"). Falls back to includes() only when
+            // exact match is ambiguous and there's a single candidate.
+            const lmSurname1 = surname(lm.player1Name);
+            const mmSurname1 = surname(mm.player1Name);
+            const sameOrder = lmSurname1 === mmSurname1;
             if (sameOrder) {
               if (!mm.player1ApiKey) mm.player1ApiKey = String(lm.player1Id);
               if (!mm.player2ApiKey) mm.player2ApiKey = String(lm.player2Id);
