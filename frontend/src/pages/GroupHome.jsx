@@ -215,9 +215,14 @@ export function GroupHome() {
     const isEntryClosed = tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
 
+    // Is the current user eliminated?
+    const myMember = group.members?.find((m) => m.userId === userId);
+    const isEliminated = myMember && !myMember.isAlive;
+
     // Show an urgency banner when the user hasn't picked and the deadline is within 24 h
+    // (but NOT for eliminated users — they can't act on it)
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
-    const closingSoon = openRound && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    const closingSoon = openRound && !myCurrentPick && !isEliminated && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
     // Members skip this view — they go straight to the main dashboard.
@@ -440,7 +445,18 @@ export function GroupHome() {
           <>
             {/* Primary CTA */}
             <div className="pick-cta-section">
-              {myCurrentPick ? (
+              {isEliminated ? (
+                <div className="pick-cta-eliminated">
+                  <span className="pick-cta-eliminated-icon">🎾</span>
+                  <div className="pick-cta-eliminated-text">
+                    <span className="pick-cta-eliminated-label">Eliminated in {myMember.eliminatedRound || 'a previous round'}</span>
+                    <span className="pick-cta-eliminated-sub">You're out of this pool, but you can still follow the action.</span>
+                  </div>
+                  <Link to={`/group/${groupId}/leaderboard`} className="btn pick-cta-change-btn">
+                    View leaderboard
+                  </Link>
+                </div>
+              ) : myCurrentPick ? (
                 <div className="pick-cta-done">
                   <span className="pick-cta-done-icon">✓</span>
                   <div className="pick-cta-done-text">

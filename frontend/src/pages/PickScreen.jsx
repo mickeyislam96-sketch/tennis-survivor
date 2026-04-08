@@ -244,6 +244,7 @@ export function PickScreen() {
   const isOpen        = !isLocked && !isNotYetOpen;
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
+  const isEliminated = member && !member.isAlive;
 
   // ── Previous round result pending banner ─────────────────────────────────────
   // When the current round window is open but the previous round pick hasn't been
@@ -294,7 +295,7 @@ export function PickScreen() {
   return (
     <div className="page pick-screen">
       <div className="pick-header">
-        <h1>Make your pick</h1>
+        <h1>{isEliminated ? 'Your picks' : 'Make your pick'}</h1>
         <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
 
@@ -323,8 +324,8 @@ export function PickScreen() {
         ))}
       </div>
 
-      {/* Window is open: closing countdown */}
-      {isOpen && deadline && (() => {
+      {/* Window is open: closing countdown (hide for eliminated users — they can't act) */}
+      {isOpen && deadline && !isEliminated && (() => {
         const msLeft = new Date(deadline) - new Date();
         const closingSoon = msLeft > 0 && msLeft < 24 * 60 * 60 * 1000;
         return (
@@ -338,8 +339,8 @@ export function PickScreen() {
         );
       })()}
 
-      {/* Window not yet open: show open + close times */}
-      {isNotYetOpen && (
+      {/* Window not yet open: show open + close times (hide for eliminated) */}
+      {isNotYetOpen && !isEliminated && (
         <div className="future-window-card">
           <div className="future-window-row">
             <span className="future-window-label">Pick window opens in</span>
@@ -353,8 +354,8 @@ export function PickScreen() {
         </div>
       )}
 
-      {/* Round overlap tip — previous round still in progress */}
-      {showOverlapTip && (
+      {/* Round overlap tip — previous round still in progress (hide for eliminated) */}
+      {showOverlapTip && !isEliminated && (
         <div className="overlap-tip">
           <span className="overlap-tip-icon">💡</span>
           <div className="overlap-tip-body">
@@ -368,8 +369,8 @@ export function PickScreen() {
         </div>
       )}
 
-      {/* Previous round result pending, current window open */}
-      {showPrevPickPending && (
+      {/* Previous round result pending, current window open (hide for eliminated) */}
+      {showPrevPickPending && !isEliminated && (
         <div className={`pending-prev-pick-banner${!myPickThisRound ? ' pending-prev-pick-banner--urgent' : ''}`}>
           <span className="pending-prev-pick-icon">{myPickThisRound ? '⏳' : '⚠️'}</span>
           <div className="pending-prev-pick-body">

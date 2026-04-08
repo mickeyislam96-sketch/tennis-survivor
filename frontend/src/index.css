@@ -854,6 +854,40 @@ input, select { font-family: var(--font); }
 }
 .pick-cta-change-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Eliminated CTA card on GroupHome ─────────────────────── */
+.pick-cta-eliminated {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: var(--radius);
+  padding: 0.9rem 1.25rem;
+  width: 100%;
+}
+.pick-cta-eliminated-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.pick-cta-eliminated-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.1rem;
+}
+.pick-cta-eliminated-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--danger, #dc2626);
+}
+.pick-cta-eliminated-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted, #6b7280);
+}
+
 .join-cta-section {
   margin-bottom: 2rem;
 }
@@ -3431,6 +3465,7 @@ input, select { font-family: var(--font); }
   .pick-cta-section  { flex-direction: column; align-items: stretch; }
   .pick-cta-done     { flex-wrap: wrap; }
   .pick-cta-done-player { font-size: 0.95rem; }
+  .pick-cta-eliminated { flex-wrap: wrap; }
 
   /* DrawViewer: single-column match grid on mobile */
   .lc-grid { grid-template-columns: 1fr; }
