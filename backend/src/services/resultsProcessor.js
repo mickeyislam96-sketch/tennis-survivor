@@ -272,7 +272,28 @@ export async function eliminateNonPickers(round) {
  *   2. There are still ungraded picks for that round.
  * This prevents premature elimination when matches start before the window closes.
  */
+
+// ── In-memory mutex for autoProcessResults ──────────────────────────────────
+// Prevents overlapping runs if the cron fires while a previous run is still
+// in progress (e.g. slow DB or many email sends). Adequate for single-instance
+// Railway deployment. If we scale to multiple instances, replace with a
+// database-level advisory lock.
+let _processing = false;
+
 export async function autoProcessResults() {
+  if (_processing) {
+    console.log('[results] Auto-processing already in progress, skipping this run.');
+    return [];
+  }
+  _processing = true;
+  try {
+    return await _doAutoProcess();
+  } finally {
+    _processing = false;
+  }
+}
+
+async function _doAutoProcess() {
   console.log('[results] Auto-processing...');
 
   const draw      = await getLiveDraw();
