@@ -139,9 +139,10 @@ export function Leaderboard() {
           aliveCount: json.aliveCount ?? 0,
           currentRound: json.currentRound ?? null,
           roundIsLocked: json.roundIsLocked ?? false,
+          openRound: json.openRound ?? null,
         });
       })
-      .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
+      .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null, openRound: null }));
   }, [groupId]);
 
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;

@@ -156,6 +156,37 @@ schemaReady.then(async () => {
       console.log(`[migration] Cleared ${emailCleanup.rowCount} incorrectly queued pending emails`);
     }
 
+    // Migration 5: Reverse premature elimination of members whose R16 pick was
+    // invalidated while the R16 window was still open (bug: resultsProcessor
+    // eliminated members immediately instead of waiting for window to close).
+    // Revive members eliminated in R16 whose R16 pick has survived=false but
+    // the R16 window hasn't locked yet. Also reset the pick to survived=NULL
+    // so they can change it.
+    const revive = await pool.query(
+      `UPDATE group_members gm
+         SET is_alive = true, eliminated_round = NULL
+       WHERE gm.is_alive = false
+         AND gm.eliminated_round = 'R16'
+         AND EXISTS (
+           SELECT 1 FROM picks p
+            WHERE p.group_id = gm.group_id
+              AND p.user_id  = gm.user_id
+              AND p.round    = 'R16'
+              AND p.survived = false
+         )
+       RETURNING gm.id, gm.user_id`
+    );
+    if (revive.rowCount > 0) {
+      // Also reset their R16 picks to NULL so they show as pending (changeable)
+      await pool.query(
+        `UPDATE picks SET survived = NULL
+         WHERE round = 'R16' AND survived = false
+           AND user_id IN (SELECT unnest($1::uuid[]))`,
+        [revive.rows.map(r => r.user_id)]
+      );
+      console.log(`[migration] Revived ${revive.rowCount} members incorrectly eliminated in R16 (window still open)`);
+    }
+
     // Run results processing after migrations
     if (r32picks.rowCount > 0 || idFixCount > 0) {
       await autoProcessResults();

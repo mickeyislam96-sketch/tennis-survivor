@@ -177,16 +177,29 @@ export async function processRoundResults(round) {
   // ── Invalidate future-round picks for players who just lost ──────────────
   // If someone picked a loser for the NEXT round (speculative pick made while
   // this round was still in progress), mark that pick as survived=false now.
+  // BUT: only eliminate the member if the next round's window is already locked.
+  // If the window is still open, the user can still change their pick.
   const nextRoundIndex = ROUNDS.indexOf(round) + 1;
   let futurePicksInvalidated = 0;
   if (nextRoundIndex < ROUNDS.length) {
     const nextRound = ROUNDS[nextRoundIndex];
+
+    // Check if the next round's pick window is still open
+    let nextRoundLocked = false;
+    try {
+      const deadlines = await getDeadlines();
+      const nextDeadline = deadlines.find(d => d.round === nextRound);
+      nextRoundLocked = nextDeadline?.isLocked === true;
+    } catch (_) {
+      // If we can't check, assume open to be safe (don't eliminate prematurely)
+    }
+
     for (const m of completed) {
       const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
       const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
       const loserMockId = apiToMock.get(String(loserId)) || '';
 
-      // Mark future picks for this loser as failed
+      // Mark future picks for this loser as failed (signal to the user)
       const inv = await pool.query(
         `UPDATE picks SET survived = false
            WHERE round = $1 AND survived IS NULL
@@ -196,8 +209,9 @@ export async function processRoundResults(round) {
       );
       futurePicksInvalidated += inv.rowCount;
 
-      // Eliminate group members whose future pick just became invalid
-      if (inv.rowCount > 0) {
+      // Only eliminate members if the next round's window is locked.
+      // If still open, the user can switch their pick — don't eliminate yet.
+      if (inv.rowCount > 0 && nextRoundLocked) {
         await pool.query(
           `UPDATE group_members gm
                SET is_alive = false, eliminated_round = $1
@@ -211,6 +225,8 @@ export async function processRoundResults(round) {
               AND gm.is_alive = true`,
           [nextRound, String(loserId), loserMockId, loserName || '']
         );
+      } else if (inv.rowCount > 0 && !nextRoundLocked) {
+        console.log(`[results] ${nextRound} window still open — marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
       }
     }
     if (futurePicksInvalidated > 0) {
