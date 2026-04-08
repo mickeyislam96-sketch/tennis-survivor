@@ -324,22 +324,48 @@ export function PickScreen() {
         ))}
       </div>
 
-      {/* Window is open: closing countdown (hide for eliminated users — they can't act) */}
+      {/* ── Consolidated context bar ─────────────────────────────────
+           Merges: countdown timer + overlap tip + pending prev-round banner
+           into a single card. Hidden for eliminated users. */}
       {isOpen && deadline && !isEliminated && (() => {
         const msLeft = new Date(deadline) - new Date();
         const closingSoon = msLeft > 0 && msLeft < 24 * 60 * 60 * 1000;
+
+        // Build a one-line context message from whatever conditions apply
+        let contextMsg = null;
+        if (showPrevPickPending && showOverlapTip) {
+          // Both: prev round pending + overlap
+          contextMsg = myPickThisRound
+            ? <><strong>{prevRound} still in progress</strong> — your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished, but your {currentRound} pick is saved.</>
+            : <><strong>{prevRound} still in progress</strong> — your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished. Pick for {currentRound} now — it only counts if they advance.</>;
+        } else if (showPrevPickPending) {
+          contextMsg = myPickThisRound
+            ? <>⏳ Your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished — your {currentRound} pick is saved and will count if they come through.</>
+            : <>⚠️ Your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished. Submit your {currentRound} pick now — it only counts if they advance.</>;
+        } else if (showOverlapTip) {
+          contextMsg = <><strong>{prevRound} still in progress</strong> — some matchups aren't confirmed yet. No rush to pick.</>;
+        }
+
         return (
-          <div className="countdown-card--big">
-            <span className="countdown-label">Pick window closes in</span>
-            <Countdown to={deadline} onExpire={fetchDeadlines} />
-            {closingSoon && (
-              <span className="countdown-closing-soon">Closing soon</span>
+          <div className="pick-context-bar">
+            <div className="pcb-top">
+              <div>
+                <div className="pcb-countdown-label">Window closes in</div>
+                <Countdown to={deadline} className="pcb-countdown-value" onExpire={fetchDeadlines} />
+              </div>
+              {closingSoon && <span className="pcb-closing-badge">Closing soon</span>}
+            </div>
+            {contextMsg && (
+              <>
+                <div className="pcb-divider" />
+                <div className="pcb-context">{contextMsg}</div>
+              </>
             )}
           </div>
         );
       })()}
 
-      {/* Window not yet open: show open + close times (hide for eliminated) */}
+      {/* Window not yet open (hide for eliminated) */}
       {isNotYetOpen && !isEliminated && (
         <div className="future-window-card">
           <div className="future-window-row">
@@ -351,40 +377,6 @@ export function PickScreen() {
               Closes: {formatWindowTime(deadline)}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Round overlap tip — previous round still in progress (hide for eliminated) */}
-      {showOverlapTip && !isEliminated && (
-        <div className="overlap-tip">
-          <span className="overlap-tip-icon">💡</span>
-          <div className="overlap-tip-body">
-            <p className="overlap-tip-title">No rush — {prevRound} matches still in play</p>
-            <p className="overlap-tip-sub">
-              Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
-              You can wait until today's play finishes for a clearer picture before picking.
-              Look for players whose opponent is already known — they're the safest bets right now.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Previous round result pending, current window open (hide for eliminated) */}
-      {showPrevPickPending && !isEliminated && (
-        <div className={`pending-prev-pick-banner${!myPickThisRound ? ' pending-prev-pick-banner--urgent' : ''}`}>
-          <span className="pending-prev-pick-icon">{myPickThisRound ? '⏳' : '⚠️'}</span>
-          <div className="pending-prev-pick-body">
-            <p className="pending-prev-pick-title">
-              {myPickThisRound
-                ? `${currentRound} pick submitted — waiting on your ${prevRound} result`
-                : `Make your ${currentRound} pick now`}
-            </p>
-            <p className="pending-prev-pick-sub">
-              {myPickThisRound
-                ? `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but you're covered — your ${currentRound} pick is saved and will count if they come through.`
-                : `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but the ${currentRound} window is already open. Submit your ${currentRound} pick now — it will only count if ${prevRoundPick.playerName} advances.`}
-            </p>
-          </div>
         </div>
       )}
 
@@ -454,47 +446,38 @@ export function PickScreen() {
       {/* Window is still open: show current pick banner (if any) + full player list */}
       {isOpen && userId && (!member || member.isAlive) && (
         <>
-          {/* At-risk warning: user's pick is for a player still in the previous round */}
-          {myPickThisRound && (() => {
-            const pickedPlayer = available.find(p => p.id === myPickThisRound.playerId);
-            const pickEliminated = myPickThisRound.survived === false;
-            if (pickEliminated) {
-              return (
-                <div className="pick-warning-banner pick-warning-banner--eliminated">
-                  <span className="pick-warning-icon">✗</span>
-                  <div className="pick-warning-body">
-                    <p className="pick-warning-title">{myPickThisRound.playerName} was eliminated in {prevRound}</p>
-                    <p className="pick-warning-sub">Your {currentRound} pick is no longer valid. Choose a new player before the window closes or you will be eliminated.</p>
-                  </div>
-                </div>
-              );
-            }
-            if (pickedPlayer?.status === 'at_risk') {
-              return (
-                <div className="pick-warning-banner pick-warning-banner--at-risk">
-                  <span className="pick-warning-icon">⚠️</span>
-                  <div className="pick-warning-body">
-                    <p className="pick-warning-title">{myPickThisRound.playerName} is still playing in {prevRound}</p>
-                    <p className="pick-warning-sub">If they lose, your pick becomes invalid and you'll be eliminated. Monitor results and switch if needed.</p>
-                  </div>
-                </div>
-              );
-            }
-            return null;
-          })()}
-
-          {myPickThisRound && (
-            <div className={`picked-card picked-card--changeable${myPickThisRound.survived === false ? ' picked-card--invalid' : ''}`}>
-              <div className="picked-card-inner">
-                <span className="picked-card-icon">{myPickThisRound.survived === false ? '✗' : '✓'}</span>
-                <div>
-                  <p className="picked-card-label">Current {currentRound} pick</p>
-                  <p className="picked-card-player">{myPickThisRound.playerName}</p>
-                </div>
-                <span className="picked-card-hint">You can change until the window closes</span>
+          {/* Pick eliminated warning — critical, stays standalone */}
+          {myPickThisRound && myPickThisRound.survived === false && (
+            <div className="pick-warning-banner pick-warning-banner--eliminated">
+              <span className="pick-warning-icon">✗</span>
+              <div className="pick-warning-body">
+                <p className="pick-warning-title">{myPickThisRound.playerName} was eliminated in {prevRound}</p>
+                <p className="pick-warning-sub">Your {currentRound} pick is no longer valid. Choose a new player before the window closes or you will be eliminated.</p>
               </div>
             </div>
           )}
+
+          {/* Current pick card — at-risk warning is now inline */}
+          {myPickThisRound && (() => {
+            const pickedPlayer = available.find(p => p.id === myPickThisRound.playerId);
+            const isAtRisk = pickedPlayer?.status === 'at_risk';
+            const isInvalid = myPickThisRound.survived === false;
+            return (
+              <div className={`picked-card picked-card--changeable${isInvalid ? ' picked-card--invalid' : ''}`}>
+                <div className="picked-card-inner">
+                  <span className="picked-card-icon">{isInvalid ? '✗' : '✓'}</span>
+                  <div>
+                    <p className="picked-card-label">Current {currentRound} pick</p>
+                    <p className="picked-card-player">{myPickThisRound.playerName}</p>
+                    {isAtRisk && !isInvalid && (
+                      <p className="picked-card-at-risk">⚠️ Still in {prevRound} — switch if they lose</p>
+                    )}
+                  </div>
+                  <span className="picked-card-hint">Change until<br />window closes</span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="search-row">
             <input

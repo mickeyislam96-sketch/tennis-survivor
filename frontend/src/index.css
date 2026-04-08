@@ -4072,6 +4072,73 @@ input, select { font-family: var(--font); }
   .countdown-card--big .countdown-value { font-size: 1.75rem; }
 }
 
+/* ── Consolidated pick context bar ─────────────────────────── */
+.pick-context-bar {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.pcb-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pcb-countdown-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  margin-bottom: 0.1rem;
+}
+.pcb-countdown-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #78350f;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.pcb-closing-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #dc2626;
+  text-transform: uppercase;
+  background: #fee2e2;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.pcb-divider {
+  height: 1px;
+  background: #fde68a;
+  margin: 0.65rem 0;
+}
+.pcb-context {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.pcb-context strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* At-risk inline status inside picked card */
+.picked-card-at-risk {
+  font-size: 0.78rem;
+  color: #b45309;
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 680px) {
+  .pcb-countdown-value { font-size: 1.15rem; }
+  .pcb-context { font-size: 0.78rem; }
+}
+
 /* ─── Matchup Modal ───────────────────────────────────────────────────────── */
 
 .mu-backdrop {
