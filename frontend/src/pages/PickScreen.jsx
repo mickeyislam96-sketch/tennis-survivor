@@ -433,8 +433,25 @@ export function PickScreen() {
         </div>
       )}
 
+      {/* Eliminated: block picking, show elimination message */}
+      {isOpen && userId && member && !member.isAlive && (
+        <div className="eliminated-card">
+          <div className="eliminated-card-icon">🎾</div>
+          <h2 className="eliminated-card-title">You're out of this one</h2>
+          <p className="eliminated-card-sub">
+            Your pick in {member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
+          </p>
+          <p className="eliminated-card-cta">
+            You can still follow the action on the{' '}
+            <Link to={`/group/${groupId}`}>group page</Link>{' '}
+            and the{' '}
+            <Link to={`/group/${groupId}/draw`}>bracket</Link>.
+          </p>
+        </div>
+      )}
+
       {/* Window is still open: show current pick banner (if any) + full player list */}
-      {isOpen && userId && (
+      {isOpen && userId && (!member || member.isAlive) && (
         <>
           {/* At-risk warning: user's pick is for a player still in the previous round */}
           {myPickThisRound && (() => {

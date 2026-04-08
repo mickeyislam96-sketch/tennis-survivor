@@ -358,14 +358,17 @@ picksRouter.post('/', async (req, res) => {
       if (!isOpen) return res.status(400).json({ error: 'Picks for this round are not yet open' });
     }
 
-    // Validate user is actually a member of this group
+    // Validate user is actually a member of this group AND still alive
     if (isUUID(userId) && isUUID(groupId)) {
       const memberCheck = await pool.query(
-        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+        'SELECT id, is_alive FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, userId]
       );
       if (memberCheck.rows.length === 0) {
         return res.status(403).json({ error: 'You must join the group before making a pick' });
+      }
+      if (memberCheck.rows[0].is_alive === false) {
+        return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
       }
     }
 
