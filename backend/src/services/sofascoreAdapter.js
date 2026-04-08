@@ -9,7 +9,7 @@
 
 import nodeFetch from 'node-fetch';
 
-import { TOURNAMENT } from '../config/tournament.js';
+import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 
 // ── Tournament config ─────────────────────────────────────────────────────────
 // Reads from active tournament config. Sofascore IDs must be set via env var
@@ -19,15 +19,20 @@ const UNIQUE_TOURNAMENT_ID = TOURNAMENT.sofascoreUniqueTournamentId || 0;
 const DATE_START           = process.env.SOFASCORE_DATE_START || TOURNAMENT.apiDateStart;
 const DATE_END             = process.env.SOFASCORE_DATE_END   || TOURNAMENT.apiDateStop;
 
-// Sofascore roundInfo.round → our internal round key.
+// Sofascore roundInfo.round -> our internal round key.
 // The round number = players remaining AFTER this round completes.
 // Uses tournament config's fractionDenomMap when available (handles
 // MC's 56-draw where round 32 = R1, not R64).
-// Fallback works for 96-draw Masters (Miami, Indian Wells).
+// Fallback works for 96/128-draw tournaments.
+//
+// IMPORTANT: for smaller draws (56-draw MC), the fractionDenomMap
+// overrides entries here (e.g. 32 -> R1 instead of R64). Any mapped
+// round not in the active tournament's ROUNDS is filtered out at
+// fixture processing time.
 const DEFAULT_SOFASCORE_ROUND_MAP = {
-  64: 'R1',
-  32: 'R64',
-  16: 'R32',
+  64: 'R1',    // 96-draw: first round (non-seeds)
+  32: 'R64',   // 96-draw: seeds enter; overridden to 'R1' for 56-draw
+  16: 'R32',   // overridden to 'R32' for 56-draw (same label, different meaning)
   8:  'R16',
   4:  'QF',
   2:  'SF',
@@ -116,7 +121,9 @@ export async function fetchSofascoreFixtures() {
   const fixtures = allEvents.map(e => {
     const roundNum = e.roundInfo?.round;
     const round    = SOFASCORE_ROUND_MAP[roundNum];
-    if (!round) return null; // ignore unknown rounds (e.g. qualifying)
+    // Skip unknown rounds (qualifying) and rounds not in the active tournament
+    // (e.g. default map has R64 but MC's 56-draw skips R64 entirely)
+    if (!round || !ROUNDS.includes(round)) return null;
 
     const isFinished = e.status?.type === 'finished';
     const isLive     = e.status?.type === 'inprogress';
