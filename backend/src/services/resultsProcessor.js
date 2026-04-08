@@ -8,6 +8,17 @@ import { getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
 import { ROUNDS, TOURNAMENT } from '../config/tournament.js';
 import { sendRoundResultEmail } from '../utils/email.js';
 
+// ── Name normalisation for fuzzy matching ────────────────────────────────────
+// Strips accents, lowercases, trims. Matches the normForMatch in tennisData.js.
+const normForMatch = (n) =>
+  (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+// Extract the last word (surname) from a normalised name
+const extractSurname = (name) => {
+  const parts = normForMatch(name).split(/\s+/);
+  return parts[parts.length - 1] || '';
+};
+
 // Build reverse maps dynamically (includes auto-discovered keys)
 function getReverseMaps() {
   const apiToMock = new Map();
@@ -86,6 +97,81 @@ export async function processRoundResults(round) {
       [round, String(loserId), loserMockId || '', loserName]
     );
     eliminated += e.rowCount;
+  }
+
+  // ── Surname fallback for ungraded picks ───────────────────────────────────
+  // Some picks may not match via API key, mock ID, or exact name (e.g. accents,
+  // spacing differences, abbreviations). Try normalised surname matching.
+  const { rows: ungradedRows } = await pool.query(
+    `SELECT id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
+    [round]
+  );
+  if (ungradedRows.length > 0) {
+    // Build a surname lookup from completed matches: normalised surname -> { winnerId, loserId, winnerName, loserName }
+    const surnameLookup = new Map(); // surname -> match outcome (skip if ambiguous)
+    for (const m of completed) {
+      const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+      const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
+      for (const { name, isWinner } of [
+        { name: m.winnerName, isWinner: true },
+        { name: loserName, isWinner: false },
+      ]) {
+        const surname = extractSurname(name);
+        if (!surname) continue;
+        if (surnameLookup.has(surname)) {
+          // Ambiguous surname (two different players share it) -- mark as null to skip
+          surnameLookup.set(surname, null);
+        } else {
+          surnameLookup.set(surname, { isWinner, playerId: isWinner ? m.winnerId : loserId });
+        }
+      }
+    }
+
+    let surnameMatched = 0;
+    for (const pick of ungradedRows) {
+      const pickSurname = extractSurname(pick.player_name);
+      if (!pickSurname) continue;
+      const outcome = surnameLookup.get(pickSurname);
+      if (!outcome) continue; // no match or ambiguous
+      const survived = outcome.isWinner;
+      await pool.query(
+        `UPDATE picks SET survived = $1 WHERE id = $2 AND survived IS NULL`,
+        [survived, pick.id]
+      );
+      picksUpdated++;
+      surnameMatched++;
+      console.log(`[results] Surname fallback: pick ${pick.id} "${pick.player_name}" -> ${survived ? 'survived' : 'eliminated'} (matched surname "${pickSurname}")`);
+
+      // If they lost, eliminate the group member too
+      if (!survived) {
+        await pool.query(
+          `UPDATE group_members gm
+             SET is_alive = false, eliminated_round = $1
+           FROM picks p
+           WHERE p.id = $2
+             AND p.survived = false
+             AND p.user_id  = gm.user_id
+             AND p.group_id = gm.group_id
+             AND gm.is_alive = true`,
+          [round, pick.id]
+        );
+      }
+    }
+    if (surnameMatched > 0) {
+      console.log(`[results] ${round}: ${surnameMatched} picks graded via surname fallback`);
+    }
+  }
+
+  // ── Safety net: warn about still-ungraded picks ────────────────────────────
+  const { rows: stillUngraded } = await pool.query(
+    `SELECT id, user_id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
+    [round]
+  );
+  if (stillUngraded.length > 0) {
+    for (const p of stillUngraded) {
+      console.warn(`[results] WARNING: pick ${p.id} still ungraded after all ${completed.length} matches processed. user=${p.user_id} player="${p.player_name}" player_id=${p.player_id}`);
+    }
+    console.warn(`[results] ${round}: ${stillUngraded.length} picks remain ungraded -- manual review needed`);
   }
 
   // ── Invalidate future-round picks for players who just lost ──────────────
