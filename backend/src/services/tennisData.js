@@ -439,6 +439,12 @@ export async function getDraw(roundFilter = null) {
 
   if (fixtures && fixtures.length > 0) {
     const liveDraw = buildDrawFromFixtures(fixtures);
+    // Diagnostic: log live draw round distribution
+    const liveRoundCounts = {};
+    for (const lm of liveDraw.matches) {
+      liveRoundCounts[lm.round] = (liveRoundCounts[lm.round] || 0) + 1;
+    }
+    console.log(`[tennisData] Live draw from ${fixtures.length} fixtures: ${JSON.stringify(liveRoundCounts)}`);
     if (liveDraw.matches.length > 0) {
       // Build lookups: sorted pair of API player IDs → live match,
       // plus a name-based fallback for players missing API keys (qualifiers/LLs).
@@ -449,34 +455,29 @@ export async function getDraw(roundFilter = null) {
         if (!lm.player1Id || !lm.player2Id) continue;
         const key = [String(lm.player1Id), String(lm.player2Id)].sort().join('|');
         liveByPlayers.set(key, lm);
-        // Name-based fallback key (sorted normalised surnames)
         const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
         const nameKey = [surname(lm.player1Name), surname(lm.player2Name)].sort().join('|');
         liveByNames.set(nameKey, lm);
       }
 
-      const overlaidMatchIds = new Set(); // Track which mock matches got real data
+      const overlaidMatchIds = new Set();
 
-      for (const mm of mockDraw.matches) {
-        if (mm.bye) continue;
+      // ── Helper: overlay a single mock match against live data ─────────
+      function overlayMatch(mm) {
+        if (mm.bye || overlaidMatchIds.has(mm.id)) return false;
         const k1 = mm.player1ApiKey || mm.player1Id;
         const k2 = mm.player2ApiKey || mm.player2Id;
-        if (!k1 || !k2) continue;
+        if (!k1 || !k2) return false;
         const key = [String(k1), String(k2)].sort().join('|');
         let lm = liveByPlayers.get(key);
 
-        // Fallback: match by normalised surname when API key lookup fails
-        // (handles qualifiers/LLs whose API keys aren't in API_KEY_MAP yet)
+        // Fallback: match by normalised surname
         if (!lm) {
           const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
+          if (!mm.player1Name || !mm.player2Name) return false;
           const nameKey = [surname(mm.player1Name), surname(mm.player2Name)].sort().join('|');
           lm = liveByNames.get(nameKey);
-          // Back-fill discovered API keys so downstream code (propagation, H2H) can use them
           if (lm) {
-            // Use exact surname comparison (not includes()) to avoid false
-            // matches when one surname is a substring of another (e.g.
-            // "Paul" inside "De Paula"). Falls back to includes() only when
-            // exact match is ambiguous and there's a single candidate.
             const lmSurname1 = surname(lm.player1Name);
             const mmSurname1 = surname(mm.player1Name);
             const sameOrder = lmSurname1 === mmSurname1;
@@ -489,11 +490,9 @@ export async function getDraw(roundFilter = null) {
             }
           }
         }
-        if (!lm) continue;
+        if (!lm) return false;
         overlaidMatchIds.add(mm.id);
 
-        // Overlay live data onto mock match
-        // Determine which live player maps to mock player1 using API keys
         const p1Key = mm.player1ApiKey || k1;
         const winnerIsMockP1 = lm.winnerId
           ? String(lm.winnerId) === String(p1Key)
@@ -503,42 +502,17 @@ export async function getDraw(roundFilter = null) {
           mm.winnerId = winnerIsMockP1 ? mm.player1Id : mm.player2Id;
           mm.winnerName = winnerIsMockP1 ? mm.player1Name : mm.player2Name;
         } else {
-          // Live fixture found but no winner — match not yet resolved.
-          // Reset any fake 'completed' status from the mock.
           mm.status = lm.status || 'scheduled';
           mm.winnerId = null;
           mm.winnerName = null;
         }
         if (lm.score) mm.score = lm.score;
         if (lm.startTime) mm.startTime = lm.startTime;
+        return true;
       }
 
-      // Clear misleading statuses from mock. The mock marks past-round
-      // matches as 'completed' (player1 always wins) and current-round
-      // matches as 'in_progress'. For any match NOT confirmed by live API
-      // or manual override, these statuses are fake — reset to 'scheduled'.
-      for (const mm of mockDraw.matches) {
-        if (mm.bye) continue;
-        if (overlaidMatchIds.has(mm.id)) continue; // confirmed by real data
-        if (mm.status === 'in_progress') {
-          mm.status = 'scheduled';
-        } else if (mm.status === 'completed') {
-          // Fake completion from mock — no live data to confirm it
-          mm.status = 'scheduled';
-          mm.winnerId = null;
-          mm.winnerName = null;
-          mm.score = null;
-        }
-      }
-
-      // Propagate winners forward into next-round bracket slots.
-      // The mock draw's Step 2 clears future-round names to TBD. Use the
-      // standard binary bracket pairing: every 2 consecutive matches in
-      // round N feed 1 match in round N+1 (slot i gets matches 2i and 2i+1).
-      for (let ri = 0; ri < ROUNDS.length - 1; ri++) {
-        const thisRound = ROUNDS[ri];
-        const nextRound = ROUNDS[ri + 1];
-        // Get matches sorted by matchOrder (includes byes for R1)
+      // ── Helper: propagate winners from thisRound into nextRound slots ──
+      function propagateRound(thisRound, nextRound) {
         const thisMatches = mockDraw.matches
           .filter(m => m.round === thisRound)
           .sort((a, b) => a.matchOrder - b.matchOrder);
@@ -550,128 +524,87 @@ export async function getDraw(roundFilter = null) {
           const nm = nextMatches[i];
           const feeder1 = thisMatches[i * 2];
           const feeder2 = thisMatches[i * 2 + 1];
-          // Fill player1 slot from feeder1's winner.
-          // Always overwrite when feeder has a winner — the mock pre-fills
-          // slots with assumed winners (player1 always wins) which may be
-          // wrong after live overlay or manual overrides correct the result.
-          // If feeder has NO winner (match not played), clear the slot to TBD
-          // so the bracket doesn't show a fake progression.
-          // The pick pool (getAvailablePlayers) does NOT depend on bracket slots —
-          // for R32+ it shows all non-eliminated players regardless of slot data.
+          // Fill player1 from feeder1 winner. Clear to TBD if unresolved.
           if (feeder1?.winnerId) {
             nm.player1Id = feeder1.winnerId;
             nm.player1Name = feeder1.winnerName;
             const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
             nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
           } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
-            // Feeder match not resolved — clear name for bracket display (shows TBD)
-            // but KEEP the player ID so the pick pool can still find this player
-            // via pendingFromPrevRound / eligibleMockIds.
-            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
-              .some(p => p.id === nm.player1Id);
-            if (!isSeed) { nm.player1Name = null; nm.player1ApiKey = null; }
+            nm.player1Name = null; nm.player1ApiKey = null;
           }
-          // Fill player2 slot from feeder2's winner
+          // Fill player2 from feeder2 winner
           if (feeder2?.winnerId) {
             nm.player2Id = feeder2.winnerId;
             nm.player2Name = feeder2.winnerName;
             const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
             nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
           } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
-            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
-              .some(p => p.id === nm.player2Id);
-            if (!isSeed) { nm.player2Name = null; nm.player2ApiKey = null; }
+            nm.player2Name = null; nm.player2ApiKey = null;
           }
         }
       }
 
-      // ── Manual result overrides ───────────────────────────────────────
-      // For matches that API-Tennis doesn't index (e.g. qualifier fixtures).
-      // IMPORTANT: runs AFTER propagation so R32+ matches have correct player IDs
-      // (propagation fills winner from previous round into next-round slots).
-      // Defined in tournament config as { winnerId, winnerName, loserId, round }.
-      if (TOURNAMENT.manualResults) {
-        for (const ovr of TOURNAMENT.manualResults) {
-          const mm = mockDraw.matches.find(
-            m => m.round === ovr.round && !m.bye &&
-              ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
-               (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
-          );
-          if (mm) {
-            mm.status = 'completed';
-            mm.winnerId = ovr.winnerId;
-            mm.winnerName = ovr.winnerName;
-            overlaidMatchIds.add(mm.id);
-            console.log(`[tennisData] Manual override applied: ${ovr.winnerName} beats ${ovr.loserId} in ${ovr.round}`);
-          } else {
-            console.warn(`[tennisData] Manual override NOT matched: ${ovr.winnerName} (${ovr.winnerId}) vs ${ovr.loserId} in ${ovr.round}`);
+      // ── Round-by-round: manual overrides → overlay → clear fakes → propagate
+      // CRITICAL: process rounds sequentially so that R1 winners propagate into
+      // R32 slots BEFORE we try to overlay R32 matches. Without this, R32+ mock
+      // matches still have the default player (mock always assumes player1 wins
+      // R1), so the API key / name lookup fails for any match where the actual
+      // R1 winner differs from the mock default.
+      for (let ri = 0; ri < ROUNDS.length; ri++) {
+        const round = ROUNDS[ri];
+
+        // 1. Apply manual overrides for this round first (qualifiers etc.)
+        if (TOURNAMENT.manualResults) {
+          for (const ovr of TOURNAMENT.manualResults) {
+            if (ovr.round !== round) continue;
+            const mm = mockDraw.matches.find(
+              m => m.round === ovr.round && !m.bye &&
+                ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
+                 (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
+            );
+            if (mm) {
+              mm.status = 'completed';
+              mm.winnerId = ovr.winnerId;
+              mm.winnerName = ovr.winnerName;
+              overlaidMatchIds.add(mm.id);
+            } else {
+              console.warn(`[tennisData] Manual override NOT matched: ${ovr.winnerName} (${ovr.winnerId}) vs ${ovr.loserId} in ${ovr.round}`);
+            }
           }
         }
-      }
 
-      // ── Second propagation pass ──────────────────────────────────────
-      // Manual results above may have completed matches (e.g. R1 or R32).
-      // Re-run propagation so those winners flow into the next round slots
-      // (e.g. R32 manual winner -> R16 player slot).
-      // Second propagation pass (post-manual-results) into next-round bracket slots.
-      // The mock draw's Step 2 clears future-round names to TBD. Use the
-      // standard binary bracket pairing: every 2 consecutive matches in
-      // round N feed 1 match in round N+1 (slot i gets matches 2i and 2i+1).
-      for (let ri = 0; ri < ROUNDS.length - 1; ri++) {
-        const thisRound = ROUNDS[ri];
-        const nextRound = ROUNDS[ri + 1];
-        // Get matches sorted by matchOrder (includes byes for R1)
-        const thisMatches = mockDraw.matches
-          .filter(m => m.round === thisRound)
-          .sort((a, b) => a.matchOrder - b.matchOrder);
-        const nextMatches = mockDraw.matches
-          .filter(m => m.round === nextRound && !m.bye)
-          .sort((a, b) => a.matchOrder - b.matchOrder);
+        // 2. Overlay this round's matches against live API data
+        const roundMatches = mockDraw.matches.filter(m => m.round === round);
+        let matched = 0;
+        for (const mm of roundMatches) {
+          if (overlayMatch(mm)) matched++;
+        }
 
-        for (let i = 0; i < nextMatches.length; i++) {
-          const nm = nextMatches[i];
-          const feeder1 = thisMatches[i * 2];
-          const feeder2 = thisMatches[i * 2 + 1];
-          // Fill player1 slot from feeder1's winner.
-          // Always overwrite when feeder has a winner — the mock pre-fills
-          // slots with assumed winners (player1 always wins) which may be
-          // wrong after live overlay or manual overrides correct the result.
-          // If feeder has NO winner (match not played), clear the slot to TBD
-          // so the bracket doesn't show a fake progression.
-          // The pick pool (getAvailablePlayers) does NOT depend on bracket slots —
-          // for R32+ it shows all non-eliminated players regardless of slot data.
-          if (feeder1?.winnerId) {
-            nm.player1Id = feeder1.winnerId;
-            nm.player1Name = feeder1.winnerName;
-            const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
-            nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
-          } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
-            // Feeder match not resolved — clear name for bracket display (shows TBD)
-            // but KEEP the player ID so the pick pool can still find this player
-            // via pendingFromPrevRound / eligibleMockIds.
-            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
-              .some(p => p.id === nm.player1Id);
-            if (!isSeed) { nm.player1Name = null; nm.player1ApiKey = null; }
+        // 3. Clear fake statuses for unmatched matches in this round
+        for (const mm of roundMatches) {
+          if (mm.bye || overlaidMatchIds.has(mm.id)) continue;
+          if (mm.status === 'in_progress' || mm.status === 'completed') {
+            mm.status = 'scheduled';
+            mm.winnerId = null;
+            mm.winnerName = null;
+            mm.score = null;
           }
-          // Fill player2 slot from feeder2's winner
-          if (feeder2?.winnerId) {
-            nm.player2Id = feeder2.winnerId;
-            nm.player2Name = feeder2.winnerName;
-            const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
-            nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
-          } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
-            const isSeed = mockDraw.players.slice(0, TOURNAMENT.seedsWithByes || 0)
-              .some(p => p.id === nm.player2Id);
-            if (!isSeed) { nm.player2Name = null; nm.player2ApiKey = null; }
-          }
+        }
+
+        // 4. Propagate this round's results into next round's bracket slots
+        if (ri < ROUNDS.length - 1) {
+          propagateRound(round, ROUNDS[ri + 1]);
+        }
+
+        if (matched > 0 || round === 'R32') {
+          console.log(`[tennisData] ${round}: ${matched}/${roundMatches.filter(m => !m.bye).length} overlaid`);
         }
       }
 
       // Re-derive roundEliminated from overlaid results.
-      // IMPORTANT: clear ALL roundEliminated first — the mock's Step 3 marks
-      // player2 of every R1 match as eliminated (player1 always wins in mock).
-      // After the live overlay corrects winners, some of those player2 entries
-      // are actually winners. Without clearing first, they stay eliminated.
+      // Clear ALL first — mock Step 3 marks player2 as eliminated (player1
+      // always wins in mock), but live overlay may have corrected the winner.
       for (const p of mockDraw.players) { p.roundEliminated = null; }
       const eliminated = new Set();
       for (const round of ROUNDS) {
