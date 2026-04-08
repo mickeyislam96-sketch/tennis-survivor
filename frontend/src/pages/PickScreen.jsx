@@ -47,7 +47,7 @@ export function PickScreen() {
   const { userId } = useAuth();
   const [available, setAvailable] = useState([]);
   const [rounds, setRounds] = useState([]);
-  const [currentRound, setCurrentRound] = useState('R1');
+  const [currentRound, setCurrentRound] = useState(null);
   const [pickMatchDetail, setPickMatchDetail] = useState(null);
   const [deadline, setDeadline] = useState(null);
   const [opensAt, setOpensAt] = useState(null);
@@ -80,7 +80,7 @@ export function PickScreen() {
   }, []);
 
   const fetchAvailable = () => {
-    if (!groupId || !userId) return;
+    if (!groupId || !userId || !currentRound) return;
     fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`)
       .then((r) => r.json())
       .then(setAvailable)
@@ -130,6 +130,7 @@ export function PickScreen() {
     if (!deadlines.length) return;
     const now = new Date();
 
+    // Find the first open (unlocked) round
     for (const d of deadlines) {
       const lockAt = d.lockAt ? new Date(d.lockAt) : null;
       const isLocked = lockAt && now >= lockAt;
@@ -141,7 +142,14 @@ export function PickScreen() {
         return;
       }
     }
-  }, [deadlines]);
+    // No open round — fall back to the last round with a deadline (most recent locked round)
+    if (!currentRound && deadlines.length > 0) {
+      const last = deadlines[deadlines.length - 1];
+      setCurrentRound(last.round);
+      setDeadline(last.lockAt || null);
+      setOpensAt(last.opensAt || null);
+    }
+  }, [deadlines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When the user switches tabs, update the deadline and opens-at for that round.
   useEffect(() => {
