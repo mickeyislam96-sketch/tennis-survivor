@@ -564,7 +564,9 @@ export function PickScreen() {
               </p>
             </div>
           )}
-          <p className="qualifier-disclaimer">Qualifiers will be added once the qualifying draw is finalised.</p>
+          {rounds.indexOf(currentRound) <= 1 && (
+            <p className="qualifier-disclaimer">Qualifiers will be added once the qualifying draw is finalised.</p>
+          )}
         </>
       )}
 
