@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 8 April 2026. Keep this file updated at the end of every session.
+> Last updated: 9 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -17,6 +17,7 @@
 | Frontend (production) | https://finalserveivor.com |
 | Frontend (Vercel alias) | https://tennis-survivor.vercel.app |
 | Backend API | https://tennis-survivor-production.up.railway.app |
+| Mobile app (iOS) | Expo / React Native — pre-App Store (TestFlight pending) |
 | Sofascore proxy (inactive) | https://sofascore-proxy.finalservivor.workers.dev |
 
 ---
@@ -25,9 +26,11 @@
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite, deployed on Vercel (auto-deploys from GitHub `main`) |
+| Frontend (web) | React + Vite, deployed on Vercel (auto-deploys from GitHub `main`) |
+| Frontend (mobile) | React Native + Expo SDK 54 + TypeScript — `mickeyislam96-sketch/tennis-survivor-mobile` |
 | Backend | Node.js / Express, deployed on Railway (auto-deploys from GitHub `main`) |
-| Source control | GitHub — `mickeyislam96-sketch/tennis-survivor` |
+| Source control (web) | GitHub — `mickeyislam96-sketch/tennis-survivor` |
+| Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
 | Primary data | API-Tennis (paid) — live fixtures and results |
 | Secondary data | Sofascore (free) — currently 403-blocked on all cloud IPs |
 | Proxy | Cloudflare Workers (deployed but inactive) |
@@ -46,6 +49,19 @@
 | Vercel Project ID | `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf` |
 | Vercel Team ID | `team_ekuiNPY7cIyY2ieq41oWMYvO` |
 
+### Mobile app reference
+
+| Item | Value |
+|---|---|
+| Bundle ID (iOS) | `com.finalserveivor.app` |
+| Package name (Android) | `com.finalserveivor.app` |
+| Expo slug | `final-serveivor` |
+| App scheme (deep links) | `finalserveivor://` |
+| EAS Project ID | **NOT SET** — required before EAS Build/Submit |
+| Associated domains | `applinks:finalserveivor.com`, `applinks:tennis-survivor.vercel.app` |
+
+**Deep linking routes:** `join/:code`, `group/:groupId` (nested under Pools stack). Password reset deep link not yet configured.
+
 ---
 
 ## Key environment variables (Railway)
@@ -53,7 +69,7 @@
 | Variable | Purpose |
 |---|---|
 | `TENNIS_API_KEY` | API-Tennis auth key — **critical, never remove** |
-| `ACTIVE_TOURNAMENT` | Which tournament config to load — currently `monte-carlo-2026` |
+| `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open |
 | `SOFASCORE_BASE_URL` | Cloudflare proxy URL — `https://sofascore-proxy.finalservivor.workers.dev` |
 | `NODE_ENV` | Runtime environment |
 
@@ -93,31 +109,45 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 ---
 
-## Round structure — Monte Carlo 2026
+## Round structure — Miami Open 2026
 
 | App round | API-Tennis label | Description |
 |---|---|---|
-| R1 | Rolex Monte-Carlo - 1/32-finals | 24 matches between non-seeded players (8 seeds have byes) |
-| R32 | Rolex Monte-Carlo - 1/16-finals | 32 players — R1 winners + 8 seeds entering |
-| R16 | Rolex Monte-Carlo - 1/8-finals | 16 players |
-| QF | Rolex Monte-Carlo - Quarterfinals | 8 players |
-| SF | Rolex Monte-Carlo - Semifinals | 4 players |
-| F | Rolex Monte-Carlo - Final | 2 players |
+| R1 | ATP Miami - 1/64-finals | 32 matches between unseeded players (no seeds involved) |
+| R64 | ATP Miami - 1/32-finals | 64 players — R1 winners + seeded players entering |
+| R32 | ATP Miami - 1/16-finals | 32 players |
+| R16 | ATP Miami - 1/8-finals | 16 players |
+| QF | ATP Miami - Quarterfinals | 8 players |
+| SF | ATP Miami - Semifinals | 4 players |
+| F | ATP Miami - Final | 2 players |
 
-**Key structural fact:** Top 8 seeds have R1 byes — they enter at R32. The mock draw has 56 players total (48 in R1 + 8 seeds). API round names are overridden via `roundNameOverrides` in the MC tournament config.
+**Key structural fact:** Seeded players (top 32) have R1 byes — they do not appear in any R1 fixtures. They first appear when their R64 match is scheduled. Some R64 matches have `round: null` in the API because the API hasn't assigned them yet — `normalizeRound()` returns null for these, so they may be missed.
 
 ---
 
 ## Pick window timing system
 
-Now defined per-tournament in `backend/src/config/tournaments/monte-carlo-2026.js`.
+Defined in `backend/src/services/tennisData.js`:
 
-Key fields in the tournament config:
-- **`lockTimeOverrides`** — hard lock times per round (takes precedence)
-- **`roundDateFallbacks`** — fallback first-match times when API has no data
-- **`windowOpensOverrides`** — delay when a pick window opens (e.g. R16 delayed to let R32 results settle)
+**`LOCKTIME_OVERRIDES`** — hard overrides for lock time (takes precedence over everything):
+```js
+const LOCKTIME_OVERRIDES = {
+  R1:  '2026-03-19T13:00:00Z',
+  R32: '2026-03-22T18:00:00Z', // Sun 22 Mar, 2PM EDT / 18:00 UTC (1h before first match)
+};
+```
 
-**Important:** When adding future rounds or adjusting times, update the tournament config file. Get the actual first match time and set the lock override to 1 hour before that. Do not rely on fallback tables alone.
+**`ROUND_DATES`** — no-API fallback (used when API-Tennis has no data):
+```js
+R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
+```
+
+**`ROUND_DATE_FALLBACK`** — API has data but no round times (use these):
+```js
+R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
+```
+
+**Important:** When adding future rounds (R16, QF, SF, F), get the actual first match time and add a `LOCKTIME_OVERRIDE` set to 1 hour before that. Do not rely on the fallback tables alone — they may be wrong.
 
 ---
 
@@ -127,8 +157,8 @@ Key fields in the tournament config:
 
 | File | What it does |
 |---|---|
-| `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()`, round normalisation, fallback chain. Also contains `dynamicKeyMap` (auto-discovers API keys by matching fixture player names to mock player surnames) and `buildDynamicKeyMap()` which runs on every fresh API fetch (2 min cache TTL). |
-| `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — builds the pool of eligible players for a round, tags `pendingPrevRound` flag. Also contains `buildOpponentMap()` and `findPossibleOpponents()` for opponent enrichment. Has double deadline check (initial + re-check before UPSERT) to prevent race condition picks after lock. |
+| `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()`, `LOCKTIME_OVERRIDES`, `ROUND_DATES`, `ROUND_DATE_FALLBACK`, round normalisation, fallback chain |
+| `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — builds the pool of eligible players for a round, tags `pendingPrevRound` flag. Also contains `buildOpponentMap()` and `findPossibleOpponents()` for opponent enrichment. |
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
 | `backend/src/routes/health.js` | Real production health check — validates env vars, live API call, DB ping |
@@ -137,15 +167,7 @@ Key fields in the tournament config:
 | `backend/src/config/tournaments/monte-carlo-2026.js` | MC config — API params, round structure, lock time overrides, round date fallbacks, round name overrides |
 | `backend/src/data/monteCarloMockDraw.js` | Monte Carlo draw with real player names (56 players, 8 seeds with byes, 24 R1 matches) |
 | `backend/src/data/mockDraw.js` | Mock draw dispatcher — routes to correct tournament mock based on `ACTIVE_TOURNAMENT` |
-| `backend/src/data/miamiDraw.js` | Miami mock draw (dead code — no longer imported, kept on disk) |
-
-### Frontend
-
-| File | What it does |
-|---|---|
-| `frontend/src/pages/PickScreen.jsx` | Pick flow — round tabs, countdown, player list, current pick card, pending-round banner, `pendingPrevRound` badges |
-| `frontend/src/pages/Leaderboard.jsx` | Leaderboard — stats bar, 4-column table (Player / Status / Progress / Current Pick), pick history modal. Pick column shows "🔒 Hidden" during open window, player name after lock. |n `ACTIVE_TOURNAMENT` |
-| `backend/src/data/miamiDraw.js` | Miami mock draw (dead code — no longer imported, kept on disk) |
+| `backend/src/data/miamiDraw.js` | Miami mock draw (legacy) |
 
 ### Frontend
 
@@ -160,6 +182,29 @@ Key fields in the tournament config:
 | `frontend/src/index.css` | All styles — see mobile section below |
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
+
+### Mobile app (separate repo: `tennis-survivor-mobile`)
+
+| File | What it does |
+|---|---|
+| `src/screens/PickScreen.tsx` | Pick flow — round tabs, countdown, player list, 60s auto-refresh, opponent search, pending badges |
+| `src/screens/LeaderboardScreen.tsx` | Leaderboard + member pick history modal (tap row to see picks) |
+| `src/screens/GroupScreen.tsx` | Group dashboard — stats, deadline, current pick, share invite |
+| `src/screens/DrawScreen.tsx` | Draw list view + matchup modal (H2H, stats, recent form from `/api/matchup`) |
+| `src/screens/PoolsScreen.tsx` | Landing — pool cards, hero CTA, invite code input |
+| `src/screens/ProfileScreen.tsx` | Profile editing + pool history table + logout |
+| `src/screens/RegisterScreen.tsx` | Registration with T&Cs acceptance checkbox |
+| `src/screens/MyPicksScreen.tsx` | Cross-pool pick history (bottom tab) |
+| `src/components/PlayerRow.tsx` | Player row — name, seed, opponent/TBD, pending badge, pick button |
+| `src/api/client.ts` | API client — auto-injects userId from SecureStore, error handling |
+| `src/api/picks.ts` | Pick API — Player interface (opponentName, opponentPossible, status), pick CRUD |
+| `src/api/draw.ts` | Draw + matchup API — getMatchup() for H2H data |
+| `src/api/groups.ts` | Pool/group API — Group/Pool interfaces with tournament sub-object |
+| `src/context/AuthContext.tsx` | Auth state — login, register, logout, refreshUser, persisted to device storage |
+| `src/navigation/index.tsx` | Deep linking config, auth gate (AuthStack vs MainTabs) |
+| `src/hooks/usePollData.ts` | Generic polling hook (pauses on background, resumes on foreground) |
+| `src/hooks/useCountdown.ts` | Countdown timer hook (HH:MM:SS, isExpired, isUrgent) |
+| `app.json` | Expo config — bundle ID, scheme, associated domains, EAS config |
 
 ---
 
@@ -287,25 +332,15 @@ Mock marks all past-round matches as completed (player1 wins). 5 unplayed R1 mat
 ### 15. Mensik withdrawal — HANDLED (7 Apr 2026)
 Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock draw. mc-p23 now maps to Dzumhur with API key null (dynamic discovery). T&Cs updated with post-lock withdrawal policy (Section 7).
 
-### 16. ~~Brittle pick grading (name mismatch)~~ — FIXED (8 Apr 2026)
-Pick grading in `resultsProcessor.js` could silently fail when a player's API key wasn't discovered AND the stored pick name didn't exactly match the API's name (accents, spacing, abbreviations). The pick stayed `survived = NULL` forever with no warning. Fix: added normalised surname fallback matching (strip accents, lowercase, match on last name only, skip ambiguous surnames). Also added a safety-net query that logs warnings for any picks still ungraded after all matches are processed.
-
-### 17. ~~Cron job had no concurrency guard~~ — FIXED (8 Apr 2026)
-`autoProcessResults()` cron (every 15 min) had no mutex. If a run took longer than 15 min, the next invocation could overlap, risking double processing or duplicate emails. Fix: added in-memory boolean lock with try/finally. Adequate for single-instance Railway deployment.
-
-### 18. ~~Overlay name matching used substring includes()~~ — FIXED (8 Apr 2026)
-The name-based fallback in `tennisData.js` overlay used `includes()` to determine player order when matching live API players to mock draw entries. If one player's surname was a substring of another's (e.g. "Paul" matching "De Paula"), the wrong match got linked. Fix: changed to exact surname comparison with `===`.
-
-### 19. ~~Sofascore adapter could map to non-existent rounds~~ — FIXED (8 Apr 2026)
-`DEFAULT_SOFASCORE_ROUND_MAP` was designed for 96-draw tournaments. For MC's 56-draw, residual mappings could produce rounds not in the active tournament's ROUNDS array (e.g. R64). Fix: added a guard to skip any mapped round not in the current ROUNDS array. Currently dormant (Sofascore is 403-blocked) but prevents future breakage.
-
 ---
 
-## Current tournament state (as of 7 April 2026, evening session)
+## Current tournament state (as of 7 April 2026)
 
-### Miami Open 2026 — REMOVED
-- Fully removed from codebase (7 Apr evening session). All imports, registry entries, mock data, and frontend tournament config deleted.
-- Dead files still on disk but no longer imported: `backend/src/config/tournaments/miami-2026.js`, `backend/src/data/miamiDraw.js`, `backend/src/data/indianWellsDraw.js`
+### Miami Open 2026 (practice — complete)
+- Tournament: ATP Miami Open 2026
+- Stage: Complete — practice tournament finished
+- Participants: 8 users in test group `6da0f300-ff14-43cb-bcef-ad4ba6709208`
+- Mode: Practice tournament — no prize money
 
 ### Monte Carlo 2026 (LIVE — first competitive tournament)
 - Tournament: Rolex Monte-Carlo Masters 2026
@@ -315,25 +350,39 @@ The name-based fallback in `tennisData.js` overlay used `includes()` to determin
 - Entry: Free
 - R1 lock: LOCKED (Sun 5 Apr 12:30 BST)
 - R32 lock: LOCKED (Tue 7 Apr 11:00 BST)
-- R16 window: Opens Tue 7 Apr 5pm BST (16:00 UTC), locks Thu 9 Apr 10:00 BST
-- R16 lock time override: `2026-04-09T09:00:00Z` (Thu 9 Apr 10am BST) — **may need adjustment** once order of play is announced. Set to 1h before first R16 match.
+- R16 window: Opens Tue 7 Apr 5pm BST (16:00 UTC), locks Wed 8 Apr 11:00 BST
+- R16 lock time override: `2026-04-08T10:00:00Z` — **may need adjustment** once Wednesday order of play is announced. Set to 1h before first R16 match.
 - R16 window open override: `windowOpensOverrides.R16 = '2026-04-07T16:00:00Z'` — delayed to let R32 results settle
 - Data source: Live API-Tennis (58 cached fixtures)
 - Withdrawals: Mensik withdrew, replaced by Dzumhur (mc-p23)
-- Manual results: Berrettini d. Bautista Agut R1 (qualifier with no API key), Marozsan d. Dzumhur R1, Sinner d. Humbert R32
+- Manual results: Berrettini d. Bautista Agut R1 (qualifier with no API key)
 
 ### Outstanding actions
 1. **R16 lock time** — adjust once Wednesday order of play is announced (1h before first R16 match)
-2. ~~**SPF/DKIM for Brevo**~~ — DONE (verified 8 Apr). All 4 DNS records (Brevo code, DKIM 1, DKIM 2, DMARC) green in Brevo dashboard. Domain `finalserveivor.com` fully authenticated.
-3. **Post-tournament refactor** — plan documented in `docs/REFACTOR-PLAN.md`. Ship after MC ends (13 Apr or later). Separates static draw structure from live match state into 4 layers.
+2. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments
+3. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
+4. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
+5. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
+6. **App Store submission** — TestFlight build, screenshots, metadata, review
 
-### Opponent matchup feature (NEW — 3 Apr)
+### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
 - **Known:** "vs Stan Wawrinka"
 - **Qualifier/unknown:** "vs Qualifier"
 - **TBD (previous round pending):** "vs Player A or Player B" (italic)
 Backend: `buildOpponentMap()` in `picks.js` enriches available players response.
-Frontend: `.player-name-col` wrapper in `PickScreen.jsx` with `.player-opponent` sub-line.
+Web: `.player-name-col` wrapper in `PickScreen.jsx` with `.player-opponent` sub-line.
+Mobile: `PlayerRow.tsx` reads `opponentName` and `opponentPossible` from Player interface.
+
+### Mobile app feature parity (9 Apr)
+Full cross-platform audit completed. Mobile now matches web on all critical flows:
+- Pick submission, search (player + opponent name), 60s auto-refresh
+- Leaderboard with pick history modal (tap any row)
+- Draw with matchup modal (H2H, stats, recent form)
+- Profile with pool history table
+- Registration with mandatory T&Cs acceptance
+- Deep links for invite codes and group pages
+**Remaining gaps (acceptable):** no bracket view (list only), no password reset deep link, EAS Project ID not set.
 
 ---
 
@@ -353,10 +402,9 @@ Frontend: `.player-name-col` wrapper in `PickScreen.jsx` with `.player-opponent`
 | 3 Apr 2026 (session 1) | **Monte Carlo activation.** Commit `69cddfd`: flipped Monte Carlo to `active`/`drawAvailable: true` in FE+BE tournament configs; set lock time overrides for all rounds (R1-F); fixed BRACKET_ROUNDS bug in DrawViewer; added Rolex prefix round name overrides for API-Tennis. Confirmed R1 pick window open, countdown running. |
 | 3 Apr 2026 (session 2) | **Email build + rollback + opponent feature.** Built 4 transactional email templates (pick reminder, survival, elimination, winner) and wired to cron — then immediately rolled back (commit `028b443`) because no `emails_sent` dedup table existed. Mickey flagged this as unacceptable risk. Templates preserved in git history (commit `c7a16d1`). Confirmed Railway billing already on Hobby plan. Mobile audit: fixed touch targets (44px min-height on buttons, player rows, round tabs), search input overflow, auth button padding. **New feature:** opponent matchups in pick screen (commit `f48945f`) — `buildOpponentMap()` in picks.js cross-references draw data; PickScreen.jsx shows "vs [opponent]" below each player name; handles known, qualifier, and TBD states. Verified live on finalserveivor.com — 41 R1 players with correct opponent names. API-Tennis still returning no data (mock fallback active). Invites sent after session. |
 | 6 Apr 2026 | **Critical fixes + bracket connector incident.** (1) Fixed cross-pool email bug — `sendResultEmails()` and `sendRemindersForRound()` were querying ALL groups across ALL tournaments; added `JOIN groups` + `WHERE g.tournament_id = TOURNAMENT.id`. (2) Fixed email cleanup migration — was deleting ALL pending emails on every restart; added timestamp guard `< 2026-04-06T09:00:00Z`. (3) **Fixed API-Tennis empty response** — root cause: `tournament_season=2026` parameter silently breaks MC queries; set `apiSeason: null` in MC config, made param conditional in all URL builders. API now returns 50+ live fixtures. (4) Fixed Raj's typo'd email via new `POST /api/admin/fix-email` endpoint. (5) Added `isValidEmail()` to backend auth + frontend modal. (6) Added `GET /api/admin/api-diag` diagnostic endpoint. (7) Bracket connector refactor — replaced fixed-maths `ConnectorSVG` with DOM-measured `DomConnector` using `getBoundingClientRect` + `ResizeObserver`. **Incident:** initial commit placed `useRef` after early returns in DrawViewer, violating React hooks rules and crashing the entire site (white screen). Hotfixed by moving hook before early returns. **Lesson:** every push must be verified before moving on; risky refactors should not be shipped during live tournament windows. |
-| 7 Apr 2026 (session 1) | **Bracket data integrity + pick pool refactor.** (1) Manual result override for Berrettini d. Bautista Agut R1 (qualifier with no API key). (2) Fixed propagation to always overwrite from feeder winners. (3) Cleared `roundEliminated` before re-deriving from live results — mock Step 3 marked upset winners as eliminated. (4) Fixed fake R1 completions in bracket — overlay now always applies live status when no winner; non-overlaid completed matches reset to scheduled. (5) Fixed bracket showing unresolved R1 feeders as progressed — propagation clears names to null (shows TBD) but keeps player IDs. (6) **Major refactor: simplified pick pool** — removed `eligibleMockIds` entirely. R1: restrict to R1 match participants. R32+: all non-eliminated non-qualifier players. No dependency on bracket slot data. Eliminates entire class of bracket-vs-pool bugs. (7) Delayed R16 window to 5pm BST via `windowOpensOverrides`. (8) Mensik withdrawal: replaced with Dzumhur (LL) in mock draw. (9) Added post-lock withdrawal policy to T&Cs (Section 7). 8 commits total. |
-| 8 Apr 2026 | **Code review bug fixes (4 commits).** (1) Fixed brittle pick grading in `resultsProcessor.js` -- added normalised surname fallback (strip accents, lowercase, match on last word) for picks that don't match via API key, mock ID, or exact name. Added safety-net query that logs warnings for still-ungraded picks after all matches processed. (2) Added in-memory mutex (`_processing` flag with try/finally) to `autoProcessResults()` to prevent concurrent cron runs. (3) Fixed `includes()` substring bug in `tennisData.js` overlay -- changed to exact surname comparison (`===`) for player order detection when back-filling API keys from name-based match. Prevents false matches like "Paul" inside "De Paula". (4) Fixed Sofascore adapter mapping non-existent rounds -- added guard to skip any mapped round not in the active tournament's ROUNDS array, preventing 96-draw residual mappings (e.g. R64) from leaking into MC's 56-draw. All 4 commits deployed and verified via health check. |
-| 7 Apr 2026 (session 2) | **Miami removal + code review fixes.** (1) Removed Miami tournament entirely from codebase: dropped from frontend+backend tournament registries, tournament config, mock draw dispatcher, mock groups. 6 commits. Dead files (miami-2026.js, miamiDraw.js) left on disk but no longer imported. (2) Fixed `keyMapBuilt` one-shot guard in `tennisData.js` — API key discovery was only running once then never again, meaning new players appearing in later API calls (like Sinner's R32 match) were never discovered. Now rebuilds on every fresh API fetch (every 2 min cache expiry). The function is already idempotent. (3) Fixed pick deadline race condition in `picks.js` — added second `getDeadlines()` check immediately before the UPSERT query, closing the window between initial validation and DB write. (4) Added completed-tournament redirect: GroupHome.jsx now redirects to leaderboard for finished tournaments. (5) Investigated and dismissed two suspected bugs: DrawViewer `player1ApiKey || player1Id` fallback is correct (matchup API needs API keys); Leaderboard passing `data.openRound` to PickHistoryModal is correct (hides open round's picks, not locked round). (6) Updated CLAUDE.md and project docs. |
-| 8 Apr 2026 (session 2) | **SPF/DKIM verification + refactor plan.** Verified Brevo domain auth already fully configured (all 4 DNS records green: Brevo code, DKIM 1, DKIM 2, DMARC). No action needed. Created `docs/REFACTOR-PLAN.md` with post-tournament architecture plan: 4-layer separation (Static Draw, Live State Builder, Pick Pool, Bracket Display), 7 migration steps, feature-flag rollout strategy. Ship after MC ends (13 Apr). Updated outstanding actions in CLAUDE.md. |
+| 7 Apr 2026 | **Bracket data integrity + pick pool refactor.** (1) Manual result override for Berrettini d. Bautista Agut R1 (qualifier with no API key). (2) Fixed propagation to always overwrite from feeder winners. (3) Cleared `roundEliminated` before re-deriving from live results — mock Step 3 marked upset winners as eliminated. (4) Fixed fake R1 completions in bracket — overlay now always applies live status when no winner; non-overlaid completed matches reset to scheduled. (5) Fixed bracket showing unresolved R1 feeders as progressed — propagation clears names to null (shows TBD) but keeps player IDs. (6) **Major refactor: simplified pick pool** — removed `eligibleMockIds` entirely. R1: restrict to R1 match participants. R32+: all non-eliminated non-qualifier players. No dependency on bracket slot data. Eliminates entire class of bracket-vs-pool bugs. (7) Delayed R16 window to 5pm BST via `windowOpensOverrides`. (8) Mensik withdrawal: replaced with Dzumhur (LL) in mock draw. (9) Added post-lock withdrawal policy to T&Cs (Section 7). 8 commits total. |
+| 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
+| 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
 
 ---
 
