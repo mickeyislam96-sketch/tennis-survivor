@@ -21,6 +21,8 @@ The first competitive tournament is **Rolex Monte-Carlo Masters 2026** (live, 11
 - `TENNIS_API_KEY` — API-Tennis key (critical — draw silently falls back to mock if missing)
 - `ACTIVE_TOURNAMENT` — which tournament config to load (currently `monte-carlo-2026`)
 - `ADMIN_SECRET` — auth for admin/diagnostic endpoints
+- `BREVO_API_KEY` — Brevo transactional email API key
+- `BREVO_TPL_WELCOME` through `BREVO_TPL_NEW_TOURNAMENT` — 9 Brevo template IDs (1-9)
 
 ---
 
@@ -62,8 +64,11 @@ tennis-survivor/
     services/
       tennisData.js          — fetches from API-Tennis, builds draw, dynamic API key discovery,
                                in-memory cache (2 min TTL), getDeadlines()
-      resultsProcessor.js    — auto-grades picks against completed matches
+      resultsProcessor.js    — auto-grades picks, sends round result + winner emails
+      emailScheduler.js      — cron-based pick reminder emails
       sofascoreAdapter.js    — Sofascore fetch (currently 403-blocked)
+    utils/
+      email.js               — Brevo template email system, approval gate, sendWithDedup
     data/
       monteCarloMockDraw.js  — MC draw with 56 real player names
       mockDraw.js            — mock draw dispatcher
