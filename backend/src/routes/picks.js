@@ -167,10 +167,18 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       } else if (!m.bye) {
         const p1Mock = m.player1Id;
         const p2Mock = m.player2Id;
+
+        // Check mock draw first — includes manual result overrides from getDraw()
+        if (m.status === 'completed' && m.winnerId) {
+          confirmedFromPrevRound.add(m.winnerId);
+          const loserMock = m.winnerId === p1Mock ? p2Mock : p1Mock;
+          if (loserMock) eliminatedFromPrevRound.add(loserMock);
+          continue;
+        }
+
+        // Otherwise check if live API has a result for this match
         const p1Api = mockToApi.get(p1Mock);
         const p2Api = mockToApi.get(p2Mock);
-
-        // Check if live API has a result for this match
         const p1LiveConfirmed = p1Api && liveConfirmedApi.has(p1Api);
         const p2LiveConfirmed = p2Api && liveConfirmedApi.has(p2Api);
         const p1LiveEliminated = p1Api && liveEliminatedApi.has(p1Api);
