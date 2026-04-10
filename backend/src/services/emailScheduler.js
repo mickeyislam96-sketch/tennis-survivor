@@ -1,9 +1,9 @@
 /**
- * Email scheduler — runs on the existing 15-minute cron.
+ * Email scheduler â runs on the existing 15-minute cron.
  * Checks for pick reminders that need sending.
  *
  * All emails go through sendWithDedup, so this is safe to run
- * repeatedly — duplicates are impossible.
+ * repeatedly â duplicates are impossible.
  */
 import { pool } from '../db/pool.js';
 import { getDeadlines } from './tennisData.js';
@@ -64,9 +64,27 @@ async function sendRemindersForRound(round, lockAt) {
 
   if (rows.length === 0) return;
 
+  // Get group-level stats for enriching the reminder
+  const groupIds = [...new Set(rows.map(r => r.group_id))];
+  const groupStats = {};
+  for (const gid of groupIds) {
+    const [aliveResult, pickedResult] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND is_alive = true', [gid]),
+      pool.query('SELECT COUNT(*) FROM picks WHERE group_id = $1 AND round = $2', [gid, round]),
+    ]);
+    groupStats[gid] = {
+      aliveCount: Number(aliveResult.rows[0].count),
+      pickedCount: Number(pickedResult.rows[0].count),
+    };
+  }
+
+  const lockTime = new Date(lockAt);
+  const hoursLeft = Math.max(0, Math.round((lockTime.getTime() - Date.now()) / (1000 * 60 * 60)));
+
   let sent = 0;
   for (const row of rows) {
     try {
+      const stats = groupStats[row.group_id] || { aliveCount: 0, pickedCount: 0 };
       const result = await sendPickReminderEmail({
         userId: row.user_id,
         groupId: row.group_id,
@@ -75,6 +93,11 @@ async function sendRemindersForRound(round, lockAt) {
         displayName: row.display_name,
         groupName: row.group_name,
         lockAt,
+        tournamentName: TOURNAMENT.name,
+        roundShortName: round,
+        hoursLeft,
+        groupPlayerCount: stats.aliveCount,
+        pickedCount: stats.pickedCount,
       });
       if (result.queued) sent++;
     } catch (err) {
