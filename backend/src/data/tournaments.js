@@ -22,6 +22,23 @@ export const TOURNAMENTS = [
     pickWindowOpen: null,
     pickWindowClose: null,
   },
+  {
+    id: 'madrid-2026',
+    name: 'Mutua Madrid Open',
+    shortName: 'Madrid',
+    year: 2026,
+    tourLevel: 'ATP Masters 1000',
+    startDate: '2026-04-21',
+    endDate: '2026-05-03',
+    location: 'Madrid, Spain',
+    surface: 'Clay (outdoor)',
+    status: 'upcoming',
+    drawDate: 'April 18, 2026',
+    drawAvailable: false,
+    entryCloseAt: null,  // Set once draw date is confirmed
+    pickWindowOpen: null,
+    pickWindowClose: null,
+  },
 ];
 
 export function getTournament(id) {
