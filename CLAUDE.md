@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 9 April 2026. Keep this file updated at the end of every session.
+> Last updated: 10 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -332,9 +332,15 @@ Mock marks all past-round matches as completed (player1 wins). 5 unplayed R1 mat
 ### 15. Mensik withdrawal — HANDLED (7 Apr 2026)
 Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock draw. mc-p23 now maps to Dzumhur with API key null (dynamic discovery). T&Cs updated with post-lock withdrawal policy (Section 7).
 
+### 16. Leaderboard grader missed manual results — FIXED (10 Apr 2026)
+Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds draws purely from raw API fixtures. Manual result overrides (configured in tournament config `manualResults` array) are only applied by `getDraw()`, which overlays API data onto the mock draw. When the API hadn't recorded a result (e.g. Zverev d. Fonseca QF), the grader couldn't credit picks — survived-round count was wrong. Fix: switched leaderboard from `getLiveDraw('F')` to `getDraw('F')`. **Rule: any code that needs to grade picks must use `getDraw()`, not `getLiveDraw()`.**
+
+### 17. Qualifier disclaimer shown all tournament — FIXED (10 Apr 2026)
+"Qualifiers will be added once the qualifying draw is finalised" message was shown on the pick screen for every round. Only relevant during R1 and R2 (first two pick windows). Fix: wrapped in conditional `rounds.indexOf(currentRound) <= 1`.
+
 ---
 
-## Current tournament state (as of 7 April 2026)
+## Current tournament state (as of 10 April 2026)
 
 ### Miami Open 2026 (practice — complete)
 - Tournament: ATP Miami Open 2026
@@ -344,26 +350,37 @@ Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock d
 
 ### Monte Carlo 2026 (LIVE — first competitive tournament)
 - Tournament: Rolex Monte-Carlo Masters 2026
-- Status: `active` — R1 mostly complete (17/24 done), R32 in progress (Tue 7 Apr)
+- Status: `active` — QF in progress (Fri 10 Apr), 3 survivors, 8 eliminated
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f` (PostgreSQL — persistent)
 - Invite code: `MONTECAR-406R3X`
 - Entry: Free
 - R1 lock: LOCKED (Sun 5 Apr 12:30 BST)
 - R32 lock: LOCKED (Tue 7 Apr 11:00 BST)
-- R16 window: Opens Tue 7 Apr 5pm BST (16:00 UTC), locks Wed 8 Apr 11:00 BST
-- R16 lock time override: `2026-04-08T10:00:00Z` — **may need adjustment** once Wednesday order of play is announced. Set to 1h before first R16 match.
-- R16 window open override: `windowOpensOverrides.R16 = '2026-04-07T16:00:00Z'` — delayed to let R32 results settle
-- Data source: Live API-Tennis (58 cached fixtures)
+- R16 lock: LOCKED (Wed 8 Apr 11:00 BST)
+- QF lock: LOCKED (Fri 10 Apr 10:00 BST / 09:00 UTC)
+- SF window: Opens Fri 10 Apr 2pm BST (13:00 UTC), locks Sat 11 Apr 10:00 BST (09:00 UTC)
+- F window: Opens Sat 11 Apr 2pm BST (13:00 UTC), locks Sun 12 Apr 12:00 BST (11:00 UTC)
+- Data source: Live API-Tennis (58+ cached fixtures)
 - Withdrawals: Mensik withdrew, replaced by Dzumhur (mc-p23)
-- Manual results: Berrettini d. Bautista Agut R1 (qualifier with no API key)
+- Manual results: Berrettini d. Bautista Agut R1, Marozsan d. Dzumhur R1, Sinner d. Etcheverry R32, Zverev d. Fonseca QF
+
+### Madrid Open 2026 (next — free practice)
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
+- Invite code: `MADRIDOP-A36RQ4`
+- Entry: Free
+- Purpose: Bug-fixing practice run on web only
 
 ### Outstanding actions
-1. **R16 lock time** — adjust once Wednesday order of play is announced (1h before first R16 match)
+1. **SF/F lock times** — adjust once order of play is announced (1h before first match each day)
 2. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments
 3. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
 4. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
 5. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
 6. **App Store submission** — TestFlight build, screenshots, metadata, review
+7. **Company registration** — UK Ltd via Companies House (critical path for payment processor onboarding)
+8. **Payment processor** — apply to QuadraPay/Cashflows once company registered (target by 25 Apr)
+9. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times after MC ends
+10. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -405,6 +422,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 7 Apr 2026 | **Bracket data integrity + pick pool refactor.** (1) Manual result override for Berrettini d. Bautista Agut R1 (qualifier with no API key). (2) Fixed propagation to always overwrite from feeder winners. (3) Cleared `roundEliminated` before re-deriving from live results — mock Step 3 marked upset winners as eliminated. (4) Fixed fake R1 completions in bracket — overlay now always applies live status when no winner; non-overlaid completed matches reset to scheduled. (5) Fixed bracket showing unresolved R1 feeders as progressed — propagation clears names to null (shows TBD) but keeps player IDs. (6) **Major refactor: simplified pick pool** — removed `eligibleMockIds` entirely. R1: restrict to R1 match participants. R32+: all non-eliminated non-qualifier players. No dependency on bracket slot data. Eliminates entire class of bracket-vs-pool bugs. (7) Delayed R16 window to 5pm BST via `windowOpensOverrides`. (8) Mensik withdrawal: replaced with Dzumhur (LL) in mock draw. (9) Added post-lock withdrawal policy to T&Cs (Section 7). 8 commits total. |
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
+| 10 Apr 2026 | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
 
 ---
 
