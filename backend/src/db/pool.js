@@ -8,4 +8,9 @@ const pool = new pg.Pool({
   ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
+// Ensure UTF-8 encoding on every new connection to prevent double-encoding of Unicode characters
+pool.on('connect', (client) => {
+  client.query("SET client_encoding = 'UTF8'");
+});
+
 export { pool };
