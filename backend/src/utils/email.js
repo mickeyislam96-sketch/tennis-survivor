@@ -1,18 +1,18 @@
 import { pool } from '../db/pool.js';
 
-// ââ Startup check ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Startup check ─────────────────────────────────────────────────────────
 const EMAIL_CONFIGURED = !!process.env.BREVO_API_KEY;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'mickeyislam96@gmail.com';
 
 if (!EMAIL_CONFIGURED) {
-  console.warn('[email] BREVO_API_KEY env var is missing â emails disabled.');
+  console.warn('[email] BREVO_API_KEY env var is missing — emails disabled.');
 } else {
   console.log('[email] Brevo configured (template mode). Batch emails queue as pending.');
 }
 
 const APP_URL = process.env.FRONTEND_URL || 'https://finalserveivor.com';
 
-// ââ Brevo template IDs (set on Railway) âââââââââââââââââââââââââââââââââââââ
+// ── Brevo template IDs (set on Railway) ───────────────────────────────────
 const TPL = {
   WELCOME:         parseInt(process.env.BREVO_TPL_WELCOME, 10),
   TOURNAMENT_JOIN: parseInt(process.env.BREVO_TPL_TOURNAMENT_JOIN, 10),
@@ -25,23 +25,26 @@ const TPL = {
   NEW_TOURNAMENT:  parseInt(process.env.BREVO_TPL_NEW_TOURNAMENT, 10),
 };
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Low-level Brevo API senders
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Send a transactional email using a Brevo template. */
-async function sendViaBrevoTemplate({ to, toName, templateId, params }) {
+async function sendViaBrevoTemplate({ to, toName, templateId, params, subject }) {
+  const payload = {
+    templateId,
+    to: [{ email: to, name: toName || to }],
+    params: params || {},
+  };
+  // Pass subject override so code-generated subjects are used instead of Brevo template defaults
+  if (subject) payload.subject = subject;
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
       'api-key': process.env.BREVO_API_KEY,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      templateId,
-      to: [{ email: to, name: toName || to }],
-      params: params || {},
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -72,7 +75,7 @@ async function sendViaBrevoRaw({ to, subject, html }) {
   }
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Dedup + approval wrapper
 //
 // Flow:
@@ -81,7 +84,7 @@ async function sendViaBrevoRaw({ to, subject, html }) {
 //   3. Email stays pending until admin approves via /api/admin/approve-emails.
 //   4. On approval, sendPendingEmails reads metadata.templateId + metadata.params
 //      and sends via Brevo template API.
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendWithDedup({ userId, groupId, round, emailType, to, toName, subject, templateId, params }) {
   const { rowCount } = await pool.query(
@@ -99,9 +102,9 @@ export async function sendWithDedup({ userId, groupId, round, emailType, to, toN
   return { queued: true };
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Admin: send all pending emails (called from approval endpoint)
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendPendingEmails() {
   if (!EMAIL_CONFIGURED) {
@@ -134,6 +137,7 @@ export async function sendPendingEmails() {
           toName: row.recipient_name || row.recipient_email,
           templateId: meta.templateId,
           params: meta.params || {},
+          subject: row.subject || undefined,
         });
       } else if (meta.html) {
         // Legacy inline HTML path (for any old queued emails still in the DB)
@@ -166,9 +170,9 @@ export async function sendPendingEmails() {
   return { sent, failed, total: rows.length, results };
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Admin: get a preview of all pending emails
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function getPendingEmailsSummary() {
   const { rows } = await pool.query(
@@ -180,9 +184,9 @@ export async function getPendingEmailsSummary() {
   return rows;
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Admin digest: notify admin when new emails are queued
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 let _lastDigestPendingCount = 0;
 
@@ -268,15 +272,15 @@ export async function sendAdminDigest() {
 }
 
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═════════════════════════════════════════════════════════════════════════════
 //  AUTO-SEND EMAILS (fire immediately, no approval gate)
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═════════════════════════════════════════════════════════════════════════════
 
-// ââ 1. WELCOME ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 1. WELCOME ──────────────────────────────────────────────────────────────
 
 export const sendWelcomeEmail = async ({ email, displayName }) => {
   if (!EMAIL_CONFIGURED) {
-    console.warn(`[email] Skipping welcome email to ${email} â not configured.`);
+    console.warn(`[email] Skipping welcome email to ${email} — not configured.`);
     return;
   }
   try {
@@ -293,11 +297,11 @@ export const sendWelcomeEmail = async ({ email, displayName }) => {
 };
 
 
-// ââ 2. PASSWORD RESET âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 2. PASSWORD RESET ───────────────────────────────────────────────────────
 
 export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) => {
   if (!EMAIL_CONFIGURED) {
-    throw new Error('Email service not configured â BREVO_API_KEY must be set on Railway.');
+    throw new Error('Email service not configured — BREVO_API_KEY must be set on Railway.');
   }
   try {
     await sendViaBrevoTemplate({
@@ -314,18 +318,18 @@ export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) =
 };
 
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═════════════════════════════════════════════════════════════════════════════
 //  APPROVAL-GATED EMAILS (queued as pending, admin approves)
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═════════════════════════════════════════════════════════════════════════════
 
-// ââ 3. TOURNAMENT JOIN ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 3. TOURNAMENT JOIN ──────────────────────────────────────────────────────
 
 export async function sendTournamentJoinEmail({
   userId, groupId, email, displayName,
   tournamentName, tournamentShortName, tournamentLevel,
   drawDate, firstMatchDate, groupPlayerCount, groupUrl, inviteUrl,
 }) {
-  const subject = `You're in â ${tournamentName} Â· Final Serve-ivor`;
+  const subject = `You're in — ${tournamentName} · Final Serve-ivor`;
   return sendWithDedup({
     userId,
     groupId,
@@ -350,12 +354,12 @@ export async function sendTournamentJoinEmail({
 }
 
 // Re-export buildTournamentJoinHTML as a no-op for backward compatibility
-// (groups.js imports it â will be cleaned up later)
+// (groups.js imports it — will be cleaned up later)
 export function buildTournamentJoinHTML() {
   return '<!-- migrated to Brevo template -->';
 }
 
-// ââ 4. DRAW RELEASED ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 4. DRAW RELEASED ────────────────────────────────────────────────────────
 
 export async function sendDrawReleasedEmail({
   userId, groupId, email, displayName,
@@ -363,7 +367,7 @@ export async function sendDrawReleasedEmail({
   drawSize, totalRounds, deadline, groupPlayerCount,
   pickUrl, availablePlayerCount, topSeeds,
 }) {
-  const subject = `The ${tournamentShortName || tournamentName} draw is out â make your R1 pick`;
+  const subject = `The ${tournamentShortName || tournamentName} draw is out — make your R1 pick`;
   return sendWithDedup({
     userId,
     groupId,
@@ -388,7 +392,7 @@ export async function sendDrawReleasedEmail({
   });
 }
 
-// ââ 5. PICK REMINDER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 5. PICK REMINDER ────────────────────────────────────────────────────────
 
 export async function sendPickReminderEmail({
   userId, groupId, round, email, displayName, groupName, lockAt,
@@ -407,7 +411,7 @@ export async function sendPickReminderEmail({
   const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
   const roundName = ROUND_LABELS[round] || round;
 
-  const subject = `Pick reminder: ${round} locks soon â Final Serve-ivor`;
+  const subject = `Pick reminder: ${round} locks soon — Final Serve-ivor`;
   return sendWithDedup({
     userId,
     groupId,
@@ -434,11 +438,11 @@ export async function sendPickReminderEmail({
 }
 
 
-// ââ 6. ROUND RESULT (survival or elimination) âââââââââââââââââââââââââââââââ
+// ── 6. ROUND RESULT (survival or elimination) ─────────────────────────────
 
 export async function sendRoundResultEmail({
   userId, groupId, round, email, displayName, playerName, survived,
-  // Optional â enriched data from resultsProcessor
+  // Optional — enriched data from resultsProcessor
   pickOpponent, pickScore, playersLeft, eliminatedCount, roundsSurvived,
   nextRoundName, nextRoundShortName, nextDeadline,
   tournamentName, tournamentShortName,
@@ -450,7 +454,7 @@ export async function sendRoundResultEmail({
   const groupUrl = `${APP_URL}/group/${groupId}`;
 
   if (survived) {
-    const subject = `You survived ${roundName}. ${playersLeft || '?'} players left.`;
+    const subject = `You survived ${roundName}. ${playersLeft || '?'} player${playersLeft === 1 ? '' : 's'} left.`;
     return sendWithDedup({
       userId,
       groupId,
@@ -478,7 +482,7 @@ export async function sendRoundResultEmail({
       },
     });
   } else {
-    const subject = `Your ${tournamentShortName || 'tournament'} run is over â finished ${finishPosition || '?'}/${groupPlayerCount || '?'}`;
+    const subject = `Your ${tournamentShortName || 'tournament'} run is over — finished ${finishPosition || '?'}/${groupPlayerCount || '?'}`;
     return sendWithDedup({
       userId,
       groupId,
@@ -510,7 +514,7 @@ export async function sendRoundResultEmail({
 }
 
 
-// ââ 7. WINNER âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 7. WINNER ─────────────────────────────────────────────────────────────
 
 export async function sendWinnerEmail({
   userId, groupId, email, displayName,
@@ -539,7 +543,7 @@ export async function sendWinnerEmail({
 }
 
 
-// ââ 8. NEW TOURNAMENT âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 8. NEW TOURNAMENT ─────────────────────────────────────────────────────
 
 export async function sendNewTournamentEmail({
   userId, groupId, email, displayName,
@@ -547,7 +551,7 @@ export async function sendNewTournamentEmail({
   drawDate, firstMatchDate, totalRounds, drawSize,
   joinUrl, inviteUrl,
 }) {
-  const subject = `${tournamentName} pool is open â join now`;
+  const subject = `${tournamentName} pool is open — join now`;
   // Use a synthetic groupId for new tournament emails (not group-specific)
   return sendWithDedup({
     userId,
