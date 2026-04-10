@@ -273,9 +273,9 @@ export async function eliminateNonPickers(round) {
         AND NOT EXISTS (
           SELECT 1 FROM picks p
            WHERE p.group_id = gm.group_id
-             AND p.user_id  = gm.user_id
-             AND p.round    = $1
-        )`,
+                 AND p.user_id  = gm.user_id
+                 AND p.round    = $1
+            )`,
     [round]
   );
   console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
@@ -428,6 +428,12 @@ async function sendResultEmails(round) {
         if (!row.survived) {
           // Position = playersLeft + 1 (they just got eliminated)
           finishPosition = stats.playersLeft + 1;
+        }
+
+        // Skip survival email if this user is the sole survivor (they'll get a winner email instead)
+        if (row.survived && stats.playersLeft === 1) {
+          console.log(`[results-email] Skipping survival email for ${row.display_name} - they are the winner`);
+          continue;
         }
 
         const result = await sendRoundResultEmail({
