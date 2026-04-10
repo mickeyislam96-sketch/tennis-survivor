@@ -190,12 +190,12 @@ export async function getPendingEmailsSummary() {
 
 let _lastDigestPendingCount = 0;
 
-export async function sendAdminDigest() {
+export async function sendAdminDigest({ force = false } = {}) {
   if (!EMAIL_CONFIGURED) return;
 
   const pending = await getPendingEmailsSummary();
   if (pending.length === 0) { _lastDigestPendingCount = 0; return; }
-  if (pending.length <= _lastDigestPendingCount) return;
+  if (!force && pending.length <= _lastDigestPendingCount) return;
   _lastDigestPendingCount = pending.length;
 
   const byType = {};
