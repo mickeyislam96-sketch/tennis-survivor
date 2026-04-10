@@ -76,6 +76,8 @@ export const MONTE_CARLO_2026 = {
     { winnerId: 'mc-p24', winnerName: 'Fabian Marozsan', loserId: 'mc-p23', round: 'R1' },
     // Sinner beat Humbert 6-3 6-0 in R32 (confirmed 7 Apr). API not returning result.
     { winnerId: 'mc-s2', winnerName: 'Jannik Sinner', loserId: 'mc-p56', round: 'R32' },
+    // Zverev beat Fonseca in QF (confirmed 10 Apr). API not returning result yet.
+    { winnerId: 'mc-s3', winnerName: 'Alexander Zverev', loserId: 'mc-p35', round: 'QF' },
   ],
 
   // Lock time overrides — 1h before first match of each round.
