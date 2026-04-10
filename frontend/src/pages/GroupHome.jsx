@@ -225,8 +225,8 @@ export function GroupHome() {
     const closingSoon = openRound && !myCurrentPick && !isEliminated && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
-    // Members skip this view — they go straight to the main dashboard.
-    if (preLaunch && tournament && !isMember) {
+    // Show for ALL users (members and non-members) when the tournament isn't active.
+    if (tournament && tournament.status !== 'active') {
       const startDate    = tournament.startDate;
       const startDateFmt = fmtDate(startDate);
       // Use the explicit draw date from config if set, else estimate 3 days before start
@@ -525,7 +525,7 @@ export function GroupHome() {
   // ── Lobby / home ────────────────────────────────────────────
   const activePools   = allPools.filter(p => p.tournament?.status === 'active');
   const upcomingPools = allPools.filter(p => p.tournament?.status === 'upcoming');
-  const ctaPool       = upcomingPools[0] || activePools[0];
+  const ctaPool       = activePools[0] || upcomingPools[0];
 
   // Monte Carlo start date for countdown pill
   const mcStartDate = ctaPool?.tournament?.startDate;
@@ -560,12 +560,12 @@ export function GroupHome() {
         </div>
       </div>
 
-      {/* ── Pool cards: upcoming first, then active ── */}
-      {upcomingPools.length > 0 && (
+      {/* ── Active tournaments first ── */}
+      {activePools.length > 0 && (
         <section className="home-section">
-          <h2 className="home-section-title">Coming soon</h2>
+          <h2 className="home-section-title">Open now</h2>
           <div className="pool-card-list">
-            {upcomingPools.map(p => <PoolCard key={p.id} pool={p} />)}
+            {activePools.map(p => <PoolCard key={p.id} pool={p} />)}
           </div>
         </section>
       )}
@@ -604,12 +604,12 @@ export function GroupHome() {
         </div>
       </section>
 
-      {/* ── Active tournaments ── */}
-      {activePools.length > 0 && (
+      {/* ── Upcoming tournaments ── */}
+      {upcomingPools.length > 0 && (
         <section className="home-section">
-          <h2 className="home-section-title">Open now</h2>
+          <h2 className="home-section-title">Coming soon</h2>
           <div className="pool-card-list">
-            {activePools.map(p => <PoolCard key={p.id} pool={p} />)}
+            {upcomingPools.map(p => <PoolCard key={p.id} pool={p} />)}
           </div>
         </section>
       )}
