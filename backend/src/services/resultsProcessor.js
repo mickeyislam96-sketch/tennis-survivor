@@ -1,14 +1,14 @@
 /**
  * Automated results processor.
  * Polls the draw for completed matches and updates picks + group_members.
- * Idempotent — safe to run multiple times for the same round.
+ * Idempotent - safe to run multiple times for the same round.
  */
 import { pool } from '../db/pool.js';
 import { getDraw, getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
 import { ROUNDS, TOURNAMENT } from '../config/tournament.js';
 import { sendRoundResultEmail, sendWinnerEmail } from '../utils/email.js';
 
-// ── Name normalisation for fuzzy matching ────────────────────────────────────
+// -- Name normalisation for fuzzy matching
 // Strips accents, lowercases, trims. Matches the normForMatch in tennisData.js.
 const normForMatch = (n) =>
   (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -34,7 +34,7 @@ function getReverseMaps() {
 /**
  * Process results for a single round.
  * Marks picks survived=true/false for completed matches.
- * Does NOT eliminate non-pickers here — that is handled separately
+ * Does NOT eliminate non-pickers here - that is handled separately
  * by eliminateNonPickers(), which must only run after the pick window locks.
  */
 export async function processRoundResults(round) {
@@ -59,13 +59,13 @@ export async function processRoundResults(round) {
   for (const m of completed) {
     const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
 
-    // Grade picks — match by API key, mock ID, or player name.
+    // Grade picks - match by API key, mock ID, or player name.
     // Picks may be stored with either format depending on when they were created.
     const winnerMockId = apiToMock.get(String(m.winnerId)) || null;
     const loserMockId  = apiToMock.get(String(loserId)) || null;
     const loserName    = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '';
 
-    // Winner picks → survived = true
+    // Winner picks -> survived = true
     const w = await pool.query(
       `UPDATE picks SET survived = true
          WHERE round = $1 AND survived IS NULL
@@ -75,7 +75,7 @@ export async function processRoundResults(round) {
     );
     picksUpdated += w.rowCount;
 
-    // Loser picks → survived = false
+    // Loser picks -> survived = false
     const l = await pool.query(
       `UPDATE picks SET survived = false
          WHERE round = $1 AND survived IS NULL
@@ -102,7 +102,7 @@ export async function processRoundResults(round) {
     eliminated += e.rowCount;
   }
 
-  // ── Surname fallback for ungraded picks ───────────────────────────────────
+  // -- Surname fallback for ungraded picks
   // Some picks may not match via API key, mock ID, or exact name (e.g. accents,
   // spacing differences, abbreviations). Try normalised surname matching.
   const { rows: ungradedRows } = await pool.query(
@@ -165,7 +165,7 @@ export async function processRoundResults(round) {
     }
   }
 
-  // ── Safety net: warn about still-ungraded picks ────────────────────────────
+  // -- Safety net: warn about still-ungraded picks
   const { rows: stillUngraded } = await pool.query(
     `SELECT id, user_id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
     [round]
@@ -177,7 +177,7 @@ export async function processRoundResults(round) {
     console.warn(`[results] ${round}: ${stillUngraded.length} picks remain ungraded -- manual review needed`);
   }
 
-  // ── Invalidate future-round picks for players who just lost ──────────────
+  // -- Invalidate future-round picks for players who just lost
   // If someone picked a loser for the NEXT round (speculative pick made while
   // this round was still in progress), mark that pick as survived=false now.
   // BUT: only eliminate the member if the next round's window is already locked.
@@ -213,7 +213,7 @@ export async function processRoundResults(round) {
       futurePicksInvalidated += inv.rowCount;
 
       // Only eliminate members if the next round's window is locked.
-      // If still open, the user can switch their pick — don't eliminate yet.
+      // If still open, the user can switch their pick - don't eliminate yet.
       if (inv.rowCount > 0 && nextRoundLocked) {
         await pool.query(
           `UPDATE group_members gm
@@ -229,7 +229,7 @@ export async function processRoundResults(round) {
           [nextRound, String(loserId), loserMockId, loserName || '']
         );
       } else if (inv.rowCount > 0 && !nextRoundLocked) {
-        console.log(`[results] ${nextRound} window still open — marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
+        console.log(`[results] ${nextRound} window still open - marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
       }
     }
     if (futurePicksInvalidated > 0) {
@@ -257,7 +257,7 @@ export async function eliminateNonPickers(round) {
     const deadlines = await getDeadlines();
     const roundDeadline = deadlines.find(d => d.round === round);
     if (roundDeadline && !roundDeadline.isLocked) {
-      console.log(`[results] Skipping non-picker elimination for ${round} — pick window still open`);
+      console.log(`[results] Skipping non-picker elimination for ${round} - pick window still open`);
       return 0;
     }
   } catch (err) {
@@ -292,7 +292,7 @@ export async function eliminateNonPickers(round) {
  * This prevents premature elimination when matches start before the window closes.
  */
 
-// ── In-memory mutex for autoProcessResults ──────────────────────────────────
+// -- In-memory mutex for autoProcessResults
 // Prevents overlapping runs if the cron fires while a previous run is still
 // in progress (e.g. slow DB or many email sends). Adequate for single-instance
 // Railway deployment. If we scale to multiple instances, replace with a
@@ -340,7 +340,7 @@ async function _doAutoProcess() {
       }
     }
 
-    // Eliminate non-pickers as soon as the pick window locks —
+    // Eliminate non-pickers as soon as the pick window locks -
     // even if no matches have completed yet. Users who missed the
     // window are out immediately when the round begins.
     if (windowLocked) {
@@ -370,14 +370,15 @@ async function _doAutoProcess() {
 
 /**
  * Send round result emails for all resolved picks in a round.
- * Uses sendWithDedup — safe to call repeatedly; duplicates are impossible.
+ * Uses sendWithDedup - safe to call repeatedly; duplicates are impossible.
  * Also detects if there's a single survivor (winner) and queues winner email.
  */
 async function sendResultEmails(round) {
   try {
     // Get all resolved picks with group context
+    // Include player_id so we can match picks to draw data for opponent/score
     const { rows } = await pool.query(
-      `SELECT p.user_id, p.group_id, p.player_name, p.survived,
+      `SELECT p.user_id, p.group_id, p.player_id, p.player_name, p.survived,
               u.email, u.display_name,
               g.name AS group_name
          FROM picks p
@@ -391,6 +392,41 @@ async function sendResultEmails(round) {
     );
 
     if (rows.length === 0) return;
+
+    // -- Fetch draw data to enrich emails with match details
+    // Build lookup: player ID/name -> { opponent, score, playerName }
+    const { apiToMock } = getReverseMaps();
+    let matchLookup = new Map(); // keyed by various player identifiers
+    try {
+      const draw = await getDraw(round);
+      const completed = (draw.matches || []).filter(
+        m => m.round === round && m.status === 'completed' && m.winnerId
+      );
+      for (const m of completed) {
+        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+        const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
+        const score = m.score || '';
+
+        // For the winner: opponent is the loser
+        const winnerInfo = { playerName: m.winnerName, opponent: loserName, score };
+        // For the loser: opponent is the winner
+        const loserInfo = { playerName: loserId === m.player1Id ? m.player1Name : m.player2Name, opponent: m.winnerName, score };
+
+        // Key by all possible identifiers (API key, mock ID, lowercase name)
+        for (const [id, name, info] of [
+          [m.winnerId, m.winnerName, winnerInfo],
+          [loserId, loserName, loserInfo],
+        ]) {
+          if (id) matchLookup.set(String(id), info);
+          const mockId = apiToMock.get(String(id));
+          if (mockId) matchLookup.set(mockId, info);
+          if (name) matchLookup.set(normForMatch(name), info);
+        }
+      }
+      console.log(`[results-email] Built match lookup from ${completed.length} completed ${round} matches`);
+    } catch (err) {
+      console.warn(`[results-email] Could not fetch draw for match details: ${err.message}`);
+    }
 
     // Get group-level stats for enriching emails
     const groupIds = [...new Set(rows.map(r => r.group_id))];
@@ -415,6 +451,21 @@ async function sendResultEmails(round) {
     for (const row of rows) {
       try {
         const stats = groupStats[row.group_id] || { playersLeft: 0, totalMembers: 0 };
+
+        // -- Resolve match details for this pick
+        // Try matching by player_id first, then by normalised name
+        let matchInfo = null;
+        if (row.player_id) matchInfo = matchLookup.get(String(row.player_id));
+        if (!matchInfo && row.player_name) matchInfo = matchLookup.get(normForMatch(row.player_name));
+
+        // Resolve the player name: prefer draw data (canonical), fall back to picks table
+        const resolvedPlayerName = matchInfo?.playerName || row.player_name || 'Unknown player';
+        const pickOpponent = matchInfo?.opponent || '';
+        const pickScore = matchInfo?.score || '';
+
+        if (!matchInfo) {
+          console.warn(`[results-email] No match data found for pick: player_id=${row.player_id} player_name="${row.player_name}"`);
+        }
 
         // Count rounds survived for this user
         const survRounds = await pool.query(
@@ -442,8 +493,10 @@ async function sendResultEmails(round) {
           round,
           email: row.email,
           displayName: row.display_name,
-          playerName: row.player_name,
+          playerName: resolvedPlayerName,
           survived: row.survived,
+          pickOpponent,
+          pickScore,
           tournamentName: TOURNAMENT.name,
           tournamentShortName: TOURNAMENT.shortName || TOURNAMENT.name,
           playersLeft: stats.playersLeft,
@@ -462,7 +515,7 @@ async function sendResultEmails(round) {
     }
     console.log(`[results-email] ${round}: ${queued} result emails queued (${rows.length} total picks)`);
 
-    // ── Winner detection ─────────────────────────────────────────────────
+    // -- Winner detection
     // If exactly one player is alive in a group, they've won.
     for (const gid of groupIds) {
       const stats = groupStats[gid];
