@@ -253,6 +253,35 @@ adminRouter.post('/delete-email', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/reset-round-emails ─────────────────────────────────────
+// Delete ALL emails_sent records for a given round + email type (including
+// already-sent ones). This clears the dedup constraint so the results
+// processor can re-queue corrected emails.
+// Body: { secret, round, emailType? }   emailType defaults to 'round_result'
+adminRouter.post('/reset-round-emails', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { round, emailType } = req.body;
+  if (!round) return res.status(400).json({ error: 'round is required' });
+  const type = emailType || 'round_result';
+  try {
+    const result = await pool.query(
+      `DELETE FROM emails_sent WHERE round = $1 AND email_type = $2
+       RETURNING id, recipient_email, email_type, round, status, subject`,
+      [round, type]
+    );
+    console.log(`[admin] reset-round-emails: deleted ${result.rowCount} ${type} emails for round ${round}`);
+    res.json({
+      ok: true,
+      deleted: result.rowCount,
+      round,
+      emailType: type,
+      emails: result.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/pending-emails ───────────────────────────────────────────
 // List all pending emails with their IDs (for selective deletion).
 adminRouter.get('/pending-emails', async (req, res) => {
