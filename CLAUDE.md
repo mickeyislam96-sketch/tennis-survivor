@@ -72,6 +72,16 @@
 | `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open |
 | `SOFASCORE_BASE_URL` | Cloudflare proxy URL — `https://sofascore-proxy.finalservivor.workers.dev` |
 | `NODE_ENV` | Runtime environment |
+| `BREVO_API_KEY` | Brevo transactional email API key |
+| `BREVO_TPL_WELCOME` | Brevo template ID for welcome email (1) |
+| `BREVO_TPL_TOURNAMENT_JOIN` | Brevo template ID for tournament join (2) |
+| `BREVO_TPL_DRAW_RELEASED` | Brevo template ID for draw released (3) |
+| `BREVO_TPL_PICK_REMINDER` | Brevo template ID for pick reminder (4) |
+| `BREVO_TPL_SURVIVAL` | Brevo template ID for round survival (5) |
+| `BREVO_TPL_ELIMINATION` | Brevo template ID for elimination (6) |
+| `BREVO_TPL_WINNER` | Brevo template ID for winner (7) |
+| `BREVO_TPL_PASSWORD_RESET` | Brevo template ID for password reset (8) |
+| `BREVO_TPL_NEW_TOURNAMENT` | Brevo template ID for new tournament (9) |
 
 **WARNING:** If `TENNIS_API_KEY` is missing, the draw silently falls back to broken mock data with no visible error. After changing Railway env vars, you may need to manually trigger a restart via Railway dashboard or GraphQL API: `mutation deploymentRestart(id)` at `backboard.railway.app/graphql/v2`.
 
@@ -162,6 +172,9 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
 | `backend/src/routes/health.js` | Real production health check — validates env vars, live API call, DB ping |
+| `backend/src/utils/email.js` | Brevo template email system — `sendViaBrevoTemplate()`, `sendWithDedup()`, `sendPendingEmails()`, all 9 email wrapper functions, approval gate logic |
+| `backend/src/services/emailScheduler.js` | Pick reminder cron — queries group stats, sends reminders via approval gate |
+| `backend/src/services/resultsProcessor.js` | Auto-grades picks, sends round result + winner emails via approval gate |
 | `backend/src/services/sofascoreAdapter.js` | Sofascore fetch — reads `SOFASCORE_BASE_URL` env var |
 | `backend/src/config/tournament.js` | Active tournament selector — reads `ACTIVE_TOURNAMENT` env var, defaults to `monte-carlo-2026` |
 | `backend/src/config/tournaments/monte-carlo-2026.js` | MC config — API params, round structure, lock time overrides, round date fallbacks, round name overrides |
@@ -311,8 +324,8 @@ Lock time overrides set for all rounds (R1 through F) in commit `69cddfd`.
 ### 9. ~~API-Tennis returning no fixture data~~ — FIXED (6 Apr 2026)
 Root cause: `tournament_season=2026` parameter. API-Tennis returns empty `{success: 1}` when this is included for Monte Carlo (tournament key 1970). Fix: set `apiSeason: null` in MC config and made the URL parameter conditional in `tennisData.js`, `health.js`, and `admin.js`. API now returns 50+ live fixtures correctly.
 
-### 10. ~~Transactional emails not deployed~~ — PARTIALLY FIXED (6 Apr 2026)
-Email approval system now deployed with `emails_sent` table, UNIQUE dedup constraint, admin digest, and one-click approve flow. Pick reminder and result emails queue as `pending` and require admin approval before sending. Cross-pool bug fixed: queries now filter by `TOURNAMENT.id` (was emailing Miami practice pool users). One-time migration clears incorrectly queued pre-fix emails.
+### 10. ~~Transactional emails not deployed~~ — FIXED (10 Apr 2026)
+Full Brevo template email system deployed and verified. 9 transactional templates (IDs 1-9) created in Brevo, all Active. Backend rewritten to use `sendViaBrevoTemplate()` with `templateId` + `params` pattern. 7 batch emails queue as `pending` via `sendWithDedup()` and require admin approval (`POST /api/admin/approve-emails`). 2 auto-send emails (Welcome, Password Reset) bypass the gate. Template variable names aligned to code params (`displayName`, `resetLink`, `signupUrl`, etc.). Colours matched to website (`#0f3d20` footer, `#f5f7fa` background, `#16a34a` brand green). Winner template fixed (malformed Jinja `is odd` replaced with plain text pick history). All 9 templates verified delivering to Gmail with correct variable substitution.
 
 ### 11. Cross-pool email scoping — FIXED (6 Apr 2026)
 `sendResultEmails()` and `sendRemindersForRound()` queries were not filtered by tournament. Emails were being queued for Miami practice pool alongside Monte Carlo. Fixed by joining `groups` table and filtering by `g.tournament_id = TOURNAMENT.id`.
@@ -372,7 +385,7 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 
 ### Outstanding actions
 1. **SF/F lock times** — adjust once order of play is announced (1h before first match each day)
-2. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments
+2. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments (emails currently send from `finalservivor@10822796.brevosend.com`)
 3. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
 4. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
 5. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
@@ -422,7 +435,8 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 7 Apr 2026 | **Bracket data integrity + pick pool refactor.** (1) Manual result override for Berrettini d. Bautista Agut R1 (qualifier with no API key). (2) Fixed propagation to always overwrite from feeder winners. (3) Cleared `roundEliminated` before re-deriving from live results — mock Step 3 marked upset winners as eliminated. (4) Fixed fake R1 completions in bracket — overlay now always applies live status when no winner; non-overlaid completed matches reset to scheduled. (5) Fixed bracket showing unresolved R1 feeders as progressed — propagation clears names to null (shows TBD) but keeps player IDs. (6) **Major refactor: simplified pick pool** — removed `eligibleMockIds` entirely. R1: restrict to R1 match participants. R32+: all non-eliminated non-qualifier players. No dependency on bracket slot data. Eliminates entire class of bracket-vs-pool bugs. (7) Delayed R16 window to 5pm BST via `windowOpensOverrides`. (8) Mensik withdrawal: replaced with Dzumhur (LL) in mock draw. (9) Added post-lock withdrawal policy to T&Cs (Section 7). 8 commits total. |
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
-| 10 Apr 2026 | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
+| 10 Apr 2026 (session 2) | **Brevo email system fully deployed.** (1) Rewrote `email.js` to use Brevo transactional template API (`sendViaBrevoTemplate()` with `templateId` + `params`). (2) Updated `emailScheduler.js`, `resultsProcessor.js`, `groups.js`, `admin.js` to use new email functions with enriched params. (3) Created 9 Brevo templates (IDs 1-9), all activated. (4) Fixed template variable mismatches (`firstName`→`displayName`, `resetUrl`→`resetLink`, `joinUrl`→`signupUrl`, `pickPlayerName`→`playerName`, `deadline`→`pickDeadline`, `pickUrl`→`groupUrl`). (5) Fixed Winner template #7 malformed Jinja `is odd` condition — replaced dynamic for-loop with plain text pick history display. (6) Aligned email colours to website: footer `#0f172a`→`#0f3d20` (dark forest green), body background `#f4f4f5`→`#f5f7fa`. (7) Set 9 `BREVO_TPL_*` env vars on Railway. (8) Verified all 9 templates deliver to Gmail with correct variable substitution. (9) Audited approval gate: 7 batch emails correctly gated via `sendWithDedup()`, 2 auto-send emails (Welcome, Password Reset) correctly bypass. No code paths found that could send batch emails without approval. |
+| 10 Apr 2026 (session 1) | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
 
 ---
 
