@@ -1,14 +1,14 @@
 /**
  * Automated results processor.
  * Polls the draw for completed matches and updates picks + group_members.
- * Idempotent â safe to run multiple times for the same round.
+ * Idempotent — safe to run multiple times for the same round.
  */
 import { pool } from '../db/pool.js';
-import { getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
+import { getDraw, getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
 import { ROUNDS, TOURNAMENT } from '../config/tournament.js';
 import { sendRoundResultEmail, sendWinnerEmail } from '../utils/email.js';
 
-// ââ Name normalisation for fuzzy matching ââââââââââââââââââââââââââââââââââââ
+// ── Name normalisation for fuzzy matching ────────────────────────────────────
 // Strips accents, lowercases, trims. Matches the normForMatch in tennisData.js.
 const normForMatch = (n) =>
   (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -34,13 +34,16 @@ function getReverseMaps() {
 /**
  * Process results for a single round.
  * Marks picks survived=true/false for completed matches.
- * Does NOT eliminate non-pickers here â that is handled separately
+ * Does NOT eliminate non-pickers here — that is handled separately
  * by eliminateNonPickers(), which must only run after the pick window locks.
  */
 export async function processRoundResults(round) {
   console.log(`[results] Processing ${round}...`);
   const { apiToMock, mockToApi } = getReverseMaps();
-  const draw = await getLiveDraw(round);
+  // Use getDraw() (not getLiveDraw()) so manual result overrides are included.
+  // getLiveDraw() only returns raw API fixtures and misses manualResults entries.
+  // Same fix as leaderboard grader (issue #16).
+  const draw = await getDraw(round);
   const completed = (draw.matches || []).filter(
     m => m.round === round && m.status === 'completed' && m.winnerId
   );
@@ -56,13 +59,13 @@ export async function processRoundResults(round) {
   for (const m of completed) {
     const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
 
-    // Grade picks â match by API key, mock ID, or player name.
+    // Grade picks — match by API key, mock ID, or player name.
     // Picks may be stored with either format depending on when they were created.
     const winnerMockId = apiToMock.get(String(m.winnerId)) || null;
     const loserMockId  = apiToMock.get(String(loserId)) || null;
     const loserName    = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '';
 
-    // Winner picks â survived = true
+    // Winner picks → survived = true
     const w = await pool.query(
       `UPDATE picks SET survived = true
          WHERE round = $1 AND survived IS NULL
@@ -72,7 +75,7 @@ export async function processRoundResults(round) {
     );
     picksUpdated += w.rowCount;
 
-    // Loser picks â survived = false
+    // Loser picks → survived = false
     const l = await pool.query(
       `UPDATE picks SET survived = false
          WHERE round = $1 AND survived IS NULL
@@ -99,7 +102,7 @@ export async function processRoundResults(round) {
     eliminated += e.rowCount;
   }
 
-  // ââ Surname fallback for ungraded picks âââââââââââââââââââââââââââââââââââ
+  // ── Surname fallback for ungraded picks ───────────────────────────────────
   // Some picks may not match via API key, mock ID, or exact name (e.g. accents,
   // spacing differences, abbreviations). Try normalised surname matching.
   const { rows: ungradedRows } = await pool.query(
@@ -162,7 +165,7 @@ export async function processRoundResults(round) {
     }
   }
 
-  // ââ Safety net: warn about still-ungraded picks ââââââââââââââââââââââââââââ
+  // ── Safety net: warn about still-ungraded picks ────────────────────────────
   const { rows: stillUngraded } = await pool.query(
     `SELECT id, user_id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
     [round]
@@ -174,7 +177,7 @@ export async function processRoundResults(round) {
     console.warn(`[results] ${round}: ${stillUngraded.length} picks remain ungraded -- manual review needed`);
   }
 
-  // ââ Invalidate future-round picks for players who just lost ââââââââââââââ
+  // ── Invalidate future-round picks for players who just lost ──────────────
   // If someone picked a loser for the NEXT round (speculative pick made while
   // this round was still in progress), mark that pick as survived=false now.
   // BUT: only eliminate the member if the next round's window is already locked.
@@ -210,7 +213,7 @@ export async function processRoundResults(round) {
       futurePicksInvalidated += inv.rowCount;
 
       // Only eliminate members if the next round's window is locked.
-      // If still open, the user can switch their pick â don't eliminate yet.
+      // If still open, the user can switch their pick — don't eliminate yet.
       if (inv.rowCount > 0 && nextRoundLocked) {
         await pool.query(
           `UPDATE group_members gm
@@ -226,7 +229,7 @@ export async function processRoundResults(round) {
           [nextRound, String(loserId), loserMockId, loserName || '']
         );
       } else if (inv.rowCount > 0 && !nextRoundLocked) {
-        console.log(`[results] ${nextRound} window still open â marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
+        console.log(`[results] ${nextRound} window still open — marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
       }
     }
     if (futurePicksInvalidated > 0) {
@@ -254,7 +257,7 @@ export async function eliminateNonPickers(round) {
     const deadlines = await getDeadlines();
     const roundDeadline = deadlines.find(d => d.round === round);
     if (roundDeadline && !roundDeadline.isLocked) {
-      console.log(`[results] Skipping non-picker elimination for ${round} â pick window still open`);
+      console.log(`[results] Skipping non-picker elimination for ${round} — pick window still open`);
       return 0;
     }
   } catch (err) {
@@ -289,7 +292,7 @@ export async function eliminateNonPickers(round) {
  * This prevents premature elimination when matches start before the window closes.
  */
 
-// ââ In-memory mutex for autoProcessResults ââââââââââââââââââââââââââââââââââ
+// ── In-memory mutex for autoProcessResults ──────────────────────────────────
 // Prevents overlapping runs if the cron fires while a previous run is still
 // in progress (e.g. slow DB or many email sends). Adequate for single-instance
 // Railway deployment. If we scale to multiple instances, replace with a
@@ -312,7 +315,8 @@ export async function autoProcessResults() {
 async function _doAutoProcess() {
   console.log('[results] Auto-processing...');
 
-  const draw      = await getLiveDraw();
+  // Use getDraw() so manual result overrides are visible to auto-processing.
+  const draw      = await getDraw();
   const deadlines = await getDeadlines();
   const summary   = [];
 
@@ -336,7 +340,7 @@ async function _doAutoProcess() {
       }
     }
 
-    // Eliminate non-pickers as soon as the pick window locks â
+    // Eliminate non-pickers as soon as the pick window locks —
     // even if no matches have completed yet. Users who missed the
     // window are out immediately when the round begins.
     if (windowLocked) {
@@ -366,7 +370,7 @@ async function _doAutoProcess() {
 
 /**
  * Send round result emails for all resolved picks in a round.
- * Uses sendWithDedup â safe to call repeatedly; duplicates are impossible.
+ * Uses sendWithDedup — safe to call repeatedly; duplicates are impossible.
  * Also detects if there's a single survivor (winner) and queues winner email.
  */
 async function sendResultEmails(round) {
@@ -447,61 +451,63 @@ async function sendResultEmails(round) {
         });
         if (result.queued) queued++;
       } catch (err) {
-        console.error(`[results] Failed to queue result email for user ${row.user_id}:`, err.message);
+        console.error(`[results-email] Failed for ${row.email}: ${err.message}`);
       }
     }
-    if (queued > 0) {
-      console.log(`[results] ${round}: ${queued} result emails queued for approval`);
-    }
+    console.log(`[results-email] ${round}: ${queued} result emails queued (${rows.length} total picks)`);
 
-    // ââ Winner detection ââââââââââââââââââââââââââââââââââââââââââââââââââ
-    // Check each group for exactly 1 alive player â that's the winner
+    // ── Winner detection ─────────────────────────────────────────────────
+    // If exactly one player is alive in a group, they've won.
     for (const gid of groupIds) {
-      const stats = groupStats[gid] || { playersLeft: 0, totalMembers: 0 };
+      const stats = groupStats[gid];
       if (stats.playersLeft !== 1) continue;
 
-      // Get the winner's details
-      const { rows: winnerRows } = await pool.query(
-        `SELECT gm.user_id, u.email, u.display_name, g.name AS group_name
+      // Check we haven't already sent a winner email for this group
+      const existingWinner = await pool.query(
+        `SELECT id FROM emails_sent WHERE group_id = $1 AND email_type = 'winner'`,
+        [gid]
+      );
+      if (existingWinner.rows.length > 0) continue;
+
+      // Get the winner
+      const winnerResult = await pool.query(
+        `SELECT gm.user_id, gm.display_name, u.email
            FROM group_members gm
            JOIN users u ON u.id = gm.user_id
-           JOIN groups g ON g.id = gm.group_id
           WHERE gm.group_id = $1 AND gm.is_alive = true`,
         [gid]
       );
+      if (winnerResult.rows.length !== 1) continue;
 
-      if (winnerRows.length !== 1) continue;
-      const winner = winnerRows[0];
+      const winner = winnerResult.rows[0];
 
-      // Build pick history for the winner
-      const { rows: pickHistory } = await pool.query(
-        `SELECT round, player_name, survived FROM picks
-          WHERE user_id = $1 AND group_id = $2
+      // Build pick history
+      const historyResult = await pool.query(
+        `SELECT round AS "roundShortName", player_name AS "playerName"
+           FROM picks
+          WHERE user_id = $1 AND group_id = $2 AND survived = true
           ORDER BY created_at ASC`,
         [winner.user_id, gid]
       );
 
-      const pickSummary = pickHistory
-        .map(p => `${p.round}: ${p.player_name} (${p.survived ? 'â' : 'â'})`)
-        .join(', ');
-
-      await sendWinnerEmail({
-        userId: winner.user_id,
-        groupId: gid,
-        round,
-        email: winner.email,
-        displayName: winner.display_name,
-        tournamentName: TOURNAMENT.name,
-        tournamentShortName: TOURNAMENT.shortName || TOURNAMENT.name,
-        groupName: winner.group_name,
-        groupPlayerCount: stats.totalMembers,
-        roundsSurvived: pickHistory.filter(p => p.survived).length,
-        pickHistory: pickSummary,
-        leaderboardUrl: `https://finalserveivor.com/group/${gid}`,
-      });
-      console.log(`[results] Winner email queued for user ${winner.user_id} in group ${gid}`);
+      try {
+        await sendWinnerEmail({
+          userId: winner.user_id,
+          groupId: gid,
+          email: winner.email,
+          displayName: winner.display_name,
+          tournamentName: TOURNAMENT.name,
+          groupPlayerCount: stats.totalMembers,
+          roundsSurvived: historyResult.rows.length,
+          pickHistory: historyResult.rows,
+          leaderboardUrl: `https://finalserveivor.com/group/${gid}`,
+        });
+        console.log(`[results-email] Winner email queued for ${winner.display_name} in group ${gid}`);
+      } catch (err) {
+        console.error(`[results-email] Failed to queue winner email for ${winner.email}: ${err.message}`);
+      }
     }
   } catch (err) {
-    console.error('[results] Error sending result emails:', err.message);
+    console.error(`[results-email] Error querying picks for ${round}: ${err.message}`);
   }
 }
