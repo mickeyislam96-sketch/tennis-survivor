@@ -4,15 +4,15 @@
  * All routes require the ADMIN_SECRET env var to be set and passed as
  * { secret: "..." } in the request body (POST) or ?secret=... (GET).
  *
- * These are emergency / operational tools — not user-facing.
+ * These are emergency / operational tools â not user-facing.
  *
  * Available endpoints:
- *   POST /api/admin/process-results       — manually trigger results processing
- *   POST /api/admin/set-lock-override     — force a round's lock time (emergency)
- *   POST /api/admin/clear-lock-override   — remove a runtime lock override
- *   POST /api/admin/invalidate-cache      — flush the API-Tennis data cache
- *   POST /api/admin/eliminate-non-pickers — manually eliminate non-pickers for a round
- *   GET  /api/admin/status                — system status summary
+ *   POST /api/admin/process-results       â manually trigger results processing
+ *   POST /api/admin/set-lock-override     â force a round's lock time (emergency)
+ *   POST /api/admin/clear-lock-override   â remove a runtime lock override
+ *   POST /api/admin/invalidate-cache      â flush the API-Tennis data cache
+ *   POST /api/admin/eliminate-non-pickers â manually eliminate non-pickers for a round
+ *   GET  /api/admin/status                â system status summary
  */
 
 import { Router } from 'express';
@@ -27,13 +27,14 @@ import {
 } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
+import { sendDrawReleasedEmail, sendNewTournamentEmail } from '../utils/email.js';
 
 export const adminRouter = Router();
 
 function getAdminSecret() {
   const secret = process.env.ADMIN_SECRET;
   if (!secret) {
-    console.error('[admin] ADMIN_SECRET env var is not set — all admin requests will be rejected');
+    console.error('[admin] ADMIN_SECRET env var is not set â all admin requests will be rejected');
   }
   return secret;
 }
@@ -41,13 +42,13 @@ function getAdminSecret() {
 function checkSecret(req, res) {
   const secret = req.body?.secret || req.query?.secret;
   if (!secret || secret !== getAdminSecret()) {
-    res.status(401).json({ error: 'Unauthorised — invalid admin secret' });
+    res.status(401).json({ error: 'Unauthorised â invalid admin secret' });
     return false;
   }
   return true;
 }
 
-// ── POST /api/admin/process-results ──────────────────────────────────────────
+// ââ POST /api/admin/process-results ââââââââââââââââââââââââââââââââââââââââââ
 // Trigger results processing. Optionally for a specific round only.
 adminRouter.post('/process-results', async (req, res) => {
   if (!checkSecret(req, res)) return;
@@ -63,7 +64,7 @@ adminRouter.post('/process-results', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/set-lock-override ────────────────────────────────────────
+// ââ POST /api/admin/set-lock-override ââââââââââââââââââââââââââââââââââââââââ
 // Override the lock time for a round. Use when API data is wrong or delayed.
 // Body: { secret, round: "R32", lockAt: "2026-04-07T09:00:00Z" }
 adminRouter.post('/set-lock-override', async (req, res) => {
@@ -87,7 +88,7 @@ adminRouter.post('/set-lock-override', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/clear-lock-override ──────────────────────────────────────
+// ââ POST /api/admin/clear-lock-override ââââââââââââââââââââââââââââââââââââââ
 // Remove a runtime lock override for a round.
 // Body: { secret, round: "R32" }
 adminRouter.post('/clear-lock-override', async (req, res) => {
@@ -100,15 +101,15 @@ adminRouter.post('/clear-lock-override', async (req, res) => {
   res.json({ ok: true, round, message: `Lock override cleared for ${round}` });
 });
 
-// ── POST /api/admin/invalidate-cache ─────────────────────────────────────────
+// ââ POST /api/admin/invalidate-cache âââââââââââââââââââââââââââââââââââââââââ
 // Flush the in-memory API cache so the next request fetches fresh data.
 adminRouter.post('/invalidate-cache', async (req, res) => {
   if (!checkSecret(req, res)) return;
   invalidateCache();
-  res.json({ ok: true, message: 'Cache invalidated — next request will fetch fresh data from API' });
+  res.json({ ok: true, message: 'Cache invalidated â next request will fetch fresh data from API' });
 });
 
-// ── POST /api/admin/eliminate-non-pickers ────────────────────────────────────
+// ââ POST /api/admin/eliminate-non-pickers ââââââââââââââââââââââââââââââââââââ
 // Manually eliminate players who didn't pick for a specific round.
 // Only use after confirming the pick window is closed.
 // Body: { secret, round: "R32" }
@@ -126,8 +127,8 @@ adminRouter.post('/eliminate-non-pickers', async (req, res) => {
   }
 });
 
-// ── GET /api/admin/status ─────────────────────────────────────────────────────
-// System status overview — current tournament, cache, deadlines, runtime overrides.
+// ââ GET /api/admin/status âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// System status overview â current tournament, cache, deadlines, runtime overrides.
 adminRouter.get('/status', async (req, res) => {
   if (!checkSecret(req, res)) return;
   try {
@@ -162,7 +163,7 @@ adminRouter.get('/status', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/regenerate-invite ─────────────────────────────────────────
+// ââ POST /api/admin/regenerate-invite âââââââââââââââââââââââââââââââââââââââââ
 // Generate a new invite code for a group.
 // Body: { secret, groupId }
 adminRouter.post('/regenerate-invite', async (req, res) => {
@@ -183,11 +184,11 @@ adminRouter.post('/regenerate-invite', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/fix-r1-picks ────────────────────────────────────────────
+// ââ POST /api/admin/fix-r1-picks ââââââââââââââââââââââââââââââââââââââââââââ
 // One-time migration: rename picks from round='R32' to round='R1'.
 // These picks were submitted while the round mapping bug was active (API
 // "1/32-finals" was incorrectly mapped to R32 instead of R1). The picks were
-// actually R1 picks — non-seeds playing in the first round.
+// actually R1 picks â non-seeds playing in the first round.
 // After renaming, triggers results processing so R1 wins/losses get graded.
 adminRouter.post('/fix-r1-picks', async (req, res) => {
   if (!checkSecret(req, res)) return;
@@ -201,7 +202,7 @@ adminRouter.post('/fix-r1-picks', async (req, res) => {
     if (Number(existingR1.rows[0].count) > 0) {
       return res.json({
         ok: false,
-        message: `Already ${existingR1.rows[0].count} R1 picks in DB — migration may have already run. Aborting to avoid duplicates.`,
+        message: `Already ${existingR1.rows[0].count} R1 picks in DB â migration may have already run. Aborting to avoid duplicates.`,
       });
     }
 
@@ -209,7 +210,7 @@ adminRouter.post('/fix-r1-picks', async (req, res) => {
       `UPDATE picks SET round = 'R1' WHERE round = 'R32' RETURNING id::text, user_id::text, player_name, round`
     );
 
-    console.log(`[admin] fix-r1-picks: renamed ${result.rowCount} picks from R32 → R1`);
+    console.log(`[admin] fix-r1-picks: renamed ${result.rowCount} picks from R32 â R1`);
 
     // Now trigger results processing so R1 matches get graded
     let gradeResult = null;
@@ -229,7 +230,7 @@ adminRouter.post('/fix-r1-picks', async (req, res) => {
   }
 });
 
-// ── GET /api/admin/api-diag ──────────────────────────────────────────────────
+// ââ GET /api/admin/api-diag ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Diagnostic: test API-Tennis connectivity, look up correct tournament key,
 // and try fetching Monte Carlo fixtures.
 adminRouter.get('/api-diag', async (req, res) => {
@@ -251,7 +252,7 @@ adminRouter.get('/api-diag', async (req, res) => {
     if (!tourData?.success) {
       results.keyTest = { status: 'FAIL', response: JSON.stringify(tourData).slice(0, 500) };
     } else if (!Array.isArray(tourData.result)) {
-      results.keyTest = { status: 'FAIL', message: 'success=1 but no result array — key may be expired', raw: JSON.stringify(tourData).slice(0, 500) };
+      results.keyTest = { status: 'FAIL', message: 'success=1 but no result array â key may be expired', raw: JSON.stringify(tourData).slice(0, 500) };
     } else {
       results.keyTest = { status: 'ok', tournamentCount: tourData.result.length };
       // 2. Search for Monte Carlo in the tournament list
@@ -298,7 +299,7 @@ adminRouter.get('/api-diag', async (req, res) => {
   res.json({ ok: true, ...results });
 });
 
-// ── GET /api/admin/user/:userId ──────────────────────────────────────────────
+// ââ GET /api/admin/user/:userId ââââââââââââââââââââââââââââââââââââââââââââââ
 // Look up a user's details (for debugging / email fixes).
 adminRouter.get('/user/:userId', async (req, res) => {
   if (!checkSecret(req, res)) return;
@@ -314,7 +315,7 @@ adminRouter.get('/user/:userId', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/fix-email ────────────────────────────────────────────────
+// ââ POST /api/admin/fix-email ââââââââââââââââââââââââââââââââââââââââââââââââ
 // Correct a user's email address.
 // Body: { secret, userId, newEmail }
 adminRouter.post('/fix-email', async (req, res) => {
@@ -340,7 +341,7 @@ adminRouter.post('/fix-email', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/revive-member ────────────────────────────────────────────
+// ââ POST /api/admin/revive-member ââââââââââââââââââââââââââââââââââââââââââââ
 // Revive a member who was incorrectly eliminated.
 // Body: { secret, userId, groupId }
 // Also resets their pick for the eliminated round to survived=NULL.
@@ -378,7 +379,7 @@ adminRouter.post('/revive-member', async (req, res) => {
   }
 });
 
-// ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
+// ââ GET /api/admin/picks/:groupId ââââââââââââââââââââââââââââââââââââââââââââ
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
   if (!checkSecret(req, res)) return;
@@ -393,6 +394,107 @@ adminRouter.get('/picks/:groupId', async (req, res) => {
       [groupId, ROUNDS]
     );
     res.json({ ok: true, picks: result.rows });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ââ POST /api/admin/send-draw-released ââââââââââââââââââââââââââââââââââââââ
+// Queue "draw released" emails to all alive members in all groups for the
+// active tournament. Each email is queued as pending (admin must still approve
+// via the standard /approve-emails flow).
+// Body: { secret, deadline, topSeeds: [{ number, name }, ...] }
+adminRouter.post('/send-draw-released', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { deadline, topSeeds } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `SELECT gm.user_id, gm.group_id, gm.display_name, u.email,
+              (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = gm.group_id) AS group_count
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+         JOIN groups g ON g.id = gm.group_id
+        WHERE g.tournament_id = $1
+          AND gm.is_alive = true
+          AND u.email IS NOT NULL`,
+      [TOURNAMENT.id]
+    );
+
+    let queued = 0;
+    for (const row of rows) {
+      try {
+        const result = await sendDrawReleasedEmail({
+          userId: row.user_id,
+          groupId: row.group_id,
+          email: row.email,
+          displayName: row.display_name,
+          tournamentName: TOURNAMENT.name,
+          tournamentShortName: TOURNAMENT.shortName || TOURNAMENT.name,
+          drawSize: TOURNAMENT.drawSize || 0,
+          totalRounds: ROUNDS.length,
+          deadline: deadline || '',
+          groupPlayerCount: Number(row.group_count),
+          pickUrl: 'https://finalserveivor.com/pick',
+          availablePlayerCount: TOURNAMENT.drawSize || 0,
+          topSeeds: topSeeds || [],
+        });
+        if (result?.queued) queued++;
+      } catch (err) {
+        console.error(`[admin] draw-released email failed for ${row.email}: ${err.message}`);
+      }
+    }
+
+    res.json({ ok: true, queued, total: rows.length, message: `${queued} draw released emails queued. Approve them via the digest email.` });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ââ POST /api/admin/send-new-tournament âââââââââââââââââââââââââââââââââââââ
+// Queue "new tournament" announcement emails to ALL registered users.
+// Body: { secret, tournamentName, shortName, level, drawDate, firstMatchDate,
+//         totalRounds, drawSize, joinUrl, inviteUrl }
+adminRouter.post('/send-new-tournament', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const {
+    tournamentName, shortName, level,
+    drawDate, firstMatchDate, totalRounds, drawSize,
+    joinUrl, inviteUrl,
+  } = req.body;
+
+  if (!tournamentName) {
+    return res.status(400).json({ error: 'tournamentName is required' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id::text AS user_id, email, display_name FROM users WHERE email IS NOT NULL`
+    );
+
+    let queued = 0;
+    for (const row of rows) {
+      try {
+        const result = await sendNewTournamentEmail({
+          userId: row.user_id,
+          email: row.email,
+          displayName: row.display_name,
+          tournamentName,
+          tournamentShortName: shortName || tournamentName,
+          tournamentLevel: level || '',
+          drawDate: drawDate || '',
+          firstMatchDate: firstMatchDate || '',
+          totalRounds: totalRounds || 0,
+          drawSize: drawSize || 0,
+          joinUrl: joinUrl || 'https://finalserveivor.com/pools',
+          inviteUrl: inviteUrl || '',
+        });
+        if (result?.queued) queued++;
+      } catch (err) {
+        console.error(`[admin] new-tournament email failed for ${row.email}: ${err.message}`);
+      }
+    }
+
+    res.json({ ok: true, queued, total: rows.length, message: `${queued} new tournament emails queued. Approve them via the digest email.` });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
