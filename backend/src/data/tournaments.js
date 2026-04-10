@@ -41,16 +41,32 @@ export const TOURNAMENTS = [
   },
 ];
 
+/**
+ * Compute effective status: auto-complete active tournaments 1 day after endDate.
+ * Returns a new object with corrected status (does not mutate the original).
+ */
+function withEffectiveStatus(t) {
+  if (!t) return t;
+  if (t.status === 'active' && t.endDate) {
+    const endPlus1 = new Date(t.endDate);
+    endPlus1.setDate(endPlus1.getDate() + 1);
+    endPlus1.setHours(23, 59, 59, 999); // End of the day after the final
+    if (new Date() > endPlus1) return { ...t, status: 'completed' };
+  }
+  return t;
+}
+
 export function getTournament(id) {
-  return TOURNAMENTS.find(t => t.id === id) || null;
+  const t = TOURNAMENTS.find(t => t.id === id);
+  return withEffectiveStatus(t) || null;
 }
 
 export function getActiveTournament() {
-  // 'active' > 'upcoming' > most recent 'completed'
+  const effective = TOURNAMENTS.map(withEffectiveStatus);
   return (
-    TOURNAMENTS.find(t => t.status === 'active') ||
-    TOURNAMENTS.find(t => t.status === 'upcoming') ||
-    [...TOURNAMENTS].reverse().find(t => t.status === 'completed') ||
+    effective.find(t => t.status === 'active') ||
+    effective.find(t => t.status === 'upcoming') ||
+    [...effective].reverse().find(t => t.status === 'completed') ||
     null
   );
 }

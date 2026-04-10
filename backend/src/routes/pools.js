@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
-import { TOURNAMENTS } from '../data/tournaments.js';
+import { getTournament } from '../data/tournaments.js';
 
 export const poolsRouter = Router();
 
@@ -42,7 +42,7 @@ poolsRouter.get('/', async (req, res) => {
     );
 
     dbPools = result.rows.map(row => {
-      const tournament = TOURNAMENTS.find(t => t.id === row.tournament_id) || null;
+      const tournament = getTournament(row.tournament_id);
       return {
         id: row.id,
         name: row.name,
@@ -64,7 +64,7 @@ poolsRouter.get('/', async (req, res) => {
 
   // ── Mock groups (official demo pools) ─────────────────────────────────────
   const mockPools = MOCK_GROUPS.map(group => {
-    const tournament = TOURNAMENTS.find(t => t.id === group.tournamentId) || null;
+    const tournament = getTournament(group.tournamentId);
     const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
     const isMember = userId ? members.some(m => m.userId === userId) : false;
     const aliveCount = members.filter(m => m.isAlive).length;

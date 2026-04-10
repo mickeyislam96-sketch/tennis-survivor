@@ -455,7 +455,7 @@ export const sendTournamentJoinEmail = async ({
 const fmtGBP = (cents) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
 
-const buildTournamentJoinHTML = ({
+export const buildTournamentJoinHTML = ({
   email, displayName, groupId, groupName,
   tournamentName, tourLevel, location,
   drawDate, startDate, drawAvailable, prizePoolCents,

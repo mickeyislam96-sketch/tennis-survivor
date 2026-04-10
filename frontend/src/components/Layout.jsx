@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
+import { getTournament } from '../data/tournaments';
 import './Layout.css';
 
 const nav = [
@@ -311,26 +311,51 @@ export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
-  const { user } = useAuth();
+  const { user, userId } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
-  const [tournamentStatus, setTournamentStatus] = useState(null);
+  const [currentStatus, setCurrentStatus] = useState(null);   // tournament status of URL's group
+  const [activeGroupId, setActiveGroupId] = useState(null);    // user's active tournament group
 
-  // Fetch group to determine tournament status (controls which nav items show)
+  // Determine tournament status and active group for nav routing
   useEffect(() => {
-    if (!groupId) { setTournamentStatus(null); return; }
+    if (!groupId) { setCurrentStatus(null); setActiveGroupId(null); return; }
     fetch(`${API}/groups/${groupId}`)
       .then((r) => r.json())
       .then((g) => {
-        const t = g?.tournamentId ? TOURNAMENTS.find(t => t.id === g.tournamentId) : null;
-        setTournamentStatus(t?.status || null);
+        const t = g?.tournamentId ? getTournament(g.tournamentId) : null;
+        setCurrentStatus(t?.status || null);
+        if (t?.status === 'active') {
+          setActiveGroupId(groupId);
+        } else if (userId) {
+          // Current group is not active — find user's active tournament group
+          fetch(`${API}/pools?userId=${userId}`)
+            .then((r) => r.json())
+            .then((pools) => {
+              const activeMemberPool = (Array.isArray(pools) ? pools : []).find(
+                (p) => p.isMember && p.tournament?.status === 'active'
+              );
+              setActiveGroupId(activeMemberPool?.id || null);
+            })
+            .catch(() => setActiveGroupId(null));
+        } else {
+          setActiveGroupId(null);
+        }
       })
-      .catch(() => setTournamentStatus(null));
-  }, [groupId]);
+      .catch(() => { setCurrentStatus(null); setActiveGroupId(null); });
+  }, [groupId, userId]);
 
-  // Only show game nav links (Make Pick, Draw, My Picks, Leaderboard) for active/completed tournaments
-  const showGameNav = groupId && (tournamentStatus === 'active' || tournamentStatus === 'completed');
+  // Nav link logic:
+  // - Active tournament: full nav pointing to this group
+  // - Completed tournament: only Leaderboard for this group
+  // - Upcoming tournament: full nav pointing to user's active group (if any)
+  const isCompleted = currentStatus === 'completed';
+  const navBase = isCompleted
+    ? `/group/${groupId}`
+    : activeGroupId ? `/group/${activeGroupId}` : base;
+  const showFullNav = isCompleted ? false : !!activeGroupId;
+  const showLeaderboardOnly = isCompleted && groupId;
 
   return (
     <div className="layout">
@@ -338,15 +363,23 @@ export function Layout({ children }) {
         <Link to="/" className="logo">Final Serve-ivor</Link>
 
         <nav className="nav">
-          {showGameNav && nav.map(({ to, label }) => (
+          {showFullNav && nav.map(({ to, label }) => (
             <NavLink
               key={to}
-              to={`${base}/${to}`}
+              to={`${navBase}/${to}`}
               className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
             >
               {label}
             </NavLink>
           ))}
+          {showLeaderboardOnly && (
+            <NavLink
+              to={`/group/${groupId}/leaderboard`}
+              className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
+            >
+              Leaderboard
+            </NavLink>
+          )}
           <NavLink
             to="/terms"
             className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
-import { TOURNAMENTS } from '../data/tournaments.js';
-import { sendTournamentJoinEmail } from '../utils/email.js';
+import { getTournament } from '../data/tournaments.js';
+import { sendWithDedup, buildTournamentJoinHTML } from '../utils/email.js';
 import { getDeadlines } from '../services/tennisData.js';
 
 export const groupsRouter = Router();
@@ -85,7 +85,7 @@ groupsRouter.get('/invite/:code', async (req, res) => {
       );
       const groupData = rowToGroup(g);
       // Expose betaFree flag so JoinGroup page shows "Entry fee waived" notice
-      const tournament = TOURNAMENTS.find(t => t.id === g.tournament_id);
+      const tournament = getTournament(g.tournament_id);
       const betaFree = groupData.entryFeeCents === 0;
       return res.json({ ...groupData, betaFree, members: membersResult.rows.map(rowToMember) });
     }
@@ -246,7 +246,7 @@ groupsRouter.post('/:id/join', async (req, res) => {
         [groupId]
       );
 
-      // Non-blocking tournament join confirmation email
+      // Queue tournament join confirmation email (pending admin approval)
       try {
         const [userResult, groupResult, prizeResult] = await Promise.all([
           pool.query('SELECT email, display_name FROM users WHERE id = $1', [userId]),
@@ -254,16 +254,17 @@ groupsRouter.post('/:id/join', async (req, res) => {
           pool.query('SELECT prize_pool_cents FROM groups WHERE id = $1', [groupId]),
         ]);
         const user = userResult.rows[0];
-        const group = groupResult.rows[0];
+        const grp = groupResult.rows[0];
         const prize = prizeResult.rows[0];
-        const tournament = TOURNAMENTS.find(t => t.id === group?.tournament_id);
+        const tournament = getTournament(grp?.tournament_id);
         if (user && tournament) {
           const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-          sendTournamentJoinEmail({
+          const subject = `You're in — ${tournament.name} · Final Serve-ivor`;
+          const html = buildTournamentJoinHTML({
             email: user.email,
             displayName: user.display_name,
             groupId,
-            groupName: group.name,
+            groupName: grp.name,
             tournamentName: tournament.name,
             tourLevel: tournament.tourLevel,
             location: tournament.location,
@@ -272,9 +273,18 @@ groupsRouter.post('/:id/join', async (req, res) => {
             drawAvailable: tournament.drawAvailable === true,
             prizePoolCents: prize?.prize_pool_cents || 0,
           });
+          await sendWithDedup({
+            userId,
+            groupId,
+            round: 'join',
+            emailType: 'tournament_join',
+            to: user.email,
+            subject,
+            html,
+          });
         }
       } catch (emailErr) {
-        console.error('Tournament join email lookup failed:', emailErr.message);
+        console.error('Tournament join email queue failed:', emailErr.message);
       }
 
       return res.status(201).json(rowToMember(result.rows[0]));
