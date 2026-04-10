@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
-import { getRounds, getDeadlines, getDraw, getLiveDraw, getApiKeyMap } from '../services/tennisData.js';
+import { getRounds, getDeadlines, getDraw, getApiKeyMap } from '../services/tennisData.js';
 
 // Build reverse map dynamically from the merged key map
 function getMockToApiMap() {
@@ -135,15 +135,15 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     if (currentlyOpen) openRound = currentlyOpen.round;
   } catch (_) {}
 
-  // Get live draw data for grading picks.
-  // Pass 'F' so the mock draw marks all rounds through SF as completed,
-  // giving maximum grading coverage even when the live API is unavailable.
+  // Get draw data for grading picks.
+  // Use getDraw (not getLiveDraw) because getDraw overlays live API data onto
+  // the mock draw AND applies manual result overrides from tournament config.
+  // getLiveDraw only returns raw API fixtures — missing any manual overrides.
   let grade = () => null; // default: all pending
   try {
-    let draw = await getLiveDraw('F');
-    if (!draw.matches || draw.matches.length === 0) draw = await getDraw('F');
+    const draw = await getDraw('F');
     const completedMatches = (draw.matches || []).filter(m => m.status === 'completed').length;
-    console.log(`[leaderboard] draw source: ${completedMatches > 0 ? 'has data' : 'empty'}, completed matches: ${completedMatches}`);
+    console.log(`[leaderboard] draw source: ${draw.dataSource || 'unknown'}, completed matches: ${completedMatches}`);
     grade = buildGrader(draw);
   } catch (e) {
     console.error('[leaderboard] getDraw failed:', e.message);
