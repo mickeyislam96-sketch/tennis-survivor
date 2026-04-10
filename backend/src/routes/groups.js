@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 import { getTournament } from '../data/tournaments.js';
-import { sendWithDedup, buildTournamentJoinHTML } from '../utils/email.js';
+import { sendTournamentJoinEmail } from '../utils/email.js';
 import { getDeadlines } from '../services/tennisData.js';
 
 export const groupsRouter = Router();
@@ -36,7 +36,7 @@ function rowToMember(m) {
   };
 }
 
-// GET /api/groups — groups the user belongs to
+// GET /api/groups â groups the user belongs to
 groupsRouter.get('/', async (req, res) => {
   const userId = req.query.userId || req.headers['x-user-id'];
   if (!userId) return res.json([]);
@@ -65,7 +65,7 @@ groupsRouter.get('/', async (req, res) => {
   res.json(myGroups);
 });
 
-// GET /api/groups/invite/:code — look up group by invite code
+// GET /api/groups/invite/:code â look up group by invite code
 groupsRouter.get('/invite/:code', async (req, res) => {
   const code = req.params.code.toUpperCase();
 
@@ -101,7 +101,7 @@ groupsRouter.get('/invite/:code', async (req, res) => {
   res.json({ ...group, betaFree, members });
 });
 
-// GET /api/groups/:id — group detail + members
+// GET /api/groups/:id â group detail + members
 groupsRouter.get('/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -134,7 +134,7 @@ groupsRouter.get('/:id', async (req, res) => {
           for (const m of members) {
             if (!m.isAlive && m.eliminatedRound && openRounds.has(m.eliminatedRound)) {
               const badRound = m.eliminatedRound;
-              console.log(`[groups] Self-healing: ${m.displayName} was eliminated in ${badRound} but window is still open — overriding to alive`);
+              console.log(`[groups] Self-healing: ${m.displayName} was eliminated in ${badRound} but window is still open â overriding to alive`);
               m.isAlive = true;
               m.eliminatedRound = null;
               // Also fix the DB so this doesn't repeat every request
@@ -151,7 +151,7 @@ groupsRouter.get('/:id', async (req, res) => {
             }
           }
         } catch (err) {
-          // Non-fatal — if deadlines fail, just return raw DB data
+          // Non-fatal â if deadlines fail, just return raw DB data
           console.warn('[groups] Could not check deadlines for self-healing:', err.message);
         }
 
@@ -169,7 +169,7 @@ groupsRouter.get('/:id', async (req, res) => {
   res.json({ ...group, members });
 });
 
-// POST /api/groups — create a new group
+// POST /api/groups â create a new group
 groupsRouter.post('/', async (req, res) => {
   const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
   const adminId = adminUserId || req.headers['x-user-id'];
@@ -248,39 +248,29 @@ groupsRouter.post('/:id/join', async (req, res) => {
 
       // Queue tournament join confirmation email (pending admin approval)
       try {
-        const [userResult, groupResult, prizeResult] = await Promise.all([
+        const [userResult, groupResult, memberCountResult] = await Promise.all([
           pool.query('SELECT email, display_name FROM users WHERE id = $1', [userId]),
-          pool.query('SELECT name, tournament_id, entry_fee_cents FROM groups WHERE id = $1', [groupId]),
-          pool.query('SELECT prize_pool_cents FROM groups WHERE id = $1', [groupId]),
+          pool.query('SELECT name, tournament_id FROM groups WHERE id = $1', [groupId]),
+          pool.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1', [groupId]),
         ]);
         const user = userResult.rows[0];
         const grp = groupResult.rows[0];
-        const prize = prizeResult.rows[0];
         const tournament = getTournament(grp?.tournament_id);
         if (user && tournament) {
-          const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-          const subject = `You're in — ${tournament.name} · Final Serve-ivor`;
-          const html = buildTournamentJoinHTML({
-            email: user.email,
-            displayName: user.display_name,
-            groupId,
-            groupName: grp.name,
-            tournamentName: tournament.name,
-            tourLevel: tournament.tourLevel,
-            location: tournament.location,
-            drawDate: tournament.drawDate || fmt(tournament.startDate),
-            startDate: fmt(tournament.startDate),
-            drawAvailable: tournament.drawAvailable === true,
-            prizePoolCents: prize?.prize_pool_cents || 0,
-          });
-          await sendWithDedup({
+          const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+          await sendTournamentJoinEmail({
             userId,
             groupId,
-            round: 'join',
-            emailType: 'tournament_join',
-            to: user.email,
-            subject,
-            html,
+            email: user.email,
+            displayName: user.display_name,
+            tournamentName: tournament.name,
+            tournamentShortName: tournament.shortName || tournament.name,
+            tournamentLevel: tournament.tourLevel || '',
+            drawDate: tournament.drawDate || fmt(tournament.startDate || ''),
+            firstMatchDate: fmt(tournament.startDate || ''),
+            groupPlayerCount: Number(memberCountResult.rows[0].count),
+            groupUrl: `https://finalserveivor.com/group/${groupId}`,
+            inviteUrl: '',
           });
         }
       } catch (emailErr) {
