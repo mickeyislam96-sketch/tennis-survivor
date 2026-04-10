@@ -5,7 +5,7 @@ const EMAIL_CONFIGURED = !!process.env.BREVO_API_KEY;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'mickeyislam96@gmail.com';
 
 if (!EMAIL_CONFIGURED) {
-  console.warn('[email] BREVO_API_KEY env var is missing — emails disabled.');
+  console.warn('[email] BREVO_API_KEY env var is missing - emails disabled.');
 } else {
   console.log('[email] Brevo configured (template mode). Batch emails queue as pending.');
 }
@@ -280,7 +280,7 @@ export async function sendAdminDigest({ force = false } = {}) {
 
 export const sendWelcomeEmail = async ({ email, displayName }) => {
   if (!EMAIL_CONFIGURED) {
-    console.warn(`[email] Skipping welcome email to ${email} — not configured.`);
+    console.warn(`[email] Skipping welcome email to ${email} - not configured.`);
     return;
   }
   try {
@@ -301,7 +301,7 @@ export const sendWelcomeEmail = async ({ email, displayName }) => {
 
 export const sendPasswordResetEmail = async ({ email, displayName, resetUrl }) => {
   if (!EMAIL_CONFIGURED) {
-    throw new Error('Email service not configured — BREVO_API_KEY must be set on Railway.');
+    throw new Error('Email service not configured - BREVO_API_KEY must be set on Railway.');
   }
   try {
     await sendViaBrevoTemplate({
@@ -329,7 +329,7 @@ export async function sendTournamentJoinEmail({
   tournamentName, tournamentShortName, tournamentLevel,
   drawDate, firstMatchDate, groupPlayerCount, groupUrl, inviteUrl,
 }) {
-  const subject = `You're in — ${tournamentName} · Final Serve-ivor`;
+  const subject = `You're in - ${tournamentName} · Final Serve-ivor`;
   return sendWithDedup({
     userId,
     groupId,
@@ -354,7 +354,7 @@ export async function sendTournamentJoinEmail({
 }
 
 // Re-export buildTournamentJoinHTML as a no-op for backward compatibility
-// (groups.js imports it — will be cleaned up later)
+// (groups.js imports it - will be cleaned up later)
 export function buildTournamentJoinHTML() {
   return '<!-- migrated to Brevo template -->';
 }
@@ -367,7 +367,7 @@ export async function sendDrawReleasedEmail({
   drawSize, totalRounds, deadline, groupPlayerCount,
   pickUrl, availablePlayerCount, topSeeds,
 }) {
-  const subject = `The ${tournamentShortName || tournamentName} draw is out — make your R1 pick`;
+  const subject = `The ${tournamentShortName || tournamentName} draw is out - make your R1 pick`;
   return sendWithDedup({
     userId,
     groupId,
@@ -411,7 +411,7 @@ export async function sendPickReminderEmail({
   const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
   const roundName = ROUND_LABELS[round] || round;
 
-  const subject = `Pick reminder: ${round} locks soon — Final Serve-ivor`;
+  const subject = `Pick reminder: ${round} locks soon - Final Serve-ivor`;
   return sendWithDedup({
     userId,
     groupId,
@@ -442,7 +442,7 @@ export async function sendPickReminderEmail({
 
 export async function sendRoundResultEmail({
   userId, groupId, round, email, displayName, playerName, survived,
-  // Optional — enriched data from resultsProcessor
+  // Optional - enriched data from resultsProcessor
   pickOpponent, pickScore, playersLeft, eliminatedCount, roundsSurvived,
   nextRoundName, nextRoundShortName, nextDeadline,
   tournamentName, tournamentShortName,
@@ -482,7 +482,7 @@ export async function sendRoundResultEmail({
       },
     });
   } else {
-    const subject = `Your ${tournamentShortName || 'tournament'} run is over — finished ${finishPosition || '?'}/${groupPlayerCount || '?'}`;
+    const subject = `Your ${tournamentShortName || 'tournament'} run is over - finished ${finishPosition || '?'}/${groupPlayerCount || '?'}`;
     return sendWithDedup({
       userId,
       groupId,
@@ -551,7 +551,7 @@ export async function sendNewTournamentEmail({
   drawDate, firstMatchDate, totalRounds, drawSize,
   joinUrl, inviteUrl,
 }) {
-  const subject = `${tournamentName} pool is open — join now`;
+  const subject = `${tournamentName} pool is open - join now`;
   // Use a synthetic groupId for new tournament emails (not group-specific)
   return sendWithDedup({
     userId,
