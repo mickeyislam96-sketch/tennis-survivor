@@ -319,7 +319,7 @@ export function DrawViewer() {
         // Check frontend config — if the draw hasn't been released for this
         // tournament yet, show the "coming soon" state without hitting the API.
         const tournament = TOURNAMENTS.find(t => t.id === tid);
-        if (tournament?.drawAvailable === false) {
+        if (tournament?.drawAvailable === false || tournament?.status !== 'active') {
           setDrawAvailable(false);
           return;
         }

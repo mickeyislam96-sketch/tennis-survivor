@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { TOURNAMENTS } from '../data/tournaments';
 
 export function PickHistory() {
   const { groupId } = useParams();
   const { userId } = useAuth();
   const [picks, setPicks] = useState([]);
   const [member, setMember] = useState(null);
+  const [tournamentStatus, setTournamentStatus] = useState(null);
 
   useEffect(() => {
     if (!groupId || !userId) return;
@@ -24,9 +26,28 @@ export function PickHistory() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
+        const t = g?.tournamentId ? TOURNAMENTS.find(t => t.id === g.tournamentId) : null;
+        setTournamentStatus(t?.status || null);
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
+
+  // Upcoming tournament — no picks exist yet
+  if (tournamentStatus && tournamentStatus !== 'active' && tournamentStatus !== 'completed') {
+    return (
+      <div className="page pick-history">
+        <div className="pick-header">
+          <h1>Your picks</h1>
+          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
+        </div>
+        <div className="draw-empty-state">
+          <div className="draw-empty-icon">🎾</div>
+          <p className="draw-empty-title">No picks yet</p>
+          <p className="draw-empty-sub">Your pick history will appear here once the tournament starts.</p>
+        </div>
+      </div>
+    );
+  }
 
   const survived = picks.filter((p) => p.survived === true).length;
   const isAlive = member ? member.isAlive : null;

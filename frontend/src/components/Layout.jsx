@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { TOURNAMENTS } from '../data/tournaments';
 import './Layout.css';
 
 const nav = [
@@ -314,6 +315,22 @@ export function Layout({ children }) {
   const base = groupId ? `/group/${groupId}` : '/';
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
+  const [tournamentStatus, setTournamentStatus] = useState(null);
+
+  // Fetch group to determine tournament status (controls which nav items show)
+  useEffect(() => {
+    if (!groupId) { setTournamentStatus(null); return; }
+    fetch(`${API}/groups/${groupId}`)
+      .then((r) => r.json())
+      .then((g) => {
+        const t = g?.tournamentId ? TOURNAMENTS.find(t => t.id === g.tournamentId) : null;
+        setTournamentStatus(t?.status || null);
+      })
+      .catch(() => setTournamentStatus(null));
+  }, [groupId]);
+
+  // Only show game nav links (Make Pick, Draw, My Picks, Leaderboard) for active/completed tournaments
+  const showGameNav = groupId && (tournamentStatus === 'active' || tournamentStatus === 'completed');
 
   return (
     <div className="layout">
@@ -321,7 +338,7 @@ export function Layout({ children }) {
         <Link to="/" className="logo">Final Serve-ivor</Link>
 
         <nav className="nav">
-          {groupId && nav.map(({ to, label }) => (
+          {showGameNav && nav.map(({ to, label }) => (
             <NavLink
               key={to}
               to={`${base}/${to}`}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { TOURNAMENTS } from '../data/tournaments';
 
 // ── Formatting helpers ────────────────────────────────────────
 function fmtGBP(cents) {
@@ -148,6 +149,40 @@ export function Leaderboard() {
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;
 
   const { group, leaderboard, aliveCount, currentRound, roundIsLocked } = data;
+
+  // Upcoming tournament — show a simple member list with no game state
+  const tournament = group?.tournamentId ? TOURNAMENTS.find(t => t.id === group.tournamentId) : null;
+  if (tournament && tournament.status !== 'active' && tournament.status !== 'completed') {
+    return (
+      <div className="page leaderboard">
+        <div className="leaderboard-header">
+          <h1>Leaderboard</h1>
+          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
+        </div>
+        <div className="draw-empty-state">
+          <div className="draw-empty-icon">🎾</div>
+          <p className="draw-empty-title">{tournament.shortName || tournament.name} hasn't started yet</p>
+          <p className="draw-empty-sub">
+            The leaderboard will be available once the tournament begins on{' '}
+            {new Date(tournament.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}.
+          </p>
+          {leaderboard.length > 0 && (
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{leaderboard.length} player{leaderboard.length !== 1 ? 's' : ''} registered</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                {leaderboard.map((m) => (
+                  <span key={m.userId} className="lb-avatar" style={{ background: avatarColour(m.displayName), width: 32, height: 32, fontSize: '0.7rem' }}>
+                    {initials(m.displayName)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
   const winner        = aliveCount === 1 ? leaderboard[0] : null;

@@ -168,7 +168,7 @@ export function PickScreen() {
         setMember(me || null);
         // Check if this tournament's draw has been released yet
         const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
-        if (tournament?.drawAvailable === false) setDrawAvailable(false);
+        if (tournament?.drawAvailable === false || tournament?.status !== 'active') setDrawAvailable(false);
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
