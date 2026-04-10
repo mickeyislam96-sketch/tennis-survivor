@@ -271,7 +271,8 @@ picksRouter.get('/available', async (req, res) => {
 picksRouter.get('/history', async (req, res) => {
   const { userId, groupId } = req.query;
 
-  // Build a live grader from current draw data so survived is always fresh
+  // Build a live grader from current draw data so survived is always fresh.
+  // Use getDraw (not getLiveDraw) so manual result overrides are included.
   const mockToApi = new Map();
   for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
     if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
@@ -279,26 +280,45 @@ picksRouter.get('/history', async (req, res) => {
   }
   let liveGrade = null;
   try {
-    const draw = await getLiveDraw();
+    const draw = await getDraw('F');
     if (draw.matches && draw.matches.length > 0) {
       const wonRounds = {};
       const lostRounds = {};
+      const wonRoundsByName = {};
+      const lostRoundsByName = {};
       for (const m of draw.matches) {
         if (m.status !== 'completed' || !m.winnerId) continue;
         const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
+        const winnerName = (m.winnerName || '').toLowerCase().trim();
+        const loserName = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name || '').toLowerCase().trim();
         if (!wonRounds[m.winnerId]) wonRounds[m.winnerId] = new Set();
         wonRounds[m.winnerId].add(m.round);
         if (!lostRounds[loserId]) lostRounds[loserId] = new Set();
         lostRounds[loserId].add(m.round);
+        if (winnerName) {
+          if (!wonRoundsByName[winnerName]) wonRoundsByName[winnerName] = new Set();
+          wonRoundsByName[winnerName].add(m.round);
+        }
+        if (loserName) {
+          if (!lostRoundsByName[loserName]) lostRoundsByName[loserName] = new Set();
+          lostRoundsByName[loserName].add(m.round);
+        }
       }
-      liveGrade = (playerId, round) => {
+      liveGrade = (playerId, round, playerName) => {
+        // Primary: match by player ID
         if (lostRounds[playerId]?.has(round)) return false;
         if (wonRounds[playerId]?.has(round)) return true;
-        // Try translating mock ID to API key
+        // Secondary: translate mock ID to API key
         const translated = mockToApi.get(playerId);
         if (translated) {
           if (lostRounds[translated]?.has(round)) return false;
           if (wonRounds[translated]?.has(round)) return true;
+        }
+        // Tertiary: match by normalised player name
+        const normName = (playerName || '').toLowerCase().trim();
+        if (normName) {
+          if (lostRoundsByName[normName]?.has(round)) return false;
+          if (wonRoundsByName[normName]?.has(round)) return true;
         }
         return null;
       };
@@ -317,7 +337,7 @@ picksRouter.get('/history', async (req, res) => {
       const picks = result.rows.map(rowToPick).map(p => {
         // Overlay live grading if DB hasn't caught up yet
         if (p.survived == null && liveGrade) {
-          const live = liveGrade(p.playerId, p.round);
+          const live = liveGrade(p.playerId, p.round, p.playerName);
           if (live !== null) return { ...p, survived: live };
         }
         return p;
