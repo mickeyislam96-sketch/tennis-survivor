@@ -62,7 +62,9 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
           <div>
             <p className="lb-picks-modal-name">{member.displayName}</p>
             <p className="lb-picks-modal-sub">
-              {member.isAlive
+              {member.isWinner
+                ? `🏆 Winner · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
+                : member.isAlive
                 ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
                 : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`
               }
@@ -276,7 +278,9 @@ export function Leaderboard() {
                     {isYou && <span className="lb-you-tag">You</span>}
                   </td>
                   <td className="lb-td-status">
-                    {m.isAlive ? (
+                    {m.isWinner ? (
+                      <span className="status-winner-solid">🏆 Winner</span>
+                    ) : m.isAlive ? (
                       survived === 0
                         ? <span className="status-alive-solid">Active</span>
                         : <span className="status-alive-solid">Survived {survived} {survived === 1 ? 'round' : 'rounds'}</span>

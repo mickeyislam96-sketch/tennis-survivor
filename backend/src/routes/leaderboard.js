@@ -213,10 +213,16 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         .filter(m => !m.isAlive)
         .sort((a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0));
 
+      // Winner detection: if exactly 1 survivor and at least 2 total entrants,
+      // that player has won the pool (last survivor standing).
+      const hasWinner = alive.length === 1 && members.length >= 2;
+      if (hasWinner) alive[0].isWinner = true;
+
       return res.json({
         group: { id: g.id, name: g.name, prizePoolCents: g.prize_pool_cents },
         leaderboard: [...alive, ...eliminated],
         aliveCount: alive.length,
+        hasWinner,
         currentRound,
         roundIsLocked,
         openRound,
