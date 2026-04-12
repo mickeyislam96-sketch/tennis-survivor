@@ -12,6 +12,10 @@ if (!EMAIL_CONFIGURED) {
 
 const APP_URL = process.env.FRONTEND_URL || 'https://finalserveivor.com';
 
+// ── Human-readable round names (used in subjects + template params) ──────
+const ROUND_LABELS = { R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
+function roundLabel(code) { return ROUND_LABELS[code] || code; }
+
 // ── Brevo template IDs (set on Railway) ───────────────────────────────────
 const TPL = {
   WELCOME:         parseInt(process.env.BREVO_TPL_WELCOME, 10),
@@ -408,10 +412,9 @@ export async function sendPickReminderEmail({
   // Calculate hoursLeft if not provided
   const computedHoursLeft = hoursLeft ?? Math.max(0, Math.round((lockDate.getTime() - Date.now()) / (1000 * 60 * 60)));
 
-  const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
-  const roundName = ROUND_LABELS[round] || round;
+  const roundName = roundLabel(round);
 
-  const subject = `Pick reminder: ${round} locks soon - Final Serve-ivor`;
+  const subject = `Pick reminder: ${roundName} locks soon - Final Serve-ivor`;
   return sendWithDedup({
     userId,
     groupId,
@@ -449,8 +452,7 @@ export async function sendRoundResultEmail({
   finishPosition, groupPlayerCount, leaderboardUrl,
   nextTournamentName, nextTournamentMonth,
 }) {
-  const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
-  const roundName = ROUND_LABELS[round] || round;
+  const roundName = roundLabel(round);
   const groupUrl = `${APP_URL}/group/${groupId}`;
 
   if (survived) {
