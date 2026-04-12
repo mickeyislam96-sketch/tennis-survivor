@@ -88,6 +88,8 @@ export const MONTE_CARLO_2026 = {
     { winnerId: 'mc-s2', winnerName: 'Jannik Sinner', loserId: 'mc-s3', round: 'SF' },
     // Alcaraz beat Vacherot in SF (confirmed 11 Apr).
     { winnerId: 'mc-s1', winnerName: 'Carlos Alcaraz', loserId: 'mc-p21', round: 'SF' },
+    // FINAL: Sinner beat Alcaraz 2-0 in straight sets (confirmed 12 Apr).
+    { winnerId: 'mc-s2', winnerName: 'Jannik Sinner', loserId: 'mc-s1', round: 'F' },
   ],
 
   // Lock time overrides — 1h before first match of each round.
