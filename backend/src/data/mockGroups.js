@@ -3,9 +3,19 @@ export const MOCK_GROUPS = [
     id: 'g3',
     name: 'Monte Carlo 2026 Pool',
     inviteCode: 'MONTE-CARLO-2026',
-    entryFeeCents: 0,          // Free entry for the Monte Carlo launch pool
+    entryFeeCents: 0,
     prizePoolCents: 0,
     tournamentId: 'monte-carlo-2026',
+    adminUserId: 'u1',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'g4',
+    name: 'Madrid 2026 Pool',
+    inviteCode: 'MADRID-2026',
+    entryFeeCents: 0,
+    prizePoolCents: 0,
+    tournamentId: 'madrid-2026',
     adminUserId: 'u1',
     createdAt: new Date().toISOString()
   },

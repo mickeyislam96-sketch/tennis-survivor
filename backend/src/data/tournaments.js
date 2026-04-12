@@ -14,10 +14,9 @@ export const TOURNAMENTS = [
     endDate: '2026-04-12',
     location: 'Monte Carlo, Monaco',
     surface: 'Clay (outdoor)',
-    status: 'active',
+    status: 'completed',
     drawDate: 'April 4, 2026',
     drawAvailable: true,
-    // Entry closes before the draw — update this once confirmed
     entryCloseAt: '2026-04-04T16:00:00Z',
     pickWindowOpen: null,
     pickWindowClose: null,
@@ -48,10 +47,9 @@ export const TOURNAMENTS = [
 function withEffectiveStatus(t) {
   if (!t) return t;
   if (t.status === 'active' && t.endDate) {
-    const endPlus1 = new Date(t.endDate);
-    endPlus1.setDate(endPlus1.getDate() + 1);
-    endPlus1.setHours(23, 59, 59, 999); // End of the day after the final
-    if (new Date() > endPlus1) return { ...t, status: 'completed' };
+    // Auto-complete at midnight UTC on the day after the final
+    const cutoff = new Date(t.endDate + 'T23:59:59Z');
+    if (new Date() > cutoff) return { ...t, status: 'completed' };
   }
   return t;
 }
