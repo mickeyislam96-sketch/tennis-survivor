@@ -52,7 +52,7 @@ groupsRouter.get('/', async (req, res) => {
          ORDER BY g.created_at DESC`,
         [userId]
       );
-      return res.json(result.rows.map(rowToGroup));
+      return res.json(result.rows.map(rowToGroup).filter(g => getTournament(g.tournamentId) !== null));
     } catch (e) {
       console.error('DB groups list error:', e.message);
     }
