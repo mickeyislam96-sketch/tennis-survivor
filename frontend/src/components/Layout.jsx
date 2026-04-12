@@ -354,8 +354,10 @@ export function Layout({ children }) {
   const navBase = isCompleted
     ? `/group/${groupId}`
     : activeGroupId ? `/group/${activeGroupId}` : base;
-  const showFullNav = isCompleted ? false : !!activeGroupId;
-  const showLeaderboardOnly = isCompleted && groupId;
+  const showFullNav = !isCompleted && !!activeGroupId;
+  const showCompletedNav = isCompleted && !!groupId;
+  // Completed tournaments: show Draw, My Picks, Leaderboard (not Make Pick)
+  const completedNav = nav.filter(n => n.to !== 'pick');
 
   return (
     <div className="layout">
@@ -372,14 +374,15 @@ export function Layout({ children }) {
               {label}
             </NavLink>
           ))}
-          {showLeaderboardOnly && (
+          {showCompletedNav && completedNav.map(({ to, label }) => (
             <NavLink
-              to={`/group/${groupId}/leaderboard`}
+              key={to}
+              to={`${navBase}/${to}`}
               className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
             >
-              Leaderboard
+              {label}
             </NavLink>
-          )}
+          ))}
           <NavLink
             to="/terms"
             className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}

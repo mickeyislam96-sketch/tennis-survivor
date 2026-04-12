@@ -5,6 +5,7 @@ import { checkPickReminders } from './services/emailScheduler.js';
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -48,6 +49,16 @@ const ALLOWED_ORIGINS = [
 ];
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
+
+// Global API rate limit — prevents abuse on data-heavy endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 60,              // 60 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again shortly.' },
+});
+app.use('/api/', apiLimiter);
 
 app.use('/api/groups', groupsRouter);
 app.use('/api/pools', poolsRouter);
