@@ -4485,3 +4485,149 @@ input, select { font-family: var(--font); }
   .mu-form-cols { gap: 10px; }
   .mu-form-score { display: none; }
 }
+
+/* ── Completed tournament styles ──────────────────────────────── */
+.group-hero--completed .group-hero-court {
+  background: linear-gradient(135deg, #1a472a 0%, #0d2818 100%);
+}
+
+.completed-label {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-top: 0.5rem;
+}
+
+.completed-winner-section {
+  margin: -1rem auto 1.5rem;
+  max-width: 600px;
+  padding: 0 1rem;
+}
+
+.winner-banner {
+  background: var(--surface);
+  border: 2px solid #d4af37;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.15);
+  padding: 2rem;
+  text-align: center;
+}
+
+.winner-banner--none {
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.winner-trophy {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.winner-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0 0 0.25rem;
+}
+
+.winner-subtitle {
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.winner-prize {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0.75rem 0 0;
+}
+
+.completed-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 0 auto 1.5rem;
+  max-width: 600px;
+  padding: 0 1rem;
+}
+
+.completed-stat {
+  text-align: center;
+}
+
+.completed-stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.completed-stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Next tournament CTA */
+.next-tournament-cta {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  text-align: center;
+  margin: 1.5rem auto;
+  max-width: 600px;
+}
+
+.next-cta-eyebrow {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.25rem;
+}
+
+.next-cta-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.next-cta-meta {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.next-cta-btn {
+  margin: 0 auto;
+}
+
+/* Completed pool card */
+.pool-card--completed {
+  opacity: 0.9;
+  border-color: var(--border);
+}
+
+.pool-status--completed {
+  background: var(--fg-muted);
+  color: #fff;
+}
+
+@media (max-width: 680px) {
+  .completed-stats { gap: 1rem; }
+  .winner-name { font-size: 1.25rem; }
+  .winner-trophy { font-size: 2.5rem; }
+  .winner-banner { padding: 1.5rem 1rem; }
+  .next-tournament-cta { margin: 1rem; }
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { getTournament } from '../data/tournaments';
+import { getTournament, TOURNAMENTS } from '../data/tournaments';
 
 // Days until a YYYY-MM-DD date (positive = future)
 function daysUntil(dateStr) {
@@ -207,12 +207,13 @@ export function GroupHome() {
     }
 
     const preLaunch  = isPreLaunch(tournament);
+    const isCompleted = tournament?.status === 'completed';
     // Entry closes 1 hour before R1 picks lock (gives new joiners time to make their first pick).
     // Falls back to the tournament's explicit entryOpen flag if the deadline isn't loaded yet.
     const entryDeadline = r1LockAt
       ? new Date(new Date(r1LockAt).getTime() - 60 * 60 * 1000)
       : null;
-    const isEntryClosed = tournament?.entryOpen === false
+    const isEntryClosed = isCompleted || tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
 
     // Is the current user eliminated?
@@ -222,7 +223,110 @@ export function GroupHome() {
     // Show an urgency banner when the user hasn't picked and the deadline is within 24 h
     // (but NOT for eliminated users — they can't act on it)
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
-    const closingSoon = openRound && !myCurrentPick && !isEliminated && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    const closingSoon = !isCompleted && openRound && !myCurrentPick && !isEliminated && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+
+    // Winner(s) for completed tournaments
+    const winners = isCompleted ? (group.members || []).filter(m => m.isAlive) : [];
+
+    // ── Completed tournament dashboard ──────────────────────────
+    if (isCompleted && tournament) {
+      const winnerNames = winners.map(w => w.displayName);
+      const nextT = TOURNAMENTS.find(t => t.status === 'upcoming' && t.id !== tournament.id);
+
+      return (
+        <div className="page group-home">
+          {/* Hero — completed state */}
+          <div className="group-hero group-hero--completed">
+            <div className="group-hero-court" aria-hidden="true" />
+            <div className="group-hero-inner">
+              <p className="group-hero-eyebrow">
+                🏆 {tournament.name} {tournament.year} · {tournament.tourLevel}
+              </p>
+              <h1 className="group-hero-title">{group.name}</h1>
+              <p className="completed-label">Tournament complete</p>
+            </div>
+          </div>
+
+          {/* Winner banner */}
+          <div className="completed-winner-section">
+            {winners.length === 1 ? (
+              <div className="winner-banner">
+                <div className="winner-trophy">🏆</div>
+                <h2 className="winner-name">{winnerNames[0]}</h2>
+                <p className="winner-subtitle">Winner — Last one standing!</p>
+                {group.prizePoolCents > 0 && (
+                  <p className="winner-prize">Takes the {fmtGBP(group.prizePoolCents)} prize pool</p>
+                )}
+              </div>
+            ) : winners.length > 1 ? (
+              <div className="winner-banner">
+                <div className="winner-trophy">🏆</div>
+                <h2 className="winner-name">{winnerNames.join(', ')}</h2>
+                <p className="winner-subtitle">{winners.length} survivors — prize shared!</p>
+                {group.prizePoolCents > 0 && (
+                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split {winners.length} ways ({fmtGBP(Math.floor(group.prizePoolCents / winners.length))} each)</p>
+                )}
+              </div>
+            ) : (
+              <div className="winner-banner winner-banner--none">
+                <div className="winner-trophy">😮</div>
+                <h2 className="winner-name">No survivors!</h2>
+                <p className="winner-subtitle">Everyone was eliminated — nobody beat the draw.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Final stats */}
+          <div className="completed-stats">
+            <div className="completed-stat">
+              <span className="completed-stat-value">{totalMembers}</span>
+              <span className="completed-stat-label">Entered</span>
+            </div>
+            <div className="completed-stat">
+              <span className="completed-stat-value">{winners.length}</span>
+              <span className="completed-stat-label">{winners.length === 1 ? 'Survivor' : 'Survivors'}</span>
+            </div>
+            <div className="completed-stat">
+              <span className="completed-stat-value">{totalMembers - aliveMembers}</span>
+              <span className="completed-stat-label">Eliminated</span>
+            </div>
+          </div>
+
+          {/* Nav cards — still accessible for review */}
+          <div className="nav-card-row">
+            <Link to={`/group/${groupId}/leaderboard`} className="nav-card">
+              <span className="nav-card-icon"><LeaderboardIcon /></span>
+              <span className="nav-card-title">Final standings</span>
+              <span className="nav-card-desc">Full leaderboard</span>
+            </Link>
+            <Link to={`/group/${groupId}/draw`} className="nav-card">
+              <span className="nav-card-icon"><DrawIcon /></span>
+              <span className="nav-card-title">View draw</span>
+              <span className="nav-card-desc">Tournament bracket & results</span>
+            </Link>
+            <Link to={`/group/${groupId}/history`} className="nav-card">
+              <span className="nav-card-icon"><HistoryIcon /></span>
+              <span className="nav-card-title">Pick history</span>
+              <span className="nav-card-desc">Review your picks</span>
+            </Link>
+          </div>
+
+          {/* Next tournament CTA */}
+          {nextT && (
+            <div className="next-tournament-cta">
+              <p className="next-cta-eyebrow">Next up</p>
+              <h3 className="next-cta-title">{nextT.name} {nextT.year}</h3>
+              <p className="next-cta-meta">
+                {nextT.tourLevel} · {nextT.location} · Starts {fmtDate(nextT.startDate)}
+              </p>
+              <Link to="/" className="btn primary btn-lg next-cta-btn">
+                View upcoming pools →
+              </Link>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
     // Show for ALL users (members and non-members) when the tournament isn't active.
@@ -523,8 +627,9 @@ export function GroupHome() {
   }
 
   // ── Lobby / home ────────────────────────────────────────────
-  const activePools   = allPools.filter(p => p.tournament?.status === 'active');
-  const upcomingPools = allPools.filter(p => p.tournament?.status === 'upcoming');
+  const activePools    = allPools.filter(p => p.tournament?.status === 'active');
+  const upcomingPools  = allPools.filter(p => p.tournament?.status === 'upcoming');
+  const completedPools = allPools.filter(p => p.tournament?.status === 'completed');
   const ctaPool       = activePools[0] || upcomingPools[0];
 
   // Monte Carlo start date for countdown pill
@@ -614,6 +719,16 @@ export function GroupHome() {
         </section>
       )}
 
+      {/* Recently completed */}
+      {completedPools.length > 0 && (
+        <section className="home-section">
+          <h2 className="home-section-title">Recent results</h2>
+          <div className="pool-card-list">
+            {completedPools.map(p => <PoolCard key={p.id} pool={p} />)}
+          </div>
+        </section>
+      )}
+
       {/* ── My pools ── */}
       {groups.length > 0 && (
         <section className="home-section">
@@ -650,13 +765,14 @@ export function GroupHome() {
 function PoolCard({ pool }) {
   const t = pool.tournament;
   const isFree = pool.entryFeeCents === 0;
-  const statusLabel = t?.status === 'active' ? 'Live' : 'Coming soon';
-  const statusClass = t?.status === 'active' ? 'pool-status--active' : 'pool-status--upcoming';
+  const isPoolCompleted = t?.status === 'completed';
+  const statusLabel = isPoolCompleted ? 'Completed' : t?.status === 'active' ? 'Live' : 'Coming soon';
+  const statusClass = isPoolCompleted ? 'pool-status--completed' : t?.status === 'active' ? 'pool-status--active' : 'pool-status--upcoming';
 
   const isUpcoming = t?.status === 'upcoming';
 
   return (
-    <Link to={`/group/${pool.id}`} className={`pool-card${isUpcoming ? ' pool-card--upcoming' : ''}`}>
+    <Link to={`/group/${pool.id}`} className={`pool-card${isUpcoming ? ' pool-card--upcoming' : ''}${isPoolCompleted ? ' pool-card--completed' : ''}`}>
       <div className="pool-card-top">
         <div>
           <span className={`pool-status-badge ${statusClass}`}>{statusLabel}</span>
@@ -671,6 +787,9 @@ function PoolCard({ pool }) {
         </div>
       </div>
       <div className="pool-card-bottom">
+        {isPoolCompleted && pool.memberCount > 0 && (
+          <span className="pool-card-stat">{pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
+        )}
         {t?.status === 'active' && pool.memberCount > 0 && (
           <span className="pool-card-stat">{pool.aliveCount} of {pool.memberCount} still in</span>
         )}
@@ -685,10 +804,12 @@ function PoolCard({ pool }) {
             {pool.memberCount > 0 ? `${pool.memberCount} already registered` : 'Be first to join'}
           </span>
         )}
-        {!t?.drawAvailable && (
+        {!isPoolCompleted && !t?.drawAvailable && (
           <span className="pool-card-stat pool-card-tbc">Draw TBC</span>
         )}
-        {isUpcoming ? (
+        {isPoolCompleted ? (
+          <span className="pool-card-cta">View results →</span>
+        ) : isUpcoming ? (
           <span className="btn primary pool-card-join-btn">
             {pool.isMember ? 'Open pool →' : isFree ? 'Join pool free →' : `Join pool ${fmtGBP(pool.entryFeeCents)} →`}
           </span>

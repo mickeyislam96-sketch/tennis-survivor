@@ -59,6 +59,7 @@ export function PickScreen() {
   const [member, setMember] = useState(null);
   const [rowError, setRowError] = useState({ id: null, msg: '' });
   const [drawAvailable, setDrawAvailable] = useState(true);
+  const [tournamentCompleted, setTournamentCompleted] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/draw/rounds`)
@@ -169,6 +170,7 @@ export function PickScreen() {
         // Check if this tournament's draw has been released yet
         const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
         if (tournament?.drawAvailable === false || tournament?.status !== 'active') setDrawAvailable(false);
+        if (tournament?.status === 'completed') setTournamentCompleted(true);
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
@@ -288,13 +290,22 @@ export function PickScreen() {
     return (
       <div className="page pick-screen">
         <div className="pick-header">
-          <h1>Make your pick</h1>
+          <h1>{tournamentCompleted ? 'Tournament complete' : 'Make your pick'}</h1>
           <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
         </div>
         <div className="draw-empty-state">
-          <div className="draw-empty-icon">🎾</div>
-          <p className="draw-empty-title">Picks not open yet</p>
-          <p className="draw-empty-sub">The draw hasn't been released. Once it is, you'll be able to make your pick here.</p>
+          <div className="draw-empty-icon">{tournamentCompleted ? '🏆' : '🎾'}</div>
+          <p className="draw-empty-title">{tournamentCompleted ? 'This tournament has finished' : 'Picks not open yet'}</p>
+          <p className="draw-empty-sub">
+            {tournamentCompleted
+              ? 'Head back to the group page to see the final results and standings.'
+              : "The draw hasn't been released. Once it is, you'll be able to make your pick here."}
+          </p>
+          {tournamentCompleted && (
+            <Link to={`/group/${groupId}`} className="btn primary" style={{ marginTop: '1rem' }}>
+              View results →
+            </Link>
+          )}
         </div>
       </div>
     );
