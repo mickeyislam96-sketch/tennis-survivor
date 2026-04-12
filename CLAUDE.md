@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 10 April 2026. Keep this file updated at the end of every session.
+> Last updated: 12 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -192,7 +192,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/pages/DrawViewer.jsx` | Draw viewer — bracket + list view |
 | `frontend/src/pages/PickHistory.jsx` | User's pick history |
 | `frontend/src/components/Layout.jsx` | Nav header, auth modal |
-| `frontend/src/index.css` | All styles — see mobile section below |
+| `frontend/src/index.css` | All styles — design tokens in `:root`, component styles, mobile rules at `@media (max-width: 640px)`. ~4100 lines. |
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
 
@@ -284,7 +284,7 @@ Pick column behaviour:
 
 The site is mobile-optimised for 390px+ (iPhone size). Key CSS notes:
 
-- All mobile rules use `@media (max-width: 680px)` — there are multiple blocks in `frontend/src/index.css`, consolidated mostly at the bottom
+- Mobile rules use `@media (max-width: 640px)` — there are multiple blocks in `frontend/src/index.css`, consolidated mostly at the bottom
 - `lb-table-wrap` has `overflow-x: auto` so the 4-column leaderboard table scrolls horizontally on mobile
 - The leaderboard pick column (4th column) is **visible** on mobile — an older `display: none` rule was removed in the 21 March 2026 session
 - `lb-stats-bar` uses `display: grid; grid-template-columns: repeat(2, 1fr)` on mobile (2×2 layout)
@@ -353,7 +353,7 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 
 ---
 
-## Current tournament state (as of 10 April 2026)
+## Current tournament state (as of 12 April 2026)
 
 ### Miami Open 2026 (practice — complete)
 - Tournament: ATP Miami Open 2026
@@ -361,18 +361,14 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 - Participants: 8 users in test group `6da0f300-ff14-43cb-bcef-ad4ba6709208`
 - Mode: Practice tournament — no prize money
 
-### Monte Carlo 2026 (LIVE — first competitive tournament)
+### Monte Carlo 2026 (COMPLETE — first competitive tournament)
 - Tournament: Rolex Monte-Carlo Masters 2026
-- Status: `active` — QF in progress (Fri 10 Apr), 3 survivors, 8 eliminated
+- Status: `completed` — Winner: Mark (from 11 entrants)
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f` (PostgreSQL — persistent)
 - Invite code: `MONTECAR-406R3X`
 - Entry: Free
-- R1 lock: LOCKED (Sun 5 Apr 12:30 BST)
-- R32 lock: LOCKED (Tue 7 Apr 11:00 BST)
-- R16 lock: LOCKED (Wed 8 Apr 11:00 BST)
-- QF lock: LOCKED (Fri 10 Apr 10:00 BST / 09:00 UTC)
-- SF window: Opens Fri 10 Apr 2pm BST (13:00 UTC), locks Sat 11 Apr 10:00 BST (09:00 UTC)
-- F window: Opens Sat 11 Apr 2pm BST (13:00 UTC), locks Sun 12 Apr 12:00 BST (11:00 UTC)
+- Final pick: Carlos Alcaraz (Mark's winning pick)
+- All 11 players eliminated except Mark
 - Data source: Live API-Tennis (58+ cached fixtures)
 - Withdrawals: Mensik withdrew, replaced by Dzumhur (mc-p23)
 - Manual results: Berrettini d. Bautista Agut R1, Marozsan d. Dzumhur R1, Sinner d. Etcheverry R32, Zverev d. Fonseca QF
@@ -381,19 +377,22 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 - Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
 - Invite code: `MADRIDOP-A36RQ4`
 - Entry: Free
+- Starts: 21 Apr 2026
+- Draw: Not yet released
+- Status: 3 players registered
 - Purpose: Bug-fixing practice run on web only
 
 ### Outstanding actions
-1. **SF/F lock times** — adjust once order of play is announced (1h before first match each day)
-2. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments (emails currently send from `finalservivor@10822796.brevosend.com`)
-3. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
-4. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
-5. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
-6. **App Store submission** — TestFlight build, screenshots, metadata, review
-7. **Company registration** — UK Ltd via Companies House (critical path for payment processor onboarding)
-8. **Payment processor** — apply to QuadraPay/Cashflows once company registered (target by 25 Apr)
-9. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times after MC ends
-10. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
+1. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments (emails currently send from `finalservivor@10822796.brevosend.com`)
+2. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
+3. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
+4. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
+5. **App Store submission** — TestFlight build, screenshots, metadata, review
+6. **Company registration** — UK Ltd via Companies House (critical path for payment processor onboarding)
+7. **Payment processor** — apply to QuadraPay/Cashflows once company registered (target by 25 Apr)
+8. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times before 21 Apr
+9. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
+10. **Payment infrastructure push** — code complete, waiting for MC to end (now done). Push when ready.
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -413,6 +412,35 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 - Registration with mandatory T&Cs acceptance
 - Deep links for invite codes and group pages
 **Remaining gaps (acceptable):** no bracket view (list only), no password reset deep link, EAS Project ID not set.
+
+### Design system (12 Apr — Direction A "Clean Court")
+Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd45a4`, `1e21413`).
+
+**Design tokens (`:root` in `index.css`):**
+- Colours: semantic variables (`--green-50` through `--green-900`, `--amber-*`, `--red-*`, `--text`, `--text-muted`, `--surface`, `--surface-alt`, `--border`)
+- Typography: Outfit (headings + body) + JetBrains Mono (scores, countdowns, invite codes)
+- 6-tier type scale: 2rem (hero), 1.25rem (h1), 1rem (h2), 0.88rem (body), 0.75rem (small), 0.65rem (micro)
+- 3 radii: 8px (sm), 12px (default), 16px (lg)
+- 3 shadows: sm (0.04), default (0.06), lg (0.08)
+- 3 breakpoints: 640px (mobile), 768px (tablet), 769px+ (desktop)
+
+**Key component styles:**
+- Player rows: connected card borders, green hover, square seed badges (26px, amber for top seeds)
+- Leaderboard stats: 4-column grid with individual bordered cards (2x2 on mobile)
+- Winner banner: amber/gold gradient (not green)
+- Status pills: 0.65rem, 6px border-radius
+- Avatars: 26px square with `var(--radius-sm)`
+- Match cards: 2-column grid with hover lift, mono font scores
+- Pick history: coloured round badges (36x36px squares), connected card layout
+
+**Mobile-specific (640px breakpoint):**
+- Hero: `min-height: auto` (was 85vh, wasted space)
+- Header nav: single-link nav stays inline via `:has()` rule
+- How-it-works: vertical timeline with accent line (replaces 3-column grid)
+- Pool cards: full-bleed (negative margin, no border-radius)
+- Stats bar: 2x2 grid
+
+**Reference file:** `CTO - TS/fsv-final-mockups.html` — locked design specification with all tokens and final mockups. This is the design source of truth.
 
 ---
 
@@ -436,6 +464,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
 | 10 Apr 2026 (session 2) | **Brevo email system fully deployed.** (1) Rewrote `email.js` to use Brevo transactional template API (`sendViaBrevoTemplate()` with `templateId` + `params`). (2) Updated `emailScheduler.js`, `resultsProcessor.js`, `groups.js`, `admin.js` to use new email functions with enriched params. (3) Created 9 Brevo templates (IDs 1-9), all activated. (4) Fixed template variable mismatches (`firstName`→`displayName`, `resetUrl`→`resetLink`, `joinUrl`→`signupUrl`, `pickPlayerName`→`playerName`, `deadline`→`pickDeadline`, `pickUrl`→`groupUrl`). (5) Fixed Winner template #7 malformed Jinja `is odd` condition — replaced dynamic for-loop with plain text pick history display. (6) Aligned email colours to website: footer `#0f172a`→`#0f3d20` (dark forest green), body background `#f4f4f5`→`#f5f7fa`. (7) Set 9 `BREVO_TPL_*` env vars on Railway. (8) Verified all 9 templates deliver to Gmail with correct variable substitution. (9) Audited approval gate: 7 batch emails correctly gated via `sendWithDedup()`, 2 auto-send emails (Welcome, Password Reset) correctly bypass. No code paths found that could send batch emails without approval. |
+| 12 Apr 2026 | **Design system deployment + mobile audit.** Three commits total. (1) `c5f0c03` design system token overhaul — unified `:root` CSS variables, consolidated typography to Outfit + JetBrains Mono, semantic colour palette, 3-tier radius/shadow system. (2) `ecd45a4` component-level design system — player rows (connected cards, green hover, square seed badges), leaderboard stats (4-col grid), winner banner (amber gradient), status pills, avatars (26px square), match cards (2-col grid, mono scores), pick history (coloured round badges, timeline). Both CSS + JSX changes to PickScreen.jsx. (3) `1e21413` mobile fixes — hero `min-height` reduced from `85vh` to `auto` (was creating ~500px dead space on mobile), header nav `:has()` rule keeps single "T&Cs" link inline on homepage instead of wrapping to empty second row. Full mobile audit at 390px verified all screens: homepage, leaderboard (2x2 stats, 3-col table with truncation), pick history (round badges, status labels), draw viewer (empty state), group home. Desktop verified unaffected. Monte Carlo tournament now complete — Mark won from 11 entrants. |
 | 10 Apr 2026 (session 1) | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
 
 ---
