@@ -253,7 +253,7 @@ export function GroupHome() {
               <div className="winner-banner">
                 <div className="winner-trophy">🏆</div>
                 <h2 className="winner-name">{winnerNames[0]}</h2>
-                <p className="winner-subtitle">Winner — Last one standing!</p>
+                <p className="winner-subtitle">Winner - last one standing</p>
                 {group.prizePoolCents > 0 && (
                   <p className="winner-prize">Takes the {fmtGBP(group.prizePoolCents)} prize pool</p>
                 )}
@@ -271,7 +271,7 @@ export function GroupHome() {
               <div className="winner-banner winner-banner--none">
                 <div className="winner-trophy">😮</div>
                 <h2 className="winner-name">No survivors!</h2>
-                <p className="winner-subtitle">Everyone was eliminated — nobody beat the draw.</p>
+                <p className="winner-subtitle">Nobody made it through - everyone was eliminated!</p>
               </div>
             )}
           </div>
@@ -620,7 +620,7 @@ export function GroupHome() {
   if (groupId && !group) {
     return (
       <div className="page">
-        <p>Group not found.</p>
+        <p>Pool not found.</p>
         <Link to="/">Back to home</Link>
       </div>
     );
@@ -653,8 +653,8 @@ export function GroupHome() {
               {ctaPool.isMember
                 ? `Go to ${ctaPool.tournament?.shortName || 'pool'} →`
                 : ctaPool.tournament?.status === 'upcoming'
-                  ? `Enter ${ctaPool.tournament?.shortName || ''} free →`
-                  : 'Enter now →'}
+                  ? `Join ${ctaPool.tournament?.shortName || ''} free →`
+                  : 'Join now →'}
             </Link>
           )}
           {daysToStart !== null && daysToStart > 0 && (
@@ -691,14 +691,14 @@ export function GroupHome() {
           <div className="hiw-step">
             <span className="hiw-step-icon">🏆</span>
             <div className="hiw-step-num">1</div>
-            <h3 className="hiw-step-title">Enter a pool</h3>
-            <p className="hiw-step-desc">Join an open tournament pool, or use a friend's invite code to enter their private group.</p>
+            <h3 className="hiw-step-title">Join a pool</h3>
+            <p className="hiw-step-desc">Join an open tournament pool, or use a friend's invite code to join a private pool.</p>
           </div>
           <div className="hiw-step">
             <span className="hiw-step-icon">🎾</span>
             <div className="hiw-step-num">2</div>
             <h3 className="hiw-step-title">Pick one player</h3>
-            <p className="hiw-step-desc">Each round, pick one player you think will win their match. But choose wisely: you can never pick the same player twice, so save your strongest picks for when you need them most.</p>
+            <p className="hiw-step-desc">Each round, pick one player you think will win their match. You can never pick the same player twice in a tournament, so save your strongest picks for when you need them most.</p>
           </div>
           <div className="hiw-step">
             <span className="hiw-step-icon">🥇</span>
@@ -755,7 +755,7 @@ export function GroupHome() {
 
       <section className="home-section join-section">
         <h2 className="home-section-title">Have an invite code?</h2>
-        <p className="home-section-sub">Enter a private group invite code below.</p>
+        <p className="home-section-sub">Paste your invite code below to join a private pool.</p>
         <JoinForm />
       </section>
     </div>
@@ -805,7 +805,7 @@ function PoolCard({ pool }) {
           </span>
         )}
         {!isPoolCompleted && !t?.drawAvailable && (
-          <span className="pool-card-stat pool-card-tbc">Draw TBC</span>
+          <span className="pool-card-stat pool-card-tbc">Draw coming soon</span>
         )}
         {isPoolCompleted ? (
           <span className="pool-card-cta">View results →</span>
@@ -815,7 +815,7 @@ function PoolCard({ pool }) {
           </span>
         ) : (
           <span className="pool-card-cta">
-            {pool.isMember ? 'Open pool →' : isFree ? 'Enter free →' : 'Enter →'}
+            {pool.isMember ? 'Open pool →' : isFree ? 'Join free →' : 'Join →'}
           </span>
         )}
       </div>
@@ -1001,7 +1001,7 @@ function JoinForm() {
         type="text"
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="e.g. FAMILY-SLAM-2026"
+        placeholder="e.g. MONTECAR-406R3X"
         className="input"
       />
       <button type="submit" className="btn primary" disabled={loading}>

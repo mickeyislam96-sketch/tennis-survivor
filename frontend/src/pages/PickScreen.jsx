@@ -451,7 +451,7 @@ export function PickScreen() {
           <div className="eliminated-card-icon">🎾</div>
           <h2 className="eliminated-card-title">You're out of this one</h2>
           <p className="eliminated-card-sub">
-            Your pick in {member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
+            Your pick in {member.eliminatedRound || 'a previous round'} lost their match, so you've been eliminated from this pool.
           </p>
           <p className="eliminated-card-cta">
             You can still follow the action on the{' '}
@@ -507,7 +507,7 @@ export function PickScreen() {
               className="input search-input"
             />
           </div>
-          <p className="available-count">{filtered.length} players available</p>
+          <p className="available-count">{filtered.length} players available for {currentRound}</p>
           <ul className="player-list">
             {filtered.slice(0, 80).map((player) => {
               const name = (player.name || '').toLowerCase().trim();
@@ -567,7 +567,7 @@ export function PickScreen() {
               );
             })}
           </ul>
-          {filtered.length > 80 && <p className="text-muted">Showing first 80. Use search to find others.</p>}
+          {filtered.length > 80 && <p className="text-muted">Showing first 80 of {filtered.length}. Use search to find others.</p>}
           {prevRound && available.some(p => p.status === 'at_risk') && (
             <div className="speculative-pick-notice">
               <p className="speculative-pick-text">

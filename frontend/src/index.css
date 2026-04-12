@@ -2922,10 +2922,10 @@ input, select { font-family: var(--font); }
   background: #ef4444;
   position: absolute;
   top: 5px; right: 5px;
-  animation: pulse 1.2s infinite;
+  animation: pulse-dot 1.2s infinite;
 }
 .bc-card { position: relative; }
-@keyframes pulse {
+@keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
@@ -4531,12 +4531,12 @@ input, select { font-family: var(--font); }
 .winner-name {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--fg);
+  color: var(--text);
   margin: 0 0 0.25rem;
 }
 
 .winner-subtitle {
-  color: var(--fg-muted);
+  color: var(--text-muted);
   font-size: 0.95rem;
   margin: 0;
 }
@@ -4565,13 +4565,13 @@ input, select { font-family: var(--font); }
   display: block;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--fg);
+  color: var(--text);
 }
 
 .completed-stat-label {
   display: block;
   font-size: 0.8rem;
-  color: var(--fg-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -4604,7 +4604,7 @@ input, select { font-family: var(--font); }
 }
 
 .next-cta-meta {
-  color: var(--fg-muted);
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin: 0 0 1rem;
 }
@@ -4620,7 +4620,7 @@ input, select { font-family: var(--font); }
 }
 
 .pool-status--completed {
-  background: var(--fg-muted);
+  background: var(--text-muted);
   color: #fff;
 }
 

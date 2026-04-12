@@ -40,7 +40,7 @@ function PoolHistory({ userId }) {
   if (error) return <p className="error">{error}</p>;
   if (pools.length === 0) return (
     <p style={{ color: '#888', fontStyle: 'italic' }}>
-      You haven't joined any pools yet.
+      No pools yet. Join a tournament pool to get started!
     </p>
   );
 
