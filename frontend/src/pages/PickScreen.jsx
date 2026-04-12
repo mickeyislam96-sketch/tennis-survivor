@@ -481,18 +481,22 @@ export function PickScreen() {
             const pickedPlayer = available.find(p => p.id === myPickThisRound.playerId);
             const isAtRisk = pickedPlayer?.status === 'at_risk';
             const isInvalid = myPickThisRound.survived === false;
+            const oppName = pickedPlayer?.opponentName;
+            const seedTag = pickedPlayer?.seed ? ` [${pickedPlayer.seed}]` : '';
             return (
               <div className={`picked-card picked-card--changeable${isInvalid ? ' picked-card--invalid' : ''}`}>
                 <div className="picked-card-inner">
-                  <span className="picked-card-icon">{isInvalid ? '✗' : '✓'}</span>
+                  <span className="picked-card-icon">{isInvalid ? '✗' : '✅'}</span>
                   <div>
-                    <p className="picked-card-label">Current {currentRound} pick</p>
-                    <p className="picked-card-player">{myPickThisRound.playerName}</p>
+                    <p className="picked-card-player">Your pick: {myPickThisRound.playerName}{seedTag}</p>
+                    <p className="picked-card-opponent">
+                      {oppName ? `vs ${oppName}` : ''}{oppName ? ' · ' : ''}You can change until the window closes
+                    </p>
                     {isAtRisk && !isInvalid && (
                       <p className="picked-card-at-risk">⚠️ Still in {prevRound} — switch if they lose</p>
                     )}
                   </div>
-                  <span className="picked-card-hint">Change until<br />window closes</span>
+                  <span className="picked-card-hint">Change</span>
                 </div>
               </div>
             );
@@ -501,7 +505,7 @@ export function PickScreen() {
           <div className="search-row">
             <input
               type="text"
-              placeholder="Search players…"
+              placeholder="Search players or opponents..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input search-input"
@@ -525,7 +529,7 @@ export function PickScreen() {
                   isCurrentPick ? 'player-current-pick' : '',
                 ].filter(Boolean).join(' ')}>
                   {player.seed ? (
-                    <span className="player-seed-badge">#{player.seed}</span>
+                    <span className="player-seed-badge">{player.seed}</span>
                   ) : (
                     <span className="player-seed-placeholder" />
                   )}
