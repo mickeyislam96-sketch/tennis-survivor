@@ -56,7 +56,7 @@ poolsRouter.get('/', async (req, res) => {
         isMember: parseInt(row.is_member, 10) > 0,
         isReal: true,
       };
-    });
+    }).filter(p => p.tournament !== null); // Hide orphaned pools (e.g. retired test tournaments)
   } catch (e) {
     console.error('DB pools error:', e.message);
     // Fall through to mock-only
