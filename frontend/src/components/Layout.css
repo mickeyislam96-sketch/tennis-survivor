@@ -178,6 +178,13 @@
   }
   .nav::-webkit-scrollbar { display: none; }
 
+  /* Single-link nav (homepage): stay inline, no second row */
+  .nav:not(:has(.nav-link:nth-child(2))) {
+    order: unset;
+    width: auto;
+    padding-bottom: 0;
+  }
+
   .nav-link {
     font-size: 0.75rem;
     padding: 0.3rem 0.6rem;
