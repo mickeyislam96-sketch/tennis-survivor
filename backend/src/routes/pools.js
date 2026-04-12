@@ -55,8 +55,39 @@ poolsRouter.get('/', async (req, res) => {
         aliveCount: parseInt(row.alive_count, 10),
         isMember: parseInt(row.is_member, 10) > 0,
         isReal: true,
+        winnerName: null,
       };
     }).filter(p => p.tournament !== null); // Hide orphaned pools (e.g. retired test tournaments)
+
+    // For completed tournaments, find the winner (last survivor / most rounds survived)
+    for (const p of dbPools) {
+      if (p.tournament?.status !== 'completed' || p.memberCount === 0) continue;
+      try {
+        // If someone is still alive, they're the winner
+        if (p.aliveCount === 1) {
+          const winnerResult = await pool.query(
+            `SELECT display_name FROM group_members WHERE group_id = $1 AND is_alive = true LIMIT 1`,
+            [p.id]
+          );
+          if (winnerResult.rows.length) p.winnerName = winnerResult.rows[0].display_name;
+        } else if (p.aliveCount === 0) {
+          // Everyone eliminated — pick the one(s) who survived the most rounds
+          const bestResult = await pool.query(
+            `SELECT m.display_name, COUNT(pk.id) AS pick_count
+             FROM group_members m
+             LEFT JOIN picks pk ON pk.user_id = m.user_id AND pk.group_id = m.group_id AND pk.survived = true
+             WHERE m.group_id = $1
+             GROUP BY m.id
+             ORDER BY pick_count DESC
+             LIMIT 1`,
+            [p.id]
+          );
+          if (bestResult.rows.length) p.winnerName = bestResult.rows[0].display_name;
+        }
+      } catch (e) {
+        console.error(`Winner lookup failed for pool ${p.id}:`, e.message);
+      }
+    }
   } catch (e) {
     console.error('DB pools error:', e.message);
     // Fall through to mock-only

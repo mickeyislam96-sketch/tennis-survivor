@@ -213,16 +213,33 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         .filter(m => !m.isAlive)
         .sort((a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0));
 
-      // Winner detection: if exactly 1 survivor and at least 2 total entrants,
-      // that player has won the pool (last survivor standing).
-      const hasWinner = alive.length === 1 && members.length >= 2;
-      if (hasWinner) alive[0].isWinner = true;
+      // Winner detection:
+      // 1. If exactly 1 survivor and 2+ entrants => that player won
+      // 2. If nobody alive but tournament completed => player(s) who survived
+      //    the most rounds win (last eliminated = winner)
+      let hasWinner = false;
+      let winnerName = null;
+      if (alive.length === 1 && members.length >= 2) {
+        hasWinner = true;
+        alive[0].isWinner = true;
+        winnerName = alive[0].displayName;
+      } else if (alive.length === 0 && eliminated.length >= 2) {
+        // Everyone eliminated — the person(s) who lasted longest win
+        const maxSurvived = eliminated[0].survivedRounds;
+        const winners = eliminated.filter(m => m.survivedRounds === maxSurvived);
+        if (maxSurvived > 0) {
+          hasWinner = true;
+          winners.forEach(w => { w.isWinner = true; });
+          winnerName = winners.map(w => w.displayName).join(', ');
+        }
+      }
 
       return res.json({
         group: { id: g.id, name: g.name, prizePoolCents: g.prize_pool_cents },
         leaderboard: [...alive, ...eliminated],
         aliveCount: alive.length,
         hasWinner,
+        winnerName,
         currentRound,
         roundIsLocked,
         openRound,

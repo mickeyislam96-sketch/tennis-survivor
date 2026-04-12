@@ -187,7 +187,9 @@ export function Leaderboard() {
 
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
-  const winner        = aliveCount === 1 ? leaderboard[0] : null;
+  // Winner: check isWinner flag from backend (handles both alive-winner and last-eliminated-winner)
+  const winners       = leaderboard.filter(m => m.isWinner);
+  const winner        = winners.length > 0 ? winners[0] : null;
 
   return (
     <div className="page leaderboard">
@@ -203,7 +205,7 @@ export function Leaderboard() {
           <div className="lb-winner-body">
             <span className="lb-winner-eyebrow">Tournament Winner</span>
             <span className="lb-winner-name">{winner.displayName}</span>
-            <span className="lb-winner-sub">Last one standing · {totalEntrants} entrants</span>
+            <span className="lb-winner-sub">{winner.isAlive ? 'Last one standing' : 'Lasted longest'} · {totalEntrants} entrants</span>
           </div>
           {group?.prizePoolCents > 0 && (
             <div className="lb-winner-prize">{fmtGBP(group.prizePoolCents)}</div>

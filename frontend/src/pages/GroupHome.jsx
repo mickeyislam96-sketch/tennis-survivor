@@ -788,7 +788,7 @@ function PoolCard({ pool }) {
       </div>
       <div className="pool-card-bottom">
         {isPoolCompleted && pool.memberCount > 0 && (
-          <span className="pool-card-stat">{pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
+          <span className="pool-card-stat">{pool.winnerName ? `🏆 ${pool.winnerName} won` : pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
         )}
         {t?.status === 'active' && pool.memberCount > 0 && (
           <span className="pool-card-stat">{pool.aliveCount} of {pool.memberCount} still in</span>
