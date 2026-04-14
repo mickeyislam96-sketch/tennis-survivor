@@ -225,6 +225,18 @@ cron.schedule('*/15 * * * *', async () => {
   // Notify admin if there are new emails waiting for approval
   try { await sendAdminDigest(); }
   catch (err) { console.error('[cron] Admin digest error:', err.message); }
+
+  // Clean up expired payment orders (pending > 1 hour old)
+  try {
+    const cleanup = await pool.query(
+      `DELETE FROM payment_orders
+       WHERE status = 'pending' AND created_at < NOW() - INTERVAL '1 hour'
+       RETURNING id`
+    );
+    if (cleanup.rowCount > 0) {
+      console.log(`[cron] Cleaned up ${cleanup.rowCount} expired payment orders`);
+    }
+  } catch (err) { console.error('[cron] Payment cleanup error:', err.message); }
 });
 
 // Admin routes — auth via ADMIN_SECRET env var

@@ -67,6 +67,7 @@ export function JoinGroup() {
 
     // Paid group: redirect to payment flow instead of joining directly
     if (group.entryFeeCents && group.entryFeeCents > 0 && !group.betaFree) {
+      setJoining(true);
       navigate(`/group/${group.id}/pay`);
       return;
     }

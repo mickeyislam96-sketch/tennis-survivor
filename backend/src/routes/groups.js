@@ -217,9 +217,24 @@ groupsRouter.post('/:id/join', async (req, res) => {
 
   if (isUUID(groupId) && isUUID(userId)) {
     try {
-      const groupCheck = await pool.query('SELECT id FROM groups WHERE id = $1', [groupId]);
+      const groupCheck = await pool.query(
+        'SELECT id, entry_fee_cents FROM groups WHERE id = $1', [groupId]
+      );
       if (groupCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Group not found' });
+      }
+
+      // PAYMENT GATE: paid groups require a completed Stripe payment before joining
+      const groupFee = parseInt(groupCheck.rows[0].entry_fee_cents, 10) || 0;
+      if (groupFee > 0) {
+        const paymentCheck = await pool.query(
+          `SELECT id FROM payment_orders
+           WHERE user_id = $1 AND group_id = $2 AND status = 'completed'`,
+          [userId, groupId]
+        );
+        if (paymentCheck.rows.length === 0) {
+          return res.status(402).json({ error: 'Payment required to join this group' });
+        }
       }
 
       const existing = await pool.query(

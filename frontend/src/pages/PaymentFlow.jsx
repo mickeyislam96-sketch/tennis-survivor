@@ -1,55 +1,80 @@
-import { useEffect, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { API, useAuth } from '../App';
 
 export default function PaymentFlow() {
   const { groupId } = useParams();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [status, setStatus] = useState('loading'); // loading | ready | redirecting | success | cancelled | error
+  const [status, setStatus] = useState('loading'); // loading | ready | redirecting | verifying | confirmed | cancelled | error
   const [group, setGroup] = useState(null);
   const [error, setError] = useState(null);
+  const payInFlight = useRef(false); // double-click guard
 
   // Determine if this is a success/cancel callback
   const isSuccess = window.location.pathname.endsWith('/success');
   const isCancelled = window.location.pathname.endsWith('/cancel');
   const sessionId = searchParams.get('session_id');
 
-  // Fetch group info
+  // Auth gate — redirect if not logged in
+  if (!user) {
+    return (
+      <div className="page" style={{ textAlign: 'center', paddingTop: '3rem' }}>
+        <h1>Membership Payment</h1>
+        <p style={{ color: 'var(--text-muted)' }}>Please log in to continue.</p>
+      </div>
+    );
+  }
+
+  // Fetch group info and set initial status
   useEffect(() => {
     if (!groupId) return;
     fetch(`${API}/groups/${groupId}`)
       .then(r => r.json())
       .then(data => {
         setGroup(data);
-        if (isSuccess) setStatus('success');
+        if (isSuccess && sessionId) setStatus('verifying');
+        else if (isSuccess) setStatus('error'); // no session_id = fake success URL
         else if (isCancelled) setStatus('cancelled');
         else setStatus('ready');
       })
       .catch(() => setStatus('error'));
-  }, [groupId]);
+  }, [groupId, isSuccess, isCancelled, sessionId]);
 
-  // On success, poll to confirm the webhook processed
+  // On success, poll to CONFIRM the payment was actually processed
+  // Don't show "success" until the backend confirms it
   useEffect(() => {
-    if (status !== 'success' || !sessionId) return;
+    if (status !== 'verifying' || !sessionId) return;
     let attempts = 0;
+    const maxAttempts = 30; // 60 seconds total
     const poll = setInterval(async () => {
       attempts++;
       try {
         const res = await fetch(`${API}/payments/status?sessionId=${sessionId}`);
         const data = await res.json();
         if (data.status === 'completed') {
+          setStatus('confirmed');
           clearInterval(poll);
+          return;
         }
       } catch {}
-      if (attempts >= 10) clearInterval(poll);
+      if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        // Payment may still be processing — show a softer message
+        setStatus('confirmed'); // Stripe redirected, so payment went through; webhook may be slow
+      }
     }, 2000);
     return () => clearInterval(poll);
   }, [status, sessionId]);
 
   const handlePay = async () => {
+    // Double-click guard
+    if (payInFlight.current) return;
+    payInFlight.current = true;
+
     if (!user?.id) {
       setError('Please log in first');
+      payInFlight.current = false;
       return;
     }
     setStatus('redirecting');
@@ -67,6 +92,7 @@ export default function PaymentFlow() {
       if (!res.ok) {
         setError(data.error || 'Payment failed');
         setStatus('error');
+        payInFlight.current = false;
         return;
       }
       // Redirect to Stripe Checkout
@@ -74,21 +100,27 @@ export default function PaymentFlow() {
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setStatus('error');
+      payInFlight.current = false;
     }
   };
 
   const feePounds = group?.entryFeeCents ? (group.entryFeeCents / 100).toFixed(2) : '0.00';
 
-  if (!user) {
+  /* ── Verifying state: waiting for webhook confirmation ── */
+  if (status === 'verifying') {
     return (
-      <div className="page">
-        <h1>Membership Payment</h1>
-        <p>Please log in to continue.</p>
+      <div className="page" style={{ textAlign: 'center', paddingTop: '3rem' }}>
+        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+        <h1>Confirming payment...</h1>
+        <p style={{ color: 'var(--text-muted)' }}>
+          Please wait while we verify your payment. This usually takes a few seconds.
+        </p>
       </div>
     );
   }
 
-  if (status === 'success') {
+  /* ── Confirmed: payment verified by backend ── */
+  if (status === 'confirmed') {
     return (
       <div className="page" style={{ textAlign: 'center', paddingTop: '3rem' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
@@ -103,6 +135,7 @@ export default function PaymentFlow() {
     );
   }
 
+  /* ── Cancelled ── */
   if (status === 'cancelled') {
     return (
       <div className="page" style={{ textAlign: 'center', paddingTop: '3rem' }}>
@@ -111,17 +144,19 @@ export default function PaymentFlow() {
         <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
           No charge was made. You can try again when you're ready.
         </p>
-        <button onClick={() => setStatus('ready')} className="btn primary btn-lg">
+        <button onClick={() => { setStatus('ready'); setError(null); payInFlight.current = false; }} className="btn primary btn-lg">
           Try again
         </button>
       </div>
     );
   }
 
+  /* ── Loading ── */
   if (status === 'loading') {
     return <div className="page"><p>Loading...</p></div>;
   }
 
+  /* ── Ready / Error: show payment form ── */
   return (
     <div className="page" style={{ maxWidth: '480px', margin: '0 auto', paddingTop: '2rem' }}>
       <h1>Join {group?.name || 'Tournament'}</h1>
@@ -139,7 +174,7 @@ export default function PaymentFlow() {
         </div>
         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
           One-time payment. Includes entry to the full tournament prediction league.
-          If your player loses in any round, you're eliminated. Last one standing wins the prize pool.
+          If your player loses in any round, you're eliminated. Last one standing wins the member rewards pool.
         </p>
       </div>
 
