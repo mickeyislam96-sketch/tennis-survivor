@@ -113,8 +113,8 @@ paymentsRouter.post('/create-checkout', async (req, res) => {
           currency: 'gbp',
           unit_amount: fee,
           product_data: {
-            name: `${tournamentName} — Season Membership`,
-            description: `Entry to ${group.name} prediction league`,
+            name: `${tournamentName} — Entry`,
+            description: `Survivor pool entry — ${group.name}`,
           },
         },
         quantity: 1,

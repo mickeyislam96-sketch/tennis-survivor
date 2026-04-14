@@ -126,7 +126,7 @@ export default function PaymentFlow() {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
         <h1>Payment successful</h1>
         <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          You're in! Your membership for {group?.name || 'this tournament'} is confirmed.
+          You're in the pool! Good luck in {group?.name || 'the tournament'}.
         </p>
         <Link to={`/group/${groupId}`} className="btn primary btn-lg">
           Go to your pool →
@@ -169,12 +169,12 @@ export default function PaymentFlow() {
         marginBottom: '1.5rem',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Season membership</span>
+          <span style={{ color: 'var(--text-muted)' }}>Entry fee</span>
           <span style={{ fontWeight: 700, fontSize: '1.25rem' }}>£{feePounds}</span>
         </div>
         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-          One-time payment. Includes entry to the full tournament prediction league.
-          If your player loses in any round, you're eliminated. Last one standing wins the member rewards pool.
+          One-time entry. Pick one player per round. If they lose, you're out.
+          Last one standing takes the entire prize pool.
         </p>
       </div>
 
