@@ -9,6 +9,7 @@ import { JoinGroup } from './pages/JoinGroup';
 import { TermsAndConditions } from './pages/TermsAndConditions';
 import { ResetPassword } from './pages/ResetPassword';
 import { Profile } from './pages/Profile';
+import PaymentFlow from './pages/PaymentFlow';
 import { AuthProvider } from './context/AuthContext';
 
 // Re-export so all existing page imports of `useAuth` and `API` from '../App' continue to work
@@ -25,6 +26,9 @@ function App() {
           <Route path="/group/:groupId/draw" element={<DrawViewer />} />
           <Route path="/group/:groupId/history" element={<PickHistory />} />
           <Route path="/group/:groupId/leaderboard" element={<Leaderboard />} />
+          <Route path="/group/:groupId/pay" element={<PaymentFlow />} />
+          <Route path="/group/:groupId/pay/success" element={<PaymentFlow />} />
+          <Route path="/group/:groupId/pay/cancel" element={<PaymentFlow />} />
           <Route path="/join/:code" element={<JoinGroup />} />
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/reset-password" element={<ResetPassword />} />

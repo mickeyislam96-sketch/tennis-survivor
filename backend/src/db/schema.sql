@@ -113,3 +113,21 @@ CREATE INDEX IF NOT EXISTS idx_emails_sent_lookup
   ON emails_sent(user_id, group_id, round, email_type);
 CREATE INDEX IF NOT EXISTS idx_emails_sent_pending
   ON emails_sent(status) WHERE status = 'pending';
+
+-- Stripe payment orders
+CREATE TABLE IF NOT EXISTS payment_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  stripe_session_id TEXT UNIQUE,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'gbp',
+  status TEXT NOT NULL DEFAULT 'pending',
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_session
+  ON payment_orders(stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user_group
+  ON payment_orders(user_id, group_id);

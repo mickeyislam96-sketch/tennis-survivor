@@ -64,6 +64,13 @@ export function JoinGroup() {
     const uid = currentUser?.id || userId;
     const uName = currentUser?.displayName || user?.displayName || 'Player';
     if (!group || !uid) return;
+
+    // Paid group: redirect to payment flow instead of joining directly
+    if (group.entryFeeCents && group.entryFeeCents > 0 && !group.betaFree) {
+      navigate(`/group/${group.id}/pay`);
+      return;
+    }
+
     setJoining(true);
     setError('');
     fetch(`${API}/groups/${group.id}/join`, {

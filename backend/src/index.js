@@ -21,6 +21,7 @@ import { poolsRouter } from './routes/pools.js';
 import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin.js';
 import { matchupRouter } from './routes/matchup.js';
+import { paymentsRouter, handleStripeWebhook } from './routes/payments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -48,6 +49,10 @@ const ALLOWED_ORIGINS = [
   ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
 ];
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+
+// Stripe webhook needs raw body BEFORE express.json() parses it
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
+
 app.use(express.json());
 
 // Global API rate limit — prevents abuse on data-heavy endpoints
@@ -69,6 +74,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/tiebreaker', tiebreakerRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/matchup', matchupRouter);
+app.use('/api/payments', paymentsRouter);
 
 // Email smoke-test — uses sendPasswordResetEmail which throws on failure
 // Usage: GET /api/email-test?to=youraddress@gmail.com
