@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 12 April 2026. Keep this file updated at the end of every session.
+> Last updated: 14 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -353,7 +353,7 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 
 ---
 
-## Current tournament state (as of 12 April 2026)
+## Current tournament state (as of 14 April 2026)
 
 ### Miami Open 2026 (practice — complete)
 - Tournament: ATP Miami Open 2026
@@ -382,17 +382,43 @@ Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds
 - Status: 3 players registered
 - Purpose: Bug-fixing practice run on web only
 
-### Outstanding actions
-1. **SPF/DKIM for Brevo** — set up domain auth for `finalserveivor.com` before paid tournaments (emails currently send from `finalservivor@10822796.brevosend.com`)
-2. **Post-tournament refactor** — separate bracket display from data model entirely (mock draw should be structural reference only, not live state)
-3. **EAS Project ID** — set in `app.json` before EAS Build/Submit for App Store
-4. **Password reset deep link** — add `reset-password` route to mobile navigation + deep link config
-5. **App Store submission** — TestFlight build, screenshots, metadata, review
-6. **Company registration** — UK Ltd via Companies House (critical path for payment processor onboarding)
-7. **Payment processor** — apply to QuadraPay/Cashflows once company registered (target by 25 Apr)
-8. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times before 21 Apr
-9. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
-10. **Payment infrastructure push** — code complete, waiting for MC to end (now done). Push when ready.
+### Roland Garros 2026 (FIRST PAID — target 18 May)
+- Entry: £10.00 (entryFeeCents: 1000)
+- Real DB group: **not yet created** — create ~15 May
+- Payment: Stripe integration deployed and hardened (test mode). See "Payment system" section below.
+- Go-live checklist: see "Roland Garros go-live handoff" at bottom of this file
+
+### Payment system (deployed 14 Apr 2026 — test mode, dormant)
+- **Stripe account:** finalservivor@gmail.com, acct_1TM3G7DZvcEXETPX
+- **Category:** Event ticketing (compliance framing)
+- **Payouts:** Manual (money stays in Stripe balance until withdrawn)
+- **Backend:** `backend/src/routes/payments.js` — create-checkout, status, webhook
+- **Frontend:** `frontend/src/pages/PaymentFlow.jsx` — payment page, success/cancel/verifying states
+- **DB:** `payment_orders` table in schema.sql
+- **Payment gate:** `groups.js` POST /join returns 402 for unpaid users on paid groups
+- **JoinGroup.jsx:** redirects to `/group/:id/pay` for paid groups
+- **Webhook:** we_1TM3wpDZvcEXETPX1JXLTY9x → `POST /api/payments/webhook`
+- **Security:** transactional webhook (BEGIN/COMMIT), idempotent via atomic UPDATE, double-click guard, fee cap £500, displayName truncation, signature validation
+- **Env vars (Railway):** `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (test)
+- **Cleanup cron:** expired pending orders deleted hourly
+- **User-facing copy:** survivor pool language ("Entry fee," "prize pool"). Stripe product name uses "Entry" not "Membership."
+- **Mockup:** `CTO - TS/fsv-payment-journey-mockup.html` — 7-step interactive journey
+
+**To go live (Roland Garros):**
+1. Swap test keys for live keys in Railway
+2. Create live-mode webhook via Stripe API (one curl command)
+3. Create RG group with `entryFeeCents: 1000`
+4. Test with real £1 payment
+5. Update T&Cs with payment/refund terms
+
+### Outstanding actions (priority order)
+1. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times before 21 Apr
+2. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
+3. **SPF/DKIM for Brevo** — set up domain auth before paid tournaments
+4. **Company registration** — UK Ltd via Companies House (helps with credibility, not strictly needed for Stripe)
+5. **EAS Project ID** — set in `app.json` before App Store submission
+6. **App Store submission** — TestFlight build, screenshots, metadata
+7. **Post-tournament refactor** — separate bracket display from data model
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -464,6 +490,7 @@ Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd4
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
 | 10 Apr 2026 (session 2) | **Brevo email system fully deployed.** (1) Rewrote `email.js` to use Brevo transactional template API (`sendViaBrevoTemplate()` with `templateId` + `params`). (2) Updated `emailScheduler.js`, `resultsProcessor.js`, `groups.js`, `admin.js` to use new email functions with enriched params. (3) Created 9 Brevo templates (IDs 1-9), all activated. (4) Fixed template variable mismatches (`firstName`→`displayName`, `resetUrl`→`resetLink`, `joinUrl`→`signupUrl`, `pickPlayerName`→`playerName`, `deadline`→`pickDeadline`, `pickUrl`→`groupUrl`). (5) Fixed Winner template #7 malformed Jinja `is odd` condition — replaced dynamic for-loop with plain text pick history display. (6) Aligned email colours to website: footer `#0f172a`→`#0f3d20` (dark forest green), body background `#f4f4f5`→`#f5f7fa`. (7) Set 9 `BREVO_TPL_*` env vars on Railway. (8) Verified all 9 templates deliver to Gmail with correct variable substitution. (9) Audited approval gate: 7 batch emails correctly gated via `sendWithDedup()`, 2 auto-send emails (Welcome, Password Reset) correctly bypass. No code paths found that could send batch emails without approval. |
+| 14 Apr 2026 | **Stripe payment integration + security hardening.** (1) QuadraPay rejected — pivoted to Stripe. Mickey created Stripe account (Event ticketing category, manual payouts, finalservivor@gmail.com). (2) Built full Stripe Checkout integration: `payments.js` backend (create-checkout, status, webhook), `PaymentFlow.jsx` frontend (payment page with verifying/success/cancel states), `payment_orders` DB table, payment gate on join endpoint (402 for unpaid). (3) Ran parallel code reviews (2 agents) — found 6 CRITICAL + 5 HIGH issues. (4) Security hardening commit: transactional webhook (BEGIN/COMMIT/ROLLBACK), idempotent via atomic UPDATE WHERE status='pending', ON CONFLICT DO NOTHING for member insert, double-click guard (409 if pending order exists), fee cap £500, displayName truncation, env var validation, status endpoint privacy fix, webhook returns 500 for retries. (5) Created Stripe webhook via API (we_1TM3wpDZvcEXETPX1JXLTY9x). (6) Set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET on Railway, deployed. (7) Full smoke test: 9/9 endpoints pass. (8) Updated copy from "membership" to survivor pool language. (9) Created 7-step payment journey mockup. 4 commits total: `b3ff8d6`, `ca65420`, `c6c2ae9`, plus CLAUDE.md update. |
 | 12 Apr 2026 | **Design system deployment + mobile audit.** Three commits total. (1) `c5f0c03` design system token overhaul — unified `:root` CSS variables, consolidated typography to Outfit + JetBrains Mono, semantic colour palette, 3-tier radius/shadow system. (2) `ecd45a4` component-level design system — player rows (connected cards, green hover, square seed badges), leaderboard stats (4-col grid), winner banner (amber gradient), status pills, avatars (26px square), match cards (2-col grid, mono scores), pick history (coloured round badges, timeline). Both CSS + JSX changes to PickScreen.jsx. (3) `1e21413` mobile fixes — hero `min-height` reduced from `85vh` to `auto` (was creating ~500px dead space on mobile), header nav `:has()` rule keeps single "T&Cs" link inline on homepage instead of wrapping to empty second row. Full mobile audit at 390px verified all screens: homepage, leaderboard (2x2 stats, 3-col table with truncation), pick history (round badges, status labels), draw viewer (empty state), group home. Desktop verified unaffected. Monte Carlo tournament now complete — Mark won from 11 entrants. |
 | 10 Apr 2026 (session 1) | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
 
@@ -488,3 +515,80 @@ Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd4
 
 ### Risk assessment
 Before starting feature work, ask: "If this breaks, what's the blast radius?" If the answer is "the whole site goes down" and users are active, defer or implement with extreme caution.
+
+---
+
+## Roland Garros go-live handoff (~15 May 2026)
+
+This is the self-contained prompt for the session that activates paid payments.
+
+### Pre-requisites (Mickey must confirm before starting)
+- Rome tournament is finished (or nearly finished)
+- Mickey has verified Stripe account is in good standing (no flags, no holds)
+- Mickey has decided the entry fee (assumed £10.00 = 1000 cents)
+- Roland Garros draw date and start date are known
+
+### Step-by-step execution plan
+
+**1. Swap Stripe keys from test to live (5 min)**
+- Mickey: go to Stripe dashboard → switch to LIVE mode → Developers → API keys
+- Copy `sk_live_...` (secret key) and `pk_live_...` (publishable key)
+- In Railway variables page, update `STRIPE_SECRET_KEY` from `sk_test_...` to `sk_live_...`
+- DO NOT deploy yet
+
+**2. Create live-mode webhook (2 min)**
+```bash
+curl -s https://api.stripe.com/v1/webhook_endpoints \
+  -u "sk_live_YOUR_LIVE_SECRET_KEY:" \
+  -d "url=https://tennis-survivor-production.up.railway.app/api/payments/webhook" \
+  -d "enabled_events[]=checkout.session.completed" \
+  -d "description=FSV live payment confirmations"
+```
+- Copy the `secret` from the response (starts with `whsec_`)
+- Update `STRIPE_WEBHOOK_SECRET` in Railway with this new live secret
+- Now deploy Railway (both env var changes go live together)
+
+**3. Create Roland Garros group (5 min)**
+```bash
+curl -s -X POST https://tennis-survivor-production.up.railway.app/api/groups \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Roland Garros 2026 Pool",
+    "entryFeeCents": 1000,
+    "adminUserId": "MICKEY_USER_ID",
+    "tournamentId": "roland-garros-2026"
+  }'
+```
+- Note the returned group ID and invite code
+- Verify the pool appears on finalserveivor.com
+
+**4. Test with real £1 payment (5 min)**
+- Temporarily set the group's entry fee to 100 (£1) via SQL:
+  `UPDATE groups SET entry_fee_cents = 100 WHERE id = 'GROUP_ID'`
+- Navigate to the invite link, click Join, go through Stripe Checkout with a real card
+- Verify: payment appears in Stripe dashboard, user is added to group, prize pool incremented
+- Check Stripe webhook events log for successful delivery
+- Refund the test payment in Stripe dashboard
+- Reset entry fee: `UPDATE groups SET entry_fee_cents = 1000 WHERE id = 'GROUP_ID'`
+
+**5. Update T&Cs (10 min)**
+- Add payment/refund section to T&Cs:
+  - Entry fee is non-refundable once the tournament draw is released
+  - Refund available up to 24h before draw release if requested via email
+  - Prize pool = total entry fees minus house fee (state the %)
+  - Payout method: bank transfer within 7 days of tournament completion
+
+**6. Update frontend tournament config**
+- Ensure `roland-garros-2026` exists in `frontend/src/data/tournaments.js` with correct dates
+- Set `status: 'upcoming'`, `drawAvailable: false`, `entryOpen: true`
+
+**7. Announce**
+- Send email to all registered users via Brevo
+- Share invite link on social channels
+
+### Rollback plan
+If anything goes wrong with live payments:
+1. Set `STRIPE_SECRET_KEY` back to the test key in Railway → deploy
+2. This immediately disables all payment processing (checkout creation fails)
+3. Users already in groups are unaffected
+4. Investigate, fix, re-swap to live when ready
