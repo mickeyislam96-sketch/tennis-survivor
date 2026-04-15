@@ -7,6 +7,7 @@ import { Leaderboard } from './pages/Leaderboard';
 import { GroupHome } from './pages/GroupHome';
 import { JoinGroup } from './pages/JoinGroup';
 import { TermsAndConditions } from './pages/TermsAndConditions';
+import { HowToPlay } from './pages/HowToPlay';
 import { ResetPassword } from './pages/ResetPassword';
 import { Profile } from './pages/Profile';
 import PaymentFlow from './pages/PaymentFlow';
@@ -31,6 +32,7 @@ function App() {
           <Route path="/group/:groupId/pay/cancel" element={<PaymentFlow />} />
           <Route path="/join/:code" element={<JoinGroup />} />
           <Route path="/terms" element={<TermsAndConditions />} />
+          <Route path="/how-to-play" element={<HowToPlay />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />

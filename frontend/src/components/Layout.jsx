@@ -384,6 +384,12 @@ export function Layout({ children }) {
             </NavLink>
           ))}
           <NavLink
+            to="/how-to-play"
+            className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
+          >
+            How to Play
+          </NavLink>
+          <NavLink
             to="/terms"
             className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
           >
