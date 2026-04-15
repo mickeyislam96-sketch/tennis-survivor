@@ -216,11 +216,11 @@ export function Leaderboard() {
       {/* Stats bar */}
       <div className="lb-stats-bar">
         <div className="lb-stat lb-stat-alive">
-          <span className="lb-stat-value lb-stat-value--big">{aliveCount}</span>
-          <span className="lb-stat-label">Still in</span>
+          <span className="lb-stat-value lb-stat-value--big">{winner ? (winners.length > 1 ? winners.length : '1') : aliveCount}</span>
+          <span className="lb-stat-label">{winner ? (winners.length > 1 ? 'Winners' : 'Winner') : 'Still in'}</span>
         </div>
         <div className="lb-stat lb-stat-out">
-          <span className="lb-stat-value lb-stat-value--big">{eliminated}</span>
+          <span className="lb-stat-value lb-stat-value--big">{winner ? totalEntrants - winners.length : eliminated}</span>
           <span className="lb-stat-label">Eliminated</span>
         </div>
         <div className="lb-stat">

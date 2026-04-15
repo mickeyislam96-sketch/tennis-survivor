@@ -6,7 +6,7 @@ export function TermsAndConditions() {
       <div className="terms-header">
         <div>
           <h1>Terms &amp; Conditions</h1>
-          <p className="terms-updated">Last updated: 7 April 2026</p>
+          <p className="terms-updated">Last updated: 15 April 2026</p>
         </div>
         <Link to="/" className="back-link">← Back to home</Link>
       </div>
@@ -148,15 +148,16 @@ export function TermsAndConditions() {
         <p>
           <strong>Post-lock withdrawals.</strong> If a player withdraws from the tournament after
           the pick window for that round has closed (meaning participants could not have known
-          about the withdrawal when submitting their pick), the operator may, at its sole
-          discretion, allow affected participants to select a replacement player. This decision
-          will take into account the stage of the round (for example, whether other matches in
-          the round have already been completed), the number of affected participants, and any
-          other factors the operator considers relevant to fairness. Where a replacement pick is
-          permitted, the operator will notify the affected participant(s) directly and provide a
-          reasonable deadline for resubmission. If no replacement pick is permitted, the standard
-          elimination rule applies: a withdrawn player is treated as having lost, and any
-          participant who selected that player is eliminated.
+          about the withdrawal when submitting their pick), the operator will notify affected
+          participants by email and provide an opportunity to select a replacement player. The
+          affected participant must reply with their replacement pick before the withdrawn
+          player's originally scheduled match begins. If the participant does not respond
+          before that match time, the withdrawal is treated as a loss and the participant is
+          eliminated. It is the participant's responsibility to monitor their email for
+          withdrawal notifications, particularly during the early rounds of a tournament when
+          withdrawals are most common. The operator will make reasonable efforts to notify
+          participants as soon as a withdrawal is confirmed, but cannot guarantee any minimum
+          notice period.
         </p>
       </section>
 

@@ -4785,3 +4785,67 @@ input, select { font-family: var(--font); }
   .winner-banner { padding: 1.5rem 1rem; }
   .next-tournament-cta { margin: 1rem; }
 }
+
+/* ── Pick confirmation modal ─────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.confirm-modal {
+  background: #fff;
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.5rem 2rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+  text-align: center;
+}
+.confirm-modal h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--text-primary, #1e293b);
+}
+.confirm-player-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--green-700, #15803d);
+  margin: 0 0 0.25rem;
+}
+.confirm-seed {
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--text-muted, #64748b);
+}
+.confirm-opponent {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #475569);
+  margin: 0 0 0.25rem;
+}
+.confirm-round {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  margin: 0 0 0.75rem;
+}
+.confirm-warning {
+  font-size: 0.85rem;
+  color: var(--amber-700, #b45309);
+  background: var(--amber-50, #fffbeb);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+.confirm-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+.confirm-buttons .btn {
+  min-width: 100px;
+}

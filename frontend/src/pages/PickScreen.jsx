@@ -57,6 +57,7 @@ export function PickScreen() {
   const [message, setMessage] = useState('');
   const [myPickThisRound, setMyPickThisRound] = useState(null);
   const [member, setMember] = useState(null);
+  const [confirmPlayer, setConfirmPlayer] = useState(null);
   const [rowError, setRowError] = useState({ id: null, msg: '' });
   const [drawAvailable, setDrawAvailable] = useState(true);
   const [tournamentCompleted, setTournamentCompleted] = useState(false);
@@ -562,7 +563,7 @@ export function PickScreen() {
                       type="button"
                       className="btn primary btn-sm"
                       disabled={submitting}
-                      onClick={() => submitPick(player)}
+                      onClick={() => setConfirmPlayer(player)}
                     >
                       {myPickThisRound ? 'Switch' : 'Pick'}
                     </button>
@@ -586,6 +587,45 @@ export function PickScreen() {
       )}
 
       {message && <p className="success-msg">{message}</p>}
+
+      {/* Pick confirmation modal */}
+      {confirmPlayer && (
+        <div className="modal-overlay" onClick={() => setConfirmPlayer(null)}>
+          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+            <h3>{myPickThisRound ? 'Switch pick?' : 'Confirm pick'}</h3>
+            <p className="confirm-player-name">
+              {confirmPlayer.name}
+              {confirmPlayer.seed && <span className="confirm-seed"> [{confirmPlayer.seed}]</span>}
+            </p>
+            {confirmPlayer.opponentName && (
+              <p className="confirm-opponent">vs {confirmPlayer.opponentName}</p>
+            )}
+            <p className="confirm-round">Round: {currentRound}</p>
+            {myPickThisRound && (
+              <p className="confirm-warning">
+                This will replace your current pick of {myPickThisRound.playerName}.
+              </p>
+            )}
+            <div className="confirm-buttons">
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setConfirmPlayer(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn primary btn-sm"
+                disabled={submitting}
+                onClick={() => { submitPick(confirmPlayer); setConfirmPlayer(null); }}
+              >
+                {submitting ? 'Submitting...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
