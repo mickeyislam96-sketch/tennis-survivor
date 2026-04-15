@@ -1,12 +1,12 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 14 April 2026. Keep this file updated at the end of every session.
+> Last updated: 25 April 2026. Keep this file updated at the end of every session.
 
 ---
 
 ## What the product is
 
-**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Current live tournament is **Monte Carlo 2026** (first competitive tournament — free entry, real users invited 3 Apr).
+**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 21 Apr, free entry, draw 19 Apr).
 
 ---
 
@@ -429,7 +429,7 @@ Backend: `buildOpponentMap()` in `picks.js` enriches available players response.
 Web: `.player-name-col` wrapper in `PickScreen.jsx` with `.player-opponent` sub-line.
 Mobile: `PlayerRow.tsx` reads `opponentName` and `opponentPossible` from Player interface.
 
-### Mobile app feature parity (9 Apr)
+### Mobile app feature parity (9 Apr, re-audited 25 Apr)
 Full cross-platform audit completed. Mobile now matches web on all critical flows:
 - Pick submission, search (player + opponent name), 60s auto-refresh
 - Leaderboard with pick history modal (tap any row)
@@ -438,6 +438,8 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 - Registration with mandatory T&Cs acceptance
 - Deep links for invite codes and group pages
 **Remaining gaps (acceptable):** no bracket view (list only), no password reset deep link, EAS Project ID not set.
+
+**CRITICAL gap found 25 Apr:** Mobile has NO payment flow. When backend returns 402 for paid groups, the mobile app shows a generic error instead of redirecting to Stripe Checkout. This blocks any paid tournament on mobile. **Must fix before Roland Garros (first paid event).** Madrid is free, so not a blocker yet. Fix approach: detect 402 in joinGroup error handler, open web payment URL via `Linking.openURL()` as a quick solution, or build a native PaymentScreen for a polished experience.
 
 ### Design system (12 Apr — Direction A "Clean Court")
 Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd45a4`, `1e21413`).
@@ -493,6 +495,7 @@ Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd4
 | 14 Apr 2026 | **Stripe payment integration + security hardening.** (1) QuadraPay rejected — pivoted to Stripe. Mickey created Stripe account (Event ticketing category, manual payouts, finalservivor@gmail.com). (2) Built full Stripe Checkout integration: `payments.js` backend (create-checkout, status, webhook), `PaymentFlow.jsx` frontend (payment page with verifying/success/cancel states), `payment_orders` DB table, payment gate on join endpoint (402 for unpaid). (3) Ran parallel code reviews (2 agents) — found 6 CRITICAL + 5 HIGH issues. (4) Security hardening commit: transactional webhook (BEGIN/COMMIT/ROLLBACK), idempotent via atomic UPDATE WHERE status='pending', ON CONFLICT DO NOTHING for member insert, double-click guard (409 if pending order exists), fee cap £500, displayName truncation, env var validation, status endpoint privacy fix, webhook returns 500 for retries. (5) Created Stripe webhook via API (we_1TM3wpDZvcEXETPX1JXLTY9x). (6) Set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET on Railway, deployed. (7) Full smoke test: 9/9 endpoints pass. (8) Updated copy from "membership" to survivor pool language. (9) Created 7-step payment journey mockup. 4 commits total: `b3ff8d6`, `ca65420`, `c6c2ae9`, plus CLAUDE.md update. |
 | 12 Apr 2026 | **Design system deployment + mobile audit.** Three commits total. (1) `c5f0c03` design system token overhaul — unified `:root` CSS variables, consolidated typography to Outfit + JetBrains Mono, semantic colour palette, 3-tier radius/shadow system. (2) `ecd45a4` component-level design system — player rows (connected cards, green hover, square seed badges), leaderboard stats (4-col grid), winner banner (amber gradient), status pills, avatars (26px square), match cards (2-col grid, mono scores), pick history (coloured round badges, timeline). Both CSS + JSX changes to PickScreen.jsx. (3) `1e21413` mobile fixes — hero `min-height` reduced from `85vh` to `auto` (was creating ~500px dead space on mobile), header nav `:has()` rule keeps single "T&Cs" link inline on homepage instead of wrapping to empty second row. Full mobile audit at 390px verified all screens: homepage, leaderboard (2x2 stats, 3-col table with truncation), pick history (round badges, status labels), draw viewer (empty state), group home. Desktop verified unaffected. Monte Carlo tournament now complete — Mark won from 11 entrants. |
 | 10 Apr 2026 (session 1) | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
+| 25 Apr 2026 | **Pre-App Store readiness audit.** Re-audited mobile vs web after 10 days of web-only changes (Stripe, Brevo, design system, MC completion, Madrid pool). Found: (1) **CRITICAL: mobile has no payment flow** — 402 from backend on paid groups shows generic error instead of Stripe redirect. Not a blocker for Madrid (free) but must fix before Roland Garros (first paid). (2) Mobile code compiles clean (zero TS errors). (3) Tournament config auto-fetched from API — no mobile code change needed for Madrid. (4) Design system colours match (theme.ts tokens identical to web CSS vars). (5) Winner banner already implemented on mobile. (6) Email deep links for join/group work; password reset falls back to web (acceptable). Updated CLAUDE.md product description (was still saying MC is current), flagged payment gap in mobile parity section, updated memory. |
 
 ---
 
