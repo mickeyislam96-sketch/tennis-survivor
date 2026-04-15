@@ -1001,7 +1001,7 @@ function JoinForm() {
         type="text"
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="e.g. MONTECAR-406R3X"
+        placeholder="e.g. MADRID-A36RQ4"
         className="input"
       />
       <button type="submit" className="btn primary" disabled={loading}>

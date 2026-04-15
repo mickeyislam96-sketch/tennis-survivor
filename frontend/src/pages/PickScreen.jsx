@@ -65,7 +65,8 @@ export function PickScreen() {
   useEffect(() => {
     fetch(`${API}/draw/rounds`)
       .then((r) => r.json())
-      .then(setRounds);
+      .then(setRounds)
+      .catch(() => setRounds([]));
   }, []);
 
   const fetchDeadlines = () => {
@@ -218,7 +219,9 @@ export function PickScreen() {
           return updated;
         });
 
-        setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
+        const msg = wasChange ? 'Pick updated!' : 'Pick locked in!';
+        setMessage(msg);
+        setTimeout(() => setMessage(''), 3000);
       })
       .catch((e) => {
         const msg = e.message || 'Could not submit pick';
@@ -370,7 +373,12 @@ export function PickScreen() {
           <div className="pick-context-bar">
             <div className="pcb-top">
               <div>
-                <div className="pcb-countdown-label">Window closes in</div>
+                <div className="pcb-countdown-label">
+                  Window closes in
+                  <span className="pcb-deadline-time">
+                    {' · '}{new Date(deadline).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                  </span>
+                </div>
                 <Countdown to={deadline} className="pcb-countdown-value" onExpire={fetchDeadlines} />
               </div>
               {closingSoon && <span className="pcb-closing-badge">Closing soon</span>}

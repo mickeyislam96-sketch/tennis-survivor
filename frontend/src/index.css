@@ -4257,6 +4257,12 @@ input, select { font-family: var(--font); }
   color: var(--amber-dark);
   margin-bottom: 0.1rem;
 }
+.pcb-deadline-time {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
 .pcb-countdown-value {
   font-size: 1.25rem;
   font-weight: 800;

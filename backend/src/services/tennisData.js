@@ -327,6 +327,12 @@ function buildDrawFromFixtures(fixtures) {
     };
   }
 
+  // Fixtures with unmapped round names. These are NOT dropped — they are kept
+  // so the overlay in getDraw() can still match them by player key pair.
+  // This prevents QF/SF data being silently lost if the API sends a round label
+  // variant we haven't mapped in roundNameOverrides.
+  const unmappedFixtures = [];
+
   if (hasRoundField) {
     const unknownRounds = new Map();
     for (const f of mainFixtures) {
@@ -334,6 +340,8 @@ function buildDrawFromFixtures(fixtures) {
       const round = normalizeRound(raw);
       if (!round || !matchesByRound[round]) {
         if (raw) unknownRounds.set(raw, (unknownRounds.get(raw) ?? 0) + 1);
+        // Keep the fixture for overlay matching even though we can't assign a round
+        unmappedFixtures.push(buildMatch(f, '_unmapped'));
         continue;
       }
       matchesByRound[round].push(buildMatch(f, round));
@@ -373,6 +381,13 @@ function buildDrawFromFixtures(fixtures) {
 
   const players = Array.from(playersMap.values());
   const matches = ROUNDS.flatMap((r) => matchesByRound[r] || []);
+  // Include unmapped fixtures so getDraw overlay can match them by player key.
+  // They won't appear in the bracket (wrong round) but their winner/status data
+  // will be used when overlaying mock matches.
+  if (unmappedFixtures.length > 0) {
+    matches.push(...unmappedFixtures);
+    console.log(`[tennisData] ${unmappedFixtures.length} unmapped fixtures preserved for overlay matching`);
+  }
   return { players, matches, rounds: ROUNDS };
 }
 
