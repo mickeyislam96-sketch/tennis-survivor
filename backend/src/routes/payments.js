@@ -1,266 +1,236 @@
+/**
+ * Payment routes — handles order creation, status checks, webhooks, and admin ops.
+ *
+ * POST /api/payments/create-order   — start a payment for a paid group
+ * GET  /api/payments/:orderId       — check order status (frontend polls this)
+ * POST /api/payments/webhook/:proc  — processor webhook callback
+ * GET  /api/payments/admin/list     — admin: all payment orders
+ * POST /api/payments/admin/refund   — admin: refund an order
+ */
+
 import { Router } from 'express';
-import Stripe from 'stripe';
 import { pool } from '../db/pool.js';
-import { getTournament } from '../data/tournaments.js';
+import {
+  createPaymentOrder,
+  setProcessorDetails,
+  confirmPaymentAndJoin,
+  getOrderById,
+  getOrderByProcessorId,
+  logWebhook,
+  failPayment,
+  refundPayment,
+} from '../services/paymentService.js';
 
 export const paymentsRouter = Router();
 
-/* ─── Startup validation ─────────────────────────────── */
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.error('[payments] WARNING: STRIPE_SECRET_KEY not set — payment endpoints will fail gracefully');
+// ── Rate limiting (simple in-memory, fine for <1000 users) ──────────────────
+const rateLimits = new Map();
+function rateLimit(key, maxPerMinute = 10) {
+  const now = Date.now();
+  const window = rateLimits.get(key) || [];
+  const recent = window.filter(t => now - t < 60000);
+  if (recent.length >= maxPerMinute) return false;
+  recent.push(now);
+  rateLimits.set(key, recent);
+  return true;
 }
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
-
-/* ─── Helpers ────────────────────────────────────────── */
-
-function cents(n) { return Math.round(Number(n) || 0); }
-
-const MAX_FEE_CENTS = 50_000; // £500 hard cap — sanity guard
-
-function stripeReady(res) {
-  if (!stripe) {
-    return res.status(503).json({ error: 'Payment system not configured' });
-  }
-  return null;
-}
-
-/* ─── POST /api/payments/create-checkout ──────────────── *
- *  Body: { userId, groupId, displayName }
- *  Creates a Stripe Checkout Session for the group's entry fee.
- *  Returns { url } — the hosted Stripe Checkout page URL.
- *
- *  Guards:
- *  - Rejects if group is free
- *  - Rejects if user is already a member
- *  - Rejects if a pending or completed order already exists (double-click guard)
- *  - Caps fee at MAX_FEE_CENTS
- *  - Truncates displayName to 50 chars
- * ──────────────────────────────────────────────────────── */
-paymentsRouter.post('/create-checkout', async (req, res) => {
-  const blocked = stripeReady(res);
-  if (blocked) return blocked;
-
-  const { userId, groupId, displayName } = req.body;
-  if (!userId || !groupId) {
-    return res.status(400).json({ error: 'userId and groupId are required' });
+// ── POST /api/payments/create-order ─────────────────────────────────────────
+paymentsRouter.post('/create-order', async (req, res) => {
+  const { groupId, userId } = req.body;
+  if (!groupId || !userId) {
+    return res.status(400).json({ error: 'groupId and userId required' });
   }
 
-  // Sanitise display name
-  const safeName = (displayName || 'Player').trim().slice(0, 50);
+  if (!rateLimit(`create:${userId}`, 5)) {
+    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+  }
 
   try {
-    // 1. Fetch group and validate entry fee
+    // Check group exists and has an entry fee
     const groupResult = await pool.query(
-      `SELECT id::text, name, entry_fee_cents, tournament_id FROM groups WHERE id = $1`,
+      'SELECT id, entry_fee_cents, name, tournament_id FROM groups WHERE id = $1',
       [groupId]
     );
     if (groupResult.rows.length === 0) {
       return res.status(404).json({ error: 'Group not found' });
     }
     const group = groupResult.rows[0];
-    const fee = cents(group.entry_fee_cents);
-    if (fee <= 0) {
-      return res.status(400).json({ error: 'This group is free — no payment needed' });
-    }
-    if (fee > MAX_FEE_CENTS) {
-      console.error(`[payments] Fee ${fee} exceeds cap ${MAX_FEE_CENTS} for group ${groupId}`);
-      return res.status(400).json({ error: 'Entry fee exceeds allowed maximum' });
+
+    if (!group.entry_fee_cents || group.entry_fee_cents === 0) {
+      return res.status(400).json({ error: 'This group is free. Use the join endpoint directly.' });
     }
 
-    // 2. Check user isn't already a member
-    const existing = await pool.query(
-      `SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2`,
+    // Check if already a member
+    const memberResult = await pool.query(
+      'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
       [groupId, userId]
     );
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: 'You are already a member of this group' });
+    if (memberResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Already a member of this group' });
     }
 
-    // 3. Check for existing pending OR completed order (double-click guard)
-    const existingOrder = await pool.query(
-      `SELECT stripe_session_id, status FROM payment_orders
-       WHERE user_id = $1 AND group_id = $2 AND status IN ('pending', 'completed')`,
-      [userId, groupId]
-    );
-    if (existingOrder.rows.length > 0) {
-      const order = existingOrder.rows[0];
-      if (order.status === 'completed') {
-        return res.status(400).json({ error: 'Payment already completed for this group' });
-      }
-      // Pending order exists — return the existing session URL instead of creating a new one
-      // (Stripe session may have expired, but this prevents DB pollution)
-      return res.status(409).json({
-        error: 'A payment is already in progress. Please complete or cancel it first.',
-        sessionId: order.stripe_session_id,
+    // Create or retrieve existing order (idempotent)
+    const order = await createPaymentOrder(groupId, userId, group.entry_fee_cents);
+
+    // If order already has a checkout URL (user refreshed), return it
+    if (order.processor_checkout_url && order.status === 'awaiting_payment') {
+      return res.json({
+        orderId: order.id,
+        status: order.status,
+        checkoutUrl: order.processor_checkout_url,
+        amountCents: order.amount_cents,
+        currency: order.currency,
       });
     }
 
-    // 4. Get tournament info for the checkout description
-    const tournament = getTournament(group.tournament_id);
-    const tournamentName = tournament?.name || group.name;
+    // TODO: When processor is configured, call adapter here to get checkout URL.
+    // For now, return the order in pending state.
+    // Example (QuadraPay):
+    //   const checkout = await quadrapay.createCheckout(order);
+    //   await setProcessorDetails(order.id, 'quadrapay', checkout.id, checkout.url);
 
-    // 5. Create Stripe Checkout Session
-    const frontendUrl = process.env.FRONTEND_URL || 'https://finalserveivor.com';
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'gbp',
-          unit_amount: fee,
-          product_data: {
-            name: `${tournamentName} — Entry`,
-            description: `Survivor pool entry — ${group.name}`,
-          },
-        },
-        quantity: 1,
-      }],
-      metadata: {
-        userId,
-        groupId,
-        displayName: safeName,
-      },
-      success_url: `${frontendUrl}/group/${groupId}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/group/${groupId}/pay/cancel`,
-      expires_at: Math.floor(Date.now() / 1000) + 1800, // 30 minutes
+    res.json({
+      orderId: order.id,
+      status: order.status,
+      checkoutUrl: null,  // Will be populated once processor is configured
+      amountCents: order.amount_cents,
+      currency: order.currency,
+      groupName: group.name,
     });
-
-    // 6. Record the order
-    await pool.query(
-      `INSERT INTO payment_orders (user_id, group_id, stripe_session_id, amount_cents, currency, status)
-       VALUES ($1, $2, $3, $4, 'gbp', 'pending')`,
-      [userId, groupId, session.id, fee]
-    );
-
-    console.log(`[payments] Checkout session created: ${session.id} for user ${userId} group ${groupId} (£${(fee / 100).toFixed(2)})`);
-    return res.json({ url: session.url, sessionId: session.id });
   } catch (err) {
-    console.error('[payments] create-checkout error:', err.message);
-    return res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Create payment order error:', err.message);
+    res.status(500).json({ error: 'Failed to create payment order' });
   }
 });
 
-/* ─── GET /api/payments/status?sessionId=X ───────────── *
- *  Check the status of a payment by Stripe session ID.
- *  Returns only { status } — no user/group data (privacy).
- * ──────────────────────────────────────────────────────── */
-paymentsRouter.get('/status', async (req, res) => {
-  const { sessionId } = req.query;
-  if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
-
+// ── GET /api/payments/:orderId ──────────────────────────────────────────────
+paymentsRouter.get('/:orderId', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT status FROM payment_orders WHERE stripe_session_id = $1`,
-      [sessionId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Payment not found' });
-    }
-    return res.json({ status: result.rows[0].status });
+    const order = await getOrderById(req.params.orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
   } catch (err) {
-    console.error('[payments] status error:', err.message);
-    return res.status(500).json({ error: 'Failed to check payment status' });
+    res.status(500).json({ error: 'Failed to fetch order' });
   }
 });
 
-/* ─── POST /api/payments/webhook ──────────────────────── *
- *  Stripe webhook handler. Verifies signature, processes
- *  checkout.session.completed events, joins user to group.
- *
- *  IMPORTANT: This route needs the raw body (not parsed JSON)
- *  so it must be mounted BEFORE express.json() middleware.
- *
- *  Safety measures:
- *  - Validates STRIPE_WEBHOOK_SECRET exists
- *  - Uses DB transaction for atomicity
- *  - Idempotent via atomic UPDATE ... WHERE status = 'pending'
- *  - Uses ON CONFLICT DO NOTHING for member insert
- *  - Returns 500 on transient errors so Stripe retries
- * ──────────────────────────────────────────────────────── */
-export async function handleStripeWebhook(req, res) {
-  /* 1. Validate webhook secret is configured */
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!endpointSecret) {
-    console.error('[payments] CRITICAL: STRIPE_WEBHOOK_SECRET not set');
-    return res.status(500).send('Webhook not configured');
-  }
-  if (!stripe) {
-    return res.status(500).send('Stripe not configured');
-  }
+// ── POST /api/payments/webhook/:processor ───────────────────────────────────
+// Generic webhook endpoint. Each processor posts here; we route by name.
+paymentsRouter.post('/webhook/:processor', async (req, res) => {
+  const { processor } = req.params;
+  const payload = req.body;
 
-  /* 2. Verify signature */
-  const sig = req.headers['stripe-signature'];
-  let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error('[payments] Webhook signature failed:', err.message);
-    return res.status(401).send('Unauthorized');
-  }
-
-  /* 3. Only handle checkout.session.completed */
-  if (event.type !== 'checkout.session.completed') {
-    return res.status(200).json({ received: true });
-  }
-
-  const session = event.data.object;
-  const { userId, groupId, displayName } = session.metadata || {};
-
-  if (!userId || !groupId) {
-    console.error('[payments] Webhook missing metadata:', session.id);
-    return res.status(200).json({ received: true });
-  }
-
-  const safeName = (displayName || 'Player').trim().slice(0, 50);
-
-  /* 4. Process in a transaction — atomic or nothing */
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Idempotency gate: only process if order is still 'pending'
-    // This atomic UPDATE ensures only one webhook delivery succeeds
-    const updateResult = await client.query(
-      `UPDATE payment_orders SET status = 'completed', completed_at = NOW()
-       WHERE stripe_session_id = $1 AND status = 'pending'
-       RETURNING id`,
-      [session.id]
-    );
-
-    if (updateResult.rowCount === 0) {
-      // Already processed (or order doesn't exist) — idempotent, return 200
-      await client.query('ROLLBACK');
-      return res.status(200).json({ received: true, note: 'already processed' });
+    // Log the webhook (dedup by webhook ID if provided)
+    const webhookId = payload.webhook_id || payload.id || null;
+    const { duplicate } = await logWebhook(processor, webhookId, payload);
+    if (duplicate) {
+      return res.status(200).json({ ok: true, message: 'Duplicate webhook, already processed' });
     }
 
-    // Insert member (ON CONFLICT prevents duplicates)
-    await client.query(
-      `INSERT INTO group_members (group_id, user_id, display_name, is_alive)
-       VALUES ($1, $2, $3, true)
-       ON CONFLICT (group_id, user_id) DO NOTHING`,
-      [groupId, userId, safeName]
-    );
+    // Route to processor-specific handling
+    if (processor === 'quadrapay') {
+      // TODO: Verify signature using QuadraPay secret
+      // const isValid = quadrapay.verifySignature(req.headers, payload);
+      // if (!isValid) return res.status(401).json({ error: 'Invalid signature' });
 
-    // Increment prize pool
-    await client.query(
-      `UPDATE groups SET prize_pool_cents = prize_pool_cents + entry_fee_cents
-       WHERE id = $1 AND entry_fee_cents > 0`,
-      [groupId]
-    );
+      const processorOrderId = payload.order_id || payload.transaction_id;
+      const status = payload.status;
 
-    await client.query('COMMIT');
-    console.log(`[payments] SUCCESS: User ${userId} joined group ${groupId} via payment ${session.id}`);
-    return res.status(200).json({ received: true });
+      if (!processorOrderId) {
+        console.warn('QuadraPay webhook missing order_id');
+        return res.status(200).json({ ok: true });
+      }
+
+      const order = await getOrderByProcessorId(processorOrderId);
+      if (!order) {
+        console.warn(`Webhook for unknown processor order: ${processorOrderId}`);
+        return res.status(200).json({ ok: true });
+      }
+
+      if (status === 'success' || status === 'completed' || status === 'confirmed') {
+        const result = await confirmPaymentAndJoin(order.id, payload.ref || processorOrderId);
+        console.log(`Payment confirmed for order ${order.id}:`, result);
+      } else if (status === 'failed' || status === 'cancelled' || status === 'declined') {
+        await failPayment(order.id, status);
+        console.log(`Payment failed for order ${order.id}: ${status}`);
+      }
+    } else {
+      console.warn(`Unknown payment processor: ${processor}`);
+    }
+
+    res.status(200).json({ ok: true });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[payments] Webhook transaction error:', err.message);
-    // Return 500 so Stripe retries (transient failure)
-    return res.status(500).json({ error: 'Processing failed, will retry' });
-  } finally {
-    client.release();
+    console.error(`Webhook error (${processor}):`, err.message);
+    // Always return 200 to prevent processor retrying on our errors
+    res.status(200).json({ ok: false, message: 'Processing error logged' });
   }
-}
+});
+
+// ── Admin: list all payment orders ──────────────────────────────────────────
+paymentsRouter.get('/admin/list', async (req, res) => {
+  const secret = req.query.secret;
+  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT po.id, po.group_id, po.user_id, po.amount_cents, po.status,
+             po.processor_name, po.processor_order_id, po.confirmed_at, po.created_at,
+             g.name AS group_name, g.tournament_id,
+             u.email, u.display_name
+      FROM payment_orders po
+      JOIN groups g ON g.id = po.group_id
+      JOIN users u ON u.id = po.user_id
+      ORDER BY po.created_at DESC
+    `);
+    res.json({ count: result.rows.length, orders: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: revenue summary ──────────────────────────────────────────────────
+paymentsRouter.get('/admin/revenue', async (req, res) => {
+  const secret = req.query.secret;
+  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT g.tournament_id,
+             COUNT(*) FILTER (WHERE po.status = 'confirmed') AS confirmed_count,
+             COALESCE(SUM(po.amount_cents) FILTER (WHERE po.status = 'confirmed'), 0) AS total_cents,
+             COUNT(*) FILTER (WHERE po.status = 'pending' OR po.status = 'awaiting_payment') AS pending_count,
+             COUNT(*) FILTER (WHERE po.status = 'failed') AS failed_count,
+             COUNT(*) FILTER (WHERE po.status = 'refunded') AS refunded_count
+      FROM payment_orders po
+      JOIN groups g ON g.id = po.group_id
+      GROUP BY g.tournament_id
+      ORDER BY g.tournament_id
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: refund a specific order ──────────────────────────────────────────
+paymentsRouter.post('/admin/refund', async (req, res) => {
+  const { secret, orderId } = req.body;
+  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+  if (!orderId) return res.status(400).json({ error: 'orderId required' });
+
+  try {
+    // TODO: Call processor-specific refund API here before marking in DB
+    const result = await refundPayment(orderId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

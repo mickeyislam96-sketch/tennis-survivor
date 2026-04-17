@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
-import { getTournament } from '../data/tournaments.js';
+import { TOURNAMENTS } from '../data/tournaments.js';
 import { sendTournamentJoinEmail } from '../utils/email.js';
-import { getDeadlines } from '../services/tennisData.js';
 
 export const groupsRouter = Router();
 
@@ -36,7 +35,7 @@ function rowToMember(m) {
   };
 }
 
-// GET /api/groups â groups the user belongs to
+// GET /api/groups — groups the user belongs to
 groupsRouter.get('/', async (req, res) => {
   const userId = req.query.userId || req.headers['x-user-id'];
   if (!userId) return res.json([]);
@@ -52,7 +51,7 @@ groupsRouter.get('/', async (req, res) => {
          ORDER BY g.created_at DESC`,
         [userId]
       );
-      return res.json(result.rows.map(rowToGroup).filter(g => getTournament(g.tournamentId) !== null));
+      return res.json(result.rows.map(rowToGroup));
     } catch (e) {
       console.error('DB groups list error:', e.message);
     }
@@ -65,7 +64,7 @@ groupsRouter.get('/', async (req, res) => {
   res.json(myGroups);
 });
 
-// GET /api/groups/invite/:code â look up group by invite code
+// GET /api/groups/invite/:code — look up group by invite code
 groupsRouter.get('/invite/:code', async (req, res) => {
   const code = req.params.code.toUpperCase();
 
@@ -83,11 +82,7 @@ groupsRouter.get('/invite/:code', async (req, res) => {
          FROM group_members WHERE group_id = $1`,
         [g.id]
       );
-      const groupData = rowToGroup(g);
-      // Expose betaFree flag so JoinGroup page shows "Entry fee waived" notice
-      const tournament = getTournament(g.tournament_id);
-      const betaFree = groupData.entryFeeCents === 0;
-      return res.json({ ...groupData, betaFree, members: membersResult.rows.map(rowToMember) });
+      return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
     }
   } catch (e) {
     console.error('DB invite lookup error:', e.message);
@@ -97,11 +92,10 @@ groupsRouter.get('/invite/:code', async (req, res) => {
   const group = MOCK_GROUPS.find(g => g.inviteCode === code);
   if (!group) return res.status(404).json({ error: 'Invalid invite code' });
   const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
-  const betaFree = (group.entryFeeCents || 0) === 0;
-  res.json({ ...group, betaFree, members });
+  res.json({ ...group, members });
 });
 
-// GET /api/groups/:id â group detail + members
+// GET /api/groups/:id — group detail + members
 groupsRouter.get('/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -121,41 +115,7 @@ groupsRouter.get('/:id', async (req, res) => {
            ORDER BY joined_at`,
           [id]
         );
-        const groupData = rowToGroup(g);
-        const betaFree = groupData.entryFeeCents === 0;
-        let members = membersResult.rows.map(rowToMember);
-
-        // Self-healing: if a member was eliminated in a round whose pick
-        // window is still open, they shouldn't be eliminated yet (they can
-        // still change their pick). Override to alive and fix the DB.
-        try {
-          const deadlines = await getDeadlines();
-          const openRounds = new Set(deadlines.filter(d => d.isOpen).map(d => d.round));
-          for (const m of members) {
-            if (!m.isAlive && m.eliminatedRound && openRounds.has(m.eliminatedRound)) {
-              const badRound = m.eliminatedRound;
-              console.log(`[groups] Self-healing: ${m.displayName} was eliminated in ${badRound} but window is still open â overriding to alive`);
-              m.isAlive = true;
-              m.eliminatedRound = null;
-              // Also fix the DB so this doesn't repeat every request
-              pool.query(
-                'UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE id = $1::uuid',
-                [m.id]
-              ).then(() => {
-                // Also reset the pick for that round so it's changeable
-                return pool.query(
-                  'UPDATE picks SET survived = NULL WHERE group_id = $1::uuid AND user_id = $2::uuid AND round = $3 AND survived = false',
-                  [m.groupId, m.userId, badRound]
-                );
-              }).catch(err => console.error('[groups] Self-healing DB fix error:', err.message));
-            }
-          }
-        } catch (err) {
-          // Non-fatal â if deadlines fail, just return raw DB data
-          console.warn('[groups] Could not check deadlines for self-healing:', err.message);
-        }
-
-        return res.json({ ...groupData, betaFree, members });
+        return res.json({ ...rowToGroup(g), members: membersResult.rows.map(rowToMember) });
       }
     } catch (e) {
       console.error('DB group lookup error:', e.message);
@@ -169,16 +129,13 @@ groupsRouter.get('/:id', async (req, res) => {
   res.json({ ...group, members });
 });
 
-// POST /api/groups â create a new group
+// POST /api/groups — create a new group
 groupsRouter.post('/', async (req, res) => {
   const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
   const adminId = adminUserId || req.headers['x-user-id'];
   const groupName = (name || 'My Pool').trim();
-  // Generate invite code: short tournament prefix + random alphanumeric suffix
-  const prefix = groupName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
-  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const inviteCode = `${prefix}-${suffix}`;
-  const tournament = tournamentId || 'monte-carlo-2026';
+  const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
+  const tournament = tournamentId || 'indian-wells-2026';
 
   if (isUUID(adminId)) {
     try {
@@ -217,34 +174,38 @@ groupsRouter.post('/:id/join', async (req, res) => {
 
   if (isUUID(groupId) && isUUID(userId)) {
     try {
-      const groupCheck = await pool.query(
-        'SELECT id, entry_fee_cents FROM groups WHERE id = $1', [groupId]
-      );
+      const groupCheck = await pool.query('SELECT id FROM groups WHERE id = $1', [groupId]);
       if (groupCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Group not found' });
       }
 
-      // PAYMENT GATE: paid groups require a completed Stripe payment before joining
-      const groupFee = parseInt(groupCheck.rows[0].entry_fee_cents, 10) || 0;
-      if (groupFee > 0) {
-        const paymentCheck = await pool.query(
-          `SELECT id FROM payment_orders
-           WHERE user_id = $1 AND group_id = $2 AND status = 'completed'`,
-          [userId, groupId]
-        );
-        if (paymentCheck.rows.length === 0) {
-          return res.status(402).json({ error: 'Payment required to join this group' });
-        }
-      }
-
       const existing = await pool.query(
-        `SELECT id::text, group_id::text, user_id::text, display_name, is_alive, eliminated_round, joined_at
-         FROM group_members WHERE group_id = $1 AND user_id = $2`,
+        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, userId]
       );
       if (existing.rows.length > 0) {
-        // Return 200 (not 400) so auto-join flows don't show errors
-        return res.status(200).json(rowToMember(existing.rows[0]));
+        return res.status(400).json({ error: 'Already a member' });
+      }
+
+      // Payment gate: if group has an entry fee, require confirmed payment
+      const groupFeeCheck = await pool.query(
+        'SELECT entry_fee_cents FROM groups WHERE id = $1',
+        [groupId]
+      );
+      const entryFee = groupFeeCheck.rows[0]?.entry_fee_cents || 0;
+
+      if (entryFee > 0) {
+        const paymentCheck = await pool.query(
+          "SELECT id FROM payment_orders WHERE group_id = $1 AND user_id = $2 AND status = 'confirmed'",
+          [groupId, userId]
+        );
+        if (paymentCheck.rows.length === 0) {
+          return res.status(402).json({
+            error: 'Payment required',
+            code: 'PAYMENT_REQUIRED',
+            entryFeeCents: entryFee,
+          });
+        }
       }
 
       const result = await pool.query(
@@ -255,41 +216,44 @@ groupsRouter.post('/:id/join', async (req, res) => {
       );
 
       // Increment prize pool if group has an entry fee
-      await pool.query(
-        `UPDATE groups SET prize_pool_cents = prize_pool_cents + entry_fee_cents
-         WHERE id = $1 AND entry_fee_cents > 0`,
-        [groupId]
-      );
+      // Note: for paid groups, prize pool is also incremented in confirmPaymentAndJoin().
+      // This handles legacy free groups and direct admin joins.
+      if (entryFee === 0) {
+        // No-op for free groups (prize pool stays at 0)
+      } else {
+        // Paid group: prize pool already incremented by payment confirmation.
+        // Do NOT double-increment here.
+      }
 
-      // Queue tournament join confirmation email (pending admin approval)
+      // Non-blocking tournament join confirmation email
       try {
-        const [userResult, groupResult, memberCountResult] = await Promise.all([
+        const [userResult, groupResult, prizeResult] = await Promise.all([
           pool.query('SELECT email, display_name FROM users WHERE id = $1', [userId]),
-          pool.query('SELECT name, tournament_id FROM groups WHERE id = $1', [groupId]),
-          pool.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1', [groupId]),
+          pool.query('SELECT name, tournament_id, entry_fee_cents FROM groups WHERE id = $1', [groupId]),
+          pool.query('SELECT prize_pool_cents FROM groups WHERE id = $1', [groupId]),
         ]);
         const user = userResult.rows[0];
-        const grp = groupResult.rows[0];
-        const tournament = getTournament(grp?.tournament_id);
+        const group = groupResult.rows[0];
+        const prize = prizeResult.rows[0];
+        const tournament = TOURNAMENTS.find(t => t.id === group?.tournament_id);
         if (user && tournament) {
-          const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-          await sendTournamentJoinEmail({
-            userId,
-            groupId,
+          const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+          sendTournamentJoinEmail({
             email: user.email,
             displayName: user.display_name,
+            groupId,
+            groupName: group.name,
             tournamentName: tournament.name,
-            tournamentShortName: tournament.shortName || tournament.name,
-            tournamentLevel: tournament.tourLevel || '',
-            drawDate: tournament.drawDate || fmt(tournament.startDate || ''),
-            firstMatchDate: fmt(tournament.startDate || ''),
-            groupPlayerCount: Number(memberCountResult.rows[0].count),
-            groupUrl: `https://finalserveivor.com/group/${groupId}`,
-            inviteUrl: '',
+            tourLevel: tournament.tourLevel,
+            location: tournament.location,
+            drawDate: tournament.drawDate || fmt(tournament.startDate),
+            startDate: fmt(tournament.startDate),
+            drawAvailable: tournament.drawAvailable === true,
+            prizePoolCents: prize?.prize_pool_cents || 0,
           });
         }
       } catch (emailErr) {
-        console.error('Tournament join email queue failed:', emailErr.message);
+        console.error('Tournament join email lookup failed:', emailErr.message);
       }
 
       return res.status(201).json(rowToMember(result.rows[0]));
@@ -302,6 +266,16 @@ groupsRouter.post('/:id/join', async (req, res) => {
   // Mock fallback
   const group = MOCK_GROUPS.find(g => g.id === groupId);
   if (!group) return res.status(404).json({ error: 'Group not found' });
+
+  // Payment gate for mock groups too
+  if (group.entryFeeCents && group.entryFeeCents > 0) {
+    return res.status(402).json({
+      error: 'Payment required',
+      code: 'PAYMENT_REQUIRED',
+      entryFeeCents: group.entryFeeCents,
+    });
+  }
+
   if (MOCK_MEMBERS.some(m => m.groupId === group.id && m.userId === userId)) {
     return res.status(400).json({ error: 'Already a member' });
   }

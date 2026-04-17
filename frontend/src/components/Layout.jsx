@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { getTournament } from '../data/tournaments';
 import './Layout.css';
 
 const nav = [
@@ -120,25 +119,10 @@ function AuthModal({ onClose, initialMode = 'login' }) {
 
   const switchMode = (m) => { setMode(m); setError(''); setSuccess(''); setPassword(''); };
 
-  const isValidEmail = (addr) => {
-    if (!addr || /\s/.test(addr.trim())) return false;
-    const parts = addr.trim().split('@');
-    if (parts.length !== 2 || !parts[0]) return false;
-    const domain = parts[1];
-    if (!domain || !domain.includes('.')) return false;
-    if (domain.startsWith('.') || domain.endsWith('.')) return false;
-    return !domain.split('.').some(l => l.length === 0);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-
-    if (!isValidEmail(email)) {
-      setError('Please enter a valid email address (e.g. name@gmail.com).');
-      return;
-    }
 
     if (mode === 'register' && password.length < 8) {
       setError('Password must be at least 8 characters.');
@@ -311,53 +295,10 @@ export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
-  const { user, userId } = useAuth();
+  const { user } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
-  const [currentStatus, setCurrentStatus] = useState(null);   // tournament status of URL's group
-  const [activeGroupId, setActiveGroupId] = useState(null);    // user's active tournament group
-
-  // Determine tournament status and active group for nav routing
-  useEffect(() => {
-    if (!groupId) { setCurrentStatus(null); setActiveGroupId(null); return; }
-    fetch(`${API}/groups/${groupId}`)
-      .then((r) => r.json())
-      .then((g) => {
-        const t = g?.tournamentId ? getTournament(g.tournamentId) : null;
-        setCurrentStatus(t?.status || null);
-        if (t?.status === 'active') {
-          setActiveGroupId(groupId);
-        } else if (userId) {
-          // Current group is not active — find user's active tournament group
-          fetch(`${API}/pools?userId=${userId}`)
-            .then((r) => r.json())
-            .then((pools) => {
-              const activeMemberPool = (Array.isArray(pools) ? pools : []).find(
-                (p) => p.isMember && p.tournament?.status === 'active'
-              );
-              setActiveGroupId(activeMemberPool?.id || null);
-            })
-            .catch(() => setActiveGroupId(null));
-        } else {
-          setActiveGroupId(null);
-        }
-      })
-      .catch(() => { setCurrentStatus(null); setActiveGroupId(null); });
-  }, [groupId, userId]);
-
-  // Nav link logic:
-  // - Active tournament: full nav pointing to this group
-  // - Completed tournament: only Leaderboard for this group
-  // - Upcoming tournament: full nav pointing to user's active group (if any)
-  const isCompleted = currentStatus === 'completed';
-  const navBase = isCompleted
-    ? `/group/${groupId}`
-    : activeGroupId ? `/group/${activeGroupId}` : base;
-  const showFullNav = !isCompleted && !!activeGroupId;
-  const showCompletedNav = isCompleted && !!groupId;
-  // Completed tournaments: show Draw, My Picks, Leaderboard (not Make Pick)
-  const completedNav = nav.filter(n => n.to !== 'pick');
 
   return (
     <div className="layout">
@@ -365,30 +306,15 @@ export function Layout({ children }) {
         <Link to="/" className="logo">Final Serve-ivor</Link>
 
         <nav className="nav">
-          {showFullNav && nav.map(({ to, label }) => (
+          {groupId && nav.map(({ to, label }) => (
             <NavLink
               key={to}
-              to={`${navBase}/${to}`}
+              to={`${base}/${to}`}
               className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
             >
               {label}
             </NavLink>
           ))}
-          {showCompletedNav && completedNav.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={`${navBase}/${to}`}
-              className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
-            >
-              {label}
-            </NavLink>
-          ))}
-          <NavLink
-            to="/how-to-play"
-            className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
-          >
-            How to Play
-          </NavLink>
           <NavLink
             to="/terms"
             className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
@@ -417,7 +343,7 @@ export function Layout({ children }) {
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="footer-copy">© 2026 Final Serve-ivor · Outsmart. Outlast. Win.</span>
+          <span className="footer-copy">© 2026 Final Serve-ivor · A game of skill</span>
           <div className="footer-links">
             <NavLink to="/terms" className="footer-link">Terms &amp; Conditions</NavLink>
           </div>

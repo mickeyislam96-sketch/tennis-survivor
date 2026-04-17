@@ -1,162 +1,96 @@
 /**
- * Tennis draw & results service.
- *
- * Data priority:
- *   1. API-Tennis (paid, configured via TENNIS_API_KEY + tournament-specific key)
- *   2. Sofascore adapter (free, unofficial — often 403-blocked on cloud IPs)
- *   3. Mock draw (local fallback — always correct structure, no real results)
- *
- * All API calls are cached in-memory (TTL: 2 minutes).
- * A single shared cache means all request handlers reuse the same data,
- * preventing rate-limit hammering even with many concurrent users.
+ * Tennis draw & results: API-Tennis when configured, else Indian Wells mock.
+ * Active tournament: Miami Open 2026 — 96-player draw, same R1/R64/.../F structure.
+ * Ensure INDIAN_WELLS_TOURNAMENT_KEY on Railway is set to the Miami tournament key.
  */
 
-import { TOURNAMENT, ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
-import { getMockDraw } from '../data/mockDraw.js';
-import { MC_PLAYERS, API_KEY_MAP as STATIC_API_KEY_MAP } from '../data/monteCarloMockDraw.js';
+import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
+import { getMiamiMockDraw } from '../data/miamiDraw.js';
 import nodeFetch from 'node-fetch';
 import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
+// Import active tournament config for R1 per-match lock feature
+let ACTIVE_TOURNAMENT = null;
+try {
+  const mod = await import('../config/activeTournament.js');
+  ACTIVE_TOURNAMENT = mod.TOURNAMENT;
+} catch (e) {
+  // activeTournament.js may not exist in older deployments — graceful fallback
+}
+
 const API_BASE = 'https://api.api-tennis.com/tennis';
 
-// ── Dynamic API key discovery ────────────────────────────────────────────────
-// Auto-builds the mock-ID → API-key map from live fixture data by matching
-// player names. No more manual key lookups for qualifiers or replacements.
-const dynamicKeyMap = new Map(); // mock ID → API key (string)
-
-const normForMatch = (n) =>
-  (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-function buildDynamicKeyMap(fixtures) {
-  if (!fixtures || fixtures.length === 0) return;
-
-  // Index mock players by normalised surname for fast lookup
-  const bySurname = new Map(); // surname → [{ id, fullNorm }]
-  for (const p of MC_PLAYERS) {
-    const norm = normForMatch(p.name);
-    const parts = norm.split(/\s+/);
-    const surname = parts[parts.length - 1];
-    if (!bySurname.has(surname)) bySurname.set(surname, []);
-    bySurname.get(surname).push({ id: p.id, fullNorm: norm });
-  }
-
-  // For each fixture player, try to match to a mock player and capture the API key
-  for (const f of fixtures) {
-    const pairs = [
-      { name: f.event_first_player, key: f.first_player_key },
-      { name: f.event_second_player, key: f.second_player_key },
-    ];
-    for (const { name, key } of pairs) {
-      if (!name || !key) continue;
-      const norm = normForMatch(name);
-      const parts = norm.split(/\s+/);
-      const surname = parts[parts.length - 1];
-      const candidates = bySurname.get(surname);
-      if (!candidates) continue;
-      // Prefer exact full-name match, fall back to surname-only if unique
-      const exact = candidates.find(c => c.fullNorm === norm);
-      const match = exact || (candidates.length === 1 ? candidates[0] : null);
-      if (match && !dynamicKeyMap.has(match.id)) {
-        dynamicKeyMap.set(match.id, String(key));
-      }
-    }
-  }
-
-  if (dynamicKeyMap.size > 0) {
-    const newKeys = [...dynamicKeyMap.entries()]
-      .filter(([id]) => !STATIC_API_KEY_MAP[id])
-      .map(([id, k]) => `${id}=${k}`);
-    if (newKeys.length > 0) {
-      console.log(`[tennisData] Auto-discovered ${newKeys.length} new API keys: ${newKeys.join(', ')}`);
-    }
-  }
-}
-
-/**
- * Get the merged API key map: static (hardcoded) + dynamic (auto-discovered).
- * Consumers should call this instead of importing API_KEY_MAP directly.
- */
-export function getApiKeyMap() {
-  const merged = { ...STATIC_API_KEY_MAP };
-  for (const [id, key] of dynamicKeyMap) {
-    if (!merged[id] || merged[id] == null) {
-      merged[id] = key;
-    }
-  }
-  return merged;
-}
-
-// ── Global round name map (tournament-agnostic) ───────────────────────────────
-const GLOBAL_ROUND_MAP = {
-  'first round':      'R1',
-  'round of 96':      'R1',
-  '1st round':        'R1',
-  'round 1':          'R1',
-  'round of 64':      'R64',
-  '2nd round':        'R32',
-  'round 2':          'R32',
-  'round of 32':      'R32',
-  '3rd round':        'R16',
-  'round 3':          'R16',
-  'round of 16':      'R16',
-  '4th round':        'QF',
-  'round 4':          'QF',
+// Map API round names to our internal round keys (R1, R64, R32, R16, QF, SF, F).
+// Indian Wells is a 96-draw: round 1 = R1 (byes), round 2 = R64, round 3 = R32, etc.
+const ROUND_MAP = {
+  // Text nam
+  'first round': 'R1',
+  'round of 96': 'R1',
+  '1st round':   'R1',
+  'round 1':     'R1',
+  'round of 64': 'R64',
+  '2nd round':   'R64',
+  'round 2':     'R64',
+  'round of 32': 'R32',
+  '3rd round':   'R32',
+  'round 3':     'R32',
+  'round of 16': 'R16',
+  '4th round':   'R16',
+  'round 4':     'R16',
   'quarter-final':    'QF',
   'quarter-final(s)': 'QF',
   'quarterfinal':     'QF',
   'quarterfinals':    'QF',
   'quarter finals':   'QF',
-  'semi-final':       'SF',
-  'semi-final(s)':    'SF',
-  'semifinal':        'SF',
-  'semifinals':       'SF',
-  'semi finals':      'SF',
-  'final':            'F',
-  'the final':        'F',
+  'semi-final':    'SF',
+  'semi-final(s)': 'SF',
+  'semifinal':     'SF',
+  'semifinals':    'SF',
+  'semi finals':   'SF',
+  'final':     'F',
+  'the final': 'F',
 };
 
-// Merge tournament-specific overrides (lower-case keys)
-const ROUND_MAP = { ...GLOBAL_ROUND_MAP };
-if (TOURNAMENT.roundNameOverrides) {
-  for (const [k, v] of Object.entries(TOURNAMENT.roundNameOverrides)) {
-    ROUND_MAP[k.toLowerCase()] = v;
-  }
-}
-
-// Fraction-notation denominator → round key.
-// Tournament config can provide an explicit fractionDenomMap (e.g. MC 56-draw
-// where 1/32-finals = R32 not R1). Falls back to power-of-2 auto-derivation
-// which works for standard 96/128-draw tournaments.
-function buildFractionMap(rounds, tournament) {
-  // Prefer explicit map from tournament config if provided
-  if (tournament.fractionDenomMap) return { ...tournament.fractionDenomMap };
-  // Auto-derive: first round gets the largest denominator (2^(n-1))
-  const map = {};
-  const n = rounds.length;
-  for (let i = 0; i < n - 1; i++) {
-    const denom = Math.pow(2, n - 1 - i);
-    map[denom] = rounds[i];
-  }
-  return map;
-}
-const FRACTION_MAP = buildFractionMap(ROUNDS, TOURNAMENT);
-
+// Numeric round values (API-Tennis often returns "1", "2", "3"...).
+// Maps position in ROUNDS array: ROUNDS[0]=R1, ROUNDS[1]=R64, etc.
 function normalizeRound(apiRound) {
   if (apiRound === null || apiRound === undefined || apiRound === '') return null;
   const str = String(apiRound).toLowerCase().trim();
 
+  // Named round (direct map)
   if (ROUND_MAP[str]) return ROUND_MAP[str];
+
+  // Already a valid internal key (e.g. "R32")
   if (ROUNDS.includes(str.toUpperCase())) return str.toUpperCase();
 
+  // Strip "ATP [Tournament Name] - " prefix, e.g. "ATP Indian Wells - 1/64-finals"
   const roundPart = str.replace(/^atp\s+.+?\s+-\s+/, '').trim();
+
+  // Try direct map again after stripping prefix (e.g. "final", "semifinals")
   if (ROUND_MAP[roundPart]) return ROUND_MAP[roundPart];
 
+  // Fraction notation: "1/64-finals", "1/32-finals", "1/4-finals", etc.
+  // The denominator corresponds to the number of matches in a standard 128-draw bracket.
+  // For Indian Wells 96-draw: "1/64-finals" covers both R1 (pre-seeds) and R64 (seeds enter).
   const fracMatch = roundPart.match(/^1\/(\d+)-finals?$/);
   if (fracMatch) {
     const denom = parseInt(fracMatch[1], 10);
-    if (FRACTION_MAP[denom]) return FRACTION_MAP[denom];
+    // Indian Wells 96-draw confirmed mapping from live API data:
+    //   1/64-finals (24 fixtures) = R1  — non-seeds first round
+    //   1/32-finals (32 fixtures) = R64 — top seeds enter + R1 winners
+    //   1/16-finals (16 fixtures) = R32
+    //   1/8-finals               = R16
+    //   1/4-finals               = QF
+    //   1/2-finals               = SF
+    if (denom === 64) return 'R1';
+    if (denom === 32) return 'R64';
+    if (denom === 16) return 'R32';
+    if (denom === 8)  return 'R16';
+    if (denom === 4)  return 'QF';
+    if (denom === 2)  return 'SF';
   }
 
+  // Numeric round: "1" → ROUNDS[0], "2" → ROUNDS[1], etc.
   const num = parseInt(str, 10);
   if (!Number.isNaN(num) && num >= 1 && num <= ROUNDS.length) {
     return ROUNDS[num - 1];
@@ -165,108 +99,38 @@ function normalizeRound(apiRound) {
   return null;
 }
 
-// ── In-memory API cache ───────────────────────────────────────────────────────
-
-const cache = {
-  fixtures:  null,   // null | Array
-  fetchedAt: 0,
-  error:     null,
-  pending:   null,   // Promise | null — deduplicates concurrent fetches
-};
-
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
-
-async function doFetch(url) {
-  return typeof fetch !== 'undefined' ? fetch(url) : nodeFetch(url);
-}
+/**
+ * Fetch fixtures from API-Tennis for the active tournament (Miami Open 2026).
+ * Requires TENNIS_API_KEY and MIAMI_TOURNAMENT_KEY (or legacy INDIAN_WELLS_TOURNAMENT_KEY).
+ * Update MIAMI_TOURNAMENT_KEY in Railway to the Miami Open tournament key from API-Tennis.
+ */
+const fetchImpl = typeof fetch !== 'undefined' ? fetch : nodeFetch;
 
 async function fetchApiDraw() {
-  const apiKey       = process.env.TENNIS_API_KEY;
-  const tournamentKey = TOURNAMENT.apiTournamentKey;
+  const apiKey = process.env.TENNIS_API_KEY;
+  // MIAMI_TOURNAMENT_KEY is the canonical name going forward.
+  // INDIAN_WELLS_TOURNAMENT_KEY kept for backwards compatibility — remove after Miami.
+  const tournamentKey =
+    process.env.MIAMI_TOURNAMENT_KEY ||
+    process.env.INDIAN_WELLS_TOURNAMENT_KEY ||
+    process.env.TOURNAMENT_KEY;
   if (!apiKey || !tournamentKey) return null;
 
-  const now = Date.now();
-  if (cache.fixtures !== null && now - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.fixtures;
-  }
+  // Miami Open 2026: draw March 16, tournament March 19–30
+  const dateStart = '2026-03-16';
+  const dateStop  = '2026-03-30';
+  const url = `${API_BASE}/?method=get_fixtures&APIkey=${apiKey}&tournament_key=${tournamentKey}&tournament_season=2026&date_start=${dateStart}&date_stop=${dateStop}`;
 
-  // Deduplicate — return the in-flight promise if one exists
-  if (cache.pending) return cache.pending;
-
-  cache.pending = (async () => {
-    const url =
-      `${API_BASE}/?method=get_fixtures` +
-      `&APIkey=${apiKey}` +
-      `&tournament_key=${tournamentKey}` +
-      (TOURNAMENT.apiSeason ? `&tournament_season=${TOURNAMENT.apiSeason}` : '') +
-      `&date_start=${TOURNAMENT.apiDateStart}` +
-      `&date_stop=${TOURNAMENT.apiDateStop}`;
-
-    let lastError = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
-        let res;
-        try {
-          res = await doFetch(url, { signal: controller.signal });
-        } finally {
-          clearTimeout(timer);
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const data = await res.json();
-        if (!data?.success || !Array.isArray(data.result)) {
-          throw new Error(`Bad API response: ${JSON.stringify(data).slice(0, 200)}`);
-        }
-        cache.fixtures  = data.result;
-        cache.fetchedAt = Date.now();
-        cache.error     = null;
-        console.log(`[tennisData] API OK: ${data.result.length} fixtures (attempt ${attempt})`);
-        // Auto-discover API keys from fixture data
-        buildDynamicKeyMap(data.result);
-        return data.result;
-      } catch (e) {
-        lastError = e;
-        if (attempt < 3) {
-          const delay = 500 * attempt;
-          console.warn(`[tennisData] Attempt ${attempt} failed: ${e.message}. Retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
-        }
-      }
-    }
-
-    cache.error = lastError?.message ?? 'Unknown error';
-    console.error(`[tennisData] All API fetch attempts failed: ${cache.error}`);
-
-    // Return stale cache rather than nothing
-    if (cache.fixtures !== null) {
-      console.warn(`[tennisData] Returning stale cache (age: ${Math.round((Date.now() - cache.fetchedAt) / 1000)}s)`);
-      return cache.fixtures;
-    }
+  try {
+    const res = await fetchImpl(url);
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.result)) return null;
+    return data.result;
+  } catch (e) {
+    console.warn('Tennis API fetch failed:', e.message);
     return null;
-  })().finally(() => { cache.pending = null; });
-
-  return cache.pending;
+  }
 }
-
-export function invalidateCache() {
-  cache.fixtures  = null;
-  cache.fetchedAt = 0;
-  cache.error     = null;
-  console.log('[tennisData] Cache invalidated.');
-}
-
-export function getCacheStatus() {
-  return {
-    hasCachedData: cache.fixtures !== null,
-    fixtureCount:  cache.fixtures?.length ?? 0,
-    ageSeconds:    cache.fixtures ? Math.round((Date.now() - cache.fetchedAt) / 1000) : null,
-    ttlSeconds:    Math.round(CACHE_TTL_MS / 1000),
-    lastError:     cache.error,
-  };
-}
-
-// ── Fixture parsing ───────────────────────────────────────────────────────────
 
 function toFixtureDate(f) {
   if (f.startTime) {
@@ -281,45 +145,68 @@ function toFixtureDate(f) {
   return null;
 }
 
+/**
+ * Build draw + results from API fixtures.
+ *
+ * Strategy:
+ * 1. Try to use `tournament_round` field from the API via ROUND_MAP — this is the most
+ *    accurate approach and handles Indian Wells byes correctly (R1 and R64 overlap in dates).
+ * 2. Fall back to sequential date-based assignment only when round fields are all blank.
+ */
 function buildDrawFromFixtures(fixtures) {
-  const playersMap     = new Map();
+  const playersMap = new Map();
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
 
+  // Filter out explicit qualification matches and doubles/mixed doubles
   const mainFixtures = fixtures.filter((f) => {
     const q = String(f.event_qualification ?? '').toLowerCase();
     if (q === 'true' || q === '1') return false;
+
+    // Exclude doubles and mixed doubles events
     const eventType = String(f.event_type_type ?? f.event_type ?? '').toLowerCase();
     if (eventType.includes('double') || eventType.includes('mixed')) return false;
+
+    // Fallback: player names with " / " are doubles pairings
     const p1 = String(f.event_first_player ?? '');
     const p2 = String(f.event_second_player ?? '');
     if (p1.includes(' / ') || p2.includes(' / ')) return false;
+
     return true;
   });
 
+  // Check whether the API provides usable round names
   const hasRoundField = mainFixtures.some((f) => {
     const raw = f.tournament_round || f.event_round || '';
     return raw && normalizeRound(raw);
   });
 
   function buildMatch(f, round) {
-    const player1 = { id: String(f.first_player_key  ?? `${f.event_key}-p1`), name: f.event_first_player  || 'TBD' };
-    const player2 = { id: String(f.second_player_key ?? `${f.event_key}-p2`), name: f.event_second_player || 'TBD' };
+    const player1 = {
+      id: String(f.first_player_key ?? `${f.event_key}-p1`),
+      name: f.event_first_player || 'TBD',
+    };
+    const player2 = {
+      id: String(f.second_player_key ?? `${f.event_key}-p2`),
+      name: f.event_second_player || 'TBD',
+    };
     playersMap.set(player1.id, playersMap.get(player1.id) ?? { ...player1, roundEliminated: null });
     playersMap.set(player2.id, playersMap.get(player2.id) ?? { ...player2, roundEliminated: null });
 
-    const dt        = toFixtureDate(f);
+    const dt = toFixtureDate(f);
     const startTime = dt ? dt.toISOString() : null;
 
-    let winnerId = null, winnerName = null;
+    let winnerId = null;
+    let winnerName = null;
     let status = (f.event_status || '').toLowerCase().includes('finish') ? 'completed' : 'scheduled';
-    if (f.event_winner === 'First Player')       { winnerId = player1.id; winnerName = player1.name; }
+    if (f.event_winner === 'First Player') { winnerId = player1.id; winnerName = player1.name; }
     else if (f.event_winner === 'Second Player') { winnerId = player2.id; winnerName = player2.name; }
     if (winnerId) status = 'completed';
 
     return {
       id: `m-${round}-${f.event_key}`,
-      round, matchOrder: (matchesByRound[round] || []).length,
+      round,
+      matchOrder: (matchesByRound[round] || []).length,
       player1Id: player1.id, player1Name: player1.name,
       player2Id: player2.id, player2Name: player2.name,
       winnerId, winnerName, status, startTime,
@@ -327,33 +214,32 @@ function buildDrawFromFixtures(fixtures) {
     };
   }
 
-  // Fixtures with unmapped round names. These are NOT dropped — they are kept
-  // so the overlay in getDraw() can still match them by player key pair.
-  // This prevents QF/SF data being silently lost if the API sends a round label
-  // variant we haven't mapped in roundNameOverrides.
-  const unmappedFixtures = [];
-
   if (hasRoundField) {
-    const unknownRounds = new Map();
+    // ── Path 1: use API round names ──────────────────────────────────────────
+    const unknownRounds = new Map(); // raw name → count (log once per name)
     for (const f of mainFixtures) {
-      const raw   = f.tournament_round || f.event_round || '';
+      const raw = f.tournament_round || f.event_round || '';
       const round = normalizeRound(raw);
       if (!round || !matchesByRound[round]) {
         if (raw) unknownRounds.set(raw, (unknownRounds.get(raw) ?? 0) + 1);
-        // Keep the fixture for overlay matching even though we can't assign a round
-        unmappedFixtures.push(buildMatch(f, '_unmapped'));
         continue;
       }
       matchesByRound[round].push(buildMatch(f, round));
     }
     if (unknownRounds.size > 0) {
-      const summary = [...unknownRounds.entries()].map(([n, c]) => `"${n}" x${c}`).join(', ');
-      console.warn(`[tennisData] Unmapped round names (add to roundNameOverrides): ${summary}`);
+      const summary = [...unknownRounds.entries()]
+        .map(([name, count]) => `"${name}" ×${count}`)
+        .join(', ');
+      console.warn(`[tennisData] Skipped fixtures with unmapped round names: ${summary}`);
     }
   } else {
+    // ── Path 2: sequential assignment by date (fallback) ─────────────────────
     const sorted = [...mainFixtures].sort((a, b) => {
-      const da = toFixtureDate(a), db = toFixtureDate(b);
-      if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
+      const da = toFixtureDate(a);
+      const db = toFixtureDate(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
       return da - db;
     });
     let idx = 0;
@@ -365,7 +251,7 @@ function buildDrawFromFixtures(fixtures) {
     }
   }
 
-  // Compute roundEliminated
+  // Compute roundEliminated per player
   const eliminated = new Set();
   for (const round of ROUNDS) {
     for (const m of matchesByRound[round] || []) {
@@ -381,417 +267,191 @@ function buildDrawFromFixtures(fixtures) {
 
   const players = Array.from(playersMap.values());
   const matches = ROUNDS.flatMap((r) => matchesByRound[r] || []);
-  // Include unmapped fixtures so getDraw overlay can match them by player key.
-  // They won't appear in the bracket (wrong round) but their winner/status data
-  // will be used when overlaying mock matches.
-  if (unmappedFixtures.length > 0) {
-    matches.push(...unmappedFixtures);
-    console.log(`[tennisData] ${unmappedFixtures.length} unmapped fixtures preserved for overlay matching`);
-  }
   return { players, matches, rounds: ROUNDS };
 }
 
-// ── Runtime lock overrides (admin-settable without a redeploy) ────────────────
-// Set via POST /api/admin/set-lock-override.
-// Cleared on server restart — intended for emergency corrections only.
-const runtimeLockOverrides = {};
-
-export function setRuntimeLockOverride(round, lockAt) {
-  if (!ROUNDS.includes(round)) throw new Error(`Unknown round: ${round}`);
-  runtimeLockOverrides[round] = lockAt;
-  console.log(`[tennisData] Runtime lock override: ${round} → ${lockAt}`);
-}
-
-export function clearRuntimeLockOverride(round) {
-  delete runtimeLockOverrides[round];
-  console.log(`[tennisData] Runtime lock override cleared: ${round}`);
-}
-
-export function getRuntimeLockOverrides() {
-  return { ...runtimeLockOverrides };
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-export async function getDraw(roundFilter = null) {
-  // Use the schedule-derived current round so mock draw shows correct
-  // structure (completed rounds, in-progress, future TBDs).
-  const scheduleRound = getCurrentRoundFromSchedule();
-
-  // Fetch live fixtures FIRST so we can auto-discover API keys before
-  // building the mock draw (which needs keys for overlay matching).
-  // API-Tennis is primary; Sofascore supplements any gaps (e.g. qualifier
-  // fixtures that API-Tennis hasn't indexed yet).
-  let fixtures = await fetchApiDraw();
-  const sofascoreFixtures = await fetchSofascoreFixtures();
-  if (!fixtures || fixtures.length === 0) {
-    fixtures = sofascoreFixtures;
-  } else if (sofascoreFixtures && sofascoreFixtures.length > 0) {
-    // Merge: add Sofascore fixtures whose player pairs aren't in API-Tennis.
-    // This fills the gap for qualifier/LL matches missing from API-Tennis.
-    const apiPairs = new Set();
-    for (const f of fixtures) {
-      const k = [String(f.first_player_key || ''), String(f.second_player_key || '')].sort().join('|');
-      apiPairs.add(k);
-    }
-    let merged = 0;
-    for (const sf of sofascoreFixtures) {
-      const k = [String(sf.first_player_key || ''), String(sf.second_player_key || '')].sort().join('|');
-      if (!apiPairs.has(k)) {
-        fixtures.push(sf);
-        merged++;
-      }
-    }
-    if (merged > 0) {
-      console.log(`[tennisData] Merged ${merged} Sofascore fixtures not in API-Tennis`);
-    }
-  }
-  // Auto-discover API keys from all available fixtures (API-Tennis + Sofascore)
-  if (fixtures && fixtures.length > 0) buildDynamicKeyMap(fixtures);
-
-  // Build mock draw with dynamic key map so all players have API keys
-  const mockDraw = getMockDraw(scheduleRound, getApiKeyMap());
-
-  if (fixtures && fixtures.length > 0) {
-    const liveDraw = buildDrawFromFixtures(fixtures);
-    // Diagnostic: log live draw round distribution
-    const liveRoundCounts = {};
-    for (const lm of liveDraw.matches) {
-      liveRoundCounts[lm.round] = (liveRoundCounts[lm.round] || 0) + 1;
-    }
-    console.log(`[tennisData] Live draw from ${fixtures.length} fixtures: ${JSON.stringify(liveRoundCounts)}`);
-    if (liveDraw.matches.length > 0) {
-      // Build lookups: sorted pair of API player IDs → live match,
-      // plus a name-based fallback for players missing API keys (qualifiers/LLs).
-      const liveByPlayers = new Map();
-      const liveByNames   = new Map();
-      const normName = (n) => (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      for (const lm of liveDraw.matches) {
-        if (!lm.player1Id || !lm.player2Id) continue;
-        const key = [String(lm.player1Id), String(lm.player2Id)].sort().join('|');
-        liveByPlayers.set(key, lm);
-        const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
-        const nameKey = [surname(lm.player1Name), surname(lm.player2Name)].sort().join('|');
-        liveByNames.set(nameKey, lm);
-      }
-
-      const overlaidMatchIds = new Set();
-
-      // ── Helper: overlay a single mock match against live data ─────────
-      function overlayMatch(mm) {
-        if (mm.bye || overlaidMatchIds.has(mm.id)) return false;
-        const k1 = mm.player1ApiKey || mm.player1Id;
-        const k2 = mm.player2ApiKey || mm.player2Id;
-        if (!k1 || !k2) return false;
-        const key = [String(k1), String(k2)].sort().join('|');
-        let lm = liveByPlayers.get(key);
-
-        // Fallback: match by normalised surname
-        if (!lm) {
-          const surname = (full) => { const parts = normName(full).split(/\s+/); return parts[parts.length - 1]; };
-          if (!mm.player1Name || !mm.player2Name) return false;
-          const nameKey = [surname(mm.player1Name), surname(mm.player2Name)].sort().join('|');
-          lm = liveByNames.get(nameKey);
-          if (lm) {
-            const lmSurname1 = surname(lm.player1Name);
-            const mmSurname1 = surname(mm.player1Name);
-            const sameOrder = lmSurname1 === mmSurname1;
-            if (sameOrder) {
-              if (!mm.player1ApiKey) mm.player1ApiKey = String(lm.player1Id);
-              if (!mm.player2ApiKey) mm.player2ApiKey = String(lm.player2Id);
-            } else {
-              if (!mm.player1ApiKey) mm.player1ApiKey = String(lm.player2Id);
-              if (!mm.player2ApiKey) mm.player2ApiKey = String(lm.player1Id);
-            }
-          }
-        }
-        if (!lm) return false;
-        overlaidMatchIds.add(mm.id);
-
-        const p1Key = mm.player1ApiKey || k1;
-        const winnerIsMockP1 = lm.winnerId
-          ? String(lm.winnerId) === String(p1Key)
-          : false;
-        if (lm.winnerId) {
-          mm.status = 'completed';
-          mm.winnerId = winnerIsMockP1 ? mm.player1Id : mm.player2Id;
-          mm.winnerName = winnerIsMockP1 ? mm.player1Name : mm.player2Name;
-        } else {
-          mm.status = lm.status || 'scheduled';
-          mm.winnerId = null;
-          mm.winnerName = null;
-        }
-        if (lm.score) mm.score = lm.score;
-        if (lm.startTime) mm.startTime = lm.startTime;
-        return true;
-      }
-
-      // ── Helper: propagate winners from thisRound into nextRound slots ──
-      function propagateRound(thisRound, nextRound) {
-        const thisMatches = mockDraw.matches
-          .filter(m => m.round === thisRound)
-          .sort((a, b) => a.matchOrder - b.matchOrder);
-        const nextMatches = mockDraw.matches
-          .filter(m => m.round === nextRound && !m.bye)
-          .sort((a, b) => a.matchOrder - b.matchOrder);
-
-        for (let i = 0; i < nextMatches.length; i++) {
-          const nm = nextMatches[i];
-          const feeder1 = thisMatches[i * 2];
-          const feeder2 = thisMatches[i * 2 + 1];
-          // Fill player1 from feeder1 winner. Clear to TBD if unresolved.
-          if (feeder1?.winnerId) {
-            nm.player1Id = feeder1.winnerId;
-            nm.player1Name = feeder1.winnerName;
-            const winSide = feeder1.winnerId === feeder1.player1Id ? 'player1' : 'player2';
-            nm.player1ApiKey = feeder1[`${winSide}ApiKey`] || null;
-          } else if (feeder1 && !feeder1.bye && !feeder1.winnerId) {
-            nm.player1Name = null; nm.player1ApiKey = null;
-          }
-          // Fill player2 from feeder2 winner
-          if (feeder2?.winnerId) {
-            nm.player2Id = feeder2.winnerId;
-            nm.player2Name = feeder2.winnerName;
-            const winSide = feeder2.winnerId === feeder2.player1Id ? 'player1' : 'player2';
-            nm.player2ApiKey = feeder2[`${winSide}ApiKey`] || null;
-          } else if (feeder2 && !feeder2.bye && !feeder2.winnerId) {
-            nm.player2Name = null; nm.player2ApiKey = null;
-          }
-        }
-      }
-
-      // ── Round-by-round: manual overrides → overlay → clear fakes → propagate
-      // CRITICAL: process rounds sequentially so that R1 winners propagate into
-      // R32 slots BEFORE we try to overlay R32 matches. Without this, R32+ mock
-      // matches still have the default player (mock always assumes player1 wins
-      // R1), so the API key / name lookup fails for any match where the actual
-      // R1 winner differs from the mock default.
-      for (let ri = 0; ri < ROUNDS.length; ri++) {
-        const round = ROUNDS[ri];
-
-        // 1. Apply manual overrides for this round first (qualifiers etc.)
-        if (TOURNAMENT.manualResults) {
-          for (const ovr of TOURNAMENT.manualResults) {
-            if (ovr.round !== round) continue;
-            const mm = mockDraw.matches.find(
-              m => m.round === ovr.round && !m.bye &&
-                ((m.player1Id === ovr.winnerId && m.player2Id === ovr.loserId) ||
-                 (m.player1Id === ovr.loserId && m.player2Id === ovr.winnerId))
-            );
-            if (mm) {
-              mm.status = 'completed';
-              mm.winnerId = ovr.winnerId;
-              mm.winnerName = ovr.winnerName;
-              overlaidMatchIds.add(mm.id);
-            } else {
-              console.warn(`[tennisData] Manual override NOT matched: ${ovr.winnerName} (${ovr.winnerId}) vs ${ovr.loserId} in ${ovr.round}`);
-            }
-          }
-        }
-
-        // 2. Overlay this round's matches against live API data
-        const roundMatches = mockDraw.matches.filter(m => m.round === round);
-        let matched = 0;
-        for (const mm of roundMatches) {
-          if (overlayMatch(mm)) matched++;
-        }
-
-        // 3. Clear fake statuses for unmatched matches in this round
-        for (const mm of roundMatches) {
-          if (mm.bye || overlaidMatchIds.has(mm.id)) continue;
-          if (mm.status === 'in_progress' || mm.status === 'completed') {
-            mm.status = 'scheduled';
-            mm.winnerId = null;
-            mm.winnerName = null;
-            mm.score = null;
-          }
-        }
-
-        // 4. Propagate this round's results into next round's bracket slots
-        if (ri < ROUNDS.length - 1) {
-          propagateRound(round, ROUNDS[ri + 1]);
-        }
-
-        if (matched > 0 || round === 'R32') {
-          console.log(`[tennisData] ${round}: ${matched}/${roundMatches.filter(m => !m.bye).length} overlaid`);
-        }
-      }
-
-      // Re-derive roundEliminated from overlaid results.
-      // Clear ALL first — mock Step 3 marks player2 as eliminated (player1
-      // always wins in mock), but live overlay may have corrected the winner.
-      for (const p of mockDraw.players) { p.roundEliminated = null; }
-      const eliminated = new Set();
-      for (const round of ROUNDS) {
-        for (const m of mockDraw.matches.filter(x => x.round === round)) {
-          if (m.status !== 'completed' || !m.winnerId) continue;
-          const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-          if (loserId) eliminated.add(loserId);
-        }
-      }
-      for (const p of mockDraw.players) {
-        if (!eliminated.has(p.id)) continue;
-        const lostMatch = mockDraw.matches.find(
-          m => m.status === 'completed' && (m.player1Id === p.id || m.player2Id === p.id) && m.winnerId !== p.id
-        );
-        if (lostMatch) p.roundEliminated = lostMatch.round;
-      }
-
-      return { ...mockDraw, dataSource: 'live_overlay' };
-    }
-  }
-
-  return { ...mockDraw, dataSource: 'mock' };
-}
-
 /**
- * Fetch live draw from API-Tennis for results processing.
- * Returns real match statuses, winners, and scores.
- * Used by resultsProcessor and picks endpoint.
+ * Get draw with results. Uses live API if configured, else Indian Wells mock.
  */
-export async function getLiveDraw(roundFilter = null) {
+export async function getDraw(roundFilter = null) {
+  // Priority: 1) API-Tennis (paid, configured via TENNIS_API_KEY)
+  //           2) Sofascore (free, unofficial, no key required)
+  //           3) Mock draw (local fallback)
   let fixtures = await fetchApiDraw();
-  const sofascoreFixtures = await fetchSofascoreFixtures();
   if (!fixtures || fixtures.length === 0) {
-    fixtures = sofascoreFixtures;
-  } else if (sofascoreFixtures && sofascoreFixtures.length > 0) {
-    // Merge Sofascore supplements (same logic as getDraw)
-    const apiPairs = new Set();
-    for (const f of fixtures) {
-      const k = [String(f.first_player_key || ''), String(f.second_player_key || '')].sort().join('|');
-      apiPairs.add(k);
-    }
-    for (const sf of sofascoreFixtures) {
-      const k = [String(sf.first_player_key || ''), String(sf.second_player_key || '')].sort().join('|');
-      if (!apiPairs.has(k)) fixtures.push(sf);
-    }
+    fixtures = await fetchSofascoreFixtures();
   }
   if (fixtures && fixtures.length > 0) {
     const draw = buildDrawFromFixtures(fixtures);
-    if (draw.matches.length > 0) {
-      return { ...draw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1], dataSource: 'live_api' };
-    }
+    const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
+    return { ...draw, currentRound };
   }
-  // No live data — return empty so results processor knows not to grade anything
-  return { matches: [], rounds: ROUNDS, players: [], dataSource: 'no_live_data' };
+  return getMiamiMockDraw(roundFilter || 'R1');
 }
 
 /**
- * Determine which round is "current" based on the tournament schedule dates.
- * Returns the latest round whose start date has passed, or null if the
- * tournament hasn't started yet.
+ * Get list of rounds (for dropdowns etc.)
  */
-function getCurrentRoundFromSchedule() {
-  const now = new Date();
-  const roundDates = TOURNAMENT.roundDates || {};
-  let current = null;
-  for (const round of ROUNDS) {
-    const startDate = roundDates[round];
-    if (startDate && now >= new Date(startDate)) {
-      current = round;
-    }
-  }
-  return current;
+export function getRounds() {
+  return [...ROUNDS];
 }
 
-export function getRounds() { return [...ROUNDS]; }
-
+/**
+ * Expose raw API fixtures for debugging — used by GET /api/draw/debug.
+ * Returns null if API not configured or unavailable.
+ */
 export async function getRawFixtures() {
-  const api = await fetchApiDraw();
-  if (api) return api;
-  return fetchSofascoreFixtures();
+  return (await fetchApiDraw()) ?? fetchSofascoreFixtures();
 }
+
+/**
+ * Expose raw API-Tennis fixtures for the dataAdapter bridge.
+ * Returns raw API-Tennis format array or null.
+ */
+export async function fetchApiDrawRaw() {
+  return fetchApiDraw();
+}
+
+/**
+ * Get round pick-window deadlines.
+ *
+ * A round's pick window:
+ *   OPENS  — 12 hours after the first match of the PREVIOUS round starts.
+ *            This doesn't require all previous matches to finish, which is
+ *            important because rounds overlap in tournaments with byes.
+ *            R1 (first round) is always considered open from the start.
+ *   LOCKS  — 30 minutes before the first scheduled match of THIS round.
+ *
+ * If a round has no match data yet (e.g. draw not released) it is marked
+ * pending and neither open nor locked.
+ */
+const LOCKTIME_OVERRIDES = {
+  R1:  '2026-03-19T13:00:00Z',
+  R32: '2026-03-22T18:00:00Z', // Lock 1h before first R32 match (Sun 22 Mar, 2PM EDT / 18:00 UTC)
+  R16: '2026-03-24T14:00:00Z', // Lock 1h before first R16 match (Mon 24 Mar, 3PM GMT / 14:00 UTC)
+};
 
 export async function getDeadlines() {
-  const fixtures    = await fetchApiDraw();
-  const now         = new Date();
-  const lockOverrides   = TOURNAMENT.lockTimeOverrides   || {};
-  const windowOverrides = TOURNAMENT.windowOpensOverrides || {};
-  const roundDates      = TOURNAMENT.roundDates           || {};
-  const roundFallback   = TOURNAMENT.roundDateFallback    || {};
-
-  // Buffer between previous round locking and next round's pick window opening.
-  // Gives admins time to review results before players can submit new picks.
-  const bufferMs = (TOURNAMENT.pickWindowBufferHours || 0) * 60 * 60 * 1000;
-
+  const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
+    // No live data — fall back to static schedule for Miami Open 2026.
+    // R1 = non-seeds, R64 = seeds enter (Fri 21). All times UTC (11:00 ≈ 7am ET).
+    const ROUND_DATES = {
+      R1:  '2026-03-19T13:00:00Z',
+      R64: '2026-03-21T11:00:00Z',
+      R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
+      R16: '2026-03-25T11:00:00Z',
+      QF:  '2026-03-26T11:00:00Z',
+      SF:  '2026-03-28T11:00:00Z',
+      F:   '2026-03-30T11:00:00Z',
+    };
+    const now = new Date();
     return ROUNDS.map((round, i) => {
-      const firstStart = roundDates[round] ? new Date(roundDates[round]) : null;
-      let lockAtDate   = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-      if (runtimeLockOverrides[round])  lockAtDate = new Date(runtimeLockOverrides[round]);
-      else if (lockOverrides[round])    lockAtDate = new Date(lockOverrides[round]);
-      const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
-      const isLocked = lockAtDate ? now >= lockAtDate : false;
-      // Each round opens [bufferMs] after the previous round locks (or at windowOpensOverride)
+      const firstStart = ROUND_DATES[round] ? new Date(ROUND_DATES[round]) : null;
+      let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
+      if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+      let lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
+      let isLocked  = lockAtDate ? now >= lockAtDate : false;
+
       let opensAt = null;
-      if (windowOverrides[round]) {
-        opensAt = new Date(windowOverrides[round]).toISOString();
-      } else if (i > 0) {
-        const prevRound = ROUNDS[i - 1];
-        let prevLockAt = null;
-        if (runtimeLockOverrides[prevRound])     prevLockAt = new Date(runtimeLockOverrides[prevRound]);
-        else if (lockOverrides[prevRound])        prevLockAt = new Date(lockOverrides[prevRound]);
-        else {
-          const prevDate = roundDates[prevRound] ? new Date(roundDates[prevRound]) : null;
-          if (prevDate) prevLockAt = new Date(prevDate.getTime() - 60 * 60 * 1000);
-        }
-        if (prevLockAt) opensAt = new Date(prevLockAt.getTime() + bufferMs).toISOString();
+      if (i === 0) {
+        opensAt = null; // R1 always open from the start
+      } else {
+        const prevFirstStart = ROUND_DATES[ROUNDS[i - 1]] ? new Date(ROUND_DATES[ROUNDS[i - 1]]) : null;
+        opensAt = prevFirstStart
+          ? new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString()
+          : null;
       }
       const hasOpened = i === 0 || (opensAt && now >= new Date(opensAt));
       const isOpen    = hasOpened && !isLocked;
-      return { round, opensAt, lockAt, isLocked, isOpen };
+
+      const isR1PerMatchLock = round === 'R1' && ACTIVE_TOURNAMENT?.r1PerMatchLock;
+
+      return {
+        round,
+        opensAt,
+        lockAt: isR1PerMatchLock ? null : lockAt,
+        isLocked: isR1PerMatchLock ? false : isLocked,
+        isOpen: isR1PerMatchLock ? (i === 0 || hasOpened) : isOpen,
+        perMatchLock: isR1PerMatchLock || false,
+      };
     });
   }
 
-  const draw = buildDrawFromFixtures(fixtures);
-  const matchesByRnd = {};
-  ROUNDS.forEach((r) => (matchesByRnd[r] = []));
-  (draw.matches || []).forEach((m) => { if (matchesByRnd[m.round]) matchesByRnd[m.round].push(m); });
+  // Fallback schedule used when the live API hasn't published start times yet
+  // (common for QF/SF/F early in the tournament week). All times UTC.
+  const ROUND_DATE_FALLBACK = {
+    R1:  '2026-03-19T13:00:00Z',
+    R64: '2026-03-21T11:00:00Z',
+    R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
+    R16: '2026-03-25T11:00:00Z',
+    QF:  '2026-03-26T11:00:00Z',
+    SF:  '2026-03-28T11:00:00Z',
+    F:   '2026-03-30T11:00:00Z',
+  };
 
+  const draw = buildDrawFromFixtures(fixtures);
+  const matchesByRound = {};
+  ROUNDS.forEach((r) => (matchesByRound[r] = []));
+  (draw.matches || []).forEach((m) => {
+    if (matchesByRound[m.round]) matchesByRound[m.round].push(m);
+  });
+
+  const now = new Date();
   return ROUNDS.map((round, index) => {
-    const roundMatches   = matchesByRnd[round] || [];
-    const apiFirstStart  = roundMatches
+    const roundMatches = matchesByRound[round] || [];
+
+    // First scheduled start time for this round — fall back to known schedule
+    // when the API hasn't published times yet (e.g. QF/SF/F early in the week).
+    const apiFirstStart = roundMatches
       .map((m) => (m.startTime ? new Date(m.startTime) : null))
       .filter((d) => d && !Number.isNaN(d.getTime()))
       .sort((a, b) => a - b)[0] || null;
-    const fallbackDate = roundFallback[round] ? new Date(roundFallback[round]) : null;
+
+    const fallbackDate = ROUND_DATE_FALLBACK[round] ? new Date(ROUND_DATE_FALLBACK[round]) : null;
     const firstStart   = apiFirstStart || fallbackDate;
 
     let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-    if (runtimeLockOverrides[round]) lockAtDate = new Date(runtimeLockOverrides[round]);
-    else if (lockOverrides[round])   lockAtDate = new Date(lockOverrides[round]);
+    if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+    let lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
+    let isLocked   = lockAtDate ? now >= lockAtDate : false;
 
-    const lockAt   = lockAtDate ? lockAtDate.toISOString() : null;
-    const isLocked = lockAtDate ? now >= lockAtDate : false;
-
-    // Each round opens when the previous round locks (or at windowOpensOverride)
+    // Window opens 12h after the first match of the nearest non-empty previous round starts.
+    // Falls back to the known schedule date for that round when the API has no times yet.
     let opensAt = null;
-    if (windowOverrides[round]) {
-      opensAt = new Date(windowOverrides[round]).toISOString();
-    } else if (index > 0) {
-      const prevRound = ROUNDS[index - 1];
-      let prevLockAt = null;
-      if (runtimeLockOverrides[prevRound]) {
-        prevLockAt = new Date(runtimeLockOverrides[prevRound]);
-      } else if (lockOverrides[prevRound]) {
-        prevLockAt = new Date(lockOverrides[prevRound]);
-      } else {
-        const prevMatches = matchesByRnd[prevRound] || [];
-        const apiPrev = prevMatches
+    if (index > 0) {
+      let prevFirstStart = null;
+      for (let pi = index - 1; pi >= 0; pi--) {
+        const prevRound = ROUNDS[pi];
+        const prevMatches = matchesByRound[prevRound] || [];
+        const apiPrevStart = prevMatches
           .map((m) => (m.startTime ? new Date(m.startTime) : null))
           .filter((d) => d && !Number.isNaN(d.getTime()))
           .sort((a, b) => a - b)[0] || null;
-        const fallbackPrev = roundFallback[prevRound] ? new Date(roundFallback[prevRound]) : null;
-        const prevFirstStart = apiPrev || fallbackPrev;
-        if (prevFirstStart) prevLockAt = new Date(prevFirstStart.getTime() - 60 * 60 * 1000);
+        const fallbackPrevDate = ROUND_DATE_FALLBACK[prevRound]
+          ? new Date(ROUND_DATE_FALLBACK[prevRound]) : null;
+        prevFirstStart = apiPrevStart || fallbackPrevDate;
+        if (prevFirstStart) break;
       }
-      if (prevLockAt) {
-        opensAt = new Date(prevLockAt.getTime() + bufferMs).toISOString();
+      if (prevFirstStart) {
+        opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
       }
     }
 
     const hasOpened = index === 0 || (opensAt && now >= new Date(opensAt));
     const isOpen    = hasOpened && !isLocked;
-    return { round, opensAt, lockAt, isLocked, isOpen };
+
+    // R1 per-match lock: signal to the frontend that R1 has no fixed deadline
+    const isR1PerMatchLock = round === 'R1' && ACTIVE_TOURNAMENT?.r1PerMatchLock;
+
+    return {
+      round,
+      opensAt,
+      lockAt: isR1PerMatchLock ? null : lockAt,
+      isLocked: isR1PerMatchLock ? false : isLocked,
+      isOpen: isR1PerMatchLock ? (index === 0 || hasOpened) : isOpen,
+      // New fields for R1 per-match lock
+      perMatchLock: isR1PerMatchLock || false,
+    };
   });
 }

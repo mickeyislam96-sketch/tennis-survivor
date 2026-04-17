@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
@@ -47,7 +47,7 @@ export function PickScreen() {
   const { userId } = useAuth();
   const [available, setAvailable] = useState([]);
   const [rounds, setRounds] = useState([]);
-  const [currentRound, setCurrentRound] = useState(null);
+  const [currentRound, setCurrentRound] = useState('R1');
   const [pickMatchDetail, setPickMatchDetail] = useState(null);
   const [deadline, setDeadline] = useState(null);
   const [opensAt, setOpensAt] = useState(null);
@@ -57,7 +57,6 @@ export function PickScreen() {
   const [message, setMessage] = useState('');
   const [myPickThisRound, setMyPickThisRound] = useState(null);
   const [member, setMember] = useState(null);
-  const [confirmPlayer, setConfirmPlayer] = useState(null);
   const [rowError, setRowError] = useState({ id: null, msg: '' });
   const [drawAvailable, setDrawAvailable] = useState(true);
   const [tournamentCompleted, setTournamentCompleted] = useState(false);
@@ -65,8 +64,7 @@ export function PickScreen() {
   useEffect(() => {
     fetch(`${API}/draw/rounds`)
       .then((r) => r.json())
-      .then(setRounds)
-      .catch(() => setRounds([]));
+      .then(setRounds);
   }, []);
 
   const fetchDeadlines = () => {
@@ -82,32 +80,13 @@ export function PickScreen() {
     fetchDeadlines();
   }, []);
 
-  const fetchAvailable = () => {
-    if (!groupId || !userId || !currentRound) return;
+  useEffect(() => {
+    if (!groupId || !userId) return;
     fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`)
       .then((r) => r.json())
       .then(setAvailable)
       .catch(() => setAvailable([]));
-  };
-
-  useEffect(() => {
-    fetchAvailable();
-  }, [groupId, userId, currentRound]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Refresh available players and picks every 60s so status badges update
-  // as previous-round results come in.
-  useEffect(() => {
-    const id = setInterval(() => {
-      fetchAvailable();
-      if (groupId && userId) {
-        fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
-          .then((r) => r.json())
-          .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
-          .catch(() => {});
-      }
-    }, 60000);
-    return () => clearInterval(id);
-  }, [groupId, userId, currentRound]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupId, userId, currentRound]);
 
   const [allPicks, setAllPicks] = useState([]);
 
@@ -133,7 +112,6 @@ export function PickScreen() {
     if (!deadlines.length) return;
     const now = new Date();
 
-    // Find the first open (unlocked) round
     for (const d of deadlines) {
       const lockAt = d.lockAt ? new Date(d.lockAt) : null;
       const isLocked = lockAt && now >= lockAt;
@@ -145,14 +123,7 @@ export function PickScreen() {
         return;
       }
     }
-    // No open round — fall back to the last round with a deadline (most recent locked round)
-    if (!currentRound && deadlines.length > 0) {
-      const last = deadlines[deadlines.length - 1];
-      setCurrentRound(last.round);
-      setDeadline(last.lockAt || null);
-      setOpensAt(last.opensAt || null);
-    }
-  }, [deadlines]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deadlines]);
 
   // When the user switches tabs, update the deadline and opens-at for that round.
   useEffect(() => {
@@ -171,17 +142,17 @@ export function PickScreen() {
         setMember(me || null);
         // Check if this tournament's draw has been released yet
         const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
-        if (tournament?.drawAvailable === false || tournament?.status !== 'active') setDrawAvailable(false);
-        if (tournament?.status === 'completed') setTournamentCompleted(true);
+        if (tournament?.drawAvailable === false) setDrawAvailable(false);
+        if (tournament?.status === 'completed') {
+          setTournamentCompleted(true);
+          setDrawAvailable(false);
+        }
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
 
-  const submitRef = useRef(false);
   const submitPick = (player) => {
     if (!groupId || !userId) return;
-    if (submitRef.current) return; // guard against double-clicks
-    submitRef.current = true;
     setSubmitting(true);
     setMessage('');
     setRowError({ id: null, msg: '' });
@@ -219,16 +190,14 @@ export function PickScreen() {
           return updated;
         });
 
-        const msg = wasChange ? 'Pick updated!' : 'Pick locked in!';
-        setMessage(msg);
-        setTimeout(() => setMessage(''), 3000);
+        setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
       })
       .catch((e) => {
         const msg = e.message || 'Could not submit pick';
         setRowError({ id: player.id, msg });
         setTimeout(() => setRowError({ id: null, msg: '' }), 4000);
       })
-      .finally(() => { setSubmitting(false); submitRef.current = false; });
+      .finally(() => setSubmitting(false));
   };
 
   const usedIds = new Set(allPicks.map((p) => p.playerId).filter(Boolean));
@@ -245,9 +214,7 @@ export function PickScreen() {
   const filtered = available.filter((p) => {
     const name = (p.name || '').toLowerCase().trim();
     const alive = !p.roundEliminated; // backend should omit eliminated players, but double-check here
-    const q = search.trim().toLowerCase();
-    const oppName = (p.opponentName || '').toLowerCase();
-    const matchesSearch = !q || name.includes(q) || oppName.includes(q);
+    const matchesSearch = !search.trim() || name.includes(search.trim().toLowerCase());
     return alive && matchesSearch;
   });
 
@@ -258,7 +225,6 @@ export function PickScreen() {
   const isOpen        = !isLocked && !isNotYetOpen;
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
-  const isEliminated = member && !member.isAlive;
 
   // ── Previous round result pending banner ─────────────────────────────────────
   // When the current round window is open but the previous round pick hasn't been
@@ -275,20 +241,11 @@ export function PickScreen() {
     isOpen && prevRoundPick && prevRoundPick.survived === null && prevRoundIsLocked;
 
   // ── Round overlap tip ───────────────────────────────────────────────────────
-  // Show only when a large portion (>30%) of the available pool is still
-  // waiting on previous-round results, AND the lock deadline is not today
-  // (UK time) — if it's closing today the user needs to act, not wait.
-  const pendingCount = available.filter((p) => p.pendingPrevRound).length;
-  const pendingRatio = available.length > 0 ? pendingCount / available.length : 0;
-  const lockIsToday = (() => {
-    if (!deadline) return false;
-    const now = new Date();
-    const lock = new Date(deadline);
-    // Compare dates in Europe/London timezone
-    const fmt = (d) => d.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
-    return fmt(now) === fmt(lock);
-  })();
-  const showOverlapTip = isOpen && prevRound && pendingRatio > 0.3 && !lockIsToday;
+  // When the current round's pick window is open and some available players
+  // still have unresolved previous-round matches, show a helpful hint telling
+  // the user there's no rush — they can wait for today's play to finish.
+  const hasPendingPlayers = available.some((p) => p.pendingPrevRound);
+  const showOverlapTip = isOpen && hasPendingPlayers && prevRound;
 
   if (!drawAvailable) {
     return (
@@ -318,7 +275,7 @@ export function PickScreen() {
   return (
     <div className="page pick-screen">
       <div className="pick-header">
-        <h1>{isEliminated ? 'Your picks' : 'Make your pick'}</h1>
+        <h1>Make your pick</h1>
         <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
       </div>
 
@@ -347,54 +304,16 @@ export function PickScreen() {
         ))}
       </div>
 
-      {/* ── Consolidated context bar ─────────────────────────────────
-           Merges: countdown timer + overlap tip + pending prev-round banner
-           into a single card. Hidden for eliminated users. */}
-      {isOpen && deadline && !isEliminated && (() => {
-        const msLeft = new Date(deadline) - new Date();
-        const closingSoon = msLeft > 0 && msLeft < 24 * 60 * 60 * 1000;
+      {/* Window is open: closing countdown */}
+      {isOpen && deadline && (
+        <div className="countdown-card">
+          <span className="countdown-label">Pick window closes in</span>
+          <Countdown to={deadline} onExpire={fetchDeadlines} />
+        </div>
+      )}
 
-        // Build a one-line context message from whatever conditions apply
-        let contextMsg = null;
-        if (showPrevPickPending && showOverlapTip) {
-          // Both: prev round pending + overlap
-          contextMsg = myPickThisRound
-            ? <><strong>{prevRound} still in progress</strong> — your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished, but your {currentRound} pick is saved.</>
-            : <><strong>{prevRound} still in progress</strong> — your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished. Pick for {currentRound} now — it only counts if they advance.</>;
-        } else if (showPrevPickPending) {
-          contextMsg = myPickThisRound
-            ? <>⏳ Your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished — your {currentRound} pick is saved and will count if they come through.</>
-            : <>⚠️ Your {prevRound} pick ({prevRoundPick.playerName}) hasn't finished. Submit your {currentRound} pick now — it only counts if they advance.</>;
-        } else if (showOverlapTip) {
-          contextMsg = <><strong>{prevRound} still in progress</strong> — some matchups aren't confirmed yet. No rush to pick.</>;
-        }
-
-        return (
-          <div className="pick-context-bar">
-            <div className="pcb-top">
-              <div>
-                <div className="pcb-countdown-label">
-                  Window closes in
-                  <span className="pcb-deadline-time">
-                    {' · '}{new Date(deadline).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
-                  </span>
-                </div>
-                <Countdown to={deadline} className="pcb-countdown-value" onExpire={fetchDeadlines} />
-              </div>
-              {closingSoon && <span className="pcb-closing-badge">Closing soon</span>}
-            </div>
-            {contextMsg && (
-              <>
-                <div className="pcb-divider" />
-                <div className="pcb-context">{contextMsg}</div>
-              </>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Window not yet open (hide for eliminated) */}
-      {isNotYetOpen && !isEliminated && (
+      {/* Window not yet open: show open + close times */}
+      {isNotYetOpen && (
         <div className="future-window-card">
           <div className="future-window-row">
             <span className="future-window-label">Pick window opens in</span>
@@ -405,6 +324,40 @@ export function PickScreen() {
               Closes: {formatWindowTime(deadline)}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Round overlap tip — previous round still in progress */}
+      {showOverlapTip && (
+        <div className="overlap-tip">
+          <span className="overlap-tip-icon">💡</span>
+          <div className="overlap-tip-body">
+            <p className="overlap-tip-title">No rush — {prevRound} matches still in play</p>
+            <p className="overlap-tip-sub">
+              Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
+              You can wait until today's play finishes to see the full picture before picking.
+              Look for players whose opponent is already known — they're the safest bets right now.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Previous round result pending, current window open */}
+      {showPrevPickPending && (
+        <div className={`pending-prev-pick-banner${!myPickThisRound ? ' pending-prev-pick-banner--urgent' : ''}`}>
+          <span className="pending-prev-pick-icon">{myPickThisRound ? '⏳' : '⚠️'}</span>
+          <div className="pending-prev-pick-body">
+            <p className="pending-prev-pick-title">
+              {myPickThisRound
+                ? `${currentRound} pick submitted — waiting on your ${prevRound} result`
+                : `Make your ${currentRound} pick now`}
+            </p>
+            <p className="pending-prev-pick-sub">
+              {myPickThisRound
+                ? `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but you're covered — your ${currentRound} pick is saved and will count if they come through.`
+                : `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but the ${currentRound} window is already open. Submit your ${currentRound} pick now — it will only count if ${prevRoundPick.playerName} advances.`}
+            </p>
+          </div>
         </div>
       )}
 
@@ -460,7 +413,7 @@ export function PickScreen() {
           <div className="eliminated-card-icon">🎾</div>
           <h2 className="eliminated-card-title">You're out of this one</h2>
           <p className="eliminated-card-sub">
-            Your pick in {member.eliminatedRound || 'a previous round'} lost their match, so you've been eliminated from this pool.
+            Your pick in {member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
           </p>
           <p className="eliminated-card-cta">
             You can still follow the action on the{' '}
@@ -474,53 +427,32 @@ export function PickScreen() {
       {/* Window is still open: show current pick banner (if any) + full player list */}
       {isOpen && userId && (!member || member.isAlive) && (
         <>
-          {/* Pick eliminated warning — critical, stays standalone */}
-          {myPickThisRound && myPickThisRound.survived === false && (
-            <div className="pick-warning-banner pick-warning-banner--eliminated">
-              <span className="pick-warning-icon">✗</span>
-              <div className="pick-warning-body">
-                <p className="pick-warning-title">{myPickThisRound.playerName} was eliminated in {prevRound}</p>
-                <p className="pick-warning-sub">Your {currentRound} pick is no longer valid. Choose a new player before the window closes or you will be eliminated.</p>
+          {myPickThisRound && (
+            <div className="picked-card picked-card--changeable">
+              <div className="picked-card-inner">
+                <span className="picked-card-icon">✓</span>
+                <div>
+                  <p className="picked-card-label">Current {currentRound} pick</p>
+                  <p className="picked-card-player">{myPickThisRound.playerName}</p>
+                </div>
+                <span className="picked-card-hint">You can change until the window closes</span>
               </div>
             </div>
           )}
 
-          {/* Current pick card — at-risk warning is now inline */}
-          {myPickThisRound && (() => {
-            const pickedPlayer = available.find(p => p.id === myPickThisRound.playerId);
-            const isAtRisk = pickedPlayer?.status === 'at_risk';
-            const isInvalid = myPickThisRound.survived === false;
-            const oppName = pickedPlayer?.opponentName;
-            const seedTag = pickedPlayer?.seed ? ` [${pickedPlayer.seed}]` : '';
-            return (
-              <div className={`picked-card picked-card--changeable${isInvalid ? ' picked-card--invalid' : ''}`}>
-                <div className="picked-card-inner">
-                  <span className="picked-card-icon">{isInvalid ? '✗' : '✅'}</span>
-                  <div>
-                    <p className="picked-card-player">Your pick: {myPickThisRound.playerName}{seedTag}</p>
-                    <p className="picked-card-opponent">
-                      {oppName ? `vs ${oppName}` : ''}{oppName ? ' · ' : ''}You can change until the window closes
-                    </p>
-                    {isAtRisk && !isInvalid && (
-                      <p className="picked-card-at-risk">⚠️ Still in {prevRound} — switch if they lose</p>
-                    )}
-                  </div>
-                  <span className="picked-card-hint">Change</span>
-                </div>
-              </div>
-            );
-          })()}
-
           <div className="search-row">
             <input
               type="text"
-              placeholder="Search players or opponents..."
+              placeholder="Search players…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input search-input"
             />
           </div>
-          <p className="available-count">{filtered.length} players available for {currentRound}</p>
+          <p className="available-count">{filtered.length} players available</p>
+          <Link to={`/group/${groupId}/draw`} className="bracket-hint">
+            Tap a matchup in the bracket to compare players before you pick →
+          </Link>
           <ul className="player-list">
             {filtered.slice(0, 80).map((player) => {
               const name = (player.name || '').toLowerCase().trim();
@@ -538,29 +470,18 @@ export function PickScreen() {
                   isCurrentPick ? 'player-current-pick' : '',
                 ].filter(Boolean).join(' ')}>
                   {player.seed ? (
-                    <span className="player-seed-badge">{player.seed}</span>
+                    <span className="player-seed-badge">#{player.seed}</span>
                   ) : (
                     <span className="player-seed-placeholder" />
                   )}
-                  <span className="player-name-col">
-                    <span className="player-name">
-                      {player.name}
-                      {usedInOtherRound && <span className="player-used-label">Already used</span>}
-                      {isCurrentPick && <span className="player-current-label">Your pick</span>}
-                      {!usedInOtherRound && player.status === 'at_risk' && (
-                        <span className="player-pending-badge" title={`Still in ${prevRound} — if they lose, your pick is invalid`}>
-                          ⚠️ In {prevRound}
-                        </span>
-                      )}
-                    </span>
-                    {player.opponentName && (
-                      <span className="player-opponent">vs {player.opponentName}</span>
-                    )}
-                    {!player.opponentName && player.opponentPossible?.length === 2 && (
-                      <span className="player-opponent player-opponent--tbd">vs {player.opponentPossible[0]} or {player.opponentPossible[1]}</span>
-                    )}
-                    {!player.opponentName && !player.opponentPossible && player.opponentName === 'Qualifier' && (
-                      <span className="player-opponent player-opponent--tbd">vs Qualifier</span>
+                  <span className="player-name">
+                    {player.name}
+                    {usedInOtherRound && <span className="player-used-label">Already used</span>}
+                    {isCurrentPick && <span className="player-current-label">Your pick</span>}
+                    {!usedInOtherRound && player.pendingPrevRound && (
+                      <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
+                        ⚠️ {prevRound} result pending
+                      </span>
                     )}
                   </span>
                   {rowError.id === player.id && (
@@ -571,7 +492,7 @@ export function PickScreen() {
                       type="button"
                       className="btn primary btn-sm"
                       disabled={submitting}
-                      onClick={() => setConfirmPlayer(player)}
+                      onClick={() => submitPick(player)}
                     >
                       {myPickThisRound ? 'Switch' : 'Pick'}
                     </button>
@@ -580,60 +501,11 @@ export function PickScreen() {
               );
             })}
           </ul>
-          {filtered.length > 80 && <p className="text-muted">Showing first 80 of {filtered.length}. Use search to find others.</p>}
-          {prevRound && available.some(p => p.status === 'at_risk') && (
-            <div className="speculative-pick-notice">
-              <p className="speculative-pick-text">
-                <strong>Some players are still in {prevRound}.</strong> Players marked "In {prevRound}" may be eliminated before {currentRound} begins. If you pick one and they lose, your pick becomes invalid and you will be eliminated. It is your responsibility to monitor results and change your pick if needed.
-              </p>
-            </div>
-          )}
-          {rounds.indexOf(currentRound) <= 1 && (
-            <p className="qualifier-disclaimer">Qualifiers will be added once the qualifying draw is finalised.</p>
-          )}
+          {filtered.length > 80 && <p className="text-muted">Showing first 80. Use search to find others.</p>}
         </>
       )}
 
       {message && <p className="success-msg">{message}</p>}
-
-      {/* Pick confirmation modal */}
-      {confirmPlayer && (
-        <div className="modal-overlay" onClick={() => setConfirmPlayer(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-            <h3>{myPickThisRound ? 'Switch pick?' : 'Confirm pick'}</h3>
-            <p className="confirm-player-name">
-              {confirmPlayer.name}
-              {confirmPlayer.seed && <span className="confirm-seed"> [{confirmPlayer.seed}]</span>}
-            </p>
-            {confirmPlayer.opponentName && (
-              <p className="confirm-opponent">vs {confirmPlayer.opponentName}</p>
-            )}
-            <p className="confirm-round">Round: {currentRound}</p>
-            {myPickThisRound && (
-              <p className="confirm-warning">
-                This will replace your current pick of {myPickThisRound.playerName}.
-              </p>
-            )}
-            <div className="confirm-buttons">
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setConfirmPlayer(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn primary btn-sm"
-                disabled={submitting}
-                onClick={() => { submitPick(confirmPlayer); setConfirmPlayer(null); }}
-              >
-                {submitting ? 'Submitting...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

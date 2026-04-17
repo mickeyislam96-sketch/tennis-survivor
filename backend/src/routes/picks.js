@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getDraw, getLiveDraw, getDeadlines, getApiKeyMap } from '../services/tennisData.js';
+import { getDraw, getDeadlines } from '../services/tennisData.js';
 import { getRounds } from '../services/tennisData.js';
 import { MOCK_PICKS } from '../data/mockGroups.js';
+import { TOURNAMENT } from '../config/activeTournament.js';
+import { fetchFixtures, getR1MatchTimes, hasMatchStarted, isR1Closed } from '../services/dataAdapter.js';
 
 export const picksRouter = Router();
 
@@ -25,239 +27,122 @@ function rowToPick(p) {
   };
 }
 
-/**
- * Build a map of playerId â { opponentName, opponentSeed, opponentStatus }
- * for a given round's matches.
- *
- * Variations:
- * - Both players known:  { opponentName: "Stan Wawrinka", opponentSeed: null }
- * - One side TBD (prev round pending):  { opponentName: null, opponentPossible: ["Player A", "Player B"] }
- * - Qualifier placeholder:  { opponentName: "Qualifier" }
- * - Completely unknown:  not in map (no entry)
- */
-function buildOpponentMap(roundMatches, allMatches, rounds, currentRound) {
-  const map = new Map();
-  const prevRoundIndex = rounds.indexOf(currentRound) - 1;
-  const prevRound = prevRoundIndex >= 0 ? rounds[prevRoundIndex] : null;
-  const prevMatches = prevRound
-    ? allMatches.filter(m => m.round === prevRound && !m.bye)
-    : [];
-
-  for (const m of roundMatches) {
-    if (m.bye) continue;
-    const p1 = m.player1Id;
-    const p2 = m.player2Id;
-    const p1Name = m.player1Name || null;
-    const p2Name = m.player2Name || null;
-
-    // For player1, find their opponent (player2) and vice versa
-    if (p1) {
-      if (p2 && p2Name) {
-        map.set(p1, { opponentName: p2Name, opponentId: p2 });
-      } else if (!p2 || !p2Name) {
-        // Opponent TBD â find the prev-round match that feeds into this slot
-        const possibles = findPossibleOpponents(p1, m, prevMatches);
-        if (possibles.length > 0) {
-          map.set(p1, { opponentName: null, opponentPossible: possibles });
-        } else {
-          map.set(p1, { opponentName: p2Name || null }); // might be "Qualifier" or null
-        }
-      }
-    }
-    if (p2) {
-      if (p1 && p1Name) {
-        map.set(p2, { opponentName: p1Name, opponentId: p1 });
-      } else if (!p1 || !p1Name) {
-        const possibles = findPossibleOpponents(p2, m, prevMatches);
-        if (possibles.length > 0) {
-          map.set(p2, { opponentName: null, opponentPossible: possibles });
-        } else {
-          map.set(p2, { opponentName: p1Name || null });
-        }
-      }
-    }
-  }
-  return map;
-}
-
-/**
- * For a match where one side is TBD, try to find the two possible opponents
- * from the previous round's unresolved matches.
- */
-function findPossibleOpponents(knownPlayerId, match, prevMatches) {
-  // Look for an unresolved prev-round match where neither player is the known player
-  // and that could feed into this match slot.
-  // Heuristic: find prev-round matches where neither player matches knownPlayerId
-  // and the match has no winner yet.
-  const possibles = [];
-  for (const pm of prevMatches) {
-    if (pm.winnerId) continue; // already resolved
-    if (pm.player1Id === knownPlayerId || pm.player2Id === knownPlayerId) continue;
-    // Check if either player from this pending match could be the opponent
-    if (pm.player1Name && pm.player2Name) {
-      possibles.push(pm.player1Name, pm.player2Name);
-    }
-  }
-  // If we found too many (multiple pending matches), we can't determine which feeds here.
-  // In a structured bracket this would use match ordering, but for now just return
-  // the first pair found if exactly 2 names.
-  // Actually, let's be more careful: only return possibles if there's a clear pair.
-  // For now, return all found â the frontend will handle display.
-  return possibles.length <= 2 ? possibles : [];
-}
-
 async function getAvailablePlayers(userId, groupId, currentRound) {
-  // Get both live API data (real results) and mock draw (complete structure).
-  // Live draw may only have current/future round fixtures (e.g. R32 but no R1).
-  // Mock draw always has the full player list and bracket structure.
-  const liveDraw = await getLiveDraw(currentRound);
-  const mockDraw = await getDraw(currentRound);
+  const draw = await getDraw(currentRound);
+  const isR1 = currentRound === 'R1';
+  const usePerMatchLock = isR1 && TOURNAMENT.r1PerMatchLock;
 
-  // Build a reverse map: API player key â mock player ID
-  const apiToMock = new Map();
-  const mockToApi = new Map();
-  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
-    if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
-    apiToMock.set(String(apiKey), mockId);
-    mockToApi.set(mockId, String(apiKey));
+  // ── R1 per-match lock path ─────────────────────────────────────────────
+  // For R1: return all R1 players whose match has NOT yet started.
+  // Each player includes their match start time and opponent info.
+  if (usePerMatchLock) {
+    try {
+      const { fixtures } = await fetchFixtures();
+
+      if (fixtures.length > 0) {
+        const r1Fixtures = fixtures.filter(f => f.round === 'R1');
+        const now = new Date();
+        const availablePlayers = [];
+
+        for (const f of r1Fixtures) {
+          const matchStarted =
+            ['live', 'completed', 'walkover', 'retired'].includes(f.status) ||
+            (f.startTime && now >= new Date(f.startTime));
+
+          if (matchStarted) continue; // both players in this match are unavailable
+
+          // Add both players from this unstarted match
+          const p1 = (draw.players || []).find(p => p.id === f.player1Id);
+          const p2 = (draw.players || []).find(p => p.id === f.player2Id);
+
+          if (p1 && !p1.roundEliminated) {
+            availablePlayers.push({
+              ...p1,
+              matchStartTime: f.startTime || null,
+              opponentId: f.player2Id,
+              opponentName: f.player2Name || p2?.name || 'TBD',
+              matchStatus: f.status,
+            });
+          }
+          if (p2 && !p2.roundEliminated) {
+            availablePlayers.push({
+              ...p2,
+              matchStartTime: f.startTime || null,
+              opponentId: f.player1Id,
+              opponentName: f.player1Name || p1?.name || 'TBD',
+              matchStatus: f.status,
+            });
+          }
+        }
+
+        if (availablePlayers.length > 0) return availablePlayers;
+      }
+    } catch (e) {
+      console.warn('[picks] R1 per-match lock available players failed, using fallback:', e.message);
+    }
+
+    // Fallback for R1: use draw data (no per-match filtering)
+    const r1Matches = (draw.matches || []).filter(m => m.round === 'R1');
+    const r1PlayerIds = new Set(
+      r1Matches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
+    );
+    return (draw.players || [])
+      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id));
   }
 
-  // Back-fill from live overlay: getDraw() discovers API keys via name matching
-  // for players missing from getApiKeyMap(). Harvest those discovered keys.
-  for (const m of (mockDraw.matches || [])) {
-    if (m.player1ApiKey && !mockToApi.has(m.player1Id)) {
-      mockToApi.set(m.player1Id, String(m.player1ApiKey));
-      apiToMock.set(String(m.player1ApiKey), m.player1Id);
-    }
-    if (m.player2ApiKey && !mockToApi.has(m.player2Id)) {
-      mockToApi.set(m.player2Id, String(m.player2ApiKey));
-      apiToMock.set(String(m.player2ApiKey), m.player2Id);
-    }
-  }
-
+  // ── R2+ standard path (existing logic) ─────────────────────────────────
+  // Build pending/confirmed sets from the previous round up-front.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
-  const pendingFromPrevRound = new Set();   // mock IDs
-  const confirmedFromPrevRound = new Set(); // mock IDs
-  const eliminatedFromPrevRound = new Set(); // mock IDs
-
+  const pendingFromPrevRound = new Set();
   if (prevRoundIndex >= 0) {
     const prevRound = ROUNDS[prevRoundIndex];
-
-    // 1) Check live API for prev-round results (uses API player IDs)
-    const livePrevMatches = (liveDraw.matches || []).filter(m => m.round === prevRound);
-    const liveConfirmedApi = new Set(); // API IDs confirmed by live data
-    const liveEliminatedApi = new Set(); // API IDs eliminated by live data
-    for (const m of livePrevMatches) {
-      if (m.bye && m.winnerId) {
-        liveConfirmedApi.add(String(m.winnerId));
-      } else if (m.winnerId) {
-        liveConfirmedApi.add(String(m.winnerId));
-        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-        if (loserId) liveEliminatedApi.add(String(loserId));
-      }
-      // If no winner, both players are still pending â handled below via mock
-    }
-
-    // 2) Use mock draw for the complete prev-round structure
-    const mockPrevMatches = (mockDraw.matches || []).filter(m => m.round === prevRound);
-    for (const m of mockPrevMatches) {
-      if (m.bye && m.winnerId) {
-        // Seed with bye â confirmed
-        confirmedFromPrevRound.add(m.winnerId);
-      } else if (!m.bye) {
-        const p1Mock = m.player1Id;
-        const p2Mock = m.player2Id;
-
-        // Check mock draw first — includes manual result overrides from getDraw()
-        if (m.status === 'completed' && m.winnerId) {
-          confirmedFromPrevRound.add(m.winnerId);
-          const loserMock = m.winnerId === p1Mock ? p2Mock : p1Mock;
-          if (loserMock) eliminatedFromPrevRound.add(loserMock);
-          continue;
+    (draw.matches || [])
+      .filter(m => m.round === prevRound)
+      .forEach(m => {
+        if (!m.winnerId) {
+          if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
+          if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
         }
-
-        // Otherwise check if live API has a result for this match
-        const p1Api = mockToApi.get(p1Mock);
-        const p2Api = mockToApi.get(p2Mock);
-        const p1LiveConfirmed = p1Api && liveConfirmedApi.has(p1Api);
-        const p2LiveConfirmed = p2Api && liveConfirmedApi.has(p2Api);
-        const p1LiveEliminated = p1Api && liveEliminatedApi.has(p1Api);
-        const p2LiveEliminated = p2Api && liveEliminatedApi.has(p2Api);
-
-        if (p1LiveConfirmed) confirmedFromPrevRound.add(p1Mock);
-        else if (p1LiveEliminated) eliminatedFromPrevRound.add(p1Mock);
-        else if (p1Mock) pendingFromPrevRound.add(p1Mock);
-
-        if (p2LiveConfirmed) confirmedFromPrevRound.add(p2Mock);
-        else if (p2LiveEliminated) eliminatedFromPrevRound.add(p2Mock);
-        else if (p2Mock) pendingFromPrevRound.add(p2Mock);
-      }
-    }
+      });
   }
 
-  // Simplified eligibility: for R1, only players in R1 matches (seeds have
-  // byes and shouldn't be pickable in R1). For R32+, ALL non-eliminated
-  // non-qualifier players are eligible â no dependency on bracket slot data.
-  // This avoids the fragile coupling between bracket propagation and pick pool.
-  let r1PlayerIds = null;
-  if (currentRound === ROUNDS[0]) {
-    // First round: restrict to players actually playing this round
-    r1PlayerIds = new Set();
-    const r1Matches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
-    for (const m of r1Matches) {
-      if (m.player1Id) r1PlayerIds.add(m.player1Id);
-      if (m.player2Id) r1PlayerIds.add(m.player2Id);
-    }
-  }
+  // Build the set of players who actually have a match this round.
+  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound);
+  if (roundMatches.length > 0) {
+    const playingThisRound = new Set(
+      roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
+    );
 
-  // Build opponent info from current round matches (prefer live, fall back to mock)
-  const mockRoundMatches = (mockDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
-  const liveRoundMatches = (liveDraw.matches || []).filter(m => m.round === currentRound && !m.bye);
-  const allMatches = [...(liveDraw.matches || []), ...(mockDraw.matches || [])];
-  const opponentMap = liveRoundMatches.length > 0
-    ? buildOpponentMap(liveRoundMatches, allMatches, ROUNDS, currentRound)
-    : buildOpponentMap(mockRoundMatches, allMatches, ROUNDS, currentRound);
-
-  // Build the pick pool from mock draw's full player list.
-  // R1: filtered to R1 match participants only (excludes seeds with byes).
-  // R32+: all non-eliminated players (simple and robust).
-  const mockPlayers = mockDraw.players || [];
-  const playerPool = [];
-  for (const p of mockPlayers) {
-    if (isQualifierPlaceholder(p)) continue;
-    if (r1PlayerIds && !r1PlayerIds.has(p.id)) continue; // R1 restriction
-    if (eliminatedFromPrevRound.has(p.id)) continue;
-    if (p.roundEliminated) continue;
-
-    // Use the API ID if available (so picks match the results processor)
-    const apiId = mockToApi.get(p.id);
-    const playerId = apiId || p.id;
-
-    const enriched = { ...p, id: playerId };
-    const mockId = p.id;
-
-    if (pendingFromPrevRound.has(mockId)) {
-      enriched.pendingPrevRound = true;
-      enriched.status = 'at_risk';
-    } else if (confirmedFromPrevRound.has(mockId) || prevRoundIndex < 0) {
-      enriched.status = 'confirmed';
-    } else {
-      enriched.status = 'confirmed';
+    // Supplement with players from the previous round who may still advance.
+    if (prevRoundIndex >= 0) {
+      const prevRound = ROUNDS[prevRoundIndex];
+      (draw.matches || [])
+        .filter(m => m.round === prevRound)
+        .forEach(m => {
+          if (m.winnerId) {
+            playingThisRound.add(m.winnerId);
+          } else {
+            const p1Confirmed = m.player1Id && playingThisRound.has(m.player1Id);
+            const p2Confirmed = m.player2Id && playingThisRound.has(m.player2Id);
+            if (!p1Confirmed && !p2Confirmed) {
+              if (m.player1Id) playingThisRound.add(m.player1Id);
+              if (m.player2Id) playingThisRound.add(m.player2Id);
+            }
+          }
+        });
     }
 
-    // Add opponent info (check both API and mock IDs)
-    const opp = opponentMap.get(playerId) || opponentMap.get(mockId);
-    if (opp) Object.assign(enriched, opp);
+    const playerPool = (draw.players || [])
+      .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
+      .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 
-    playerPool.push(enriched);
+    if (playerPool.length > 0) return playerPool;
   }
 
-  return playerPool;
-}
-
-/** Qualifier placeholders are removed from the pick pool until real names are known. */
-function isQualifierPlaceholder(player) {
-  return player.name === 'Qualifier' || player.name === 'TBD';
+  // Fallback: return all non-eliminated players.
+  return (draw.players || [])
+    .filter(p => !p.roundEliminated)
+    .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 }
 
 // GET /api/picks/available?userId=&groupId=&round=
@@ -275,63 +160,8 @@ picksRouter.get('/available', async (req, res) => {
 });
 
 // GET /api/picks/history?userId=&groupId=
-// Returns picks with live-graded survived status (no cron dependency).
 picksRouter.get('/history', async (req, res) => {
   const { userId, groupId } = req.query;
-
-  // Build a live grader from current draw data so survived is always fresh.
-  // Use getDraw (not getLiveDraw) so manual result overrides are included.
-  const mockToApi = new Map();
-  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
-    if (apiKey == null) continue; // skip qualifiers/LLs with unknown keys
-    mockToApi.set(mockId, String(apiKey));
-  }
-  let liveGrade = null;
-  try {
-    const draw = await getDraw('F');
-    if (draw.matches && draw.matches.length > 0) {
-      const wonRounds = {};
-      const lostRounds = {};
-      const wonRoundsByName = {};
-      const lostRoundsByName = {};
-      for (const m of draw.matches) {
-        if (m.status !== 'completed' || !m.winnerId) continue;
-        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-        const winnerName = (m.winnerName || '').toLowerCase().trim();
-        const loserName = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name || '').toLowerCase().trim();
-        if (!wonRounds[m.winnerId]) wonRounds[m.winnerId] = new Set();
-        wonRounds[m.winnerId].add(m.round);
-        if (!lostRounds[loserId]) lostRounds[loserId] = new Set();
-        lostRounds[loserId].add(m.round);
-        if (winnerName) {
-          if (!wonRoundsByName[winnerName]) wonRoundsByName[winnerName] = new Set();
-          wonRoundsByName[winnerName].add(m.round);
-        }
-        if (loserName) {
-          if (!lostRoundsByName[loserName]) lostRoundsByName[loserName] = new Set();
-          lostRoundsByName[loserName].add(m.round);
-        }
-      }
-      liveGrade = (playerId, round, playerName) => {
-        // Primary: match by player ID
-        if (lostRounds[playerId]?.has(round)) return false;
-        if (wonRounds[playerId]?.has(round)) return true;
-        // Secondary: translate mock ID to API key
-        const translated = mockToApi.get(playerId);
-        if (translated) {
-          if (lostRounds[translated]?.has(round)) return false;
-          if (wonRounds[translated]?.has(round)) return true;
-        }
-        // Tertiary: match by normalised player name
-        const normName = (playerName || '').toLowerCase().trim();
-        if (normName) {
-          if (lostRoundsByName[normName]?.has(round)) return false;
-          if (wonRoundsByName[normName]?.has(round)) return true;
-        }
-        return null;
-      };
-    }
-  } catch (_) {}
 
   if (isUUID(userId) && isUUID(groupId)) {
     try {
@@ -339,18 +169,10 @@ picksRouter.get('/history', async (req, res) => {
         `SELECT id::text, group_id::text, user_id::text, round, player_id, player_name, survived, created_at
          FROM picks
          WHERE user_id = $1 AND group_id = $2
-         ORDER BY array_position($3::text[], round)`,
-        [userId, groupId, ROUNDS]
+         ORDER BY array_position(ARRAY['R1','R64','R32','R16','QF','SF','F']::text[], round)`,
+        [userId, groupId]
       );
-      const picks = result.rows.map(rowToPick).map(p => {
-        // Overlay live grading if DB hasn't caught up yet
-        if (p.survived == null && liveGrade) {
-          const live = liveGrade(p.playerId, p.round, p.playerName);
-          if (live !== null) return { ...p, survived: live };
-        }
-        return p;
-      });
-      return res.json(picks);
+      return res.json(result.rows.map(rowToPick));
     } catch (e) {
       console.error('DB picks history error:', e.message);
     }
@@ -371,66 +193,73 @@ picksRouter.post('/', async (req, res) => {
       return res.status(400).json({ error: 'userId, groupId, round, playerId required' });
     }
 
-    // Validate pick window
-    const deadlines = await getDeadlines();
-    const roundDeadline = Array.isArray(deadlines)
-      ? deadlines.find(d => d.round === round)
-      : null;
+    // Validate pick window — R1 uses per-match lock, R2+ uses round-level lock
+    const isR1 = round === 'R1';
+    const usePerMatchLock = isR1 && TOURNAMENT.r1PerMatchLock;
 
-    if (roundDeadline) {
-      const now = new Date();
-      const lockAt = roundDeadline.lockAt ? new Date(roundDeadline.lockAt) : null;
-      const isLocked = lockAt && now >= lockAt;
-      const isOpen = roundDeadline.isOpen !== false;
-      if (isLocked) return res.status(400).json({ error: 'Picks for this round are locked' });
-      if (!isOpen) return res.status(400).json({ error: 'Picks for this round are not yet open' });
+    if (usePerMatchLock) {
+      // R1 per-match lock: check if this specific player's match has started
+      try {
+        const { fixtures } = await fetchFixtures();
+        if (fixtures.length > 0) {
+          // Check if ALL R1 matches have started (window fully closed)
+          if (isR1Closed(fixtures)) {
+            return res.status(400).json({ error: 'All Round 1 matches have started. Pick window is closed.' });
+          }
+
+          // Check if this specific player's match has started
+          const matchTimes = getR1MatchTimes(fixtures);
+          const playerMatch = matchTimes.get(playerId);
+          if (playerMatch && hasMatchStarted(playerMatch)) {
+            return res.status(400).json({
+              error: `This player's match has already started. Choose a player whose match hasn't begun yet.`
+            });
+          }
+        }
+        // If no fixture data available, allow the pick (graceful degradation)
+      } catch (e) {
+        console.warn('[picks] R1 per-match lock check failed, allowing pick:', e.message);
+      }
+    } else {
+      // R2+ round-level lock: existing deadline-based logic
+      const deadlines = await getDeadlines();
+      const roundDeadline = Array.isArray(deadlines)
+        ? deadlines.find(d => d.round === round)
+        : null;
+
+      if (roundDeadline) {
+        const now = new Date();
+        const lockAt = roundDeadline.lockAt ? new Date(roundDeadline.lockAt) : null;
+        const isLocked = lockAt && now >= lockAt;
+        const isOpen = roundDeadline.isOpen !== false;
+        if (isLocked) return res.status(400).json({ error: 'Picks for this round are locked' });
+        if (!isOpen) return res.status(400).json({ error: 'Picks for this round are not yet open' });
+      }
     }
 
-    // Validate user is actually a member of this group AND still alive
+    // Check if the user is eliminated — eliminated players cannot submit picks
     if (isUUID(userId) && isUUID(groupId)) {
       const memberCheck = await pool.query(
-        'SELECT id, is_alive, eliminated_round FROM group_members WHERE group_id = $1 AND user_id = $2',
+        'SELECT is_alive FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, userId]
       );
-      if (memberCheck.rows.length === 0) {
-        return res.status(403).json({ error: 'You must join the group before making a pick' });
-      }
-      const mem = memberCheck.rows[0];
-      if (mem.is_alive === false) {
-        // Self-healing: if eliminated in a round whose window is still open,
-        // the elimination was premature. Revive them so they can pick.
-        if (mem.eliminated_round === round) {
-          console.log(`[picks] Self-healing: reviving user ${userId} (eliminated in ${round} but window still open)`);
-          await pool.query(
-            'UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE id = $1',
-            [mem.id]
-          );
-          await pool.query(
-            'UPDATE picks SET survived = NULL WHERE group_id = $1 AND user_id = $2 AND round = $3 AND survived = false',
-            [groupId, userId, round]
-          );
-        } else {
-          return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
-        }
+      if (memberCheck.rows.length > 0 && memberCheck.rows[0].is_alive === false) {
+        return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
       }
     }
 
     // Validate player is in the draw and not eliminated
     const available = await getAvailablePlayers(userId, groupId, round);
-    if (!Array.isArray(available) || !available.some(p => p.id === playerId)) {
+    if (!available.some(p => p.id === playerId)) {
       return res.status(400).json({ error: 'Player not available for pick' });
     }
 
-    // Always prefer the canonical name from the mock draw (full names like
-    // "Andrey Rublev") over whatever the frontend sends (which might be an
-    // API-abbreviated form like "A. Rublev").
-    const canonicalName = available.find(p => p.id === playerId)?.name;
-    const resolvedName = canonicalName || playerName || '';
+    const resolvedName = playerName || available.find(p => p.id === playerId)?.name || '';
 
     if (isUUID(userId) && isUUID(groupId)) {
       try {
         // Check player not already used in a DIFFERENT round by this user in this group.
-        // We exclude the current round so that changing a pick mid-window is allowed â
+        // We exclude the current round so that changing a pick mid-window is allowed —
         // the existing pick for THIS round is being replaced, not double-counted.
         const usedResult = await pool.query(
           'SELECT player_id, player_name FROM picks WHERE user_id = $1 AND group_id = $2 AND round != $3',
@@ -447,17 +276,7 @@ picksRouter.post('/', async (req, res) => {
           return res.status(400).json({ error: 'Player already used in a previous round' });
         }
 
-        // Re-check deadline right before write (closes race window between initial check and DB write)
-        const freshDeadlines = await getDeadlines();
-        const freshRD = Array.isArray(freshDeadlines) ? freshDeadlines.find(d => d.round === round) : null;
-        if (freshRD) {
-          const lockAt2 = freshRD.lockAt ? new Date(freshRD.lockAt) : null;
-          if (lockAt2 && new Date() >= lockAt2) {
-            return res.status(400).json({ error: 'Picks for this round are locked' });
-          }
-        }
-
-        // UPSERT â insert new pick, or update player if they're changing within the open window.
+        // UPSERT — insert new pick, or update player if they're changing within the open window.
         // The survived field is reset to NULL on change since the round hasn't been graded yet.
         const result = await pool.query(
           `INSERT INTO picks (group_id, user_id, round, player_id, player_name, survived)

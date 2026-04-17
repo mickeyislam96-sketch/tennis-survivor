@@ -7,10 +7,9 @@ import { Leaderboard } from './pages/Leaderboard';
 import { GroupHome } from './pages/GroupHome';
 import { JoinGroup } from './pages/JoinGroup';
 import { TermsAndConditions } from './pages/TermsAndConditions';
-import { HowToPlay } from './pages/HowToPlay';
 import { ResetPassword } from './pages/ResetPassword';
 import { Profile } from './pages/Profile';
-import PaymentFlow from './pages/PaymentFlow';
+import { PaymentFlow } from './pages/PaymentFlow';
 import { AuthProvider } from './context/AuthContext';
 
 // Re-export so all existing page imports of `useAuth` and `API` from '../App' continue to work
@@ -28,11 +27,8 @@ function App() {
           <Route path="/group/:groupId/history" element={<PickHistory />} />
           <Route path="/group/:groupId/leaderboard" element={<Leaderboard />} />
           <Route path="/group/:groupId/pay" element={<PaymentFlow />} />
-          <Route path="/group/:groupId/pay/success" element={<PaymentFlow />} />
-          <Route path="/group/:groupId/pay/cancel" element={<PaymentFlow />} />
           <Route path="/join/:code" element={<JoinGroup />} />
           <Route path="/terms" element={<TermsAndConditions />} />
-          <Route path="/how-to-play" element={<HowToPlay />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />

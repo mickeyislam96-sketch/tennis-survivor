@@ -1,240 +1,63 @@
 /**
  * Automated results processor.
  * Polls the draw for completed matches and updates picks + group_members.
- * Idempotent - safe to run multiple times for the same round.
+ * Idempotent — safe to run multiple times for the same round.
  */
 import { pool } from '../db/pool.js';
-import { getDraw, getLiveDraw, getDeadlines, getApiKeyMap } from './tennisData.js';
-import { ROUNDS, TOURNAMENT } from '../config/tournament.js';
-import { sendRoundResultEmail, sendWinnerEmail } from '../utils/email.js';
-
-// -- Name normalisation for fuzzy matching
-// Strips accents, lowercases, trims. Matches the normForMatch in tennisData.js.
-const normForMatch = (n) =>
-  (n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-// Extract the last word (surname) from a normalised name
-const extractSurname = (name) => {
-  const parts = normForMatch(name).split(/\s+/);
-  return parts[parts.length - 1] || '';
-};
-
-// Build reverse maps dynamically (includes auto-discovered keys)
-function getReverseMaps() {
-  const apiToMock = new Map();
-  const mockToApi = new Map();
-  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
-    if (apiKey == null) continue;
-    apiToMock.set(String(apiKey), mockId);
-    mockToApi.set(mockId, String(apiKey));
-  }
-  return { apiToMock, mockToApi };
-}
+import { getDraw, getDeadlines } from './tennisData.js';
+import { ROUNDS } from '../config/tournament.js';
+import { sendRoundResultEmail } from '../utils/email.js';
 
 /**
  * Process results for a single round.
- * Marks picks survived=true/false for completed matches.
- * Does NOT eliminate non-pickers here - that is handled separately
- * by eliminateNonPickers(), which must only run after the pick window locks.
+ * Marks picks survived=true/false, eliminates members who picked losers.
  */
 export async function processRoundResults(round) {
   console.log(`[results] Processing ${round}...`);
-  const { apiToMock, mockToApi } = getReverseMaps();
-  // Use getDraw() (not getLiveDraw()) so manual result overrides are included.
-  // getLiveDraw() only returns raw API fixtures and misses manualResults entries.
-  // Same fix as leaderboard grader (issue #16).
   const draw = await getDraw(round);
   const completed = (draw.matches || []).filter(
-    m => m.round === round && m.status === 'completed' && m.winnerId
+    (m) => m.round === round && m.status === 'completed' && m.winnerId
   );
 
   if (completed.length === 0) {
     console.log(`[results] No completed matches for ${round}`);
-    return { round, processed: 0, picksUpdated: 0, eliminated: 0, nonPickers: 0 };
+    return { round, processed: 0, picksUpdated: 0, eliminated: 0 };
   }
 
+  const outcomes = completed.map((m) => ({
+    winnerId: m.winnerId,
+    loserId: m.winnerId === m.player1Id ? m.player2Id : m.player1Id,
+  }));
+
   let picksUpdated = 0;
-  let eliminated   = 0;
+  let eliminated = 0;
 
-  for (const m of completed) {
-    const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-
-    // Grade picks - match by API key, mock ID, or player name.
-    // Picks may be stored with either format depending on when they were created.
-    const winnerMockId = apiToMock.get(String(m.winnerId)) || null;
-    const loserMockId  = apiToMock.get(String(loserId)) || null;
-    const loserName    = (m.winnerId === m.player1Id ? m.player2Name : m.player1Name) || '';
-
-    // Winner picks -> survived = true
+  for (const { winnerId, loserId } of outcomes) {
     const w = await pool.query(
-      `UPDATE picks SET survived = true
-         WHERE round = $1 AND survived IS NULL
-           AND (player_id = $2 OR player_id = $3
-                OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
-      [round, String(m.winnerId), winnerMockId || '', m.winnerName || '']
+      `UPDATE picks SET survived = true WHERE round = $1 AND player_id = $2 AND survived IS NULL`,
+      [round, winnerId]
     );
     picksUpdated += w.rowCount;
 
-    // Loser picks -> survived = false
     const l = await pool.query(
-      `UPDATE picks SET survived = false
-         WHERE round = $1 AND survived IS NULL
-           AND (player_id = $2 OR player_id = $3
-                OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
-      [round, String(loserId), loserMockId || '', loserName]
+      `UPDATE picks SET survived = false WHERE round = $1 AND player_id = $2 AND survived IS NULL`,
+      [round, loserId]
     );
     picksUpdated += l.rowCount;
 
-    // Eliminate group members whose pick lost
     const e = await pool.query(
       `UPDATE group_members gm
-           SET is_alive = false, eliminated_round = $1
+         SET is_alive = false, eliminated_round = $1
          FROM picks p
         WHERE p.round = $1
-          AND (p.player_id = $2 OR p.player_id = $3
-               OR (p.player_id IS NULL AND lower(p.player_name) = lower($4)))
+          AND p.player_id = $2
           AND p.survived = false
-          AND p.user_id  = gm.user_id
+          AND p.user_id = gm.user_id
           AND p.group_id = gm.group_id
           AND gm.is_alive = true`,
-      [round, String(loserId), loserMockId || '', loserName]
+      [round, loserId]
     );
     eliminated += e.rowCount;
-  }
-
-  // -- Surname fallback for ungraded picks
-  // Some picks may not match via API key, mock ID, or exact name (e.g. accents,
-  // spacing differences, abbreviations). Try normalised surname matching.
-  const { rows: ungradedRows } = await pool.query(
-    `SELECT id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
-    [round]
-  );
-  if (ungradedRows.length > 0) {
-    // Build a surname lookup from completed matches: normalised surname -> { winnerId, loserId, winnerName, loserName }
-    const surnameLookup = new Map(); // surname -> match outcome (skip if ambiguous)
-    for (const m of completed) {
-      const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-      const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
-      for (const { name, isWinner } of [
-        { name: m.winnerName, isWinner: true },
-        { name: loserName, isWinner: false },
-      ]) {
-        const surname = extractSurname(name);
-        if (!surname) continue;
-        if (surnameLookup.has(surname)) {
-          // Ambiguous surname (two different players share it) -- mark as null to skip
-          surnameLookup.set(surname, null);
-        } else {
-          surnameLookup.set(surname, { isWinner, playerId: isWinner ? m.winnerId : loserId });
-        }
-      }
-    }
-
-    let surnameMatched = 0;
-    for (const pick of ungradedRows) {
-      const pickSurname = extractSurname(pick.player_name);
-      if (!pickSurname) continue;
-      const outcome = surnameLookup.get(pickSurname);
-      if (!outcome) continue; // no match or ambiguous
-      const survived = outcome.isWinner;
-      await pool.query(
-        `UPDATE picks SET survived = $1 WHERE id = $2 AND survived IS NULL`,
-        [survived, pick.id]
-      );
-      picksUpdated++;
-      surnameMatched++;
-      console.log(`[results] Surname fallback: pick ${pick.id} "${pick.player_name}" -> ${survived ? 'survived' : 'eliminated'} (matched surname "${pickSurname}")`);
-
-      // If they lost, eliminate the group member too
-      if (!survived) {
-        await pool.query(
-          `UPDATE group_members gm
-             SET is_alive = false, eliminated_round = $1
-           FROM picks p
-           WHERE p.id = $2
-             AND p.survived = false
-             AND p.user_id  = gm.user_id
-             AND p.group_id = gm.group_id
-             AND gm.is_alive = true`,
-          [round, pick.id]
-        );
-      }
-    }
-    if (surnameMatched > 0) {
-      console.log(`[results] ${round}: ${surnameMatched} picks graded via surname fallback`);
-    }
-  }
-
-  // -- Safety net: warn about still-ungraded picks
-  const { rows: stillUngraded } = await pool.query(
-    `SELECT id, user_id, player_id, player_name FROM picks WHERE round = $1 AND survived IS NULL`,
-    [round]
-  );
-  if (stillUngraded.length > 0) {
-    for (const p of stillUngraded) {
-      console.warn(`[results] WARNING: pick ${p.id} still ungraded after all ${completed.length} matches processed. user=${p.user_id} player="${p.player_name}" player_id=${p.player_id}`);
-    }
-    console.warn(`[results] ${round}: ${stillUngraded.length} picks remain ungraded -- manual review needed`);
-  }
-
-  // -- Invalidate future-round picks for players who just lost
-  // If someone picked a loser for the NEXT round (speculative pick made while
-  // this round was still in progress), mark that pick as survived=false now.
-  // BUT: only eliminate the member if the next round's window is already locked.
-  // If the window is still open, the user can still change their pick.
-  const nextRoundIndex = ROUNDS.indexOf(round) + 1;
-  let futurePicksInvalidated = 0;
-  if (nextRoundIndex < ROUNDS.length) {
-    const nextRound = ROUNDS[nextRoundIndex];
-
-    // Check if the next round's pick window is still open
-    let nextRoundLocked = false;
-    try {
-      const deadlines = await getDeadlines();
-      const nextDeadline = deadlines.find(d => d.round === nextRound);
-      nextRoundLocked = nextDeadline?.isLocked === true;
-    } catch (_) {
-      // If we can't check, assume open to be safe (don't eliminate prematurely)
-    }
-
-    for (const m of completed) {
-      const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-      const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
-      const loserMockId = apiToMock.get(String(loserId)) || '';
-
-      // Mark future picks for this loser as failed (signal to the user)
-      const inv = await pool.query(
-        `UPDATE picks SET survived = false
-           WHERE round = $1 AND survived IS NULL
-             AND (player_id = $2 OR player_id = $3
-                  OR (player_id IS NULL AND lower(player_name) = lower($4)))`,
-        [nextRound, String(loserId), loserMockId, loserName || '']
-      );
-      futurePicksInvalidated += inv.rowCount;
-
-      // Only eliminate members if the next round's window is locked.
-      // If still open, the user can switch their pick - don't eliminate yet.
-      if (inv.rowCount > 0 && nextRoundLocked) {
-        await pool.query(
-          `UPDATE group_members gm
-               SET is_alive = false, eliminated_round = $1
-             FROM picks p
-            WHERE p.round = $1
-              AND (p.player_id = $2 OR p.player_id = $3
-                   OR (p.player_id IS NULL AND lower(p.player_name) = lower($4)))
-              AND p.survived = false
-              AND p.user_id  = gm.user_id
-              AND p.group_id = gm.group_id
-              AND gm.is_alive = true`,
-          [nextRound, String(loserId), loserMockId, loserName || '']
-        );
-      } else if (inv.rowCount > 0 && !nextRoundLocked) {
-        console.log(`[results] ${nextRound} window still open - marked ${inv.rowCount} pick(s) as invalid but NOT eliminating (user can still change)`);
-      }
-    }
-    if (futurePicksInvalidated > 0) {
-      console.log(`[results] ${round}: ${futurePicksInvalidated} future ${nextRound} picks invalidated (player lost in ${round})`);
-    }
   }
 
   // Send round result emails for all picks that now have a result.
@@ -242,26 +65,57 @@ export async function processRoundResults(round) {
   // even if this function runs multiple times.
   await sendResultEmails(round);
 
-  console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks graded, ${eliminated} eliminated`);
-  return { round, processed: completed.length, picksUpdated, eliminated, nonPickers: 0, futurePicksInvalidated };
+  const nonPickers = await eliminateNonPickers(round);
+  console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks updated, ${eliminated} eliminated, ${nonPickers} non-pickers removed`);
+  return { round, processed: completed.length, picksUpdated, eliminated, nonPickers };
+}
+
+/**
+ * Auto-detect and process all rounds with completed-but-unprocessed results.
+ * Safe to call on a schedule.
+ */
+export async function autoProcessResults() {
+  console.log('[results] Auto-processing...');
+  const draw = await getDraw();
+  const summary = [];
+
+  for (const round of ROUNDS) {
+    const completed = (draw.matches || []).filter(
+      (m) => m.round === round && m.status === 'completed' && m.winnerId
+    );
+    if (completed.length === 0) continue;
+
+    const { rows } = await pool.query(
+      `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL`,
+      [round]
+    );
+    if (Number(rows[0].count) === 0) continue;
+
+    console.log(`[results] ${round}: ${rows[0].count} unprocessed picks found`);
+    const result = await processRoundResults(round);
+    summary.push(result);
+  }
+
+  if (summary.length === 0) console.log('[results] Nothing to process.');
+  return summary;
 }
 
 /**
  * Eliminate group members who did not submit a pick for a round.
- * IMPORTANT: Only call this after the pick window for the round is confirmed locked.
- * Calling it before the window closes would unfairly eliminate users who still have time.
+ * Called after a round locks — anyone still alive with no pick is out.
  */
 export async function eliminateNonPickers(round) {
-  // Safety guard: verify the pick window is locked before eliminating anyone
+  // Guard: do not eliminate non-pickers if the pick window is still open
   try {
     const deadlines = await getDeadlines();
     const roundDeadline = deadlines.find(d => d.round === round);
-    if (roundDeadline && !roundDeadline.isLocked) {
-      console.log(`[results] Skipping non-picker elimination for ${round} - pick window still open`);
+    if (roundDeadline && !roundDeadline.locked) {
+      console.log(`[results] Skipping non-picker elimination for ${round} — pick window still open`);
       return 0;
     }
   } catch (err) {
-    console.warn(`[results] Could not verify deadline for ${round}, skipping elimination to be safe:`, err.message);
+    console.warn(`[results] Could not check deadline for ${round}, proceeding cautiously:`, err.message);
+    // If we can't verify the deadline, skip elimination to be safe
     return 0;
   }
 
@@ -273,9 +127,9 @@ export async function eliminateNonPickers(round) {
         AND NOT EXISTS (
           SELECT 1 FROM picks p
            WHERE p.group_id = gm.group_id
-                 AND p.user_id  = gm.user_id
-                 AND p.round    = $1
-            )`,
+             AND p.user_id  = gm.user_id
+             AND p.round    = $1
+        )`,
     [round]
   );
   console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
@@ -283,290 +137,43 @@ export async function eliminateNonPickers(round) {
 }
 
 /**
- * Auto-detect and process all rounds with completed-but-unprocessed results.
- * Called on a schedule (every 15 min) and by the admin endpoint.
- *
- * eliminateNonPickers is only called when:
- *   1. The round's pick window is confirmed locked (isLocked = true), AND
- *   2. There are still ungraded picks for that round.
- * This prevents premature elimination when matches start before the window closes.
- */
-
-// -- In-memory mutex for autoProcessResults
-// Prevents overlapping runs if the cron fires while a previous run is still
-// in progress (e.g. slow DB or many email sends). Adequate for single-instance
-// Railway deployment. If we scale to multiple instances, replace with a
-// database-level advisory lock.
-let _processing = false;
-
-export async function autoProcessResults() {
-  if (_processing) {
-    console.log('[results] Auto-processing already in progress, skipping this run.');
-    return [];
-  }
-  _processing = true;
-  try {
-    return await _doAutoProcess();
-  } finally {
-    _processing = false;
-  }
-}
-
-async function _doAutoProcess() {
-  console.log('[results] Auto-processing...');
-
-  // Use getDraw() so manual result overrides are visible to auto-processing.
-  const draw      = await getDraw();
-  const deadlines = await getDeadlines();
-  const summary   = [];
-
-  for (const round of ROUNDS) {
-    const roundDeadline = deadlines.find(d => d.round === round);
-    const windowLocked  = roundDeadline?.isLocked === true;
-
-    // Process match results if there are completed matches
-    const completed = (draw.matches || []).filter(
-      m => m.round === round && m.status === 'completed' && m.winnerId
-    );
-    if (completed.length > 0) {
-      const { rows } = await pool.query(
-        `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL`,
-        [round]
-      );
-      if (Number(rows[0].count) > 0) {
-        console.log(`[results] ${round}: ${rows[0].count} ungraded picks`);
-        const result = await processRoundResults(round);
-        summary.push(result);
-      }
-    }
-
-    // Eliminate non-pickers as soon as the pick window locks -
-    // even if no matches have completed yet. Users who missed the
-    // window are out immediately when the round begins.
-    if (windowLocked) {
-      const { rows: noPick } = await pool.query(
-        `SELECT COUNT(*) FROM group_members gm
-          WHERE gm.is_alive = true
-            AND NOT EXISTS (
-              SELECT 1 FROM picks p
-               WHERE p.group_id = gm.group_id
-                 AND p.user_id  = gm.user_id
-                 AND p.round    = $1
-            )`,
-        [round]
-      );
-      if (Number(noPick[0].count) > 0) {
-        const nonPickers = await eliminateNonPickers(round);
-        const existing = summary.find(s => s.round === round);
-        if (existing) existing.nonPickers = nonPickers;
-        else summary.push({ round, processed: completed.length, picksUpdated: 0, eliminated: 0, nonPickers });
-      }
-    }
-  }
-
-  if (summary.length === 0) console.log('[results] Nothing to process.');
-  return summary;
-}
-
-/**
  * Send round result emails for all resolved picks in a round.
- * Uses sendWithDedup - safe to call repeatedly; duplicates are impossible.
- * Also detects if there's a single survivor (winner) and queues winner email.
+ * Uses sendWithDedup — safe to call repeatedly; duplicates are impossible.
  */
 async function sendResultEmails(round) {
   try {
-    // Get all resolved picks with group context
-    // Include player_id so we can match picks to draw data for opponent/score
     const { rows } = await pool.query(
-      `SELECT p.user_id, p.group_id, p.player_id, p.player_name, p.survived,
-              u.email, u.display_name,
-              g.name AS group_name
+      `SELECT p.user_id, p.group_id, p.player_name, p.survived,
+              u.email, u.display_name
          FROM picks p
          JOIN users u ON u.id = p.user_id
-         JOIN groups g ON g.id = p.group_id
         WHERE p.round = $1
           AND p.survived IS NOT NULL
-          AND u.email IS NOT NULL
-          AND g.tournament_id = $2`,
-      [round, TOURNAMENT.id]
+          AND u.email IS NOT NULL`,
+      [round]
     );
 
-    if (rows.length === 0) return;
-
-    // -- Fetch draw data to enrich emails with match details
-    // Build lookup: player ID/name -> { opponent, score, playerName }
-    const { apiToMock } = getReverseMaps();
-    let matchLookup = new Map(); // keyed by various player identifiers
-    try {
-      const draw = await getDraw(round);
-      const completed = (draw.matches || []).filter(
-        m => m.round === round && m.status === 'completed' && m.winnerId
-      );
-      for (const m of completed) {
-        const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
-        const loserName = m.winnerId === m.player1Id ? m.player2Name : m.player1Name;
-        const score = m.score || '';
-
-        // For the winner: opponent is the loser
-        const winnerInfo = { playerName: m.winnerName, opponent: loserName, score };
-        // For the loser: opponent is the winner
-        const loserInfo = { playerName: loserId === m.player1Id ? m.player1Name : m.player2Name, opponent: m.winnerName, score };
-
-        // Key by all possible identifiers (API key, mock ID, lowercase name)
-        for (const [id, name, info] of [
-          [m.winnerId, m.winnerName, winnerInfo],
-          [loserId, loserName, loserInfo],
-        ]) {
-          if (id) matchLookup.set(String(id), info);
-          const mockId = apiToMock.get(String(id));
-          if (mockId) matchLookup.set(mockId, info);
-          if (name) matchLookup.set(normForMatch(name), info);
-        }
-      }
-      console.log(`[results-email] Built match lookup from ${completed.length} completed ${round} matches`);
-    } catch (err) {
-      console.warn(`[results-email] Could not fetch draw for match details: ${err.message}`);
-    }
-
-    // Get group-level stats for enriching emails
-    const groupIds = [...new Set(rows.map(r => r.group_id))];
-    const groupStats = {};
-    for (const gid of groupIds) {
-      const [aliveResult, totalResult] = await Promise.all([
-        pool.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND is_alive = true', [gid]),
-        pool.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1', [gid]),
-      ]);
-      groupStats[gid] = {
-        playersLeft: Number(aliveResult.rows[0].count),
-        totalMembers: Number(totalResult.rows[0].count),
-      };
-    }
-
-    // Figure out next round info
-    const nextRoundIndex = ROUNDS.indexOf(round) + 1;
-    const nextRound = nextRoundIndex < ROUNDS.length ? ROUNDS[nextRoundIndex] : null;
-    const ROUND_LABELS = { R1: 'Round 1', R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals', SF: 'Semi-Finals', F: 'Final' };
-
-    let queued = 0;
+    let sent = 0;
     for (const row of rows) {
       try {
-        const stats = groupStats[row.group_id] || { playersLeft: 0, totalMembers: 0 };
-
-        // -- Resolve match details for this pick
-        // Try matching by player_id first, then by normalised name
-        let matchInfo = null;
-        if (row.player_id) matchInfo = matchLookup.get(String(row.player_id));
-        if (!matchInfo && row.player_name) matchInfo = matchLookup.get(normForMatch(row.player_name));
-
-        // Resolve the player name: prefer draw data (canonical), fall back to picks table
-        const resolvedPlayerName = matchInfo?.playerName || row.player_name || 'Unknown player';
-        const pickOpponent = matchInfo?.opponent || '';
-        const pickScore = matchInfo?.score || '';
-
-        if (!matchInfo) {
-          console.warn(`[results-email] No match data found for pick: player_id=${row.player_id} player_name="${row.player_name}"`);
-        }
-
-        // Count rounds survived for this user
-        const survRounds = await pool.query(
-          `SELECT COUNT(*) FROM picks WHERE user_id = $1 AND group_id = $2 AND survived = true`,
-          [row.user_id, row.group_id]
-        );
-        const roundsSurvived = Number(survRounds.rows[0].count);
-
-        // Calculate finish position for eliminated players
-        let finishPosition = null;
-        if (!row.survived) {
-          // Position = playersLeft + 1 (they just got eliminated)
-          finishPosition = stats.playersLeft + 1;
-        }
-
-        // Skip survival email if this user is the sole survivor (they'll get a winner email instead)
-        if (row.survived && stats.playersLeft === 1) {
-          console.log(`[results-email] Skipping survival email for ${row.display_name} - they are the winner`);
-          continue;
-        }
-
         const result = await sendRoundResultEmail({
           userId: row.user_id,
           groupId: row.group_id,
           round,
           email: row.email,
           displayName: row.display_name,
-          playerName: resolvedPlayerName,
+          playerName: row.player_name,
           survived: row.survived,
-          pickOpponent,
-          pickScore,
-          tournamentName: TOURNAMENT.name,
-          tournamentShortName: TOURNAMENT.shortName || TOURNAMENT.name,
-          playersLeft: stats.playersLeft,
-          eliminatedCount: stats.totalMembers - stats.playersLeft,
-          groupPlayerCount: stats.totalMembers,
-          roundsSurvived,
-          finishPosition,
-          nextRoundName: nextRound ? (ROUND_LABELS[nextRound] || nextRound) : '',
-          nextRoundShortName: nextRound || '',
-          leaderboardUrl: `https://finalserveivor.com/group/${row.group_id}`,
         });
-        if (result.queued) queued++;
+        if (result.sent || result.reason === 'dry_run') sent++;
       } catch (err) {
+        // Non-fatal — log and continue to next user
         console.error(`[results-email] Failed for ${row.email}: ${err.message}`);
       }
     }
-    console.log(`[results-email] ${round}: ${queued} result emails queued (${rows.length} total picks)`);
-
-    // -- Winner detection
-    // If exactly one player is alive in a group, they've won.
-    for (const gid of groupIds) {
-      const stats = groupStats[gid];
-      if (stats.playersLeft !== 1) continue;
-
-      // Check we haven't already sent a winner email for this group
-      const existingWinner = await pool.query(
-        `SELECT id FROM emails_sent WHERE group_id = $1 AND email_type = 'winner'`,
-        [gid]
-      );
-      if (existingWinner.rows.length > 0) continue;
-
-      // Get the winner
-      const winnerResult = await pool.query(
-        `SELECT gm.user_id, gm.display_name, u.email
-           FROM group_members gm
-           JOIN users u ON u.id = gm.user_id
-          WHERE gm.group_id = $1 AND gm.is_alive = true`,
-        [gid]
-      );
-      if (winnerResult.rows.length !== 1) continue;
-
-      const winner = winnerResult.rows[0];
-
-      // Build pick history
-      const historyResult = await pool.query(
-        `SELECT round AS "roundShortName", player_name AS "playerName"
-           FROM picks
-          WHERE user_id = $1 AND group_id = $2 AND survived = true
-          ORDER BY created_at ASC`,
-        [winner.user_id, gid]
-      );
-
-      try {
-        await sendWinnerEmail({
-          userId: winner.user_id,
-          groupId: gid,
-          email: winner.email,
-          displayName: winner.display_name,
-          tournamentName: TOURNAMENT.name,
-          groupPlayerCount: stats.totalMembers,
-          roundsSurvived: historyResult.rows.length,
-          pickHistory: historyResult.rows,
-          leaderboardUrl: `https://finalserveivor.com/group/${gid}`,
-        });
-        console.log(`[results-email] Winner email queued for ${winner.display_name} in group ${gid}`);
-      } catch (err) {
-        console.error(`[results-email] Failed to queue winner email for ${winner.email}: ${err.message}`);
-      }
-    }
+    console.log(`[results-email] ${round}: ${sent} result emails processed (${rows.length} total picks)`);
   } catch (err) {
+    // Non-fatal — don't let email failures break results processing
     console.error(`[results-email] Error querying picks for ${round}: ${err.message}`);
   }
 }

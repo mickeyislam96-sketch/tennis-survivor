@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams, Navigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
 import { getTournament, TOURNAMENTS } from '../data/tournaments';
@@ -14,6 +14,20 @@ function fmtDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
+}
+
+// ── Avatar helpers (match Leaderboard.jsx) ─────────────────
+const AVATAR_COLOURS = [
+  '#16a34a', '#0891b2', '#7c3aed', '#db2777',
+  '#d97706', '#65a30d', '#0369a1', '#9333ea',
+];
+function avatarColour(name) {
+  let hash = 0;
+  for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
+  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
+}
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2);
 }
 
 // Pre-launch = upcoming tournament more than 3 days away (no draw/picks yet)
@@ -61,6 +75,7 @@ const NAV_CARDS = [
 
 export function GroupHome() {
   const { groupId } = useParams();
+  const navigate = useNavigate();
   const { userId, isRegistered, register, login, user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [allPools, setAllPools] = useState([]);
@@ -133,6 +148,7 @@ export function GroupHome() {
   }, [groupId, userId, openRound]);
 
   // Join the current group directly (used from pre-launch dashboard)
+  // For paid groups, redirects to payment flow if backend returns 402.
   const joinGroup = async (uid, displayName) => {
     if (!group) return;
     setJoining(true);
@@ -145,6 +161,11 @@ export function GroupHome() {
       });
       if (!res.ok) {
         const d = await res.json();
+        // Paid group — redirect to payment flow
+        if (res.status === 402 && d.code === 'PAYMENT_REQUIRED') {
+          navigate(`/group/${group.id}/pay`);
+          return;
+        }
         throw new Error(d.error || 'Could not join');
       }
       // Refresh group data to reflect new membership
@@ -165,24 +186,6 @@ export function GroupHome() {
     }
   }, [joinAfterAuth, isRegistered, userId]);
 
-  // Auto-join: if user just registered (via header or any path) while viewing
-  // a pre-launch group they're not yet a member of, join them automatically.
-  // This prevents the confusing state where a user registers via the header
-  // "Create account" button but doesn't end up in the group.
-  const hasAutoJoined = useRef(false);
-  useEffect(() => {
-    if (hasAutoJoined.current) return;
-    if (!isRegistered || !userId || !group || !groupId) return;
-    const isMember = group.members?.some((m) => m.userId === userId);
-    if (isMember) return;
-    const tournament = getTournament(group.tournamentId);
-    if (!isPreLaunch(tournament)) return;
-    // Don't auto-join if entry is closed
-    if (tournament?.entryOpen === false) return;
-    hasAutoJoined.current = true;
-    joinGroup(userId, user?.displayName || 'Player');
-  }, [isRegistered, userId, group, groupId]);
-
   if (loading) return <div className="page-loading">Loading…</div>;
 
   // ── Group dashboard ──────────────────────────────────────────
@@ -200,12 +203,6 @@ export function GroupHome() {
     };
 
     const tournament = getTournament(group.tournamentId);
-
-    // Completed tournaments go straight to the leaderboard
-    if (tournament?.status === 'completed') {
-      return <Navigate to={`/group/${groupId}/leaderboard`} replace />;
-    }
-
     const preLaunch  = isPreLaunch(tournament);
     const isCompleted = tournament?.status === 'completed';
     // Entry closes 1 hour before R1 picks lock (gives new joiners time to make their first pick).
@@ -216,121 +213,19 @@ export function GroupHome() {
     const isEntryClosed = isCompleted || tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
 
-    // Is the current user eliminated?
-    const myMember = group.members?.find((m) => m.userId === userId);
-    const isEliminated = myMember && !myMember.isAlive;
-
     // Show an urgency banner when the user hasn't picked and the deadline is within 24 h
-    // (but NOT for eliminated users — they can't act on it)
+    // For R1, show a softer reminder since there's no fixed deadline (per-match lock)
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
-    const closingSoon = !isCompleted && openRound && !myCurrentPick && !isEliminated && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    const closingSoon = !isCompleted && openRound && openRound !== 'R1' && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick;
 
     // Winner(s) for completed tournaments
     const winners = isCompleted ? (group.members || []).filter(m => m.isAlive) : [];
+    // Next tournament for CTA
+    const nextTournament = TOURNAMENTS.find(t => t.status === 'upcoming' || t.status === 'active');
 
-    // ── Completed tournament dashboard ──────────────────────────
-    if (isCompleted && tournament) {
-      const winnerNames = winners.map(w => w.displayName);
-      const nextT = TOURNAMENTS.find(t => t.status === 'upcoming' && t.id !== tournament.id);
-
-      return (
-        <div className="page group-home">
-          {/* Hero — completed state */}
-          <div className="group-hero group-hero--completed">
-            <div className="group-hero-court" aria-hidden="true" />
-            <div className="group-hero-inner">
-              <p className="group-hero-eyebrow">
-                🏆 {tournament.name} {tournament.year} · {tournament.tourLevel}
-              </p>
-              <h1 className="group-hero-title">{group.name}</h1>
-              <p className="completed-label">Tournament complete</p>
-            </div>
-          </div>
-
-          {/* Winner banner */}
-          <div className="completed-winner-section">
-            {winners.length === 1 ? (
-              <div className="winner-banner">
-                <div className="winner-trophy">🏆</div>
-                <h2 className="winner-name">{winnerNames[0]}</h2>
-                <p className="winner-subtitle">Winner - last one standing</p>
-                {group.prizePoolCents > 0 && (
-                  <p className="winner-prize">Takes the {fmtGBP(group.prizePoolCents)} prize pool</p>
-                )}
-              </div>
-            ) : winners.length > 1 ? (
-              <div className="winner-banner">
-                <div className="winner-trophy">🏆</div>
-                <h2 className="winner-name">{winnerNames.join(', ')}</h2>
-                <p className="winner-subtitle">{winners.length} survivors — prize shared!</p>
-                {group.prizePoolCents > 0 && (
-                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split {winners.length} ways ({fmtGBP(Math.floor(group.prizePoolCents / winners.length))} each)</p>
-                )}
-              </div>
-            ) : (
-              <div className="winner-banner winner-banner--none">
-                <div className="winner-trophy">😮</div>
-                <h2 className="winner-name">No survivors!</h2>
-                <p className="winner-subtitle">Nobody made it through - everyone was eliminated!</p>
-              </div>
-            )}
-          </div>
-
-          {/* Final stats */}
-          <div className="completed-stats">
-            <div className="completed-stat">
-              <span className="completed-stat-value">{totalMembers}</span>
-              <span className="completed-stat-label">Entered</span>
-            </div>
-            <div className="completed-stat">
-              <span className="completed-stat-value">{winners.length}</span>
-              <span className="completed-stat-label">{winners.length === 1 ? 'Survivor' : 'Survivors'}</span>
-            </div>
-            <div className="completed-stat">
-              <span className="completed-stat-value">{totalMembers - aliveMembers}</span>
-              <span className="completed-stat-label">Eliminated</span>
-            </div>
-          </div>
-
-          {/* Nav cards — still accessible for review */}
-          <div className="nav-card-row">
-            <Link to={`/group/${groupId}/leaderboard`} className="nav-card">
-              <span className="nav-card-icon"><LeaderboardIcon /></span>
-              <span className="nav-card-title">Final standings</span>
-              <span className="nav-card-desc">Full leaderboard</span>
-            </Link>
-            <Link to={`/group/${groupId}/draw`} className="nav-card">
-              <span className="nav-card-icon"><DrawIcon /></span>
-              <span className="nav-card-title">View draw</span>
-              <span className="nav-card-desc">Tournament bracket & results</span>
-            </Link>
-            <Link to={`/group/${groupId}/history`} className="nav-card">
-              <span className="nav-card-icon"><HistoryIcon /></span>
-              <span className="nav-card-title">Pick history</span>
-              <span className="nav-card-desc">Review your picks</span>
-            </Link>
-          </div>
-
-          {/* Next tournament CTA */}
-          {nextT && (
-            <div className="next-tournament-cta">
-              <p className="next-cta-eyebrow">Next up</p>
-              <h3 className="next-cta-title">{nextT.name} {nextT.year}</h3>
-              <p className="next-cta-meta">
-                {nextT.tourLevel} · {nextT.location} · Starts {fmtDate(nextT.startDate)}
-              </p>
-              <Link to="/" className="btn primary btn-lg next-cta-btn">
-                View upcoming pools →
-              </Link>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Pre-launch dashboard (upcoming pool, draw not released yet) ──────────
-    // Show for ALL users (members and non-members) when the tournament isn't active.
-    if (tournament && tournament.status !== 'active') {
+    // ── Pre-launch dashboard for NON-MEMBERS (join CTA) ──────────
+    if (preLaunch && tournament && !isMember) {
       const startDate    = tournament.startDate;
       const startDateFmt = fmtDate(startDate);
       // Use the explicit draw date from config if set, else estimate 3 days before start
@@ -475,10 +370,204 @@ export function GroupHome() {
       );
     }
 
+    // ── Pre-launch MEMBER view — leaderboard style ───────────────────────
+    if (preLaunch && tournament && isMember) {
+      const drawDateStr  = tournament.drawDate
+        || new Date(new Date(tournament.startDate) - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const drawDateFmt  = fmtDate(drawDateStr);
+
+      return (
+        <div className="page leaderboard">
+          <div className="leaderboard-header">
+            <h1>Leaderboard</h1>
+          </div>
+
+          {/* Stats bar — same layout as Leaderboard.jsx */}
+          <div className="lb-stats-bar">
+            <div className="lb-stat">
+              <span className="lb-stat-value">{fmtGBP(group.prizePoolCents || 0)}</span>
+              <span className="lb-stat-label">Prize pool</span>
+            </div>
+            <div className="lb-stat lb-stat-alive">
+              <span className="lb-stat-value">{totalMembers}</span>
+              <span className="lb-stat-label">Still in</span>
+            </div>
+            <div className="lb-stat lb-stat-out">
+              <span className="lb-stat-value">0</span>
+              <span className="lb-stat-label">Eliminated</span>
+            </div>
+            <div className="lb-stat">
+              <span className="lb-stat-value">{totalMembers}</span>
+              <span className="lb-stat-label">Total entrants</span>
+            </div>
+          </div>
+
+          <p className="lb-group-name">{group.name}</p>
+
+          {/* Draw release notice */}
+          <div className="prelaunch-registered" style={{ marginBottom: '1rem' }}>
+            <span className="prelaunch-registered-icon">✓</span>
+            <div>
+              <p className="prelaunch-registered-label">You're in!</p>
+              <p className="prelaunch-registered-sub">
+                The draw is released on {drawDateFmt} — your pick window opens then.
+              </p>
+            </div>
+          </div>
+
+          {/* Member table — matches leaderboard table styling */}
+          <div className="lb-table-wrap">
+            <table className="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th className="lb-th-status">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(group.members || []).map((m) => {
+                  const isYou = m.userId === userId;
+                  return (
+                    <tr key={m.id || m.userId} className={isYou ? 'lb-row-you' : ''}>
+                      <td className="lb-td-player">
+                        <span className="lb-avatar" style={{ background: avatarColour(m.displayName) }}>
+                          {initials(m.displayName)}
+                        </span>
+                        <span className="lb-display-name">{m.displayName}</span>
+                        {isYou && <span className="lb-you-tag">You</span>}
+                      </td>
+                      <td className="lb-td-status">
+                        <span className="status-alive">Alive</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Invite */}
+          <div className="invite-box">
+            <span className="invite-box-label">Invite friends</span>
+            <div className="invite-box-row">
+              <code className="invite-box-code">{inviteUrl}</code>
+              <button className={`btn invite-copy-btn ${copied ? 'copied' : ''}`} onClick={copyInvite}>
+                {copied ? '✓ Copied!' : 'Copy link'}
+              </button>
+            </div>
+          </div>
+
+          <div className="prelaunch-footer-links">
+            <Link to="/terms" className="prelaunch-footer-link">Terms &amp; Conditions</Link>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Completed tournament dashboard ──────────────────────────
+    if (isCompleted && tournament) {
+      const winnerNames = winners.map(w => w.displayName);
+      const nextT = TOURNAMENTS.find(t => t.status === 'upcoming' && t.id !== tournament.id);
+
+      return (
+        <div className="page group-home">
+          {/* Hero — completed state */}
+          <div className="group-hero group-hero--completed">
+            <div className="group-hero-court" aria-hidden="true" />
+            <div className="group-hero-inner">
+              <p className="group-hero-eyebrow">
+                🏆 {tournament.name} {tournament.year} · {tournament.tourLevel}
+              </p>
+              <h1 className="group-hero-title">{group.name}</h1>
+              <p className="completed-label">Tournament complete</p>
+            </div>
+          </div>
+
+          {/* Winner banner */}
+          <div className="completed-winner-section">
+            {winners.length === 1 ? (
+              <div className="winner-banner">
+                <div className="winner-trophy">🏆</div>
+                <h2 className="winner-name">{winnerNames[0]}</h2>
+                <p className="winner-subtitle">Winner — Last one standing!</p>
+                {group.prizePoolCents > 0 && (
+                  <p className="winner-prize">Takes the {fmtGBP(group.prizePoolCents)} prize pool</p>
+                )}
+              </div>
+            ) : winners.length > 1 ? (
+              <div className="winner-banner">
+                <div className="winner-trophy">🏆</div>
+                <h2 className="winner-name">{winnerNames.join(', ')}</h2>
+                <p className="winner-subtitle">{winners.length} survivors — prize shared!</p>
+                {group.prizePoolCents > 0 && (
+                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split {winners.length} ways ({fmtGBP(Math.floor(group.prizePoolCents / winners.length))} each)</p>
+                )}
+              </div>
+            ) : (
+              <div className="winner-banner winner-banner--none">
+                <div className="winner-trophy">😮</div>
+                <h2 className="winner-name">No survivors!</h2>
+                <p className="winner-subtitle">Everyone was eliminated — nobody beat the draw.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Final stats */}
+          <div className="completed-stats">
+            <div className="completed-stat">
+              <span className="completed-stat-value">{totalMembers}</span>
+              <span className="completed-stat-label">Entered</span>
+            </div>
+            <div className="completed-stat">
+              <span className="completed-stat-value">{winners.length}</span>
+              <span className="completed-stat-label">{winners.length === 1 ? 'Survivor' : 'Survivors'}</span>
+            </div>
+            <div className="completed-stat">
+              <span className="completed-stat-value">{totalMembers - aliveMembers}</span>
+              <span className="completed-stat-label">Eliminated</span>
+            </div>
+          </div>
+
+          {/* Nav cards — still accessible for review */}
+          <div className="nav-card-row">
+            <Link to={`/group/${groupId}/leaderboard`} className="nav-card">
+              <span className="nav-card-icon"><LeaderboardIcon /></span>
+              <span className="nav-card-title">Final standings</span>
+              <span className="nav-card-desc">Full leaderboard</span>
+            </Link>
+            <Link to={`/group/${groupId}/draw`} className="nav-card">
+              <span className="nav-card-icon"><DrawIcon /></span>
+              <span className="nav-card-title">View draw</span>
+              <span className="nav-card-desc">Tournament bracket & results</span>
+            </Link>
+            <Link to={`/group/${groupId}/history`} className="nav-card">
+              <span className="nav-card-icon"><HistoryIcon /></span>
+              <span className="nav-card-title">Pick history</span>
+              <span className="nav-card-desc">Review your picks</span>
+            </Link>
+          </div>
+
+          {/* Next tournament CTA */}
+          {nextT && (
+            <div className="next-tournament-cta">
+              <p className="next-cta-eyebrow">Next up</p>
+              <h3 className="next-cta-title">{nextT.name} {nextT.year}</h3>
+              <p className="next-cta-meta">
+                {nextT.tourLevel} · {nextT.location} · Starts {fmtDate(nextT.startDate)}
+              </p>
+              <Link to="/" className="btn primary btn-lg next-cta-btn">
+                View upcoming pools →
+              </Link>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="page group-home">
 
-        {/* ── Closing-soon urgency banner ── */}
+        {/* ── Closing-soon urgency banner (R2+) ── */}
         {closingSoon && (
           <div className="pick-urgency-banner">
             <span className="pub-icon">⚠️</span>
@@ -487,6 +576,18 @@ export function GroupHome() {
               <DeadlineCountdown to={openRoundDeadline} /> left to pick for <strong>{openRound}</strong>.
             </span>
             <Link to={`/group/${groupId}/pick`} className="pub-cta">Pick now →</Link>
+          </div>
+        )}
+
+        {/* ── R1 reminder banner (no fixed deadline) ── */}
+        {r1NoPick && (
+          <div className="pick-urgency-banner pick-urgency-banner--r1">
+            <span className="pub-icon">🎾</span>
+            <span className="pub-text">
+              <strong>R1 is open!</strong>{' '}
+              Pick any player before their match starts. Players are removed from the list as matches begin.
+            </span>
+            <Link to={`/group/${groupId}/pick`} className="pub-cta">Make your pick →</Link>
           </div>
         )}
 
@@ -499,24 +600,24 @@ export function GroupHome() {
             </p>
             <h1 className="group-hero-title">{group.name}</h1>
             <div className="group-hero-stats">
-              {totalMembers > 0 && (
-                <>
-                  <div className="group-hero-stat">
-                    <span className="group-stat-value group-stat-value--big">{aliveMembers}</span>
-                    <span className="group-stat-label">Still in</span>
-                  </div>
-                  <div className="group-hero-divider" />
-                </>
-              )}
               <div className="group-hero-stat">
-                <span className="group-stat-value group-stat-value--big">{fmtGBP(group.prizePoolCents)}</span>
+                <span className="group-stat-value">{fmtGBP(group.prizePoolCents)}</span>
                 <span className="group-stat-label">Prize pool</span>
               </div>
               <div className="group-hero-divider" />
               <div className="group-hero-stat">
-                <span className="group-stat-value group-stat-value--big">{fmtGBP(group.entryFeeCents)}</span>
+                <span className="group-stat-value">{fmtGBP(group.entryFeeCents)}</span>
                 <span className="group-stat-label">Entry fee</span>
               </div>
+              {totalMembers > 0 && (
+                <>
+                  <div className="group-hero-divider" />
+                  <div className="group-hero-stat">
+                    <span className="group-stat-value">{aliveMembers}<span className="group-stat-total"> / {totalMembers}</span></span>
+                    <span className="group-stat-label">Still in</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -549,18 +650,7 @@ export function GroupHome() {
           <>
             {/* Primary CTA */}
             <div className="pick-cta-section">
-              {isEliminated ? (
-                <div className="pick-cta-eliminated">
-                  <span className="pick-cta-eliminated-icon">🎾</span>
-                  <div className="pick-cta-eliminated-text">
-                    <span className="pick-cta-eliminated-label">Eliminated in {myMember.eliminatedRound || 'a previous round'}</span>
-                    <span className="pick-cta-eliminated-sub">You're out of this pool, but you can still follow the action.</span>
-                  </div>
-                  <Link to={`/group/${groupId}/leaderboard`} className="btn pick-cta-change-btn">
-                    View leaderboard
-                  </Link>
-                </div>
-              ) : myCurrentPick ? (
+              {myCurrentPick ? (
                 <div className="pick-cta-done">
                   <span className="pick-cta-done-icon">✓</span>
                   <div className="pick-cta-done-text">
@@ -576,11 +666,15 @@ export function GroupHome() {
                   <Link to={`/group/${groupId}/pick`} className="btn primary btn-lg pick-cta-btn">
                     {openRound ? `Pick for ${openRound} →` : 'Make your pick →'}
                   </Link>
-                  {openRound && (
+                  {openRound && openRound === 'R1' ? (
+                    <p className="pick-cta-hint pick-cta-hint--r1">
+                      No deadline for R1. Players are removed as their match starts, so pick before your player begins.
+                    </p>
+                  ) : openRound ? (
                     <p className="pick-cta-hint">
                       <PickWindow opensAt={openRoundOpensAt} lockAt={openRoundDeadline} />
                     </p>
-                  )}
+                  ) : null}
                 </>
               )}
             </div>
@@ -620,7 +714,7 @@ export function GroupHome() {
   if (groupId && !group) {
     return (
       <div className="page">
-        <p>Pool not found.</p>
+        <p>Group not found.</p>
         <Link to="/">Back to home</Link>
       </div>
     );
@@ -630,42 +724,44 @@ export function GroupHome() {
   const activePools    = allPools.filter(p => p.tournament?.status === 'active');
   const upcomingPools  = allPools.filter(p => p.tournament?.status === 'upcoming');
   const completedPools = allPools.filter(p => p.tournament?.status === 'completed');
-  const ctaPool       = activePools[0] || upcomingPools[0];
-
-  // Monte Carlo start date for countdown pill
-  const mcStartDate = ctaPool?.tournament?.startDate;
-  const daysToStart = mcStartDate ? Math.max(0, Math.ceil((new Date(mcStartDate) - new Date()) / 86400000)) : null;
 
   return (
     <div className="page home-page">
-      {/* ── Hero: ~85vh on mobile ── */}
-      <div className="home-hero home-hero--tall">
+      <div className="home-hero">
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <p className="home-hero-eyebrow">Tennis Survivor Pool</p>
+          <p className="home-hero-eyebrow">🎾 Year-round ATP tennis prediction</p>
           <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
-            Pick one player per round. If they lose, you're out.<br />
-            Last one standing takes the entire prize pool.
+            Pick one player per round. If they win, you survive.<br />
+            Last one standing takes the prize.
           </p>
-          {ctaPool && (
-            <Link to={`/group/${ctaPool.id}`} className="btn primary btn-lg home-hero-cta">
-              {ctaPool.isMember
-                ? `Go to ${ctaPool.tournament?.shortName || 'pool'} →`
-                : ctaPool.tournament?.status === 'upcoming'
-                  ? `Join ${ctaPool.tournament?.shortName || ''} free →`
-                  : 'Join now →'}
-            </Link>
-          )}
-          {daysToStart !== null && daysToStart > 0 && (
-            <div className="home-hero-countdown-pill">
-              🎾 {ctaPool.tournament?.shortName || 'Tournament'} starts in {daysToStart} day{daysToStart !== 1 ? 's' : ''}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ── Active tournaments first ── */}
+      {/* How it works */}
+      <section className="how-it-works">
+        <h2 className="hiw-heading">How it works</h2>
+        <div className="hiw-steps">
+          <div className="hiw-step">
+            <div className="hiw-step-num">1</div>
+            <h3 className="hiw-step-title">Enter a pool</h3>
+            <p className="hiw-step-desc">Join an open tournament pool below, or use a friend's invite code to enter their private group.</p>
+          </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">2</div>
+            <h3 className="hiw-step-title">Pick one player</h3>
+            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
+          </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">3</div>
+            <h3 className="hiw-step-title">Last one standing wins</h3>
+            <p className="hiw-step-desc">If your player loses, you're out. Run out of valid picks and you're eliminated — so don't burn your best players too soon. Outlast everyone else and take the entire prize pool.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Active tournaments */}
       {activePools.length > 0 && (
         <section className="home-section">
           <h2 className="home-section-title">Open now</h2>
@@ -675,41 +771,7 @@ export function GroupHome() {
         </section>
       )}
 
-      {/* ── Social proof strip ── */}
-      {ctaPool && (
-        <div className="social-proof-strip">
-          🎾 {ctaPool.memberCount > 0
-            ? `${ctaPool.memberCount} player${ctaPool.memberCount !== 1 ? 's' : ''} already registered for ${ctaPool.tournament?.shortName || 'the next tournament'}`
-            : `Be the first to join ${ctaPool.tournament?.shortName || 'the next tournament'}`}
-        </div>
-      )}
-
-      {/* ── How it works ── */}
-      <section className="how-it-works">
-        <h2 className="hiw-heading">How it works</h2>
-        <div className="hiw-steps">
-          <div className="hiw-step">
-            <span className="hiw-step-icon">🏆</span>
-            <div className="hiw-step-num">1</div>
-            <h3 className="hiw-step-title">Join a pool</h3>
-            <p className="hiw-step-desc">Join an open tournament pool, or use a friend's invite code to join a private pool.</p>
-          </div>
-          <div className="hiw-step">
-            <span className="hiw-step-icon">🎾</span>
-            <div className="hiw-step-num">2</div>
-            <h3 className="hiw-step-title">Pick one player</h3>
-            <p className="hiw-step-desc">Each round, pick one player you think will win their match. You can never pick the same player twice in a tournament, so save your strongest picks for when you need them most.</p>
-          </div>
-          <div className="hiw-step">
-            <span className="hiw-step-icon">🥇</span>
-            <div className="hiw-step-num">3</div>
-            <h3 className="hiw-step-title">Last one standing wins</h3>
-            <p className="hiw-step-desc">If your player loses, you're eliminated. Outlast every other player in your pool and take the entire prize pool.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Upcoming tournaments ── */}
+      {/* Upcoming tournaments */}
       {upcomingPools.length > 0 && (
         <section className="home-section">
           <h2 className="home-section-title">Coming soon</h2>
@@ -729,7 +791,7 @@ export function GroupHome() {
         </section>
       )}
 
-      {/* ── My pools ── */}
+      {/* My pools */}
       {groups.length > 0 && (
         <section className="home-section">
           <h2 className="home-section-title">Your pools</h2>
@@ -755,7 +817,7 @@ export function GroupHome() {
 
       <section className="home-section join-section">
         <h2 className="home-section-title">Have an invite code?</h2>
-        <p className="home-section-sub">Paste your invite code below to join a private pool.</p>
+        <p className="home-section-sub">Enter a private group invite code below.</p>
         <JoinForm />
       </section>
     </div>
@@ -765,14 +827,12 @@ export function GroupHome() {
 function PoolCard({ pool }) {
   const t = pool.tournament;
   const isFree = pool.entryFeeCents === 0;
-  const isPoolCompleted = t?.status === 'completed';
-  const statusLabel = isPoolCompleted ? 'Completed' : t?.status === 'active' ? 'Live' : 'Coming soon';
-  const statusClass = isPoolCompleted ? 'pool-status--completed' : t?.status === 'active' ? 'pool-status--active' : 'pool-status--upcoming';
-
-  const isUpcoming = t?.status === 'upcoming';
+  const isCompleted = t?.status === 'completed';
+  const statusLabel = isCompleted ? 'Completed' : t?.status === 'active' ? 'Live' : 'Coming soon';
+  const statusClass = isCompleted ? 'pool-status--completed' : t?.status === 'active' ? 'pool-status--active' : 'pool-status--upcoming';
 
   return (
-    <Link to={`/group/${pool.id}`} className={`pool-card${isUpcoming ? ' pool-card--upcoming' : ''}${isPoolCompleted ? ' pool-card--completed' : ''}`}>
+    <Link to={`/group/${pool.id}`} className={`pool-card ${isCompleted ? 'pool-card--completed' : ''}`}>
       <div className="pool-card-top">
         <div>
           <span className={`pool-status-badge ${statusClass}`}>{statusLabel}</span>
@@ -787,8 +847,8 @@ function PoolCard({ pool }) {
         </div>
       </div>
       <div className="pool-card-bottom">
-        {isPoolCompleted && pool.memberCount > 0 && (
-          <span className="pool-card-stat">{pool.winnerName ? `🏆 ${pool.winnerName} won` : pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
+        {isCompleted && pool.memberCount > 0 && (
+          <span className="pool-card-stat">{pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
         )}
         {t?.status === 'active' && pool.memberCount > 0 && (
           <span className="pool-card-stat">{pool.aliveCount} of {pool.memberCount} still in</span>
@@ -799,25 +859,12 @@ function PoolCard({ pool }) {
         {t?.status === 'upcoming' && t?.startDate && (
           <span className="pool-card-stat">Starts {new Date(t.startDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}</span>
         )}
-        {t?.status === 'upcoming' && (
-          <span className="pool-card-stat pool-card-registered">
-            {pool.memberCount > 0 ? `${pool.memberCount} already registered` : 'Be first to join'}
-          </span>
+        {!isCompleted && !t?.drawAvailable && (
+          <span className="pool-card-stat pool-card-tbc">Draw TBC</span>
         )}
-        {!isPoolCompleted && !t?.drawAvailable && (
-          <span className="pool-card-stat pool-card-tbc">Draw coming soon</span>
-        )}
-        {isPoolCompleted ? (
-          <span className="pool-card-cta">View results →</span>
-        ) : isUpcoming ? (
-          <span className="btn primary pool-card-join-btn">
-            {pool.isMember ? 'Open pool →' : isFree ? 'Join pool free →' : `Join pool ${fmtGBP(pool.entryFeeCents)} →`}
-          </span>
-        ) : (
-          <span className="pool-card-cta">
-            {pool.isMember ? 'Open pool →' : isFree ? 'Join free →' : 'Join →'}
-          </span>
-        )}
+        <span className="pool-card-cta">
+          {isCompleted ? 'View results →' : pool.isMember ? 'Open pool →' : isFree ? 'Enter free →' : 'Enter →'}
+        </span>
       </div>
     </Link>
   );
@@ -1001,7 +1048,7 @@ function JoinForm() {
         type="text"
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="e.g. MADRID-A36RQ4"
+        placeholder="e.g. FAMILY-SLAM-2026"
         className="input"
       />
       <button type="submit" className="btn primary" disabled={loading}>

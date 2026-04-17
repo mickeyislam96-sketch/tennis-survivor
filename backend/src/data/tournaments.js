@@ -1,23 +1,56 @@
 /**
- * Tournament registry — single source of truth for all events.
- * Add a new object here to register a new tournament.
- * The system picks up the correct draw data from ACTIVE_TOURNAMENT env var.
+ * Tournament registry — the single source of truth for all events.
+ * Add a new object here to register a tournament. No other code changes required.
  */
 export const TOURNAMENTS = [
+  {
+    id: 'indian-wells-2026',
+    name: 'BNP Paribas Open',
+    shortName: 'Indian Wells',
+    year: 2026,
+    tourLevel: 'ATP Masters 1000',
+    startDate: '2026-03-05',
+    endDate: '2026-03-16',
+    location: 'Indian Wells, CA, USA',
+    surface: 'Hard (outdoor)',
+    status: 'completed',    // 'upcoming' | 'active' | 'completed'
+    drawDate: 'March 3, 2026',
+    drawAvailable: true,
+    // Pick window is computed dynamically via getDeadlines() for active tournaments.
+    // For upcoming tournaments, set manually below once the schedule is confirmed.
+    pickWindowOpen: null,
+    pickWindowClose: null,
+  },
+  {
+    id: 'miami-2026',
+    name: 'Miami Open',
+    shortName: 'Miami',
+    year: 2026,
+    tourLevel: 'ATP Masters 1000',
+    startDate: '2026-03-19',
+    endDate: '2026-03-30',
+    location: 'Miami, FL, USA',
+    surface: 'Hard (outdoor)',
+    status: 'active',
+    drawDate: 'March 16, 2026',
+    drawAvailable: true,
+    entryCloseAt: '2026-03-17T16:00:00Z',  // Closes 4pm UK time March 17
+    pickWindowOpen: null,
+    pickWindowClose: null,
+  },
   {
     id: 'monte-carlo-2026',
     name: 'Rolex Monte-Carlo Masters',
     shortName: 'Monte Carlo',
     year: 2026,
     tourLevel: 'ATP Masters 1000',
-    startDate: '2026-04-05',
-    endDate: '2026-04-12',
-    location: 'Monte Carlo, Monaco',
+    startDate: '2026-04-06',
+    endDate: '2026-04-13',
+    location: 'Monte-Carlo, Monaco',
     surface: 'Clay (outdoor)',
     status: 'completed',
     drawDate: 'April 4, 2026',
     drawAvailable: true,
-    entryCloseAt: '2026-04-04T16:00:00Z',
     pickWindowOpen: null,
     pickWindowClose: null,
   },
@@ -27,44 +60,37 @@ export const TOURNAMENTS = [
     shortName: 'Madrid',
     year: 2026,
     tourLevel: 'ATP Masters 1000',
-    startDate: '2026-04-21',
+    startDate: '2026-04-22',
     endDate: '2026-05-03',
     location: 'Madrid, Spain',
     surface: 'Clay (outdoor)',
     status: 'upcoming',
-    drawDate: 'April 18, 2026',
+    drawDate: 'April 19, 2026',
     drawAvailable: false,
-    entryCloseAt: null,  // Set once draw date is confirmed
+    r1PerMatchLock: true,
+    pickWindowOpen: null,
+    pickWindowClose: null,
+  },
+  {
+    id: 'roland-garros-2026',
+    name: 'Roland-Garros',
+    shortName: 'Roland Garros',
+    year: 2026,
+    tourLevel: 'Grand Slam',
+    startDate: '2026-05-18',
+    endDate: '2026-06-07',
+    location: 'Paris, France',
+    surface: 'Clay (outdoor)',
+    status: 'upcoming',
+    drawDate: 'May 15, 2026',
+    drawAvailable: false,
+    isPaid: true,
+    entryFeeCents: 1000,
     pickWindowOpen: null,
     pickWindowClose: null,
   },
 ];
 
-/**
- * Compute effective status: auto-complete active tournaments 1 day after endDate.
- * Returns a new object with corrected status (does not mutate the original).
- */
-function withEffectiveStatus(t) {
-  if (!t) return t;
-  if (t.status === 'active' && t.endDate) {
-    // Auto-complete at midnight UTC on the day after the final
-    const cutoff = new Date(t.endDate + 'T23:59:59Z');
-    if (new Date() > cutoff) return { ...t, status: 'completed' };
-  }
-  return t;
-}
-
 export function getTournament(id) {
-  const t = TOURNAMENTS.find(t => t.id === id);
-  return withEffectiveStatus(t) || null;
-}
-
-export function getActiveTournament() {
-  const effective = TOURNAMENTS.map(withEffectiveStatus);
-  return (
-    effective.find(t => t.status === 'active') ||
-    effective.find(t => t.status === 'upcoming') ||
-    [...effective].reverse().find(t => t.status === 'completed') ||
-    null
-  );
+  return TOURNAMENTS.find(t => t.id === id) || null;
 }

@@ -6,18 +6,18 @@ export function TermsAndConditions() {
       <div className="terms-header">
         <div>
           <h1>Terms &amp; Conditions</h1>
-          <p className="terms-updated">Last updated: 15 April 2026</p>
+          <p className="terms-updated">Last updated: April 2026</p>
         </div>
-        <Link to="/" className="back-link">← Back to home</Link>
+        <Link to="/" className="back-link">&larr; Back to home</Link>
       </div>
 
       <section className="terms-section">
         <h2>1. Nature of the Competition</h2>
         <p>
-          Final Serve-ivor is a strategy and prediction competition based on professional ATP tennis
+          Final Serve-ivor is a strategy and prediction competition based on professional tennis
           tournaments. Participants apply knowledge, skill, and judgement to predict match outcomes
-          across multiple rounds. This is a game of skill, not a game of chance, and does not
-          constitute gambling or betting. Participants submit predictions rather than wagers, and
+          across multiple rounds. This is a game of skill, not a game of chance, and is not
+          gambling or betting of any kind. Participants submit predictions rather than wagers, and
           no outcome is determined by random chance alone.
         </p>
       </section>
@@ -25,263 +25,181 @@ export function TermsAndConditions() {
       <section className="terms-section">
         <h2>2. Eligibility</h2>
         <p>
-          Participation is open to individuals aged 18 and over. By entering, you confirm that you
-          are at least 18 years of age and that participation in skill-based prediction competitions
-          is lawful in your jurisdiction. It is your responsibility to verify your local laws before
-          entering. The operator accepts no liability where a participant enters from a jurisdiction
-          in which such participation is restricted.
+          Participation is open to individuals aged 18 and over. By entering, you confirm you are
+          of legal age and that participation in skill-based prediction competitions is lawful in
+          your jurisdiction. Pools may be run on a private, friends-and-family basis or as open
+          competitions. The organiser of each pool is responsible for ensuring compliance with
+          applicable local laws.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>3. Accounts</h2>
+        <h2>3. Entry &amp; Prize Pools</h2>
         <p>
-          You must register an account to participate. You may hold more than one account, but
-          each account entered into a pool requires its own entry fee and is treated as a
-          separate participant. You are responsible for maintaining the security of your account
-          credentials. The operator is not liable for any loss arising from unauthorised access
-          to your account.
+          Entry fees vary by pool and are displayed clearly before submission. Some pools are
+          free to enter. Where an entry fee applies, it contributes to the prize pool for that
+          tournament. Entry fees are non-refundable once the tournament has begun. If a tournament
+          is cancelled or abandoned before completion, the organiser will determine a fair
+          resolution and communicate it to all participants in writing.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>4. Entry &amp; Prize Pools</h2>
+        <h2>4. How to Play</h2>
         <p>
-          Entry fees vary by pool and are displayed clearly before you join. Some pools are free to
-          enter. Where an entry fee applies, 100% of the collected entry fees form the prize pool
-          for that tournament unless stated otherwise on the pool page. Entry fees are
-          non-refundable once the first match of the tournament has begun.
-        </p>
-        <p>
-          If you join a pool before the tournament starts and the tournament is subsequently
-          cancelled before any matches are played, your entry fee will be refunded in full. If a
-          tournament is abandoned or significantly disrupted after play has begun, the operator will
-          determine a fair resolution (which may include a partial refund, an equal split of the
-          prize pool among surviving participants, or another arrangement) and will communicate it
-          to all participants in writing within 14 days.
+          Each round, you must select one tennis player from the remaining draw who you predict
+          will win their match. You may not select the same player more than once across the
+          tournament. If your chosen player wins, you advance to the next round. If they lose,
+          you are eliminated.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>5. How to Play</h2>
+        <h2>5. Pick Windows</h2>
+        <h3>5a. Round 1</h3>
         <p>
-          Each round, you must select one tennis player from the available draw whom you predict
-          will win their match in that round. Your selection must be submitted within the pick
-          window for that round. You may not select the same player more than once across the
-          entire tournament. If your chosen player wins their match, you advance to the next round.
-          If your chosen player loses, you are eliminated from the pool.
+          Round 1 does not have a fixed closing deadline. Instead, the pick window for Round 1
+          remains open throughout the round, and players are removed from the available list as
+          soon as their match begins. Once a match kicks off, both players in that match can no
+          longer be selected or switched to. You may pick or change your selection at any time,
+          provided your chosen player's match has not yet started.
+        </p>
+        <p>
+          Your pick is locked the moment your selected player's match begins. You cannot change
+          it after that point.
+        </p>
+        <p>
+          The Round 1 pick window closes entirely when the last Round 1 match begins, at which
+          point no further Round 1 selections can be made. If you have not submitted a pick by
+          the time all Round 1 matches have started, you will be eliminated.
+        </p>
+
+        <h3>5b. Round 2 onwards</h3>
+        <p>
+          From Round 2 (Round of 64) onwards, each round has a defined pick window with a fixed
+          closing time. The window opens after the previous round's results begin to come in and
+          closes before the first match of the current round begins. The exact open and close
+          times are displayed on the pick screen. Submissions outside this window are not accepted.
+        </p>
+        <p>
+          It is your responsibility to submit your pick within the window. No exceptions are made
+          for technical issues on the participant's end.
+        </p>
+
+        <h3>5c. Overlapping rounds at Masters 1000 events</h3>
+        <p>
+          ATP Masters 1000 tournaments use a 96-player draw in which the top 32 seeds receive
+          first-round byes. This creates a structural overlap: Round 1 and Round 2 matches may be
+          scheduled across overlapping days.
+        </p>
+        <p>
+          Because the Round 2 pick window closes before Round 2 begins, regardless of whether all
+          Round 1 matches have been completed, participants may need to submit their Round 2 pick
+          before their Round 1 result is known. In this situation, your Round 2 pick will only
+          take effect if your Round 1 player wins and you advance. If your Round 1 player loses,
+          you are eliminated in Round 1 and your Round 2 pick is disregarded. The pick screen
+          will display a warning when this applies.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>6. Pick Windows</h2>
+        <h2>6. Player Withdrawals</h2>
+        <h3>6a. Before your player's match starts</h3>
         <p>
-          Each round has a defined pick window during which selections are accepted. The window
-          opens after the previous round concludes (or, for the first round, when the draw is
-          released) and closes before the first match of that round begins. The exact open and
-          close times are displayed on the pick screen and are final.
+          If a player you have selected withdraws from the tournament before their match begins,
+          you will be notified by email (and push notification if using the mobile app). You will
+          then be able to make a new selection from the remaining available players whose matches
+          have not yet started. The number of available replacements may be limited depending on
+          how many matches have already begun.
         </p>
         <p>
-          Submissions outside the pick window are not accepted under any circumstances. It is your
-          sole responsibility to submit your pick before the window closes. No extensions or
-          exceptions will be granted for late submissions, whether caused by technical issues on
-          your device, internet connectivity problems, time zone misunderstanding, or any other
-          reason.
+          It is your responsibility to act on this notification promptly. If you do not submit a
+          replacement pick before all remaining matches in that round have started, you will be
+          eliminated.
         </p>
+
+        <h3>6b. After your player's match starts</h3>
         <p>
-          If you fail to submit a pick within the window, you are automatically eliminated.
+          If your selected player retires or is given a walkover after their match has started (or
+          after the round's pick window has closed for Round 2 onwards), no replacement pick is
+          available. The match result stands as recorded by the tournament, and your fate in the
+          competition follows accordingly. If the withdrawal results in your player being awarded
+          a walkover win, you advance. If your player retires or is recorded as the loser, you
+          are eliminated.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>6a. Overlapping Rounds</h2>
+        <h2>7. Elimination</h2>
         <p>
-          ATP tournaments vary in draw size and structure. In some formats, top-seeded players
-          receive byes and enter the draw at a later stage. This can create a structural overlap
-          where the pick window for a subsequent round opens and closes while matches from the
-          previous round are still in progress.
-        </p>
-        <p>
-          In this situation, you may need to submit your next-round pick before your current-round
-          result is known. This is an inherent feature of the tournament format, not an error in
-          the competition. The pick screen will display a warning when this applies.
-        </p>
-        <p>
-          If you submit a pick for the next round while your current-round match is still pending,
-          that pick will only take effect if you advance. If your current-round player loses, you
-          are eliminated in the current round and your next-round pick is disregarded.
-        </p>
-        <p>
-          It is your sole responsibility to monitor the pick screen, note any warnings, and submit
-          your pick within the open window regardless of whether previous-round results are
-          confirmed.
+          You are eliminated if your chosen player loses their match, if you fail to submit a pick
+          before all matches in that round have started (Round 1) or before the pick window closes
+          (Round 2 onwards), or if your player withdraws after the pick is locked and the result
+          counts against you. There is no re-entry once eliminated.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>7. Walkovers, Retirements &amp; Disqualifications</h2>
+        <h2>8. Skill Element</h2>
         <p>
-          If a match is decided by walkover (where one player does not take to the court),
-          retirement (where a player withdraws during the match), or disqualification, the
-          player who retires, withdraws, or is disqualified is treated as having lost the match.
-          If your chosen player is the one who retires, walks over, or is disqualified, your
-          pick counts as a loss and you are eliminated.
-        </p>
-        <p>
-          If your chosen player's opponent retires, walks over, or is disqualified, your chosen
-          player advances and your pick ordinarily counts as correct.
-        </p>
-        <p>
-          However, if a withdrawal or walkover is confirmed before the match takes place and the
-          pick window for that round is still open (or there is otherwise sufficient time for
-          participants to adjust), the operator reserves the right to void the affected pick and
-          require the participant to select a different player. This is to prevent participants
-          from gaining a free pass through a round by deliberately selecting a player whose
-          opponent is known or expected to withdraw. The operator will notify affected participants
-          promptly if a pick is voided under this clause.
-        </p>
-        <p>
-          If both players are unable to complete the match and the ATP removes the match from
-          the draw entirely or assigns a replacement, the operator will determine how affected
-          picks are handled and will communicate the decision to all participants.
-        </p>
-        <p>
-          <strong>Post-lock withdrawals.</strong> If a player withdraws from the tournament after
-          the pick window for that round has closed (meaning participants could not have known
-          about the withdrawal when submitting their pick), the operator will notify affected
-          participants by email and provide an opportunity to select a replacement player. The
-          affected participant must reply with their replacement pick before the withdrawn
-          player's originally scheduled match begins. If the participant does not respond
-          before that match time, the withdrawal is treated as a loss and the participant is
-          eliminated. It is the participant's responsibility to monitor their email for
-          withdrawal notifications, particularly during the early rounds of a tournament when
-          withdrawals are most common. The operator will make reasonable efforts to notify
-          participants as soon as a withdrawal is confirmed, but cannot guarantee any minimum
-          notice period.
-        </p>
-      </section>
-
-      <section className="terms-section">
-        <h2>8. Elimination</h2>
-        <p>
-          You are eliminated from a pool if any of the following occur: (a) your chosen player
-          loses their match, retires, withdraws, or is disqualified; (b) you fail to submit a pick
-          before the pick window closes; or (c) you are disqualified by the operator for a breach
-          of these terms. There is no re-entry once eliminated.
-        </p>
-      </section>
-
-      <section className="terms-section">
-        <h2>9. Winning &amp; Prize Distribution</h2>
-        <p>
-          The competition continues until either one participant remains or the tournament ends.
-          If a single participant outlasts all others, that participant wins the entire prize pool.
-          If two or more participants survive to the end of the tournament (i.e. multiple
-          participants correctly predict the winner of the Final), the prize pool is split equally
-          among all surviving participants.
-        </p>
-        <p>
-          If all remaining participants are eliminated in the same round (for example, every
-          survivor picks incorrectly in the same round), the prize pool is split equally among
-          those participants.
-        </p>
-        <p>
-          The winner(s) will be contacted by the operator within 7 days of the tournament Final.
-          Payment will be made via bank transfer or another method agreed between the operator
-          and the recipient. If a winner cannot be reached after reasonable attempts over 30 days,
-          the operator reserves the right to forfeit the unclaimed portion. No prize may be
-          transferred to a third party.
-        </p>
-      </section>
-
-      <section className="terms-section">
-        <h2>10. Skill Element</h2>
-        <p>
-          Successful participation requires knowledge of professional tennis, including player form,
-          surface preferences, head-to-head records, draw conditions, and round-by-round difficulty.
-          The competition rewards informed prediction and strategic resource management over multiple
-          rounds. The element of skill is material to the outcome: participants who apply greater
+          Successful participation requires knowledge of professional tennis: understanding player
+          form, head-to-head records, draw conditions, and round-by-round difficulty. The
+          competition rewards informed prediction and strategic thinking over multiple rounds.
+          The element of skill is material to the outcome: participants who apply greater
           knowledge and analysis consistently outperform those who do not.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>11. Prohibited Conduct &amp; Disqualification</h2>
+        <h2>9. Tiebreaker</h2>
         <p>
-          The following conduct is prohibited and may result in immediate disqualification without
-          refund: colluding with other participants to coordinate picks; using automated tools or
-          bots to submit picks; attempting to exploit bugs or vulnerabilities in the platform; or
-          any behaviour that the operator, in its sole discretion, considers to undermine the
-          fairness or integrity of the competition.
+          If two or more participants survive to the Final, a tiebreaker will determine the
+          winner. Each remaining participant will be asked to predict specific match statistics
+          (for example: number of sets, total games, aces). The participant whose combined
+          predictions are closest to the actual result wins the prize pool. In the event of an
+          exact tie on all tiebreaker answers, the prize pool will be split equally between
+          tied participants.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>12. Operator Decisions</h2>
+        <h2>10. Prize Payment</h2>
         <p>
-          The operator's decisions on all matters relating to the competition are final, including
-          the interpretation of these terms, the resolution of disputes, and any unforeseen
-          circumstances not covered herein. The operator may amend these terms before a tournament
-          begins and will notify all registered participants of material changes via email or
-          on-site notice. No changes will be made to these terms after the first match of a
-          tournament has begun, except where required to correct an obvious error or to comply
-          with applicable law.
+          The winner will be contacted by the pool organiser within 7 days of the tournament
+          Final. Payment will be made via bank transfer or another method agreed between the
+          organiser and the winner. No prize can be transferred to a third party.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>13. Platform Availability</h2>
+        <h2>11. Notifications</h2>
         <p>
-          The operator will use reasonable efforts to keep the platform available and functioning
-          correctly. However, the operator does not guarantee uninterrupted access and accepts no
-          liability for any loss, elimination, or missed pick window caused by platform downtime,
-          server errors, third-party data feed failures, or any event beyond the operator's
-          reasonable control. It is your responsibility to submit your picks with sufficient time
-          before the window closes to account for potential technical issues.
+          The competition may send you emails or push notifications relating to pick windows,
+          results, withdrawals, and other time-sensitive events. While we make every effort to
+          deliver notifications promptly, we do not guarantee delivery times. It remains your
+          responsibility to check the pick screen and monitor your selections. Failure to act
+          on a notification, or failure to receive one, does not entitle you to an exception
+          or extension.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>14. Data &amp; Privacy</h2>
+        <h2>12. Organiser Decisions</h2>
         <p>
-          To operate the competition, we collect your email address, display name, and password
-          (stored as a secure hash). We also store your pick history and group membership. This
-          data is used solely for the purpose of running the competition and communicating with
-          you about tournaments you have entered.
-        </p>
-        <p>
-          We do not sell, rent, or share your personal data with third parties. We may send you
-          transactional emails related to your account and pools you have joined (such as
-          confirmation of entry, pick reminders, and results). You may request deletion of your
-          account and associated data at any time by contacting the operator.
+          The pool organiser's decisions on all matters relating to the competition are final,
+          including interpretation of the rules, resolution of disputes, and any unforeseen
+          circumstances not covered by these terms. The organiser may amend these terms before
+          a tournament begins and will notify all participants of any changes.
         </p>
       </section>
 
       <section className="terms-section">
-        <h2>15. Limitation of Liability</h2>
+        <h2>13. Data &amp; Privacy</h2>
         <p>
-          To the fullest extent permitted by law, the operator's total liability in connection
-          with the competition is limited to the entry fee you paid for the relevant pool. The
-          operator is not liable for any indirect, incidental, or consequential loss, including
-          lost winnings arising from platform unavailability, data errors, or incorrect match
-          results from third-party data providers.
-        </p>
-      </section>
-
-      <section className="terms-section">
-        <h2>16. Governing Law</h2>
-        <p>
-          These terms are governed by and construed in accordance with the laws of England and
-          Wales. Any dispute arising from or in connection with these terms or the competition
-          shall be subject to the exclusive jurisdiction of the courts of England and Wales.
-        </p>
-      </section>
-
-      <section className="terms-section">
-        <h2>17. Contact</h2>
-        <p>
-          For questions about these terms or the competition, contact the operator at{' '}
-          <a href="mailto:finalservivor@gmail.com">finalservivor@gmail.com</a>.
+          Final Serve-ivor collects only the information necessary to operate the competition:
+          your display name, email address, and picks. This data is not shared with third parties
+          and is used solely for the purpose of running the prediction competition and sending
+          you relevant notifications.
         </p>
       </section>
     </div>

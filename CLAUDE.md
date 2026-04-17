@@ -1,12 +1,12 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 25 April 2026. Keep this file updated at the end of every session.
+> Last updated: 13 April 2026. Keep this file updated at the end of every session.
 
 ---
 
 ## What the product is
 
-**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 21 Apr, free entry, draw 19 Apr).
+**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 22 Apr, free entry, draw 19 Apr).
 
 ---
 
@@ -31,8 +31,10 @@
 | Backend | Node.js / Express, deployed on Railway (auto-deploys from GitHub `main`) |
 | Source control (web) | GitHub — `mickeyislam96-sketch/tennis-survivor` |
 | Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
-| Primary data | API-Tennis (paid) — live fixtures and results |
-| Secondary data | Sofascore (free) — currently 403-blocked on all cloud IPs |
+| Primary data | Goalserve (planned, $100/mo) — replacing API-Tennis for Madrid 2026+ |
+| Legacy data | API-Tennis (paid) — unreliable, kept as fallback only |
+| Secondary data | Sofascore (free) — 403-blocked on cloud IPs |
+| Data adapter | `backend/src/services/dataAdapter.js` — unified interface, swappable providers |
 | Proxy | Cloudflare Workers (deployed but inactive) |
 | Storage | Railway volume (persistent — picks, groups, members) |
 
@@ -68,22 +70,15 @@
 
 | Variable | Purpose |
 |---|---|
-| `TENNIS_API_KEY` | API-Tennis auth key — **critical, never remove** |
-| `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open |
+| `GOALSERVE_API_KEY` | Goalserve API key — **set on 17 Apr when trial activates** |
+| `TENNIS_DATA_PROVIDER` | Active data provider: `goalserve`, `api-tennis`, `sofascore`, or `mock` |
+| `ACTIVE_TOURNAMENT` | Active tournament ID (e.g. `madrid-2026`) — used by `activeTournament.js` |
+| `TENNIS_API_KEY` | API-Tennis auth key — **legacy fallback, keep for now** |
+| `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open (legacy) |
 | `SOFASCORE_BASE_URL` | Cloudflare proxy URL — `https://sofascore-proxy.finalservivor.workers.dev` |
 | `NODE_ENV` | Runtime environment |
-| `BREVO_API_KEY` | Brevo transactional email API key |
-| `BREVO_TPL_WELCOME` | Brevo template ID for welcome email (1) |
-| `BREVO_TPL_TOURNAMENT_JOIN` | Brevo template ID for tournament join (2) |
-| `BREVO_TPL_DRAW_RELEASED` | Brevo template ID for draw released (3) |
-| `BREVO_TPL_PICK_REMINDER` | Brevo template ID for pick reminder (4) |
-| `BREVO_TPL_SURVIVAL` | Brevo template ID for round survival (5) |
-| `BREVO_TPL_ELIMINATION` | Brevo template ID for elimination (6) |
-| `BREVO_TPL_WINNER` | Brevo template ID for winner (7) |
-| `BREVO_TPL_PASSWORD_RESET` | Brevo template ID for password reset (8) |
-| `BREVO_TPL_NEW_TOURNAMENT` | Brevo template ID for new tournament (9) |
 
-**WARNING:** If `TENNIS_API_KEY` is missing, the draw silently falls back to broken mock data with no visible error. After changing Railway env vars, you may need to manually trigger a restart via Railway dashboard or GraphQL API: `mutation deploymentRestart(id)` at `backboard.railway.app/graphql/v2`.
+**WARNING:** If no data provider is configured, the draw silently falls back to mock data. After changing Railway env vars, manually trigger a restart via Railway dashboard or GraphQL API: `mutation deploymentRestart(id)` at `backboard.railway.app/graphql/v2`.
 
 ---
 
@@ -119,38 +114,89 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 ---
 
-## Round structure — Miami Open 2026
+## Round structure — Masters 1000 (96-draw)
 
-| App round | API-Tennis label | Description |
-|---|---|---|
-| R1 | ATP Miami - 1/64-finals | 32 matches between unseeded players (no seeds involved) |
-| R64 | ATP Miami - 1/32-finals | 64 players — R1 winners + seeded players entering |
-| R32 | ATP Miami - 1/16-finals | 32 players |
-| R16 | ATP Miami - 1/8-finals | 16 players |
-| QF | ATP Miami - Quarterfinals | 8 players |
-| SF | ATP Miami - Semifinals | 4 players |
-| F | ATP Miami - Final | 2 players |
+| App round | Description |
+|---|---|
+| R1 | 32 matches between unseeded players (no seeds involved) |
+| R64 | 64 players — R1 winners + seeded players entering |
+| R32 | 32 players |
+| R16 | 16 players |
+| QF | 8 players |
+| SF | 4 players |
+| F | 2 players |
 
-**Key structural fact:** Seeded players (top 32) have R1 byes — they do not appear in any R1 fixtures. They first appear when their R64 match is scheduled. Some R64 matches have `round: null` in the API because the API hasn't assigned them yet — `normalizeRound()` returns null for these, so they may be missed.
+**Key structural fact:** Seeded players (top 32) have R1 byes — they do not appear in any R1 fixtures. They first appear when their R64 match is scheduled.
+
+---
+
+## R1 Per-Match Lock (NEW — 13 Apr 2026)
+
+**Applies to:** All Masters 1000 and Grand Slam R1 rounds. Controlled by `TOURNAMENT.r1PerMatchLock` in `activeTournament.js`.
+
+**How it works:**
+- R1 has NO fixed closing deadline
+- Players are removed from the available pick pool as their match starts (both players in the match)
+- Users can pick/switch freely among remaining players whose matches haven't started
+- A user's pick is locked the moment their selected player's match begins
+- R1 window closes organically when the last R1 match starts (pool becomes empty)
+
+**Withdrawal handling:**
+- If a picked player withdraws BEFORE their match starts, user is notified (email + push) and can re-pick from remaining available players
+- If withdrawal happens after match start (walkover/retirement mid-match), the result stands
+- Admin can manually flag withdrawals via `POST /api/admin/withdrawal` (TODO: build this endpoint)
+- Automatic detection: poll API every 5-10 min during R1 for withdrawal/walkover statuses
+
+**Key files:**
+- `backend/src/config/activeTournament.js` — tournament config with `r1PerMatchLock: true`
+- `backend/src/services/dataAdapter.js` — `getR1MatchTimes()`, `hasMatchStarted()`, `isR1Closed()`, `getAvailableR1Players()`
+- `backend/src/routes/picks.js` — R1 branch in `getAvailablePlayers()` and `POST /api/picks`
+- `backend/src/services/tennisData.js` — `getDeadlines()` returns `perMatchLock: true` for R1
+- `frontend/src/pages/GroupHome.jsx` — R1 hint banner ("Players removed as matches start")
+- `frontend/src/pages/PickScreen.jsx` — TODO: update R1 view to show match start times, grey out started matches
+
+**CRITICAL: The R1 per-match lock and the R2+ round-level lock are completely separate code paths.** Changing one must not affect the other. The branch point is `TOURNAMENT.r1PerMatchLock` checked at the start of each function.
+
+---
+
+## Data adapter layer (NEW — 13 Apr 2026)
+
+**File:** `backend/src/services/dataAdapter.js`
+
+Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: Goalserve (preferred) → API-Tennis (legacy) → Sofascore (free) → mock.
+
+**Internal fixture format:**
+```js
+{
+  matchId, round, player1Id, player1Name, player2Id, player2Name,
+  winnerId, winnerName, status, startTime, score,
+  isWithdrawal, withdrawnPlayerId
+}
+```
+
+**Status values:** `scheduled`, `live`, `completed`, `walkover`, `retired`, `cancelled`
+
+**Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain.
+
+**Goalserve integration (TODO — 17 Apr):**
+1. Activate Goalserve 30-day free trial
+2. Set `GOALSERVE_API_KEY` env var
+3. Find Madrid tournament ID in their system
+4. Implement `fetchGoalserve()` in dataAdapter.js
+5. Verify withdrawal/walkover status detection
+6. Set `TENNIS_DATA_PROVIDER=goalserve` in Railway
 
 ---
 
 ## Pick window timing system
 
-Defined in `backend/src/services/tennisData.js`:
+**R1:** Per-match lock (see above). No `LOCKTIME_OVERRIDES` for R1.
 
-**`LOCKTIME_OVERRIDES`** — hard overrides for lock time (takes precedence over everything):
-```js
-const LOCKTIME_OVERRIDES = {
-  R1:  '2026-03-19T13:00:00Z',
-  R32: '2026-03-22T18:00:00Z', // Sun 22 Mar, 2PM EDT / 18:00 UTC (1h before first match)
-};
-```
+**R2+ (R64, R32, R16, QF, SF, F):** Round-level lock defined in `tennisData.js`:
 
-**`ROUND_DATES`** — no-API fallback (used when API-Tennis has no data):
-```js
-R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
-```
+Lock time overrides set in `activeTournament.js` `lockTimeOverrides` object. Update 1h before first match of each round once order of play is announced.
+
+Fallback dates in `activeTournament.js` `roundDateFallbacks` object used when API has no start times.
 
 **`ROUND_DATE_FALLBACK`** — API has data but no round times (use these):
 ```js
@@ -167,19 +213,17 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 
 | File | What it does |
 |---|---|
-| `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()`, `LOCKTIME_OVERRIDES`, `ROUND_DATES`, `ROUND_DATE_FALLBACK`, round normalisation, fallback chain |
-| `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — builds the pool of eligible players for a round, tags `pendingPrevRound` flag. Also contains `buildOpponentMap()` and `findPossibleOpponents()` for opponent enrichment. |
+| `backend/src/services/dataAdapter.js` | **NEW** — Unified data interface. Provider chain (Goalserve/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. |
+| `backend/src/config/activeTournament.js` | **NEW** — Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks, Goalserve tournament ID. |
+| `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()` (now returns `perMatchLock` flag for R1) |
+| `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — R1 branch uses per-match lock; R2+ uses round-level lock |
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
 | `backend/src/routes/health.js` | Real production health check — validates env vars, live API call, DB ping |
-| `backend/src/utils/email.js` | Brevo template email system — `sendViaBrevoTemplate()`, `sendWithDedup()`, `sendPendingEmails()`, all 9 email wrapper functions, approval gate logic |
-| `backend/src/services/emailScheduler.js` | Pick reminder cron — queries group stats, sends reminders via approval gate |
-| `backend/src/services/resultsProcessor.js` | Auto-grades picks, sends round result + winner emails via approval gate |
 | `backend/src/services/sofascoreAdapter.js` | Sofascore fetch — reads `SOFASCORE_BASE_URL` env var |
-| `backend/src/config/tournament.js` | Active tournament selector — reads `ACTIVE_TOURNAMENT` env var, defaults to `monte-carlo-2026` |
-| `backend/src/config/tournaments/monte-carlo-2026.js` | MC config — API params, round structure, lock time overrides, round date fallbacks, round name overrides |
-| `backend/src/data/monteCarloMockDraw.js` | Monte Carlo draw with real player names (56 players, 8 seeds with byes, 24 R1 matches) |
-| `backend/src/data/mockDraw.js` | Mock draw dispatcher — routes to correct tournament mock based on `ACTIVE_TOURNAMENT` |
+| `backend/src/config/tournament.js` | Round structure constants (ROUNDS, MATCHES_PER_ROUND) |
+| `backend/src/data/tournaments.js` | Tournament registry — all events, statuses, `r1PerMatchLock` flag |
+| `backend/src/data/mockDraw.js` | Mock draw dispatcher |
 | `backend/src/data/miamiDraw.js` | Miami mock draw (legacy) |
 
 ### Frontend
@@ -192,7 +236,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/pages/DrawViewer.jsx` | Draw viewer — bracket + list view |
 | `frontend/src/pages/PickHistory.jsx` | User's pick history |
 | `frontend/src/components/Layout.jsx` | Nav header, auth modal |
-| `frontend/src/index.css` | All styles — design tokens in `:root`, component styles, mobile rules at `@media (max-width: 640px)`. ~4100 lines. |
+| `frontend/src/index.css` | All styles — see mobile section below |
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
 
@@ -284,7 +328,7 @@ Pick column behaviour:
 
 The site is mobile-optimised for 390px+ (iPhone size). Key CSS notes:
 
-- Mobile rules use `@media (max-width: 640px)` — there are multiple blocks in `frontend/src/index.css`, consolidated mostly at the bottom
+- All mobile rules use `@media (max-width: 680px)` — there are multiple blocks in `frontend/src/index.css`, consolidated mostly at the bottom
 - `lb-table-wrap` has `overflow-x: auto` so the 4-column leaderboard table scrolls horizontally on mobile
 - The leaderboard pick column (4th column) is **visible** on mobile — an older `display: none` rule was removed in the 21 March 2026 session
 - `lb-stats-bar` uses `display: grid; grid-template-columns: repeat(2, 1fr)` on mobile (2×2 layout)
@@ -324,8 +368,8 @@ Lock time overrides set for all rounds (R1 through F) in commit `69cddfd`.
 ### 9. ~~API-Tennis returning no fixture data~~ — FIXED (6 Apr 2026)
 Root cause: `tournament_season=2026` parameter. API-Tennis returns empty `{success: 1}` when this is included for Monte Carlo (tournament key 1970). Fix: set `apiSeason: null` in MC config and made the URL parameter conditional in `tennisData.js`, `health.js`, and `admin.js`. API now returns 50+ live fixtures correctly.
 
-### 10. ~~Transactional emails not deployed~~ — FIXED (10 Apr 2026)
-Full Brevo template email system deployed and verified. 9 transactional templates (IDs 1-9) created in Brevo, all Active. Backend rewritten to use `sendViaBrevoTemplate()` with `templateId` + `params` pattern. 7 batch emails queue as `pending` via `sendWithDedup()` and require admin approval (`POST /api/admin/approve-emails`). 2 auto-send emails (Welcome, Password Reset) bypass the gate. Template variable names aligned to code params (`displayName`, `resetLink`, `signupUrl`, etc.). Colours matched to website (`#0f3d20` footer, `#f5f7fa` background, `#16a34a` brand green). Winner template fixed (malformed Jinja `is odd` replaced with plain text pick history). All 9 templates verified delivering to Gmail with correct variable substitution.
+### 10. ~~Transactional emails not deployed~~ — PARTIALLY FIXED (6 Apr 2026)
+Email approval system now deployed with `emails_sent` table, UNIQUE dedup constraint, admin digest, and one-click approve flow. Pick reminder and result emails queue as `pending` and require admin approval before sending. Cross-pool bug fixed: queries now filter by `TOURNAMENT.id` (was emailing Miami practice pool users). One-time migration clears incorrectly queued pre-fix emails.
 
 ### 11. Cross-pool email scoping — FIXED (6 Apr 2026)
 `sendResultEmails()` and `sendRemindersForRound()` queries were not filtered by tournament. Emails were being queued for Miami practice pool alongside Monte Carlo. Fixed by joining `groups` table and filtering by `g.tournament_id = TOURNAMENT.id`.
@@ -345,80 +389,35 @@ Mock marks all past-round matches as completed (player1 wins). 5 unplayed R1 mat
 ### 15. Mensik withdrawal — HANDLED (7 Apr 2026)
 Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock draw. mc-p23 now maps to Dzumhur with API key null (dynamic discovery). T&Cs updated with post-lock withdrawal policy (Section 7).
 
-### 16. Leaderboard grader missed manual results — FIXED (10 Apr 2026)
-Leaderboard `buildGrader()` was fed draw data from `getLiveDraw()`, which builds draws purely from raw API fixtures. Manual result overrides (configured in tournament config `manualResults` array) are only applied by `getDraw()`, which overlays API data onto the mock draw. When the API hadn't recorded a result (e.g. Zverev d. Fonseca QF), the grader couldn't credit picks — survived-round count was wrong. Fix: switched leaderboard from `getLiveDraw('F')` to `getDraw('F')`. **Rule: any code that needs to grade picks must use `getDraw()`, not `getLiveDraw()`.**
-
-### 17. Qualifier disclaimer shown all tournament — FIXED (10 Apr 2026)
-"Qualifiers will be added once the qualifying draw is finalised" message was shown on the pick screen for every round. Only relevant during R1 and R2 (first two pick windows). Fix: wrapped in conditional `rounds.indexOf(currentRound) <= 1`.
-
 ---
 
-## Current tournament state (as of 14 April 2026)
+## Current tournament state (as of 13 April 2026)
 
-### Miami Open 2026 (practice — complete)
-- Tournament: ATP Miami Open 2026
-- Stage: Complete — practice tournament finished
-- Participants: 8 users in test group `6da0f300-ff14-43cb-bcef-ad4ba6709208`
-- Mode: Practice tournament — no prize money
+### Monte Carlo 2026 (COMPLETE)
+- Result: Mark won from 11 entrants
+- Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f`
+- Lessons: see memory `project_monte_carlo_activation.md`
 
-### Monte Carlo 2026 (COMPLETE — first competitive tournament)
-- Tournament: Rolex Monte-Carlo Masters 2026
-- Status: `completed` — Winner: Mark (from 11 entrants)
-- Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f` (PostgreSQL — persistent)
-- Invite code: `MONTECAR-406R3X`
-- Entry: Free
-- Final pick: Carlos Alcaraz (Mark's winning pick)
-- All 11 players eliminated except Mark
-- Data source: Live API-Tennis (58+ cached fixtures)
-- Withdrawals: Mensik withdrew, replaced by Dzumhur (mc-p23)
-- Manual results: Berrettini d. Bautista Agut R1, Marozsan d. Dzumhur R1, Sinner d. Etcheverry R32, Zverev d. Fonseca QF
-
-### Madrid Open 2026 (next — free practice)
-- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
-- Invite code: `MADRIDOP-A36RQ4`
-- Entry: Free
-- Starts: 21 Apr 2026
-- Draw: Not yet released
-- Status: 3 players registered
-- Purpose: Bug-fixing practice run on web only
-
-### Roland Garros 2026 (FIRST PAID — target 18 May)
-- Entry: £10.00 (entryFeeCents: 1000)
-- Real DB group: **not yet created** — create ~15 May
-- Payment: Stripe integration deployed and hardened (test mode). See "Payment system" section below.
-- Go-live checklist: see "Roland Garros go-live handoff" at bottom of this file
-
-### Payment system (deployed 14 Apr 2026 — test mode, dormant)
-- **Stripe account:** finalservivor@gmail.com, acct_1TM3G7DZvcEXETPX
-- **Category:** Event ticketing (compliance framing)
-- **Payouts:** Manual (money stays in Stripe balance until withdrawn)
-- **Backend:** `backend/src/routes/payments.js` — create-checkout, status, webhook
-- **Frontend:** `frontend/src/pages/PaymentFlow.jsx` — payment page, success/cancel/verifying states
-- **DB:** `payment_orders` table in schema.sql
-- **Payment gate:** `groups.js` POST /join returns 402 for unpaid users on paid groups
-- **JoinGroup.jsx:** redirects to `/group/:id/pay` for paid groups
-- **Webhook:** we_1TM3wpDZvcEXETPX1JXLTY9x → `POST /api/payments/webhook`
-- **Security:** transactional webhook (BEGIN/COMMIT), idempotent via atomic UPDATE, double-click guard, fee cap £500, displayName truncation, signature validation
-- **Env vars (Railway):** `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (test)
-- **Cleanup cron:** expired pending orders deleted hourly
-- **User-facing copy:** survivor pool language ("Entry fee," "prize pool"). Stripe product name uses "Entry" not "Membership."
-- **Mockup:** `CTO - TS/fsv-payment-journey-mockup.html` — 7-step interactive journey
-
-**To go live (Roland Garros):**
-1. Swap test keys for live keys in Railway
-2. Create live-mode webhook via Stripe API (one curl command)
-3. Create RG group with `entryFeeCents: 1000`
-4. Test with real £1 payment
-5. Update T&Cs with payment/refund terms
+### Madrid 2026 (NEXT — preparation in progress)
+- Tournament: Mutua Madrid Open 2026
+- Status: `upcoming` — draw expected 19 Apr, tournament starts 22 Apr
+- Entry: Free (second free tournament before Roland Garros paid launch)
+- R1 model: **Per-match lock** (new system, first deployment)
+- Data source: Goalserve (trial activating 17 Apr) with API-Tennis fallback
+- Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
 
 ### Outstanding actions (priority order)
-1. **Madrid tournament config** — create `madrid-2026.js` config, mock draw, lock times before 21 Apr
-2. **Monte Carlo post-mortem** — catalogue every bug and manual intervention for Madrid fix list
-3. **SPF/DKIM for Brevo** — set up domain auth before paid tournaments
-4. **Company registration** — UK Ltd via Companies House (helps with credibility, not strictly needed for Stripe)
-5. **EAS Project ID** — set in `app.json` before App Store submission
-6. **App Store submission** — TestFlight build, screenshots, metadata
-7. **Post-tournament refactor** — separate bracket display from data model
+1. **17 Apr: Activate Goalserve trial** — sign up, get API key, set env var
+2. **17 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`
+3. **17 Apr: Test R1 per-match lock** — end-to-end test with live data
+4. **19 Apr: Madrid tournament activation** — draw available, create real DB group, set invite code
+5. **19 Apr: Set lock time overrides** — R64+ once order of play is announced
+6. **Pre-Madrid: Update PickScreen.jsx** — R1 view showing match start times, greying out started matches
+7. **Pre-Madrid: Build withdrawal notification flow** — email + push when picked player withdraws
+8. **Pre-Madrid: Build admin withdrawal endpoint** — `POST /api/admin/withdrawal` for manual overrides
+9. **SPF/DKIM for Brevo** — set up domain auth before paid tournaments
+10. **EAS Project ID** — set before App Store submission
+11. **App Store submission** — TestFlight, screenshots, metadata
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -429,7 +428,7 @@ Backend: `buildOpponentMap()` in `picks.js` enriches available players response.
 Web: `.player-name-col` wrapper in `PickScreen.jsx` with `.player-opponent` sub-line.
 Mobile: `PlayerRow.tsx` reads `opponentName` and `opponentPossible` from Player interface.
 
-### Mobile app feature parity (9 Apr, re-audited 25 Apr)
+### Mobile app feature parity (9 Apr)
 Full cross-platform audit completed. Mobile now matches web on all critical flows:
 - Pick submission, search (player + opponent name), 60s auto-refresh
 - Leaderboard with pick history modal (tap any row)
@@ -438,37 +437,6 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 - Registration with mandatory T&Cs acceptance
 - Deep links for invite codes and group pages
 **Remaining gaps (acceptable):** no bracket view (list only), no password reset deep link, EAS Project ID not set.
-
-**CRITICAL gap found 25 Apr:** Mobile has NO payment flow. When backend returns 402 for paid groups, the mobile app shows a generic error instead of redirecting to Stripe Checkout. This blocks any paid tournament on mobile. **Must fix before Roland Garros (first paid event).** Madrid is free, so not a blocker yet. Fix approach: detect 402 in joinGroup error handler, open web payment URL via `Linking.openURL()` as a quick solution, or build a native PaymentScreen for a polished experience.
-
-### Design system (12 Apr — Direction A "Clean Court")
-Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd45a4`, `1e21413`).
-
-**Design tokens (`:root` in `index.css`):**
-- Colours: semantic variables (`--green-50` through `--green-900`, `--amber-*`, `--red-*`, `--text`, `--text-muted`, `--surface`, `--surface-alt`, `--border`)
-- Typography: Outfit (headings + body) + JetBrains Mono (scores, countdowns, invite codes)
-- 6-tier type scale: 2rem (hero), 1.25rem (h1), 1rem (h2), 0.88rem (body), 0.75rem (small), 0.65rem (micro)
-- 3 radii: 8px (sm), 12px (default), 16px (lg)
-- 3 shadows: sm (0.04), default (0.06), lg (0.08)
-- 3 breakpoints: 640px (mobile), 768px (tablet), 769px+ (desktop)
-
-**Key component styles:**
-- Player rows: connected card borders, green hover, square seed badges (26px, amber for top seeds)
-- Leaderboard stats: 4-column grid with individual bordered cards (2x2 on mobile)
-- Winner banner: amber/gold gradient (not green)
-- Status pills: 0.65rem, 6px border-radius
-- Avatars: 26px square with `var(--radius-sm)`
-- Match cards: 2-column grid with hover lift, mono font scores
-- Pick history: coloured round badges (36x36px squares), connected card layout
-
-**Mobile-specific (640px breakpoint):**
-- Hero: `min-height: auto` (was 85vh, wasted space)
-- Header nav: single-link nav stays inline via `:has()` rule
-- How-it-works: vertical timeline with accent line (replaces 3-column grid)
-- Pool cards: full-bleed (negative margin, no border-radius)
-- Stats bar: 2x2 grid
-
-**Reference file:** `CTO - TS/fsv-final-mockups.html` — locked design specification with all tokens and final mockups. This is the design source of truth.
 
 ---
 
@@ -491,11 +459,7 @@ Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd4
 | 7 Apr 2026 | **Bracket data integrity + pick pool refactor.** (1) Manual result override for Berrettini d. Bautista Agut R1 (qualifier with no API key). (2) Fixed propagation to always overwrite from feeder winners. (3) Cleared `roundEliminated` before re-deriving from live results — mock Step 3 marked upset winners as eliminated. (4) Fixed fake R1 completions in bracket — overlay now always applies live status when no winner; non-overlaid completed matches reset to scheduled. (5) Fixed bracket showing unresolved R1 feeders as progressed — propagation clears names to null (shows TBD) but keeps player IDs. (6) **Major refactor: simplified pick pool** — removed `eligibleMockIds` entirely. R1: restrict to R1 match participants. R32+: all non-eliminated non-qualifier players. No dependency on bracket slot data. Eliminates entire class of bracket-vs-pool bugs. (7) Delayed R16 window to 5pm BST via `windowOpensOverrides`. (8) Mensik withdrawal: replaced with Dzumhur (LL) in mock draw. (9) Added post-lock withdrawal policy to T&Cs (Section 7). 8 commits total. |
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
-| 10 Apr 2026 (session 2) | **Brevo email system fully deployed.** (1) Rewrote `email.js` to use Brevo transactional template API (`sendViaBrevoTemplate()` with `templateId` + `params`). (2) Updated `emailScheduler.js`, `resultsProcessor.js`, `groups.js`, `admin.js` to use new email functions with enriched params. (3) Created 9 Brevo templates (IDs 1-9), all activated. (4) Fixed template variable mismatches (`firstName`→`displayName`, `resetUrl`→`resetLink`, `joinUrl`→`signupUrl`, `pickPlayerName`→`playerName`, `deadline`→`pickDeadline`, `pickUrl`→`groupUrl`). (5) Fixed Winner template #7 malformed Jinja `is odd` condition — replaced dynamic for-loop with plain text pick history display. (6) Aligned email colours to website: footer `#0f172a`→`#0f3d20` (dark forest green), body background `#f4f4f5`→`#f5f7fa`. (7) Set 9 `BREVO_TPL_*` env vars on Railway. (8) Verified all 9 templates deliver to Gmail with correct variable substitution. (9) Audited approval gate: 7 batch emails correctly gated via `sendWithDedup()`, 2 auto-send emails (Welcome, Password Reset) correctly bypass. No code paths found that could send batch emails without approval. |
-| 14 Apr 2026 | **Stripe payment integration + security hardening.** (1) QuadraPay rejected — pivoted to Stripe. Mickey created Stripe account (Event ticketing category, manual payouts, finalservivor@gmail.com). (2) Built full Stripe Checkout integration: `payments.js` backend (create-checkout, status, webhook), `PaymentFlow.jsx` frontend (payment page with verifying/success/cancel states), `payment_orders` DB table, payment gate on join endpoint (402 for unpaid). (3) Ran parallel code reviews (2 agents) — found 6 CRITICAL + 5 HIGH issues. (4) Security hardening commit: transactional webhook (BEGIN/COMMIT/ROLLBACK), idempotent via atomic UPDATE WHERE status='pending', ON CONFLICT DO NOTHING for member insert, double-click guard (409 if pending order exists), fee cap £500, displayName truncation, env var validation, status endpoint privacy fix, webhook returns 500 for retries. (5) Created Stripe webhook via API (we_1TM3wpDZvcEXETPX1JXLTY9x). (6) Set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET on Railway, deployed. (7) Full smoke test: 9/9 endpoints pass. (8) Updated copy from "membership" to survivor pool language. (9) Created 7-step payment journey mockup. 4 commits total: `b3ff8d6`, `ca65420`, `c6c2ae9`, plus CLAUDE.md update. |
-| 12 Apr 2026 | **Design system deployment + mobile audit.** Three commits total. (1) `c5f0c03` design system token overhaul — unified `:root` CSS variables, consolidated typography to Outfit + JetBrains Mono, semantic colour palette, 3-tier radius/shadow system. (2) `ecd45a4` component-level design system — player rows (connected cards, green hover, square seed badges), leaderboard stats (4-col grid), winner banner (amber gradient), status pills, avatars (26px square), match cards (2-col grid, mono scores), pick history (coloured round badges, timeline). Both CSS + JSX changes to PickScreen.jsx. (3) `1e21413` mobile fixes — hero `min-height` reduced from `85vh` to `auto` (was creating ~500px dead space on mobile), header nav `:has()` rule keeps single "T&Cs" link inline on homepage instead of wrapping to empty second row. Full mobile audit at 390px verified all screens: homepage, leaderboard (2x2 stats, 3-col table with truncation), pick history (round badges, status labels), draw viewer (empty state), group home. Desktop verified unaffected. Monte Carlo tournament now complete — Mark won from 11 entrants. |
-| 10 Apr 2026 (session 1) | **QF operations + grader bug fixes.** (1) Adjusted QF lock time from 09:00Z to 09:00Z (10am BST). (2) Added Zverev d. Fonseca QF manual result. (3) Hid qualifier disclaimer after first 2 rounds. (4) **Critical fix: leaderboard grader** used `getLiveDraw()` which only returns raw API fixtures, missing manual result overrides. Switched to `getDraw()`. (5) **Same fix in pick history** endpoint — also used `getLiveDraw()` and lacked name-based fallback matching. Added name fallback (picks store API keys, draw uses mock IDs). (6) Updated CLAUDE.md with known issues #16 and #17, current tournament state, Madrid pool info, outstanding actions. **Lesson: when adding manual results, audit ALL code paths that grade picks — not just the first one found.** |
-| 25 Apr 2026 | **Pre-App Store readiness audit.** Re-audited mobile vs web after 10 days of web-only changes (Stripe, Brevo, design system, MC completion, Madrid pool). Found: (1) **CRITICAL: mobile has no payment flow** — 402 from backend on paid groups shows generic error instead of Stripe redirect. Not a blocker for Madrid (free) but must fix before Roland Garros (first paid). (2) Mobile code compiles clean (zero TS errors). (3) Tournament config auto-fetched from API — no mobile code change needed for Madrid. (4) Design system colours match (theme.ts tokens identical to web CSS vars). (5) Winner banner already implemented on mobile. (6) Email deep links for join/group work; password reset falls back to web (acceptable). Updated CLAUDE.md product description (was still saying MC is current), flagged payment gap in mobile parity section, updated memory. |
+| 13 Apr 2026 | **R1 per-match lock + API replacement prep.** (1) Designed and built R1 per-match lock system: no fixed R1 deadline, players removed as match starts, withdrawal re-pick flow. (2) Created `dataAdapter.js` — unified data interface with provider chain (Goalserve stub/API-Tennis bridge/Sofascore). Internal fixture format with `isWithdrawal` and `startTime` fields. (3) Created `activeTournament.js` — centralised tournament config with `r1PerMatchLock` flag. (4) Updated `picks.js` — R1 branch in `getAvailablePlayers()` uses per-match filtering; R1 branch in `POST /api/picks` checks player's match start time. (5) Updated `getDeadlines()` — returns `perMatchLock: true` for R1, no `lockAt`. (6) Rewrote T&Cs: Section 5 split into 5a (R1 per-match), 5b (R2+), 5c (overlapping rounds); new Section 6 (withdrawals); new Section 11 (notifications). (7) Added R1 hint banner + CTA to GroupHome. (8) Updated FE+BE tournament configs: MC → completed, Madrid → upcoming with `r1PerMatchLock: true`. (9) Wrote handoff doc for 17 Apr session. No code pushed — all changes in mnt, ready for /tmp clone + push on 17 Apr. |
 
 ---
 
@@ -518,80 +482,3 @@ Full design system implemented across all screens in 3 commits (`c5f0c03`, `ecd4
 
 ### Risk assessment
 Before starting feature work, ask: "If this breaks, what's the blast radius?" If the answer is "the whole site goes down" and users are active, defer or implement with extreme caution.
-
----
-
-## Roland Garros go-live handoff (~15 May 2026)
-
-This is the self-contained prompt for the session that activates paid payments.
-
-### Pre-requisites (Mickey must confirm before starting)
-- Rome tournament is finished (or nearly finished)
-- Mickey has verified Stripe account is in good standing (no flags, no holds)
-- Mickey has decided the entry fee (assumed £10.00 = 1000 cents)
-- Roland Garros draw date and start date are known
-
-### Step-by-step execution plan
-
-**1. Swap Stripe keys from test to live (5 min)**
-- Mickey: go to Stripe dashboard → switch to LIVE mode → Developers → API keys
-- Copy `sk_live_...` (secret key) and `pk_live_...` (publishable key)
-- In Railway variables page, update `STRIPE_SECRET_KEY` from `sk_test_...` to `sk_live_...`
-- DO NOT deploy yet
-
-**2. Create live-mode webhook (2 min)**
-```bash
-curl -s https://api.stripe.com/v1/webhook_endpoints \
-  -u "sk_live_YOUR_LIVE_SECRET_KEY:" \
-  -d "url=https://tennis-survivor-production.up.railway.app/api/payments/webhook" \
-  -d "enabled_events[]=checkout.session.completed" \
-  -d "description=FSV live payment confirmations"
-```
-- Copy the `secret` from the response (starts with `whsec_`)
-- Update `STRIPE_WEBHOOK_SECRET` in Railway with this new live secret
-- Now deploy Railway (both env var changes go live together)
-
-**3. Create Roland Garros group (5 min)**
-```bash
-curl -s -X POST https://tennis-survivor-production.up.railway.app/api/groups \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Roland Garros 2026 Pool",
-    "entryFeeCents": 1000,
-    "adminUserId": "MICKEY_USER_ID",
-    "tournamentId": "roland-garros-2026"
-  }'
-```
-- Note the returned group ID and invite code
-- Verify the pool appears on finalserveivor.com
-
-**4. Test with real £1 payment (5 min)**
-- Temporarily set the group's entry fee to 100 (£1) via SQL:
-  `UPDATE groups SET entry_fee_cents = 100 WHERE id = 'GROUP_ID'`
-- Navigate to the invite link, click Join, go through Stripe Checkout with a real card
-- Verify: payment appears in Stripe dashboard, user is added to group, prize pool incremented
-- Check Stripe webhook events log for successful delivery
-- Refund the test payment in Stripe dashboard
-- Reset entry fee: `UPDATE groups SET entry_fee_cents = 1000 WHERE id = 'GROUP_ID'`
-
-**5. Update T&Cs (10 min)**
-- Add payment/refund section to T&Cs:
-  - Entry fee is non-refundable once the tournament draw is released
-  - Refund available up to 24h before draw release if requested via email
-  - Prize pool = total entry fees minus house fee (state the %)
-  - Payout method: bank transfer within 7 days of tournament completion
-
-**6. Update frontend tournament config**
-- Ensure `roland-garros-2026` exists in `frontend/src/data/tournaments.js` with correct dates
-- Set `status: 'upcoming'`, `drawAvailable: false`, `entryOpen: true`
-
-**7. Announce**
-- Send email to all registered users via Brevo
-- Share invite link on social channels
-
-### Rollback plan
-If anything goes wrong with live payments:
-1. Set `STRIPE_SECRET_KEY` back to the test key in Railway → deploy
-2. This immediately disables all payment processing (checkout creation fails)
-3. Users already in groups are unaffected
-4. Investigate, fix, re-swap to live when ready

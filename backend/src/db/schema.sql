@@ -114,20 +114,47 @@ CREATE INDEX IF NOT EXISTS idx_emails_sent_lookup
 CREATE INDEX IF NOT EXISTS idx_emails_sent_pending
   ON emails_sent(status) WHERE status = 'pending';
 
--- Stripe payment orders
+-- Payment orders: one order per user per group (idempotent on group_id + user_id)
 CREATE TABLE IF NOT EXISTS payment_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  stripe_session_id TEXT UNIQUE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount_cents INTEGER NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'gbp',
+  currency TEXT NOT NULL DEFAULT 'GBP',
   status TEXT NOT NULL DEFAULT 'pending',
-  completed_at TIMESTAMPTZ,
+  processor_name TEXT,
+  processor_order_id TEXT,
+  processor_ref TEXT,
+  processor_checkout_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  confirmed_at TIMESTAMPTZ,
+  UNIQUE(group_id, user_id)
+);
+
+-- Payment audit log: tracks every state change
+CREATE TABLE IF NOT EXISTS payment_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_order_id UUID NOT NULL REFERENCES payment_orders(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  details JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_payment_orders_session
-  ON payment_orders(stripe_session_id);
-CREATE INDEX IF NOT EXISTS idx_payment_orders_user_group
-  ON payment_orders(user_id, group_id);
+-- Webhook log: for dedup and debugging
+CREATE TABLE IF NOT EXISTS payment_webhooks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  processor_name TEXT NOT NULL,
+  webhook_id TEXT,
+  raw_payload JSONB NOT NULL,
+  processed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_group_user
+  ON payment_orders(group_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status
+  ON payment_orders(status);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_processor_id
+  ON payment_orders(processor_order_id);
+CREATE INDEX IF NOT EXISTS idx_payment_events_order
+  ON payment_events(payment_order_id);

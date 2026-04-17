@@ -1,65 +1,11 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import rateLimit from 'express-rate-limit';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email.js';
 
 export const authRouter = Router();
-
-/**
- * Validate email format. Checks:
- *  - Has exactly one @
- *  - Local part (before @) is non-empty
- *  - Domain part (after @) has at least one dot (catches "gmailcom")
- *  - Domain doesn't start/end with a dot or hyphen
- *  - No spaces
- *
- * NOT a full RFC 5322 parser — just catches the common typos that slip past
- * the browser's type="email" check.
- */
-function isValidEmail(email) {
-  if (!email || typeof email !== 'string') return false;
-  const trimmed = email.trim();
-  if (/\s/.test(trimmed)) return false;            // no spaces
-  const parts = trimmed.split('@');
-  if (parts.length !== 2) return false;             // exactly one @
-  const [local, domain] = parts;
-  if (!local) return false;                         // non-empty local
-  if (!domain || !domain.includes('.')) return false;// domain must have a dot
-  if (domain.startsWith('.') || domain.startsWith('-')) return false;
-  if (domain.endsWith('.') || domain.endsWith('-')) return false;
-  // Each domain label must be non-empty (catches "gmail..com")
-  const labels = domain.split('.');
-  if (labels.some(l => l.length === 0)) return false;
-  return true;
-}
-
-// Rate limiters — protect against brute-force and spam
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 10,                     // 10 attempts per window
-  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,  // 1 hour
-  max: 5,                     // 5 registrations per hour per IP
-  message: { error: 'Too many accounts created. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,  // 1 hour
-  max: 3,                     // 3 reset requests per hour per IP
-  message: { error: 'Too many password reset requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 // ââ GET /api/auth/me?userId= âââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me', async (req, res) => {
@@ -85,11 +31,10 @@ authRouter.get('/me', async (req, res) => {
 });
 
 // ââ POST /api/auth/register ââââââââââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/register', registerLimiter, async (req, res) => {
+authRouter.post('/register', async (req, res) => {
   const { email, displayName, password } = req.body;
 
   if (!email?.trim())        return res.status(400).json({ error: 'Email is required.' });
-  if (!isValidEmail(email))  return res.status(400).json({ error: 'Please enter a valid email address (e.g. name@gmail.com).' });
   if (!displayName?.trim())  return res.status(400).json({ error: 'Display name is required.' });
   if (!password || password.length < 8)
     return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -128,7 +73,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
 });
 
 // ââ POST /api/auth/login âââââââââââââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/login', loginLimiter, async (req, res) => {
+authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
@@ -167,7 +112,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
 });
 
 // ââ POST /api/auth/forgot-password âââââââââââââââââââââââââââââââââââââââââââ
-authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+authRouter.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
 
@@ -314,11 +259,6 @@ authRouter.patch('/me', async (req, res) => {
       if (!valid) {
         return res.status(401).json({ error: 'Current password is incorrect.' });
       }
-    }
-
-    // Validate new email format
-    if (email && !isValidEmail(email)) {
-      return res.status(400).json({ error: 'Please enter a valid email address (e.g. name@gmail.com).' });
     }
 
     // If changing email, check it is not already taken
