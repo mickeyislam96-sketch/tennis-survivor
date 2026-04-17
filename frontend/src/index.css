@@ -92,6 +92,13 @@ h1 em, h2 em, h3 em {
   letter-spacing: -0.01em;
 }
 
+/* Hero lockup: gold italic accent against the emerald gradient */
+.home-hero-title em,
+.group-hero-title em {
+  color: var(--gold);
+  font-weight: 500;
+}
+
 p { margin: 0 0 0.75rem; }
 
 a {
@@ -145,7 +152,7 @@ input, select { font-family: var(--font); }
 .input {
   padding: 0.55rem 0.875rem;
   border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font-size: 0.95rem;
@@ -164,7 +171,7 @@ input, select { font-family: var(--font); }
 
 .card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem;
   box-shadow: var(--shadow-sm);
@@ -282,36 +289,37 @@ input, select { font-family: var(--font); }
 .round-tab {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: all var(--ease-fast);
 }
 
-.round-tab:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.round-tab:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-light); }
 
 .round-tab.active {
-  background: var(--accent);
+  background: var(--accent-deep);
   color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.3);
+  border-color: var(--accent-deep);
+  box-shadow: 0 2px 6px rgba(15, 74, 35, 0.25);
 }
 
 .countdown-card {
-  background: #fffbeb;
-  border: 1.5px solid #fde68a;
+  background: #FFF8E0;
+  border: 1px solid var(--gold-soft);
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
-.countdown-label { color: #92400e; font-size: 0.9rem; font-weight: 500; }
-.countdown-value { font-family: var(--font-mono); font-weight: 600; color: #78350f; }
+.countdown-label { color: #7a5a05; font-size: 0.9rem; font-weight: 500; }
+.countdown-value { font-family: var(--font-mono); font-weight: 700; color: #5a4304; letter-spacing: -0.01em; }
 
 .search-row { margin-bottom: 1rem; }
 .search-input { min-width: 300px; }
@@ -355,11 +363,12 @@ input, select { font-family: var(--font); }
 }
 
 .picked-card {
-  background: var(--accent-light);
-  border: 1.5px solid #86efac;
+  background: var(--green-50);
+  border: 1px solid #bbf7d0;
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .picked-card p { margin: 0; }
@@ -385,7 +394,7 @@ input, select { font-family: var(--font); }
 
 .match-card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
@@ -427,16 +436,16 @@ input, select { font-family: var(--font); }
 
 /* ── Pick card — locked state variants ─────────────────────────────── */
 .picked-card--survived {
-  border-color: #86efac;
-  background: #f0fdf4;
+  border-color: #bbf7d0;
+  background: var(--green-50);
 }
 .picked-card--eliminated {
   border-color: #fca5a5;
   background: #fef2f2;
 }
 .picked-card--pending {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--gold-soft);
+  background: #FFF8E0;
 }
 
 /* ── Eliminated user card ──────────────────────────────────── */
@@ -516,21 +525,21 @@ input, select { font-family: var(--font); }
   margin-top: 0.2rem;
 }
 .ps-match-status--won {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--accent-light);
+  color: var(--accent-deep);
 }
 .ps-match-status--lost {
-  background: #fee2e2;
+  background: var(--danger-light);
   color: #b91c1c;
 }
 .ps-match-status--live {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--gold-soft);
+  color: #5a4304;
   animation: pulse-live 1.5s ease-in-out infinite;
 }
 .ps-match-status--scheduled {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--surface-alt);
+  color: var(--text-subtle);
 }
 @keyframes pulse-live {
   0%, 100% { opacity: 1; }
@@ -542,8 +551,8 @@ input, select { font-family: var(--font); }
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #fef3c7;
-  border-bottom: 2px solid #f59e0b;
+  background: #FBEAE1;
+  border-bottom: 2px solid var(--terracotta);
   padding: 0.75rem 1.25rem;
   font-size: 0.9rem;
   flex-wrap: wrap;
@@ -555,15 +564,15 @@ input, select { font-family: var(--font); }
 .pub-text {
   flex: 1;
   min-width: 0;
-  color: #92400e;
+  color: var(--terracotta-dark);
   line-height: 1.4;
 }
 .pub-text strong {
-  color: #78350f;
+  color: var(--terracotta-dark);
 }
 .pub-cta {
   flex-shrink: 0;
-  background: #f59e0b;
+  background: var(--terracotta);
   color: #fff;
   font-weight: 700;
   font-size: 0.85rem;
@@ -571,9 +580,10 @@ input, select { font-family: var(--font); }
   border-radius: var(--radius, 8px);
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition: background var(--ease-fast);
+  box-shadow: 0 2px 6px rgba(156, 68, 41, 0.25);
 }
-.pub-cta:hover { background: #d97706; }
+.pub-cta:hover { background: var(--terracotta-dark); }
 
 /* ── Leaderboard ─────────────────────────────────────────── */
 
@@ -591,7 +601,7 @@ input, select { font-family: var(--font); }
   background: var(--surface);
   border-radius: var(--radius);
   overflow: hidden;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
 
@@ -613,9 +623,9 @@ input, select { font-family: var(--font); }
 
 .leaderboard-table tr:last-child td { border-bottom: none; }
 
-.leaderboard-table tr.you td { background: #f0fdf4; }
+.leaderboard-table tr.you td { background: var(--green-50); }
 .leaderboard-table tbody tr:hover td { background: var(--surface-alt); }
-.leaderboard-table tr.you:hover td { background: #dcfce7; }
+.leaderboard-table tr.you:hover td { background: var(--accent-light); }
 
 .status-alive {
   display: inline-flex;
@@ -652,7 +662,7 @@ input, select { font-family: var(--font); }
 
 .terms-section {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
   margin-bottom: 1rem;
@@ -679,11 +689,12 @@ input, select { font-family: var(--font); }
 ══════════════════════════════════════════════════════════════ */
 
 .home-hero {
-  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  background: var(--hero-gradient);
   border-radius: var(--radius);
   padding: 2.5rem 2rem;
   margin-bottom: 2rem;
   color: #fff;
+  box-shadow: 0 12px 32px rgba(15,74,35,0.18), 0 6px 12px rgba(15,74,35,0.10);
 }
 
 .home-hero-title {
@@ -729,7 +740,7 @@ input, select { font-family: var(--font); }
   align-items: center;
   justify-content: space-between;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   box-shadow: var(--shadow-sm);
@@ -766,11 +777,12 @@ input, select { font-family: var(--font); }
 ══════════════════════════════════════════════════════════════ */
 
 .group-hero {
-  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  background: var(--hero-gradient);
   border-radius: var(--radius);
   padding: 2rem 2rem 1.75rem;
   margin-bottom: 2rem;
   color: #fff;
+  box-shadow: 0 12px 32px rgba(15,74,35,0.18), 0 6px 12px rgba(15,74,35,0.10);
 }
 
 .group-hero-eyebrow {
@@ -845,7 +857,7 @@ input, select { font-family: var(--font); }
 }
 
 .pick-cta-btn {
-  box-shadow: 0 2px 8px rgba(22,163,74,0.35);
+  box-shadow: 0 4px 14px rgba(15,74,35,0.25), 0 2px 4px rgba(15,74,35,0.12);
 }
 
 .pick-cta-hint {
@@ -859,11 +871,12 @@ input, select { font-family: var(--font); }
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: var(--accent-light);
-  border: 1.5px solid #bbf7d0;
+  background: var(--green-50);
+  border: 1px solid #bbf7d0;
   border-radius: var(--radius);
   padding: 0.9rem 1.25rem;
   width: 100%;
+  box-shadow: var(--shadow-sm);
 }
 .pick-cta-done-icon {
   font-size: 1.4rem;
@@ -890,7 +903,7 @@ input, select { font-family: var(--font); }
 }
 .pick-cta-change-btn {
   background: #fff;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 0.85rem;
   padding: 0.45rem 0.9rem;
@@ -917,13 +930,13 @@ input, select { font-family: var(--font); }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.1rem 1.25rem;
   box-shadow: var(--shadow-sm);
   text-decoration: none;
   color: var(--text);
-  transition: all 0.15s;
+  transition: all var(--ease-fast);
 }
 
 .nav-card:hover {
@@ -960,7 +973,7 @@ input, select { font-family: var(--font); }
 
 .invite-box {
   background: var(--surface-alt);
-  border: 1.5px dashed var(--border);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   display: flex;
@@ -981,12 +994,15 @@ input, select { font-family: var(--font); }
 
 .invite-box-code {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--accent-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-deep);
   background: var(--accent-light);
-  padding: 0.25rem 0.6rem;
-  border-radius: 5px;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid #bbf7d0;
   word-break: break-all;
+  letter-spacing: 0.02em;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -998,7 +1014,7 @@ input, select { font-family: var(--font); }
   gap: 0;
   margin-bottom: 1.5rem;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -1053,12 +1069,14 @@ input, select { font-family: var(--font); }
   font-weight: 500;
 }
 .ph-status-alive {
-  background: var(--accent-light);
+  background: var(--green-50);
   border: 1px solid #bbf7d0;
+  box-shadow: var(--shadow-sm);
 }
 .ph-status-out {
   background: var(--danger-light);
   border: 1px solid #fecaca;
+  box-shadow: var(--shadow-sm);
 }
 .ph-status-icon { font-size: 1.5rem; }
 .ph-status-text { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -1100,9 +1118,9 @@ input, select { font-family: var(--font); }
   border-radius: 999px;
   white-space: nowrap;
 }
-.history-status-pill.won { background: var(--accent-light); color: var(--accent-dark); }
+.history-status-pill.won { background: var(--accent-light); color: var(--accent-deep); }
 .history-status-pill.lost { background: var(--danger-light); color: var(--danger); }
-.history-status-pill.pending { background: #fef9c3; color: #92400e; }
+.history-status-pill.pending { background: var(--gold-soft); color: #5a4304; }
 
 /* ── Draw viewer empty state ───────────────────────────────── */
 .draw-empty-state {
@@ -1129,8 +1147,8 @@ input, select { font-family: var(--font); }
   font-weight: 600;
 }
 .ps-alive {
-  background: var(--accent-light);
-  color: var(--accent-dark);
+  background: var(--green-50);
+  color: var(--accent-deep);
   border: 1px solid #bbf7d0;
 }
 .ps-out {
@@ -1175,11 +1193,12 @@ input, select { font-family: var(--font); }
 
 /* ── Home hero improvements ────────────────────────────────── */
 .home-hero {
-  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  background: var(--hero-gradient);
   border-radius: var(--radius);
   padding: 3rem 2.5rem;
   margin-bottom: 2.5rem;
   color: #fff;
+  box-shadow: 0 12px 32px rgba(15,74,35,0.18), 0 6px 12px rgba(15,74,35,0.10);
 }
 .home-hero-eyebrow {
   font-size: 0.8rem;
@@ -1290,7 +1309,7 @@ input, select { font-family: var(--font); }
 }
 .invite-copy-btn {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   font-weight: 600;
   font-size: 0.85rem;
@@ -1339,8 +1358,8 @@ input, select { font-family: var(--font); }
   flex-shrink: 0;
 }
 .player-top-seed .player-seed-badge {
-  background: #fef9c3;
-  color: #78350f;
+  background: var(--gold-soft);
+  color: #5a4304;
 }
 .player-seed-placeholder { min-width: 2.2rem; flex-shrink: 0; }
 
@@ -1366,9 +1385,9 @@ input, select { font-family: var(--font); }
   margin-left: 0.5rem;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #92400e;
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
+  color: #5a4304;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold);
   border-radius: 4px;
   padding: 0.1rem 0.4rem;
   display: inline-block;
@@ -1459,7 +1478,7 @@ input, select { font-family: var(--font); }
   align-items: center;
   justify-content: space-between;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   text-decoration: none;
@@ -1513,7 +1532,7 @@ input, select { font-family: var(--font); }
 }
 
 .lb-table-wrap {
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -1556,17 +1575,25 @@ input, select { font-family: var(--font); }
 
 /* Winner rows — must NOT be greyed out or struck through */
 .lb-row-winner td { opacity: 1; }
-.lb-row-winner .lb-display-name { text-decoration: none; font-weight: 700; }
-.lb-row-winner { background: #fefce8; }
-.lb-row-winner td { border-color: #fde68a; }
+.lb-row-winner .lb-display-name {
+  text-decoration: none;
+  font-weight: 700;
+  font-family: var(--font-editorial);
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+.lb-row-winner { background: linear-gradient(90deg, #FFF8E0 0%, #FFFDF4 100%); }
+.lb-row-winner td { border-color: var(--gold-soft); }
 .lb-winner-tag { font-size: 0.85rem; margin-left: 0.3rem; }
 .status-winner {
-  color: #b45309;
+  color: var(--gold-deep);
   font-weight: 700;
   font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .lb-progress-winner {
-  color: #b45309;
+  color: var(--gold-deep);
   font-weight: 600;
   font-size: 0.82rem;
 }
@@ -1578,13 +1605,13 @@ input, select { font-family: var(--font); }
 .winner-cta-link:hover { text-decoration: underline; }
 
 /* "You" row */
-.lb-row-you { background: #f0fdf4 !important; }
+.lb-row-you { background: var(--green-50) !important; }
 .lb-row-you td { border-color: #bbf7d0; }
 
 /* Clickable rows */
-.lb-row-clickable { cursor: pointer; transition: background 0.1s; }
+.lb-row-clickable { cursor: pointer; transition: background var(--ease-fast); }
 .lb-row-clickable:hover td { background: var(--surface-alt) !important; }
-.lb-row-you.lb-row-clickable:hover td { background: #dcfce7 !important; }
+.lb-row-you.lb-row-clickable:hover td { background: var(--accent-light) !important; }
 
 /* Click hint */
 .lb-click-hint {
@@ -1626,20 +1653,20 @@ input, select { font-family: var(--font); }
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: #eff6ff;
-  border-bottom: 1px solid #bfdbfe;
+  background: var(--green-50);
+  border-bottom: 1px solid #bbf7d0;
 }
 .lb-picks-current-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #1d4ed8;
+  color: var(--accent-deep);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .lb-picks-current-player {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--accent-deep);
 }
 
 /* Pick history table */
@@ -1692,9 +1719,9 @@ input, select { font-family: var(--font); }
   display: inline-block;
   font-size: 0.78rem;
   font-weight: 600;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background: var(--green-50);
+  color: var(--accent-deep);
+  border: 1px solid #bbf7d0;
   border-radius: 999px;
   padding: 0.18rem 0.55rem;
   white-space: nowrap;
@@ -1771,7 +1798,7 @@ input, select { font-family: var(--font); }
 }
 .match-card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -1853,7 +1880,7 @@ input, select { font-family: var(--font); }
 }
 .join-card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   width: 100%;
@@ -2385,7 +2412,7 @@ input, select { font-family: var(--font); }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
   box-shadow: var(--shadow-sm);
@@ -2515,7 +2542,7 @@ input, select { font-family: var(--font); }
   text-align: center;
   padding: 3.5rem 1rem;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   gap: 0.5rem;
@@ -2668,7 +2695,7 @@ input, select { font-family: var(--font); }
 
 .prelaunch-timeline {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.5rem 1.75rem;
   margin-bottom: 1.75rem;
@@ -3794,7 +3821,7 @@ input, select { font-family: var(--font); }
 /* ── Pick screen: wrap player list in a card container ────────── */
 .player-list-card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
