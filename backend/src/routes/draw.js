@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDraw, getLiveDraw, getRounds, getDeadlines, getRawFixtures, getApiKeyMap } from '../services/tennisData.js';
+import { getDraw, getRounds, getDeadlines, getRawFixtures } from '../services/tennisData.js';
 
 export const drawRouter = Router();
 
@@ -50,68 +50,7 @@ drawRouter.get('/debug', requireAdmin, async (_, res) => {
   }
 });
 
-// One-shot migration: replace mock player IDs with API keys
-drawRouter.get('/fix-mock-ids', requireAdmin, async (_, res) => {
-  try {
-    const keyMap = getApiKeyMap(); // dynamic: includes auto-discovered keys
-    const { pool: dbPool } = await import('../db/pool.js');
-    const { autoProcessResults } = await import('../services/resultsProcessor.js');
-
-    let fixed = 0;
-    const details = [];
-    for (const [mockId, apiKey] of Object.entries(keyMap)) {
-      if (apiKey == null) continue;
-      const upd = await dbPool.query(
-        `UPDATE picks SET player_id = $1 WHERE player_id = $2 RETURNING id, player_name`,
-        [apiKey, mockId]
-      );
-      if (upd.rowCount > 0) {
-        fixed += upd.rowCount;
-        details.push({ mockId, apiKey, updated: upd.rows.map(r => r.player_name) });
-      }
-    }
-
-    let gradeResult = null;
-    if (fixed > 0) {
-      gradeResult = await autoProcessResults();
-    }
-
-    res.json({ ok: true, fixed, details, gradeResult });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message, stack: e.stack });
-  }
-});
-
-// One-shot fix: normalise abbreviated player names to canonical mock draw names
-drawRouter.get('/fix-names', requireAdmin, async (_, res) => {
-  try {
-    const { MC_PLAYERS } = await import('../data/monteCarloMockDraw.js');
-    const keyMap = getApiKeyMap(); // dynamic
-    const { pool: dbPool } = await import('../db/pool.js');
-    const apiKeyToName = new Map();
-    for (const p of MC_PLAYERS) {
-      const apiKey = keyMap[p.id];
-      if (apiKey) apiKeyToName.set(String(apiKey), p.name);
-    }
-    let fixed = 0;
-    const details = [];
-    for (const [apiKey, canonicalName] of apiKeyToName) {
-      const upd = await dbPool.query(
-        `UPDATE picks SET player_name = $1
-         WHERE player_id = $2 AND player_name IS DISTINCT FROM $1
-         RETURNING id, player_name AS old_name`,
-        [canonicalName, apiKey]
-      );
-      if (upd.rowCount > 0) {
-        fixed += upd.rowCount;
-        details.push({ apiKey, canonicalName, oldNames: upd.rows.map(r => r.old_name) });
-      }
-    }
-    res.json({ ok: true, fixed, details });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message, stack: e.stack });
-  }
-});
+// (Removed: /fix-mock-ids and /fix-names — MC-only migration endpoints, no longer needed)
 
 // Diagnostic: dump all picks for a group to debug grading
 drawRouter.get('/debug-picks', requireAdmin, async (req, res) => {
@@ -133,26 +72,7 @@ drawRouter.get('/debug-picks', requireAdmin, async (req, res) => {
   }
 });
 
-// Diagnostic: what the results processor sees (getLiveDraw completed matches)
-drawRouter.get('/live-completed', requireAdmin, async (_, res) => {
-  try {
-    const draw = await getLiveDraw();
-    const completed = (draw.matches || []).filter(m => m.status === 'completed' && m.winnerId);
-    res.json({
-      dataSource: draw.dataSource,
-      totalMatches: (draw.matches || []).length,
-      completed: completed.map(m => ({
-        id: m.id, round: m.round,
-        p1Id: m.player1Id, p1Name: m.player1Name,
-        p2Id: m.player2Id, p2Name: m.player2Name,
-        winnerId: m.winnerId, winnerName: m.winnerName,
-        score: m.score,
-      })),
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// (Removed: /live-completed — used getLiveDraw which was removed in tennisData refactor)
 
 drawRouter.get('/bracket', async (req, res) => {
   try {
