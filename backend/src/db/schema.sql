@@ -152,6 +152,16 @@ CREATE TABLE IF NOT EXISTS payment_webhooks (
 
 CREATE INDEX IF NOT EXISTS idx_payment_orders_group_user
   ON payment_orders(group_id, user_id);
+-- Idempotent migrations for payment_orders so pre-existing tables (created
+-- before the processor_* columns were added) get backfilled on boot.
+-- CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
+-- without these ALTERs the new columns never appear in production.
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS processor_name TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS processor_order_id TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS processor_ref TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS processor_checkout_url TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_payment_orders_status
   ON payment_orders(status);
 CREATE INDEX IF NOT EXISTS idx_payment_orders_processor_id
