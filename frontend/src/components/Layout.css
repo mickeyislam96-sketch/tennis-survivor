@@ -11,8 +11,10 @@
   align-items: center;
   gap: 1.5rem;
   padding: 0 2rem;
-  height: 56px;
-  background: var(--surface);
+  height: 60px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   position: sticky;
@@ -23,24 +25,34 @@
 /* ── Logo ────────────────────────────────────────────────── */
 
 .logo {
-  font-weight: 800;
-  font-size: 0.88rem;
-  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent-deep);
   text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   letter-spacing: -0.02em;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: color var(--ease-fast);
 }
 
 .logo::before {
   content: '🎾';
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
-.logo:hover { text-decoration: none; color: var(--accent); }
+.logo:hover { text-decoration: none; color: var(--accent-abyss); }
+
+.logo-italic {
+  font-family: var(--font-editorial);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--gold-deep);
+  margin-left: 0.5px;
+}
 
 /* ── Nav ─────────────────────────────────────────────────── */
 
@@ -63,13 +75,13 @@
 }
 
 .nav-link:hover {
-  color: var(--accent);
+  color: var(--accent-deep);
   background: var(--green-50);
   text-decoration: none;
 }
 
 .nav-link-active {
-  color: var(--accent) !important;
+  color: var(--accent-deep) !important;
   background: var(--green-50) !important;
   font-weight: 600;
 }

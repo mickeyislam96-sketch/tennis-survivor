@@ -303,7 +303,7 @@ export function Layout({ children }) {
   return (
     <div className="layout">
       <header className="header">
-        <Link to="/" className="logo">Final Serve-ivor</Link>
+        <Link to="/" className="logo">Final Serve<span className="logo-italic">-ivor</span></Link>
 
         <nav className="nav">
           {groupId && nav.map(({ to, label }) => (
