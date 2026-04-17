@@ -688,29 +688,7 @@ input, select { font-family: var(--font); }
    HOME PAGE
 ══════════════════════════════════════════════════════════════ */
 
-.home-hero {
-  background: var(--hero-gradient);
-  border-radius: var(--radius);
-  padding: 2.5rem 2rem;
-  margin-bottom: 2rem;
-  color: #fff;
-  box-shadow: 0 12px 32px rgba(15,74,35,0.18), 0 6px 12px rgba(15,74,35,0.10);
-}
-
-.home-hero-title {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.03em;
-  margin-bottom: 0.5rem;
-}
-
-.home-hero-sub {
-  color: rgba(255,255,255,0.8);
-  font-size: 1rem;
-  margin: 0;
-  max-width: 480px;
-}
+/* .home-hero and children defined in the marquee block further down. */
 
 .home-section { margin-bottom: 2rem; }
 

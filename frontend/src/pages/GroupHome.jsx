@@ -759,21 +759,37 @@ export function GroupHome() {
   const upcomingPools  = allPools.filter(p => p.tournament?.status === 'upcoming');
   const completedPools = allPools.filter(p => p.tournament?.status === 'completed');
 
-  // Total entries across every pool — powers the live hero stat.
-  const totalEntries = allPools.reduce((sum, p) => sum + (p.memberCount || 0), 0);
-  // Pick the nearest "anchor" tournament for the hero eyebrow: first active,
-  // else first upcoming. Falls back to a neutral label if the feed is empty.
-  const anchorPool = activePools[0] || upcomingPools[0] || null;
+  // Anchor the hero to a single tournament — first active, else first upcoming.
+  // Everything in the marquee (eyebrow, CTA, stats) reads off this pool so the
+  // page always leads with what the user can actually do right now.
+  const anchorPool       = activePools[0] || upcomingPools[0] || null;
+  const anchorTournament = anchorPool?.tournament || null;
+  const anchorIsActive   = anchorTournament?.status === 'active';
+  const anchorIsMember   = !!anchorPool?.isMember;
+  const anchorName       = anchorTournament?.name || '';
+  const anchorYear       = anchorTournament?.year;
+  const anchorDays       = anchorTournament?.startDate ? Math.max(0, Math.ceil(daysUntil(anchorTournament.startDate))) : null;
+  const anchorFree       = anchorPool && anchorPool.entryFeeCents === 0;
+
   const anchorLabel = anchorPool
     ? (() => {
-        const t = anchorPool.tournament;
-        const status = t?.status === 'active' ? 'Live now' : 'Launches';
-        const date = t?.startDate
-          ? new Date(t.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        const status = anchorIsActive ? 'Live now' : 'Launches';
+        const date = anchorTournament?.startDate
+          ? new Date(anchorTournament.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
           : null;
-        return `${t?.name || 'Featured tournament'} · ${date ? `${status} ${date}` : status}`;
+        return `${anchorName || 'Featured tournament'} · ${!anchorIsActive && date ? `${status} ${date}` : status}`;
       })()
     : 'Year-round ATP tennis prediction';
+
+  // Primary CTA copy + destination — matches how the user relates to the anchor pool.
+  const primaryCta = anchorPool
+    ? {
+        to: `/group/${anchorPool.id}`,
+        label: anchorIsMember
+          ? (anchorIsActive ? 'View your pool' : 'View your entry')
+          : `Enter ${anchorName}${anchorYear ? ` ${anchorYear}` : ''}`,
+      }
+    : { to: '#open-now', label: 'See pools' };
 
   return (
     <div className="page home-page">
@@ -783,26 +799,38 @@ export function GroupHome() {
           <span className="home-hero-eyebrow">{anchorLabel}</span>
           <h1 className="home-hero-title">Pick one. <em>Outlast</em> everyone.</h1>
           <p className="home-hero-sub">
-            Pick one player per round. Get it wrong once and you are out. Last one standing wins.
+            {anchorPool
+              ? <>Enter the <strong>{anchorName}{anchorYear ? ` ${anchorYear}` : ''}</strong> survivor pool. Pick one player per round. Get it wrong once and you are out. Last one standing wins.</>
+              : 'Pick one player per round. Get it wrong once and you are out. Last one standing wins.'}
           </p>
           <div className="home-hero-cta">
-            <a className="home-hero-btn home-hero-btn--primary" href="#open-now">Enter a pool</a>
+            {primaryCta.to.startsWith('#')
+              ? <a className="home-hero-btn home-hero-btn--primary" href={primaryCta.to}>{primaryCta.label}</a>
+              : <Link className="home-hero-btn home-hero-btn--primary" to={primaryCta.to}>{primaryCta.label}</Link>}
             <a className="home-hero-btn home-hero-btn--ghost" href="#how-it-works">How it works</a>
           </div>
-          <div className="home-hero-stats">
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">{totalEntries || '—'}</div>
-              <div className="home-hero-stat-label">Entries so far</div>
+          {anchorPool && (
+            <div className="home-hero-stats">
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-num">
+                  {anchorIsActive ? (anchorPool.aliveCount ?? 0) : (anchorPool.memberCount ?? 0)}
+                </div>
+                <div className="home-hero-stat-label">{anchorIsActive ? 'Still in the pool' : 'Entries so far'}</div>
+              </div>
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-num">
+                  {anchorIsActive ? 'Live' : anchorDays === 0 ? 'Today' : anchorDays === 1 ? '1 day' : `${anchorDays ?? '—'} days`}
+                </div>
+                <div className="home-hero-stat-label">{anchorIsActive ? 'Tournament status' : 'Until first ball'}</div>
+              </div>
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-num">
+                  {anchorFree ? 'Free' : fmtGBP(anchorPool.prizePoolCents || 0)}
+                </div>
+                <div className="home-hero-stat-label">{anchorFree ? 'Entry' : 'Prize pool'}</div>
+              </div>
             </div>
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">7</div>
-              <div className="home-hero-stat-label">Rounds to survive</div>
-            </div>
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">1:∞</div>
-              <div className="home-hero-stat-label">One wrong pick, out</div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
