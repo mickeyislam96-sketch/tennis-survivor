@@ -24,14 +24,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Auto-initialise schema on startup (CREATE TABLE IF NOT EXISTS is idempotent)
-try {
-  const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
-  await pool.query(schema);
-  console.log('Database schema ready.');
-} catch (err) {
-  console.error('Schema init error:', err.message);
-}
+// Lightweight ping for Railway healthcheck — responds before DB is ready so
+// the container can pass healthcheck even on cold-start DB latency.
+app.get('/ping', (_req, res) => res.json({ ok: true }));
+
+// Auto-initialise schema in the background so the server can start listening
+// immediately. CREATE TABLE IF NOT EXISTS is idempotent so it's safe to run
+// on every boot. Errors are logged but don't block the server from coming up.
+(async () => {
+  try {
+    const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
+    await pool.query(schema);
+    console.log('Database schema ready.');
+  } catch (err) {
+    console.error('Schema init error:', err.message);
+  }
+})();
 
 const ALLOWED_ORIGINS = [
   'https://finalserveivor.com',
