@@ -1507,6 +1507,29 @@ input, select { font-family: var(--font); }
 .lb-row-out td { opacity: 0.55; }
 .lb-row-out .lb-display-name { text-decoration: line-through; }
 
+/* Winner rows — must NOT be greyed out or struck through */
+.lb-row-winner td { opacity: 1; }
+.lb-row-winner .lb-display-name { text-decoration: none; font-weight: 700; }
+.lb-row-winner { background: #fefce8; }
+.lb-row-winner td { border-color: #fde68a; }
+.lb-winner-tag { font-size: 0.85rem; margin-left: 0.3rem; }
+.status-winner {
+  color: #b45309;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.lb-progress-winner {
+  color: #b45309;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.winner-cta-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.winner-cta-link:hover { text-decoration: underline; }
+
 /* "You" row */
 .lb-row-you { background: #f0fdf4 !important; }
 .lb-row-you td { border-color: #bbf7d0; }

@@ -219,8 +219,22 @@ export function GroupHome() {
     const closingSoon = !isCompleted && openRound && openRound !== 'R1' && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
     const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick;
 
-    // Winner(s) for completed tournaments
-    const winners = isCompleted ? (group.members || []).filter(m => m.isAlive) : [];
+    // Winner(s) for completed tournaments — derived from leaderboard data
+    // (backend sets isWinner on longest-surviving member(s), even if all eliminated)
+    const [lbData, setLbData] = useState(null);
+    useEffect(() => {
+      if (!isCompleted || !groupId) return;
+      fetch(`${API}/leaderboard/${groupId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(setLbData)
+        .catch(() => {});
+    }, [isCompleted, groupId]);
+
+    const lbWinners = lbData ? (lbData.leaderboard || []).filter(m => m.isWinner) : [];
+    // Fallback: if backend doesn't have isWinner, try isAlive
+    const winners = lbWinners.length > 0
+      ? lbWinners
+      : (isCompleted ? (group.members || []).filter(m => m.isAlive) : []);
     // Next tournament for CTA
     const nextTournament = TOURNAMENTS.find(t => t.status === 'upcoming' || t.status === 'active');
 
@@ -488,19 +502,36 @@ export function GroupHome() {
             {winners.length === 1 ? (
               <div className="winner-banner">
                 <div className="winner-trophy">🏆</div>
-                <h2 className="winner-name">{winnerNames[0]}</h2>
-                <p className="winner-subtitle">Winner — Last one standing!</p>
+                <h2 className="winner-name">{winners[0].displayName}</h2>
+                <p className="winner-subtitle">
+                  {winners[0].isAlive
+                    ? 'Winner — Last one standing!'
+                    : `Winner — Lasted the longest from ${totalMembers} entrants`}
+                </p>
                 {group.prizePoolCents > 0 && (
                   <p className="winner-prize">Takes the {fmtGBP(group.prizePoolCents)} prize pool</p>
                 )}
               </div>
-            ) : winners.length > 1 ? (
+            ) : winners.length === 2 ? (
               <div className="winner-banner">
                 <div className="winner-trophy">🏆</div>
-                <h2 className="winner-name">{winnerNames.join(', ')}</h2>
-                <p className="winner-subtitle">{winners.length} survivors — prize shared!</p>
+                <h2 className="winner-name">{winners[0].displayName} &amp; {winners[1].displayName}</h2>
+                <p className="winner-subtitle">Joint winners — prize shared!</p>
                 {group.prizePoolCents > 0 && (
-                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split {winners.length} ways ({fmtGBP(Math.floor(group.prizePoolCents / winners.length))} each)</p>
+                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split 2 ways ({fmtGBP(Math.floor(group.prizePoolCents / 2))} each)</p>
+                )}
+              </div>
+            ) : winners.length > 2 ? (
+              <div className="winner-banner">
+                <div className="winner-trophy">🏆</div>
+                <h2 className="winner-name">{winners.length} joint winners!</h2>
+                <p className="winner-subtitle">
+                  <Link to={`/group/${groupId}/leaderboard`} className="winner-cta-link">
+                    See who won →
+                  </Link>
+                </p>
+                {group.prizePoolCents > 0 && (
+                  <p className="winner-prize">{fmtGBP(group.prizePoolCents)} prize pool split {winners.length} ways</p>
                 )}
               </div>
             ) : (
@@ -519,11 +550,11 @@ export function GroupHome() {
               <span className="completed-stat-label">Entered</span>
             </div>
             <div className="completed-stat">
-              <span className="completed-stat-value">{winners.length}</span>
-              <span className="completed-stat-label">{winners.length === 1 ? 'Survivor' : 'Survivors'}</span>
+              <span className="completed-stat-value">{winners.length || 0}</span>
+              <span className="completed-stat-label">{winners.length === 1 ? 'Winner' : 'Winners'}</span>
             </div>
             <div className="completed-stat">
-              <span className="completed-stat-value">{totalMembers - aliveMembers}</span>
+              <span className="completed-stat-value">{totalMembers - winners.length}</span>
               <span className="completed-stat-label">Eliminated</span>
             </div>
           </div>
@@ -848,7 +879,7 @@ function PoolCard({ pool }) {
       </div>
       <div className="pool-card-bottom">
         {isCompleted && pool.memberCount > 0 && (
-          <span className="pool-card-stat">{pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
+          <span className="pool-card-stat">{pool.winnerName ? `🏆 ${pool.winnerName} won` : pool.aliveCount === 1 ? '🏆 1 winner' : pool.aliveCount === 0 ? 'No survivors' : `🏆 ${pool.aliveCount} survivors`} from {pool.memberCount} entries</span>
         )}
         {t?.status === 'active' && pool.memberCount > 0 && (
           <span className="pool-card-stat">{pool.aliveCount} of {pool.memberCount} still in</span>

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
 
 // ── Formatting helpers ────────────────────────────────────────
 function fmtGBP(cents) {
@@ -32,8 +31,8 @@ function avatarColour(name) {
 }
 
 const ROUND_LABELS = {
-  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
-  R16: 'Round of 16', QF: 'Quarter-final', SF: 'Semi-final', F: 'Final',
+  R1: '1st Round', R64: '2nd Round', R32: '3rd Round',
+  R16: '4th Round', QF: 'QF', SF: 'SF', F: 'Final',
 };
 
 // ── Pick History Modal ────────────────────────────────────────
@@ -62,9 +61,7 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
           <div>
             <p className="lb-picks-modal-name">{member.displayName}</p>
             <p className="lb-picks-modal-sub">
-              {member.isWinner
-                ? `🏆 Winner · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
-                : member.isAlive
+              {member.isAlive
                 ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
                 : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`
               }
@@ -142,49 +139,14 @@ export function Leaderboard() {
           aliveCount: json.aliveCount ?? 0,
           currentRound: json.currentRound ?? null,
           roundIsLocked: json.roundIsLocked ?? false,
-          openRound: json.openRound ?? null,
         });
       })
-      .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null, openRound: null }));
+      .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
   }, [groupId]);
 
   if (!data) return <div className="page-loading">Loading leaderboard…</div>;
 
   const { group, leaderboard, aliveCount, currentRound, roundIsLocked } = data;
-
-  // Upcoming tournament — show a simple member list with no game state
-  const tournament = group?.tournamentId ? TOURNAMENTS.find(t => t.id === group.tournamentId) : null;
-  if (tournament && tournament.status !== 'active' && tournament.status !== 'completed') {
-    return (
-      <div className="page leaderboard">
-        <div className="leaderboard-header">
-          <h1>Leaderboard</h1>
-          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-        </div>
-        <div className="draw-empty-state">
-          <div className="draw-empty-icon">🎾</div>
-          <p className="draw-empty-title">{tournament.shortName || tournament.name} hasn't started yet</p>
-          <p className="draw-empty-sub">
-            The leaderboard will be available once the tournament begins on{' '}
-            {new Date(tournament.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}.
-          </p>
-          {leaderboard.length > 0 && (
-            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-              <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{leaderboard.length} player{leaderboard.length !== 1 ? 's' : ''} registered</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
-                {leaderboard.map((m) => (
-                  <span key={m.userId} className="lb-avatar" style={{ background: avatarColour(m.displayName), width: 32, height: 32, fontSize: '0.7rem' }}>
-                    {initials(m.displayName)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
   // Winner: check isWinner flag from backend (handles both alive-winner and last-eliminated-winner)
@@ -216,15 +178,15 @@ export function Leaderboard() {
       {/* Stats bar */}
       <div className="lb-stats-bar">
         <div className="lb-stat lb-stat-alive">
-          <span className="lb-stat-value lb-stat-value--big">{winner ? (winners.length > 1 ? winners.length : '1') : aliveCount}</span>
-          <span className="lb-stat-label">{winner ? (winners.length > 1 ? 'Winners' : 'Winner') : 'Still in'}</span>
+          <span className="lb-stat-value">{winner ? winners.length : aliveCount}</span>
+          <span className="lb-stat-label">{winner ? (winners.length === 1 ? 'Winner' : 'Winners') : 'Still in'}</span>
         </div>
         <div className="lb-stat lb-stat-out">
-          <span className="lb-stat-value lb-stat-value--big">{winner ? totalEntrants - winners.length : eliminated}</span>
+          <span className="lb-stat-value">{winner ? totalEntrants - winners.length : eliminated}</span>
           <span className="lb-stat-label">Eliminated</span>
         </div>
         <div className="lb-stat">
-          <span className="lb-stat-value lb-stat-value--big">{totalEntrants}</span>
+          <span className="lb-stat-value">{totalEntrants}</span>
           <span className="lb-stat-label">Total entrants</span>
         </div>
         <div className="lb-stat">
@@ -242,13 +204,14 @@ export function Leaderboard() {
             <tr>
               <th>Player</th>
               <th className="lb-th-status">Status</th>
-              {currentRound && <th className="lb-th-pick">{ROUND_LABELS[currentRound] || currentRound} Pick</th>}
+              <th className="lb-th-progress">Progress</th>
+              {currentRound && <th className="lb-th-pick">{currentRound} Pick</th>}
             </tr>
           </thead>
           <tbody>
             {leaderboard.length === 0 && (
               <tr>
-                <td colSpan={currentRound ? 3 : 2} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                   No entries yet — be the first to join!
                 </td>
               </tr>
@@ -259,7 +222,7 @@ export function Leaderboard() {
               const rowClass = [
                 'lb-row-clickable',
                 isYou ? 'lb-row-you' : '',
-                m.isAlive ? '' : 'lb-row-out',
+                m.isWinner ? 'lb-row-winner' : (m.isAlive ? '' : 'lb-row-out'),
               ].filter(Boolean).join(' ');
 
               return (
@@ -278,16 +241,36 @@ export function Leaderboard() {
                     </span>
                     <span className="lb-display-name">{m.displayName}</span>
                     {isYou && <span className="lb-you-tag">You</span>}
+                    {m.isWinner && <span className="lb-winner-tag">🏆</span>}
                   </td>
                   <td className="lb-td-status">
+                    {m.isWinner
+                      ? <span className="status-winner">Winner</span>
+                      : m.isAlive
+                        ? <span className="status-alive">Alive</span>
+                        : <span className="status-out">Eliminated</span>
+                    }
+                  </td>
+                  <td className="lb-td-progress">
                     {m.isWinner ? (
-                      <span className="status-winner-solid">🏆 Winner</span>
+                      <span className="lb-progress-winner">
+                        {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                      </span>
                     ) : m.isAlive ? (
                       survived === 0
-                        ? <span className="status-alive-solid">Active</span>
-                        : <span className="status-alive-solid">Survived {survived} {survived === 1 ? 'round' : 'rounds'}</span>
+                        ? <span className="lb-progress-pending">No results yet</span>
+                        : <span className="lb-progress-alive">
+                            {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                          </span>
                     ) : (
-                      <span className="status-out-solid">Eliminated {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || ''}</span>
+                      <span className="lb-progress-out">
+                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
+                        {survived > 0 && (
+                          <span className="lb-progress-sub">
+                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'}
+                          </span>
+                        )}
+                      </span>
                     )}
                   </td>
                   {currentRound && (
@@ -311,7 +294,7 @@ export function Leaderboard() {
         <PickHistoryModal
           member={selectedMember}
           groupId={groupId}
-          currentRound={data.openRound || null}
+          currentRound={currentRound}
           onClose={() => setSelectedMember(null)}
         />
       )}
