@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 13 April 2026. Keep this file updated at the end of every session.
+> Last updated: 17 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -389,13 +389,25 @@ Mock marks all past-round matches as completed (player1 wins). 5 unplayed R1 mat
 ### 15. Mensik withdrawal — HANDLED (7 Apr 2026)
 Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock draw. mc-p23 now maps to Dzumhur with API key null (dynamic discovery). T&Cs updated with post-lock withdrawal policy (Section 7).
 
+### 16. ~~React hooks violation in GroupHome (white screen)~~ — FIXED (17 Apr 2026)
+`useState(lbData)` and `useEffect` for leaderboard fetch were placed inside a conditional block (`if (groupId && group)`). When `group` was null on first render, React saw fewer hooks. When `group` loaded, the extra hook call violated Rules of Hooks, causing error #310 (infinite re-render / white screen). Fix: moved both hooks to the component's top level. **Third hooks violation in this project** (after DrawViewer 6 Apr and this). Must check hooks ordering before every push.
+
+### 17. ~~Railway build failure — dead imports in draw.js~~ — FIXED (17 Apr 2026)
+`draw.js` imported `getApiKeyMap` and `getLiveDraw` from `tennisData.js`, but these were removed during the 13 Apr data adapter refactor. Node.js throws on missing named exports, preventing the backend from starting. Railway kept running the previous successful deploy, so the site appeared "live" but none of the new backend code (payment routes, R1 per-match lock, data adapter) was actually deployed. Fix: removed dead imports and three MC-only admin endpoints (`/fix-mock-ids`, `/fix-names`, `/live-completed`). **Lesson:** when refactoring a module's exports, grep for all consumers of the removed exports.
+
+### 18. Stale mnt path causing reverted commits — SYSTEMIC RISK
+The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull` after other Cowork sessions push commits, the mnt files are older versions. Pushing from mnt overwrites newer changes on GitHub. This happened on 17 Apr: the big push (`0636b2c`) reverted winner detection commits (`ba5a47a`, `33008d7`) that had been pushed by earlier Cowork sessions. **Mitigation:** before pushing from mnt, always diff against GitHub HEAD — don't trust mnt's git status alone. Prefer `/tmp` clone which always has latest.
+
 ---
 
-## Current tournament state (as of 13 April 2026)
+## Current tournament state (as of 17 April 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
-- Result: Mark won from 11 entrants
+- Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f`
+- Winner detection: backend `leaderboard.js` sets `isWinner` on longest-surviving member(s), even if all eliminated
+- GroupHome completed view: fetches leaderboard API for `isWinner` flag, shows winner banner
+- Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
 - Lessons: see memory `project_monte_carlo_activation.md`
 
 ### Madrid 2026 (NEXT — preparation in progress)
@@ -403,14 +415,23 @@ Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock d
 - Status: `upcoming` — draw expected 19 Apr, tournament starts 22 Apr
 - Entry: Free (second free tournament before Roland Garros paid launch)
 - R1 model: **Per-match lock** (new system, first deployment)
-- Data source: Goalserve (trial activating 17 Apr) with API-Tennis fallback
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (3 members: Mick, Rafa, Mark)
+- Data source: Goalserve (trial activating 18 Apr) with API-Tennis fallback
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
+- Pre-launch member view: leaderboard-style page with stats bar, member table, invite box (deployed 17 Apr)
+
+### What deployed on 17 Apr (backend + frontend)
+All code from the 13 Apr session plus 17 Apr fixes. **4 commits:**
+1. `0636b2c` — R1 per-match lock, data adapter, payment infra, pre-launch member view, T&Cs rewrite, Madrid date corrections (24 files)
+2. `254f0ee` — Winner detection fix for completed tournaments (GroupHome, Leaderboard, CSS)
+3. `0db1f0c` — Fix React hooks violation (useState inside conditional)
+4. `ce8c497` — Fix Railway build failure (dead imports in draw.js)
 
 ### Outstanding actions (priority order)
-1. **17 Apr: Activate Goalserve trial** — sign up, get API key, set env var
-2. **17 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`
-3. **17 Apr: Test R1 per-match lock** — end-to-end test with live data
-4. **19 Apr: Madrid tournament activation** — draw available, create real DB group, set invite code
+1. **18 Apr: Activate Goalserve trial** — Mickey signs up, gets API key, sets `GOALSERVE_API_KEY` env var in Railway
+2. **18 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`
+3. **18 Apr: Test R1 per-match lock** — end-to-end test with live data
+4. **19 Apr: Madrid tournament activation** — set `ACTIVE_TOURNAMENT=madrid-2026` in Railway, confirm draw loads
 5. **19 Apr: Set lock time overrides** — R64+ once order of play is announced
 6. **Pre-Madrid: Update PickScreen.jsx** — R1 view showing match start times, greying out started matches
 7. **Pre-Madrid: Build withdrawal notification flow** — email + push when picked player withdraws
@@ -460,6 +481,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 9 Apr 2026 (session 1) | **Mobile bug fixes.** Fixed MyPicksScreen empty (backend returns `groupId`/`groupName`, code read `pool.id`/`pool.name`). Fixed DrawScreen matchup modal — was opening Google search; rewrote to fetch from `/api/matchup` endpoint and display H2H, stats, recent form in-app (matching web MatchupModal). |
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
 | 13 Apr 2026 | **R1 per-match lock + API replacement prep.** (1) Designed and built R1 per-match lock system: no fixed R1 deadline, players removed as match starts, withdrawal re-pick flow. (2) Created `dataAdapter.js` — unified data interface with provider chain (Goalserve stub/API-Tennis bridge/Sofascore). Internal fixture format with `isWithdrawal` and `startTime` fields. (3) Created `activeTournament.js` — centralised tournament config with `r1PerMatchLock` flag. (4) Updated `picks.js` — R1 branch in `getAvailablePlayers()` uses per-match filtering; R1 branch in `POST /api/picks` checks player's match start time. (5) Updated `getDeadlines()` — returns `perMatchLock: true` for R1, no `lockAt`. (6) Rewrote T&Cs: Section 5 split into 5a (R1 per-match), 5b (R2+), 5c (overlapping rounds); new Section 6 (withdrawals); new Section 11 (notifications). (7) Added R1 hint banner + CTA to GroupHome. (8) Updated FE+BE tournament configs: MC → completed, Madrid → upcoming with `r1PerMatchLock: true`. (9) Wrote handoff doc for 17 Apr session. No code pushed — all changes in mnt, ready for /tmp clone + push on 17 Apr. |
+| 17 Apr 2026 | **Big push + 3 hotfixes.** Pushed all 13 Apr session code (24 files) plus 3 same-day fixes. (1) `0636b2c`: R1 per-match lock, data adapter, payment infra, pre-launch member leaderboard view, T&Cs rewrite, Madrid dates corrected. (2) `254f0ee`: Winner detection fix — GroupHome fetches leaderboard API for `isWinner` flag (handles "lasted longest" winners); Leaderboard shows gold winner row instead of greyed out; PoolCard uses `winnerName`. (3) `0db1f0c`: **Hotfix** — React hooks violation. `useState(lbData)` was inside conditional block, crashing entire site with white screen (error #310). Moved to top level. (4) `ce8c497`: **Hotfix** — Railway build failure. `draw.js` imported `getApiKeyMap`/`getLiveDraw` which were removed in the 13 Apr refactor. Removed dead imports and 3 MC-only admin endpoints. **Stale mnt incident:** first push from mnt reverted winner detection commits (`ba5a47a`, `33008d7`) because Mickey's Mac hadn't pulled. Re-implemented in commit 2. **Lesson:** always diff against GitHub HEAD before pushing from mnt; prefer `/tmp` clone. |
 
 ---
 
@@ -469,16 +491,22 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 
 ### Before pushing
 1. Trace all execution/render paths through changed code
-2. Check for React rules of hooks violations (no hooks after early returns or conditionals)
+2. **Check for React rules of hooks violations** — no hooks after early returns, conditionals, or inside `if` blocks. This has caused 3 white-screen incidents (6 Apr DrawViewer, 17 Apr GroupHome). Run `node -e "import('./src/routes/...')"` for backend files to catch missing exports.
 3. Check for missing imports, undefined references, typos
-4. Consider all component states: loading, error, empty data, full data
-5. If the change is a significant refactor of a working component, flag the risk and discuss timing
+4. When refactoring a module's exports, **grep all consumers** for removed exports (17 Apr `draw.js` imported deleted functions from `tennisData.js` — broke Railway build silently)
+5. Consider all component states: loading, error, empty data, full data
+6. If the change is a significant refactor of a working component, flag the risk and discuss timing
 
 ### After pushing
-1. Wait for Vercel deploy to reach `READY` state
-2. Hit the live site to confirm it loads
-3. Check the specific changed feature works
+1. Wait for **both** Vercel AND Railway deploys to succeed. Vercel via MCP `list_deployments`; Railway has no MCP — hit `/api/health` to confirm new code is running, or test an endpoint that only exists in the new code.
+2. Hit the live site to confirm it loads without white screen
+3. Check the specific feature changed actually works
 4. Only then move on to the next task
+
+### Stale mnt files — CRITICAL
+The mnt path reflects Mickey's Mac filesystem. If other Cowork sessions pushed commits and Mickey didn't `git pull`, the mnt files are **older** than GitHub HEAD. Pushing from mnt will overwrite newer commits.
+
+**Before pushing from mnt:** compare against GitHub HEAD, not mnt's local git status. Preferred: clone to `/tmp` which always gets latest. If using mnt files, diff each changed file against the `/tmp` clone.
 
 ### Risk assessment
 Before starting feature work, ask: "If this breaks, what's the blast radius?" If the answer is "the whole site goes down" and users are active, defer or implement with extreme caution.
