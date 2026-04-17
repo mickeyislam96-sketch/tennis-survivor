@@ -14,7 +14,10 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { TOURNAMENT } from '../config/tournament.js';
-import { getCacheStatus } from '../services/tennisData.js';
+
+// getCacheStatus was removed in the tennisData → dataAdapter refactor.
+// Health check now reports cache as "unavailable" rather than crashing.
+const getCacheStatus = () => ({ status: 'unavailable', reason: 'cache layer removed in data adapter refactor' });
 
 export const healthRouter = Router();
 

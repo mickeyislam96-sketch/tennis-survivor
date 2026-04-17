@@ -1,17 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
-import { getRounds, getDeadlines, getDraw, getApiKeyMap } from '../services/tennisData.js';
-
-// Build reverse map dynamically from the merged key map
-function getMockToApiMap() {
-  const map = new Map();
-  for (const [mockId, apiKey] of Object.entries(getApiKeyMap())) {
-    if (apiKey == null) continue;
-    map.set(mockId, String(apiKey));
-  }
-  return map;
-}
+import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
 
 const ROUNDS = getRounds();
 
@@ -64,16 +54,11 @@ function buildGrader(draw) {
   }
 
   return function grade(playerId, round, playerName) {
-    // Primary: match by player ID (API key)
+    // Primary: match by player ID (canonical key from unified data adapter)
     if (lostRounds[playerId]?.has(round)) return false;
     if (wonRounds[playerId]?.has(round))  return true;
-    // Secondary: if pick has a mock ID, translate to API key and try again
-    const translated = getMockToApiMap().get(playerId);
-    if (translated) {
-      if (lostRounds[translated]?.has(round)) return false;
-      if (wonRounds[translated]?.has(round))  return true;
-    }
-    // Tertiary: match by normalised player name
+    // Fallback: match by normalised player name (handles any ID-space drift
+    // between stored picks and live draw data)
     const normName = (playerName || '').toLowerCase().trim();
     if (normName) {
       if (lostRoundsByName[normName]?.has(round)) return false;
