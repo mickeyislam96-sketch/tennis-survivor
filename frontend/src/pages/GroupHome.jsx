@@ -91,6 +91,7 @@ export function GroupHome() {
   const [joinAfterAuth, setJoinAfterAuth] = useState(false); // trigger join after registration
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
+  const [lbData, setLbData] = useState(null);
 
   useEffect(() => {
     if (groupId) {
@@ -146,6 +147,17 @@ export function GroupHome() {
       })
       .catch(() => {});
   }, [groupId, userId, openRound]);
+
+  // Fetch leaderboard data for completed tournaments (need isWinner flag)
+  useEffect(() => {
+    if (!groupId) return;
+    const tournament = group ? getTournament(group.tournamentId) : null;
+    if (tournament?.status !== 'completed') return;
+    fetch(`${API}/leaderboard/${groupId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(setLbData)
+      .catch(() => {});
+  }, [groupId, group]);
 
   // Join the current group directly (used from pre-launch dashboard)
   // For paid groups, redirects to payment flow if backend returns 402.
@@ -221,15 +233,6 @@ export function GroupHome() {
 
     // Winner(s) for completed tournaments — derived from leaderboard data
     // (backend sets isWinner on longest-surviving member(s), even if all eliminated)
-    const [lbData, setLbData] = useState(null);
-    useEffect(() => {
-      if (!isCompleted || !groupId) return;
-      fetch(`${API}/leaderboard/${groupId}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(setLbData)
-        .catch(() => {});
-    }, [isCompleted, groupId]);
-
     const lbWinners = lbData ? (lbData.leaderboard || []).filter(m => m.isWinner) : [];
     // Fallback: if backend doesn't have isWinner, try isAlive
     const winners = lbWinners.length > 0
