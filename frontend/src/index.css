@@ -1,62 +1,25 @@
 :root {
-  /* Warm stone canvas (Direction A) */
-  --bg: #FAFAF7;
+  --bg: #f1f5f9;
   --surface: #ffffff;
-  --surface-alt: #F5F4EE;
-  --border: #E8E6DC;
-  --border-strong: #D4D1C4;
-
-  /* Ink */
-  --text: #1C1B18;
-  --text-muted: #4A4840;
-  --text-subtle: #8A8778;
-
-  /* Emerald (primary authority) */
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
   --accent: #16a34a;
   --accent-light: #dcfce7;
   --accent-dark: #15803d;
-  --accent-deep: #166534;
-  --accent-abyss: #0F4A23;
-  --green-50: #F0FDF4;
-
-  /* Reserved accents */
-  --gold: #FFC933;
-  --gold-soft: #FFE58A;
-  --gold-deep: #D9A520;
-  --terracotta: #C45A38;
-  --terracotta-dark: #9C4429;
-
-  /* State */
   --success: #16a34a;
   --danger: #dc2626;
   --danger-light: #fee2e2;
   --warning: #d97706;
-  --warning-light: #FEF3E2;
-
-  /* Radii */
   --radius: 12px;
   --radius-sm: 8px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 999px;
-
-  /* Emerald-tinted elevation */
-  --shadow-sm: 0 1px 2px rgba(15,74,35,0.06), 0 1px 1px rgba(15,74,35,0.04);
-  --shadow: 0 4px 12px rgba(15,74,35,0.08), 0 2px 4px rgba(15,74,35,0.06);
-  --shadow-lg: 0 12px 32px rgba(15,74,35,0.12), 0 6px 12px rgba(15,74,35,0.08);
-
-  /* Typography */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
   --font: 'Outfit', system-ui, sans-serif;
-  --font-editorial: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Mono', ui-monospace, monospace;
-
-  /* Motion */
   --transition: 0.15s ease;
-  --ease-fast: 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  /* Hero gradient (reserved for marquee moments) */
-  --hero-gradient: linear-gradient(135deg, #0F4A23 0%, #166534 45%, #15803D 100%);
 }
 
 * { box-sizing: border-box; }
@@ -76,21 +39,12 @@ body {
 h1, h2, h3 {
   margin: 0 0 0.5rem;
   font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 h1 { font-size: 1.75rem; }
 h2 { font-size: 1.25rem; }
-
-/* Editorial italic utility (Fraunces) — use sparingly for accent words */
-.editorial,
-h1 em, h2 em, h3 em {
-  font-family: var(--font-editorial);
-  font-style: italic;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
 
 p { margin: 0 0 0.75rem; }
 
@@ -123,13 +77,12 @@ input, select { font-family: var(--font); }
 .btn.primary {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 1px 2px rgba(15, 74, 35, 0.18), 0 1px 1px rgba(15, 74, 35, 0.12);
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.3);
 }
 
 .btn.primary:hover {
   background: var(--accent-dark);
-  box-shadow: 0 4px 12px rgba(15, 74, 35, 0.22), 0 2px 4px rgba(15, 74, 35, 0.14);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35);
 }
 
 .btn.primary:disabled {
@@ -157,7 +110,7 @@ input, select { font-family: var(--font); }
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
 }
 
 /* ── Cards ───────────────────────────────────────────────── */
