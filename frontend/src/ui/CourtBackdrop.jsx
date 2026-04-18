@@ -53,9 +53,10 @@ export function CourtBackdrop({
         height: '100%',
         opacity,
         pointerEvents: 'none',
-        // Fade out on the left so text area is clean, court visible on right
-        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, transparent 15%, rgba(0,0,0,0.3) 35%, rgba(0,0,0,1) 60%)',
-        maskImage: 'linear-gradient(to right, transparent 0%, transparent 15%, rgba(0,0,0,0.3) 35%, rgba(0,0,0,1) 60%)',
+        // Subtle left-to-right fade: tramlines visible everywhere,
+        // court detail stronger on the right where there's no text
+        WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,1) 70%)',
+        maskImage: 'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,1) 70%)',
         ...style,
       }}
       {...rest}
