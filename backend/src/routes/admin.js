@@ -17,17 +17,10 @@
 
 import { Router } from 'express';
 import { autoProcessResults, processRoundResults, eliminateNonPickers } from '../services/resultsProcessor.js';
-import {
-  setRuntimeLockOverride,
-  clearRuntimeLockOverride,
-  getRuntimeLockOverrides,
-  invalidateCache,
-  getCacheStatus,
-  getDeadlines,
-} from '../services/tennisData.js';
+import { getDeadlines } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
-import { sendDrawReleasedEmail, sendNewTournamentEmail, sendAdminDigest } from '../utils/email.js';
+import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails } from '../utils/email.js';
 
 export const adminRouter = Router();
 
@@ -65,49 +58,14 @@ adminRouter.post('/process-results', async (req, res) => {
 });
 
 // ── POST /api/admin/set-lock-override ────────────────────────────────────────
-// Override the lock time for a round. Use when API data is wrong or delayed.
-// Body: { secret, round: "R32", lockAt: "2026-04-07T09:00:00Z" }
-adminRouter.post('/set-lock-override', async (req, res) => {
-  if (!checkSecret(req, res)) return;
-  const { round, lockAt } = req.body;
-  if (!round || !lockAt) {
-    return res.status(400).json({ error: 'round and lockAt are required' });
-  }
-  if (!ROUNDS.includes(round)) {
-    return res.status(400).json({ error: `Unknown round "${round}". Valid: ${ROUNDS.join(', ')}` });
-  }
-  const date = new Date(lockAt);
-  if (Number.isNaN(date.getTime())) {
-    return res.status(400).json({ error: 'lockAt must be a valid ISO date string' });
-  }
-  try {
-    setRuntimeLockOverride(round, date.toISOString());
-    res.json({ ok: true, round, lockAt: date.toISOString(), message: `Lock override set for ${round}` });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
+// TODO: Runtime lock overrides — needs setRuntimeLockOverride() in tennisData.js.
+// For now, lock overrides are set statically in activeTournament.js.
 
 // ── POST /api/admin/clear-lock-override ──────────────────────────────────────
-// Remove a runtime lock override for a round.
-// Body: { secret, round: "R32" }
-adminRouter.post('/clear-lock-override', async (req, res) => {
-  if (!checkSecret(req, res)) return;
-  const { round } = req.body;
-  if (!round || !ROUNDS.includes(round)) {
-    return res.status(400).json({ error: `Unknown round "${round}". Valid: ${ROUNDS.join(', ')}` });
-  }
-  clearRuntimeLockOverride(round);
-  res.json({ ok: true, round, message: `Lock override cleared for ${round}` });
-});
+// TODO: Needs clearRuntimeLockOverride() in tennisData.js.
 
 // ── POST /api/admin/invalidate-cache ─────────────────────────────────────────
-// Flush the in-memory API cache so the next request fetches fresh data.
-adminRouter.post('/invalidate-cache', async (req, res) => {
-  if (!checkSecret(req, res)) return;
-  invalidateCache();
-  res.json({ ok: true, message: 'Cache invalidated — next request will fetch fresh data from API' });
-});
+// TODO: Needs invalidateCache() in tennisData.js.
 
 // ── POST /api/admin/eliminate-non-pickers ────────────────────────────────────
 // Manually eliminate players who didn't pick for a specific round.
@@ -150,10 +108,9 @@ adminRouter.get('/status', async (req, res) => {
         id:        TOURNAMENT.id,
         name:      TOURNAMENT.name,
         rounds:    ROUNDS,
-        apiKeySet: !!TOURNAMENT.apiTournamentKey,
+        apiKeySet: !!TOURNAMENT.apiTennisTournamentKey,
+        r1PerMatchLock: TOURNAMENT.r1PerMatchLock || false,
       },
-      cache:           getCacheStatus(),
-      runtimeOverrides: getRuntimeLockOverrides(),
       deadlines,
       db:              dbResult?.rows?.[0] ?? null,
       timestamp:       new Date().toISOString(),
@@ -482,103 +439,36 @@ adminRouter.get('/picks/:groupId', async (req, res) => {
   }
 });
 
-// ── POST /api/admin/send-draw-released ──────────────────────────────────────
-// Queue "draw released" emails to all alive members in all groups for the
-// active tournament. Each email is queued as pending (admin must still approve
-// via the standard /approve-emails flow).
-// Body: { secret, deadline, topSeeds: [{ number, name }, ...] }
-adminRouter.post('/send-draw-released', async (req, res) => {
+// ── POST /api/admin/approve-emails ──────────────────────────────────────────
+// Preview or approve pending emails.
+// POST { secret }          → preview (list what's queued)
+// POST { secret, confirm } → send all pending emails
+adminRouter.post('/approve-emails', async (req, res) => {
   if (!checkSecret(req, res)) return;
-  const { deadline, topSeeds } = req.body;
+  const { confirm } = req.body;
   try {
-    const { rows } = await pool.query(
-      `SELECT gm.user_id, gm.group_id, gm.display_name, u.email,
-              (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = gm.group_id) AS group_count
-         FROM group_members gm
-         JOIN users u ON u.id = gm.user_id
-         JOIN groups g ON g.id = gm.group_id
-        WHERE g.tournament_id = $1
-          AND gm.is_alive = true
-          AND u.email IS NOT NULL`,
-      [TOURNAMENT.id]
-    );
-
-    let queued = 0;
-    for (const row of rows) {
-      try {
-        const result = await sendDrawReleasedEmail({
-          userId: row.user_id,
-          groupId: row.group_id,
-          email: row.email,
-          displayName: row.display_name,
-          tournamentName: TOURNAMENT.name,
-          tournamentShortName: TOURNAMENT.shortName || TOURNAMENT.name,
-          drawSize: TOURNAMENT.drawSize || 0,
-          totalRounds: ROUNDS.length,
-          deadline: deadline || '',
-          groupPlayerCount: Number(row.group_count),
-          pickUrl: 'https://finalserveivor.com/pick',
-          availablePlayerCount: TOURNAMENT.drawSize || 0,
-          topSeeds: topSeeds || [],
-        });
-        if (result?.queued) queued++;
-      } catch (err) {
-        console.error(`[admin] draw-released email failed for ${row.email}: ${err.message}`);
-      }
+    if (confirm) {
+      const result = await sendPendingEmails();
+      res.json({ ok: true, action: 'sent', ...result });
+    } else {
+      const pending = await getPendingEmailsSummary();
+      res.json({ ok: true, action: 'preview', count: pending.length, emails: pending });
     }
-
-    res.json({ ok: true, queued, total: rows.length, message: `${queued} draw released emails queued. Approve them via the digest email.` });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
+// ── POST /api/admin/send-draw-released ──────────────────────────────────────
+// TODO: Needs sendDrawReleasedEmail() in email.js — build email template first.
+adminRouter.post('/send-draw-released', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  res.status(501).json({ error: 'Draw released email template not yet implemented' });
+});
+
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────
-// Queue "new tournament" announcement emails to ALL registered users.
-// Body: { secret, tournamentName, shortName, level, drawDate, firstMatchDate,
-//         totalRounds, drawSize, joinUrl, inviteUrl }
+// TODO: Needs sendNewTournamentEmail() in email.js — build email template first.
 adminRouter.post('/send-new-tournament', async (req, res) => {
   if (!checkSecret(req, res)) return;
-  const {
-    tournamentName, shortName, level,
-    drawDate, firstMatchDate, totalRounds, drawSize,
-    joinUrl, inviteUrl,
-  } = req.body;
-
-  if (!tournamentName) {
-    return res.status(400).json({ error: 'tournamentName is required' });
-  }
-
-  try {
-    const { rows } = await pool.query(
-      `SELECT id::text AS user_id, email, display_name FROM users WHERE email IS NOT NULL`
-    );
-
-    let queued = 0;
-    for (const row of rows) {
-      try {
-        const result = await sendNewTournamentEmail({
-          userId: row.user_id,
-          email: row.email,
-          displayName: row.display_name,
-          tournamentName,
-          tournamentShortName: shortName || tournamentName,
-          tournamentLevel: level || '',
-          drawDate: drawDate || '',
-          firstMatchDate: firstMatchDate || '',
-          totalRounds: totalRounds || 0,
-          drawSize: drawSize || 0,
-          joinUrl: joinUrl || 'https://finalserveivor.com/pools',
-          inviteUrl: inviteUrl || '',
-        });
-        if (result?.queued) queued++;
-      } catch (err) {
-        console.error(`[admin] new-tournament email failed for ${row.email}: ${err.message}`);
-      }
-    }
-
-    res.json({ ok: true, queued, total: rows.length, message: `${queued} new tournament emails queued. Approve them via the digest email.` });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+  res.status(501).json({ error: 'New tournament email template not yet implemented' });
 });

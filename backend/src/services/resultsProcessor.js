@@ -109,7 +109,7 @@ export async function eliminateNonPickers(round) {
   try {
     const deadlines = await getDeadlines();
     const roundDeadline = deadlines.find(d => d.round === round);
-    if (roundDeadline && !roundDeadline.locked) {
+    if (roundDeadline && !roundDeadline.isLocked) {
       console.log(`[results] Skipping non-picker elimination for ${round} — pick window still open`);
       return 0;
     }

@@ -9,6 +9,7 @@
  */
 
 import { Router } from 'express';
+import crypto from 'crypto';
 import { pool } from '../db/pool.js';
 import {
   createPaymentOrder,
@@ -20,6 +21,47 @@ import {
   failPayment,
   refundPayment,
 } from '../services/paymentService.js';
+
+/**
+ * Verify webhook signature from payment processor.
+ * Uses HMAC-SHA256 with the processor's webhook secret.
+ * Returns true if signature is valid, false otherwise.
+ */
+function verifyWebhookSignature(processor, headers, rawBody) {
+  const secretEnvVar = `${processor.toUpperCase()}_WEBHOOK_SECRET`;
+  const secret = process.env[secretEnvVar] || process.env.PAYMENT_WEBHOOK_SECRET;
+  if (!secret) {
+    // No secret configured — reject all webhooks for safety.
+    // This forces us to set up the secret before payments can work.
+    console.error(`[payments] No webhook secret configured (set ${secretEnvVar} or PAYMENT_WEBHOOK_SECRET)`);
+    return false;
+  }
+
+  // Support common signature header formats
+  const signature = headers['x-webhook-signature']
+    || headers['x-signature']
+    || headers['stripe-signature']
+    || headers['x-quadrapay-signature'];
+
+  if (!signature) {
+    console.warn(`[payments] Webhook from ${processor} missing signature header`);
+    return false;
+  }
+
+  // HMAC-SHA256 verification
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody))
+    .digest('hex');
+
+  // Constant-time comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    // Lengths differ — signatures don't match
+    return false;
+  }
+}
 
 export const paymentsRouter = Router();
 
@@ -129,12 +171,15 @@ paymentsRouter.post('/webhook/:processor', async (req, res) => {
       return res.status(200).json({ ok: true, message: 'Duplicate webhook, already processed' });
     }
 
+    // Verify webhook signature before processing any payment events.
+    // This prevents forged payment confirmations from granting free access.
+    if (!verifyWebhookSignature(processor, req.headers, req.body)) {
+      console.warn(`[payments] Webhook signature verification FAILED for ${processor}`);
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+
     // Route to processor-specific handling
     if (processor === 'quadrapay') {
-      // TODO: Verify signature using QuadraPay secret
-      // const isValid = quadrapay.verifySignature(req.headers, payload);
-      // if (!isValid) return res.status(401).json({ error: 'Invalid signature' });
-
       const processorOrderId = payload.order_id || payload.transaction_id;
       const status = payload.status;
 

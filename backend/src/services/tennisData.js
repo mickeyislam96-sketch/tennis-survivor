@@ -325,25 +325,23 @@ export async function fetchApiDrawRaw() {
  * If a round has no match data yet (e.g. draw not released) it is marked
  * pending and neither open nor locked.
  */
-const LOCKTIME_OVERRIDES = {
-  R1:  '2026-03-19T13:00:00Z',
-  R32: '2026-03-22T18:00:00Z', // Lock 1h before first R32 match (Sun 22 Mar, 2PM EDT / 18:00 UTC)
-  R16: '2026-03-24T14:00:00Z', // Lock 1h before first R16 match (Mon 24 Mar, 3PM GMT / 14:00 UTC)
-};
+// Pull lock time overrides from activeTournament config (set per round as order of play is announced).
+// Falls back to empty object if no config — rounds will use API start times or fallback dates.
+const LOCKTIME_OVERRIDES = ACTIVE_TOURNAMENT?.lockTimeOverrides || {};
 
 export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
-    // No live data — fall back to static schedule for Miami Open 2026.
-    // R1 = non-seeds, R64 = seeds enter (Fri 21). All times UTC (11:00 ≈ 7am ET).
-    const ROUND_DATES = {
-      R1:  '2026-03-19T13:00:00Z',
-      R64: '2026-03-21T11:00:00Z',
-      R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
-      R16: '2026-03-25T11:00:00Z',
-      QF:  '2026-03-26T11:00:00Z',
-      SF:  '2026-03-28T11:00:00Z',
-      F:   '2026-03-30T11:00:00Z',
+    // No live data — fall back to static schedule from activeTournament.js.
+    // If no active tournament config, use sensible defaults for Madrid 2026.
+    const ROUND_DATES = ACTIVE_TOURNAMENT?.roundDateFallbacks || {
+      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr — Madrid Day 1
+      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr
+      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr
+      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr
+      QF:  '2026-04-30T09:00:00Z',  // Thu 30 Apr
+      SF:  '2026-05-02T09:00:00Z',  // Sat 2 May
+      F:   '2026-05-03T13:00:00Z',  // Sun 3 May — men's final
     };
     const now = new Date();
     return ROUNDS.map((round, i) => {
@@ -379,15 +377,15 @@ export async function getDeadlines() {
   }
 
   // Fallback schedule used when the live API hasn't published start times yet
-  // (common for QF/SF/F early in the tournament week). All times UTC.
-  const ROUND_DATE_FALLBACK = {
-    R1:  '2026-03-19T13:00:00Z',
-    R64: '2026-03-21T11:00:00Z',
-    R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
-    R16: '2026-03-25T11:00:00Z',
-    QF:  '2026-03-26T11:00:00Z',
-    SF:  '2026-03-28T11:00:00Z',
-    F:   '2026-03-30T11:00:00Z',
+  // (common for QF/SF/F early in the tournament week). Pulled from activeTournament config.
+  const ROUND_DATE_FALLBACK = ACTIVE_TOURNAMENT?.roundDateFallbacks || {
+    R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr — Madrid Day 1
+    R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr
+    R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr
+    R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr
+    QF:  '2026-04-30T09:00:00Z',  // Thu 30 Apr
+    SF:  '2026-05-02T09:00:00Z',  // Sat 2 May
+    F:   '2026-05-03T13:00:00Z',  // Sun 3 May — men's final
   };
 
   const draw = buildDrawFromFixtures(fixtures);
