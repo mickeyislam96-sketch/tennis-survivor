@@ -32,12 +32,12 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: 'Survive every round',
-    body: 'If your pick wins, you move on. If they lose or withdraw, you are out. Simple, but the later rounds are where everything tightens.',
+    body: 'If your pick wins, you move on. If they lose, you are out. The later rounds are where it gets tough.',
   },
   {
     step: 3,
     title: 'Last one standing wins the pot',
-    body: 'Entry fees go into a single prize pool. The final survivor takes it all. If multiple people make it, the pot is split.',
+    body: 'Entry fees go into a single prize pool. The last one standing takes it all.',
   },
 ];
 
