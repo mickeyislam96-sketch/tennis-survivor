@@ -278,7 +278,7 @@ export function Homepage() {
       <Section tone="muted" size="lg">
         <SectionHeader
           eyebrow="HOW IT WORKS"
-          title={<>Simple <em>rules</em>. Ruthless draw.</>}
+          title={<>The game is <em>simple</em>. Winning isn't.</>}
           center
         />
         <div className="hp-how">
