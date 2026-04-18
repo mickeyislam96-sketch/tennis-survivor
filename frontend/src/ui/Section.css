@@ -1,0 +1,85 @@
+.ui-section {
+  width: 100%;
+  padding-block: var(--ds-space-16);
+}
+
+.ui-section--sm { padding-block: var(--ds-space-10); }
+.ui-section--lg { padding-block: var(--ds-space-24); }
+
+.ui-section--canvas  { background: var(--ds-canvas); color: var(--ds-ink); }
+.ui-section--surface { background: var(--ds-surface); color: var(--ds-ink); }
+.ui-section--muted   { background: var(--ds-surface-muted); color: var(--ds-ink); }
+.ui-section--sunken  { background: var(--ds-surface-sunken); color: var(--ds-ink); }
+.ui-section--ink     { background: var(--ds-ink); color: var(--ds-surface); }
+.ui-section--primary { background: var(--ds-primary); color: var(--ds-primary-ink); }
+.ui-section--gold    { background: var(--ds-gold-surface); color: var(--ds-gold-ink); }
+
+.ui-section__inner {
+  width: 100%;
+  max-width: var(--ds-container);
+  margin-inline: auto;
+  padding-inline: var(--ds-space-6);
+}
+
+.ui-section--read .ui-section__inner { max-width: var(--ds-container-read); }
+
+/* ── Section header (eyebrow + headline + optional kicker) ───────────── */
+.ui-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-10);
+}
+
+.ui-section-header--center {
+  align-items: center;
+  text-align: center;
+}
+
+.ui-section-header__eyebrow {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--ds-ink-muted);
+  font-weight: var(--ds-weight-semi);
+}
+
+.ui-section-header__title {
+  font-family: var(--ds-font-display);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-3xl);
+  line-height: 1.1;
+  letter-spacing: var(--ds-tracking-tight);
+  color: inherit;
+  margin: 0;
+}
+
+.ui-section-header__title em {
+  font-family: var(--ds-font-serif);
+  font-style: italic;
+  font-weight: var(--ds-weight-regular);
+  color: var(--ds-accent);
+}
+
+.ui-section-header__kicker {
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-md);
+  color: var(--ds-ink-muted);
+  max-width: 60ch;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ui-section-header--center .ui-section-header__kicker { margin-inline: auto; }
+
+/* Standalone eyebrow element (for use outside section-header) */
+.ui-eyebrow {
+  display: inline-block;
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--ds-ink-muted);
+  font-weight: var(--ds-weight-semi);
+}

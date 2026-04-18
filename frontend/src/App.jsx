@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { Homepage } from './pages/Homepage';
 import { PickScreen } from './pages/PickScreen';
 import { DrawViewer } from './pages/DrawViewer';
 import { PickHistory } from './pages/PickHistory';
@@ -10,6 +11,7 @@ import { TermsAndConditions } from './pages/TermsAndConditions';
 import { ResetPassword } from './pages/ResetPassword';
 import { Profile } from './pages/Profile';
 import { PaymentFlow } from './pages/PaymentFlow';
+import { HowToPlay } from './pages/HowToPlay';
 import { AuthProvider } from './context/AuthContext';
 
 // Re-export so all existing page imports of `useAuth` and `API` from '../App' continue to work
@@ -20,7 +22,8 @@ function App() {
     <AuthProvider>
       <Layout>
         <Routes>
-          <Route path="/" element={<GroupHome />} />
+          <Route path="/" element={<Homepage />} />
+          <Route path="/how-to-play" element={<HowToPlay />} />
           <Route path="/group/:groupId" element={<GroupHome />} />
           <Route path="/group/:groupId/pick" element={<PickScreen />} />
           <Route path="/group/:groupId/draw" element={<DrawViewer />} />

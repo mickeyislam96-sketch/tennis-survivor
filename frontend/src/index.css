@@ -1,25 +1,30 @@
 :root {
-  --bg: #f1f5f9;
-  --surface: #ffffff;
-  --surface-alt: #f8fafc;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --accent: #16a34a;
-  --accent-light: #dcfce7;
-  --accent-dark: #15803d;
-  --success: #16a34a;
-  --danger: #dc2626;
-  --danger-light: #fee2e2;
-  --warning: #d97706;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
-  --font: 'Outfit', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Mono', ui-monospace, monospace;
-  --transition: 0.15s ease;
+  /* Legacy variable names, remapped to Direction A palette so existing
+   * un-ported page CSS inherits the new design system. */
+  --bg:           var(--ds-canvas);
+  --surface:      var(--ds-surface);
+  --surface-alt:  var(--ds-surface-muted);
+  --border:       var(--ds-border);
+  --text:         var(--ds-ink);
+  --text-muted:   var(--ds-ink-muted);
+  --text-subtle:  var(--ds-ink-soft);
+  --accent:       var(--ds-primary);
+  --accent-light: var(--ds-primary-soft);
+  --accent-dark:  var(--ds-primary-hover);
+  --green-50:     var(--ds-primary-soft);
+  --success:      var(--ds-success);
+  --danger:       var(--ds-danger);
+  --danger-light: var(--ds-danger-soft);
+  --warning:      var(--ds-warning);
+  --radius:       var(--ds-radius-md);
+  --radius-sm:    var(--ds-radius-sm);
+  --shadow-sm:    var(--ds-shadow-sm);
+  --shadow:       var(--ds-shadow-md);
+  --shadow-lg:    var(--ds-shadow-lg);
+  --font:         var(--ds-font-sans);
+  --font-mono:    var(--ds-font-mono);
+  --ease-fast:    var(--ds-dur-fast) var(--ds-ease);
+  --transition:   var(--ds-dur-fast) var(--ds-ease);
 }
 
 * { box-sizing: border-box; }

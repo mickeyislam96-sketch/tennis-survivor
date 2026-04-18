@@ -1,0 +1,95 @@
+.ui-player-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-border);
+  color: var(--ds-ink);
+  background: transparent;
+  transition: background-color var(--ds-dur-fast) var(--ds-ease);
+}
+
+.ui-player-row:last-child { border-bottom: none; }
+
+.ui-player-row:hover {
+  background: var(--ds-surface-muted);
+}
+
+.ui-player-row--eliminated {
+  color: var(--ds-ink-muted);
+}
+
+.ui-player-row--eliminated .ui-player-row__name {
+  text-decoration: line-through;
+  text-decoration-color: var(--ds-danger);
+  text-decoration-thickness: 1px;
+}
+
+.ui-player-row--me {
+  background: var(--ds-primary-soft);
+}
+
+.ui-player-row--winner {
+  background: var(--ds-gold-surface);
+}
+
+.ui-player-row__rank {
+  font-family: var(--ds-font-mono);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-ink-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+.ui-player-row--winner .ui-player-row__rank { color: var(--ds-gold-deep); }
+
+.ui-player-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ui-player-row__name {
+  font-family: var(--ds-font-sans);
+  font-weight: var(--ds-weight-semi);
+  font-size: var(--ds-text-md);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-player-row__name em {
+  font-family: var(--ds-font-serif);
+  font-style: italic;
+  font-weight: var(--ds-weight-regular);
+  color: var(--ds-accent);
+}
+
+.ui-player-row__sub {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--ds-ink-muted);
+}
+
+.ui-player-row__right {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-semi);
+}
+
+.ui-player-row__seed {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  color: var(--ds-ink-muted);
+  min-width: 28px;
+  text-align: right;
+}

@@ -1,0 +1,49 @@
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ds-font-sans);
+  font-weight: var(--ds-weight-semi);
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.ui-badge--sm { padding: 4px 10px; font-size: var(--ds-text-2xs); letter-spacing: var(--ds-tracking-caps); text-transform: uppercase; }
+.ui-badge--md { padding: 6px 12px; font-size: var(--ds-text-xs);  letter-spacing: var(--ds-tracking-caps); text-transform: uppercase; }
+
+.ui-badge__dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: var(--ds-radius-pill);
+  background: currentColor;
+}
+
+.ui-badge--neutral { background: var(--ds-surface-muted); color: var(--ds-ink-muted); border-color: var(--ds-border); }
+.ui-badge--primary { background: var(--ds-primary-soft); color: var(--ds-primary); }
+.ui-badge--success { background: var(--ds-success-soft); color: var(--ds-success); }
+.ui-badge--danger  { background: var(--ds-danger-soft);  color: var(--ds-danger); }
+.ui-badge--warning { background: var(--ds-warning-soft); color: var(--ds-warning); }
+.ui-badge--info    { background: var(--ds-info-soft);    color: var(--ds-info); }
+.ui-badge--gold    { background: var(--ds-gold-soft);    color: var(--ds-gold-deep); }
+.ui-badge--accent  { background: var(--ds-accent-soft);  color: var(--ds-accent); }
+
+/* ── Pill (numbered/lettered round chip) ────────────────────────────── */
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ds-radius-pill);
+  font-family: var(--ds-font-mono);
+  font-weight: var(--ds-weight-bold);
+  line-height: 1;
+}
+
+.ui-pill--sm { width: 24px; height: 24px; font-size: var(--ds-text-xs); }
+.ui-pill--md { width: 32px; height: 32px; font-size: var(--ds-text-sm); }
+
+.ui-pill--primary { background: var(--ds-primary);    color: var(--ds-primary-ink); }
+.ui-pill--accent  { background: var(--ds-accent);     color: var(--ds-accent-ink); }
+.ui-pill--gold    { background: var(--ds-gold);       color: var(--ds-gold-ink); }
+.ui-pill--neutral { background: var(--ds-surface-muted); color: var(--ds-ink); border: 1px solid var(--ds-border); }

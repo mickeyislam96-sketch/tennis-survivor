@@ -1,0 +1,99 @@
+.ui-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  background: color-mix(in srgb, var(--ds-canvas) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.ui-site-header__inner {
+  width: 100%;
+  max-width: var(--ds-container);
+  margin-inline: auto;
+  padding: var(--ds-space-3) var(--ds-space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+}
+
+.ui-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  text-decoration: none;
+  color: var(--ds-ink);
+  font-family: var(--ds-font-display);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-lg);
+  line-height: 1;
+  letter-spacing: var(--ds-tracking-tight);
+}
+
+.ui-brand em {
+  font-family: var(--ds-font-serif);
+  font-style: italic;
+  font-weight: var(--ds-weight-regular);
+  color: var(--ds-primary);
+}
+
+.ui-brand__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-primary);
+  color: var(--ds-primary-ink);
+  font-family: var(--ds-font-mono);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-sm);
+}
+
+.ui-site-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-5);
+}
+
+.ui-site-header__link {
+  font-family: var(--ds-font-sans);
+  font-weight: var(--ds-weight-medium);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-ink-muted);
+  text-decoration: none;
+  transition: color var(--ds-dur-fast) var(--ds-ease);
+}
+
+.ui-site-header__link:hover {
+  color: var(--ds-ink);
+}
+
+.ui-site-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+}
+
+.ui-site-header__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-surface-muted);
+  color: var(--ds-ink);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-bold);
+  border: 1px solid var(--ds-border);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .ui-site-header__nav { display: none; }
+}

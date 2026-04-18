@@ -1,0 +1,209 @@
+.hp {
+  background: var(--ds-canvas);
+  color: var(--ds-ink);
+  min-height: 100%;
+}
+
+/* Pool grid -------------------------------------------------------- */
+.hp-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--ds-space-5);
+}
+
+.hp-pool-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hp-empty {
+  font-family: var(--ds-font-sans);
+  color: var(--ds-ink-muted);
+  font-size: var(--ds-text-md);
+  padding: var(--ds-space-8) 0;
+  text-align: center;
+}
+
+/* My pools (signed-in) -------------------------------------------- */
+.hp-my-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--ds-space-4);
+}
+
+.hp-my-group-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-5);
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  text-decoration: none;
+  color: var(--ds-ink);
+  transition: transform var(--ds-dur-fast) var(--ds-ease),
+              border-color var(--ds-dur-fast) var(--ds-ease),
+              box-shadow var(--ds-dur-fast) var(--ds-ease);
+}
+
+.hp-my-group-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ds-primary);
+  box-shadow: var(--ds-shadow-md);
+}
+
+.hp-my-group-eyebrow {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--ds-ink-muted);
+  margin: 0 0 var(--ds-space-1) 0;
+}
+
+.hp-my-group-title {
+  font-family: var(--ds-font-display);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-lg);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.hp-my-group-meta {
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-ink-muted);
+  margin: var(--ds-space-1) 0 0 0;
+}
+
+.hp-my-group-arrow {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-xl);
+  color: var(--ds-primary);
+}
+
+/* How it works ---------------------------------------------------- */
+.hp-how {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--ds-space-5);
+}
+
+.hp-how-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+}
+
+.hp-how-step {
+  display: flex;
+}
+
+.hp-how-title {
+  font-family: var(--ds-font-display);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-xl);
+  line-height: 1.2;
+  letter-spacing: var(--ds-tracking-tight);
+  margin: 0;
+}
+
+.hp-how-body {
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-md);
+  line-height: 1.55;
+  color: var(--ds-ink-muted);
+  margin: 0;
+}
+
+.hp-how-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--ds-space-8);
+}
+
+/* Invite code section -------------------------------------------- */
+.hp-invite {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--ds-space-8);
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .hp-invite { grid-template-columns: 1fr; }
+}
+
+.hp-invite-eyebrow {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--ds-gold);
+  margin: 0 0 var(--ds-space-2) 0;
+  font-weight: var(--ds-weight-semi);
+}
+
+.hp-invite-title {
+  font-family: var(--ds-font-display);
+  font-weight: var(--ds-weight-bold);
+  font-size: var(--ds-text-3xl);
+  line-height: 1.1;
+  letter-spacing: var(--ds-tracking-tight);
+  margin: 0 0 var(--ds-space-3) 0;
+  color: var(--ds-primary-ink);
+}
+
+.hp-invite-title em {
+  font-family: var(--ds-font-serif);
+  font-style: italic;
+  font-weight: var(--ds-weight-regular);
+  color: var(--ds-gold);
+}
+
+.hp-invite-sub {
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-md);
+  color: color-mix(in srgb, var(--ds-primary-ink) 85%, transparent);
+  margin: 0;
+  max-width: 40ch;
+}
+
+.hp-invite-form {
+  display: flex;
+  gap: var(--ds-space-2);
+  align-items: center;
+}
+
+.hp-invite-input {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-md);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid color-mix(in srgb, var(--ds-primary-ink) 40%, transparent);
+  background: color-mix(in srgb, var(--ds-primary-ink) 8%, transparent);
+  color: var(--ds-primary-ink);
+  min-width: 180px;
+  outline: none;
+}
+
+.hp-invite-input::placeholder {
+  color: color-mix(in srgb, var(--ds-primary-ink) 55%, transparent);
+}
+
+.hp-invite-input:focus {
+  border-color: var(--ds-gold);
+  background: color-mix(in srgb, var(--ds-gold) 10%, transparent);
+}
+
+.hp-invite-error {
+  grid-column: 1 / -1;
+  color: var(--ds-gold);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-sm);
+  margin: var(--ds-space-3) 0 0 0;
+}

@@ -1,20 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../App';
-import { API } from '../App';
+import { useAuth, API } from '../App';
+import { Button } from '../ui/Button.jsx';
 import './Layout.css';
 
-const nav = [
-  { to: 'pick',        label: 'Make Pick' },
+const groupNav = [
+  { to: 'pick',        label: 'Make pick' },
   { to: 'draw',        label: 'Draw' },
-  { to: 'history',     label: 'My Picks' },
+  { to: 'history',     label: 'My picks' },
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
 
 // ── Avatar helpers ────────────────────────────────────────────
 const AVATAR_COLOURS = [
-  '#16a34a', '#0891b2', '#7c3aed', '#db2777',
-  '#d97706', '#65a30d', '#0369a1', '#9333ea',
+  '#0F4A23', '#1E7A3E', '#C1572E', '#A84620',
+  '#1F5580', '#7C3AED', '#B67300', '#0891B2',
 ];
 
 function avatarColour(name) {
@@ -33,12 +33,11 @@ function initials(name) {
 }
 
 // ── User menu component ───────────────────────────────────────
-function UserMenu({ user, groupId }) {
+function UserMenu({ user }) {
   const { logout } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
-  // Close on click outside
   useEffect(() => {
     if (!open) return;
     const handle = (e) => {
@@ -54,7 +53,7 @@ function UserMenu({ user, groupId }) {
   return (
     <div className="user-menu-wrap" ref={wrapRef}>
       <button
-        className="user-avatar-btn"
+        className="user-avatar-btn ds-focusable"
         onClick={() => setOpen((v) => !v)}
         aria-label="Account menu"
         aria-expanded={open}
@@ -63,8 +62,7 @@ function UserMenu({ user, groupId }) {
       </button>
 
       {open && (
-        <div className="user-menu-dropdown">
-          {/* Identity */}
+        <div className="user-menu-dropdown" role="menu">
           <div className="user-menu-identity">
             <span className="user-avatar user-avatar-sm" style={{ background: colour }}>{ini}</span>
             <div className="user-menu-id-text">
@@ -75,20 +73,11 @@ function UserMenu({ user, groupId }) {
 
           <div className="user-menu-divider" />
 
-          {/* Navigation items — Profile and My Pools always visible */}
-          <Link
-            to="/profile"
-            className="user-menu-item"
-            onClick={() => setOpen(false)}
-          >
+          <Link to="/profile" className="user-menu-item" onClick={() => setOpen(false)}>
             Profile
           </Link>
-          <Link
-            to="/"
-            className="user-menu-item"
-            onClick={() => setOpen(false)}
-          >
-            My Pools
+          <Link to="/" className="user-menu-item" onClick={() => setOpen(false)}>
+            My pools
           </Link>
 
           <div className="user-menu-divider" />
@@ -105,24 +94,21 @@ function UserMenu({ user, groupId }) {
   );
 }
 
+// ── Auth modal (sign in / register / forgot password) ────────
 function AuthModal({ onClose, initialMode = 'login' }) {
   const { register, login } = useAuth();
-
-  // mode: 'login' | 'register' | 'forgot' | 'forgot-sent'
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
-  const switchMode = (m) => { setMode(m); setError(''); setSuccess(''); setPassword(''); };
+  const switchMode = (m) => { setMode(m); setError(''); setPassword(''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (mode === 'register' && password.length < 8) {
       setError('Password must be at least 8 characters.');
@@ -160,34 +146,39 @@ function AuthModal({ onClose, initialMode = 'login' }) {
     login: 'Sign in',
     register: 'Create account',
     forgot: 'Reset password',
-    'forgot-sent': 'Check your email',
+    'forgot-sent': 'Check your inbox',
   }[mode];
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box modal-box--auth" onClick={(e) => e.stopPropagation()}>
+    <div className="ds-modal-backdrop" onClick={onClose}>
+      <div
+        className="ds-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="ds-modal-header">
+          <span className="ds-modal-eyebrow">FINAL SERVE-IVOR</span>
+          <h2 id="auth-modal-title" className="ds-modal-title">{title}</h2>
+          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </header>
 
-        {/* Green gradient header — matches join card and group hero */}
-        <div className="modal-auth-header">
-          <div>
-            <p className="modal-auth-eyebrow">🎾 Final Serve-ivor</p>
-            <h2 className="modal-auth-title">{title}</h2>
-          </div>
-          <button className="modal-close modal-close--light" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-
-        <div className="modal-auth-body">
-          {/* Tabs — only shown for login / register */}
+        <div className="ds-modal-body">
           {(mode === 'login' || mode === 'register') && (
-            <div className="modal-tabs">
+            <div className="ds-modal-tabs" role="tablist">
               <button
-                className={`modal-tab${mode === 'login' ? ' active' : ''}`}
+                role="tab"
+                aria-selected={mode === 'login'}
+                className={`ds-modal-tab${mode === 'login' ? ' is-active' : ''}`}
                 onClick={() => switchMode('login')}
               >
                 Sign in
               </button>
               <button
-                className={`modal-tab${mode === 'register' ? ' active' : ''}`}
+                role="tab"
+                aria-selected={mode === 'register'}
+                className={`ds-modal-tab${mode === 'register' ? ' is-active' : ''}`}
                 onClick={() => switchMode('register')}
               >
                 Create account
@@ -195,92 +186,91 @@ function AuthModal({ onClose, initialMode = 'login' }) {
             </div>
           )}
 
-          {/* Forgot password — email sent confirmation */}
           {mode === 'forgot-sent' && (
-            <div className="modal-sent">
-              <p className="modal-sent-icon">📬</p>
-              <p className="modal-sent-text">
-                If an account exists for <strong>{email}</strong>, a password reset link has been sent. Check your inbox (and spam).
+            <div className="ds-modal-sent">
+              <p className="ds-modal-sent-icon">✉</p>
+              <p className="ds-modal-sent-text">
+                If an account exists for <strong>{email}</strong>, a reset link has been sent. Check your inbox (and spam).
               </p>
-              <button className="btn-text-link" onClick={() => switchMode('login')}>
-                Back to sign in
-              </button>
+              <Button variant="ghost" onClick={() => switchMode('login')}>
+                ← Back to sign in
+              </Button>
             </div>
           )}
 
-          {/* Main form */}
           {mode !== 'forgot-sent' && (
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={handleSubmit} className="ds-modal-form">
               {mode === 'register' && (
-                <input
-                  className="input auth-input"
-                  type="text"
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoFocus
-                />
+                <label className="ds-field">
+                  <span className="ds-field-label">Name</span>
+                  <input
+                    className="ds-input"
+                    type="text"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </label>
               )}
 
-              <input
-                className="input auth-input"
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus={mode === 'login' || mode === 'forgot'}
-              />
+              <label className="ds-field">
+                <span className="ds-field-label">Email</span>
+                <input
+                  className="ds-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus={mode === 'login' || mode === 'forgot'}
+                />
+              </label>
 
               {(mode === 'login' || mode === 'register') && (
-                <input
-                  className="input auth-input"
-                  type="password"
-                  placeholder={mode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <label className="ds-field">
+                  <span className="ds-field-label">Password</span>
+                  <input
+                    className="ds-input"
+                    type="password"
+                    placeholder={mode === 'register' ? 'Min. 8 characters' : 'Your password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </label>
               )}
 
-              {/* Forgot password link — only on login */}
               {mode === 'login' && (
                 <button
                   type="button"
-                  className="btn-text-link forgot-link"
+                  className="ds-text-link"
                   onClick={() => switchMode('forgot')}
                 >
                   Forgot your password?
                 </button>
               )}
 
-              {error && <p className="error">{error}</p>}
-              {success && <p className="success-msg">{success}</p>}
+              {error && <p className="ds-form-error">{error}</p>}
 
-              <button type="submit" className="btn primary btn-lg" disabled={loading} style={{ marginTop: '0.25rem' }}>
-                {loading ? (
-                  mode === 'register' ? 'Creating account…' :
-                  mode === 'login'    ? 'Signing in…' :
-                                       'Sending link…'
-                ) : (
-                  mode === 'register' ? 'Create account →' :
-                  mode === 'login'    ? 'Sign in →' :
-                                       'Send reset link →'
-                )}
-              </button>
+              <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
+                {mode === 'register' ? 'Create account →'
+                 : mode === 'login' ? 'Sign in →'
+                 : 'Send reset link →'}
+              </Button>
 
               {mode === 'register' && (
-                <p className="modal-hint">We'll send you a confirmation email.</p>
+                <p className="ds-modal-hint">We'll send you a confirmation email.</p>
               )}
 
               {mode === 'forgot' && (
                 <button
                   type="button"
-                  className="btn-text-link"
+                  className="ds-text-link"
                   onClick={() => switchMode('login')}
                 >
-                  Back to sign in
+                  ← Back to sign in
                 </button>
               )}
             </form>
@@ -291,62 +281,92 @@ function AuthModal({ onClose, initialMode = 'login' }) {
   );
 }
 
+// ── Layout root ────────────────────────────────────────────────
 export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
   const { user } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
+
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
 
+  const openAuth = (mode) => { setInitialMode(mode); setShowAuth(true); };
+
   return (
-    <div className="layout">
-      <header className="header">
-        <Link to="/" className="logo">Final Serve-ivor</Link>
+    <div className="ds-layout">
+      <header className="ds-header">
+        <div className="ds-header__inner">
+          <Link to="/" className="ds-brand">
+            <span className="ds-brand__mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="16" cy="16" r="11" />
+                <path d="M6 14 Q 16 4 26 14" />
+                <path d="M6 18 Q 16 28 26 18" />
+              </svg>
+            </span>
+            <span className="ds-brand__wordmark">
+              Final <em>Serve-ivor</em>
+            </span>
+          </Link>
 
-        <nav className="nav">
-          {groupId && nav.map(({ to, label }) => (
+          <nav className="ds-nav" aria-label="Primary">
+            {groupId && groupNav.map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={`${base}/${to}`}
+                className={({ isActive }) => `ds-nav-link${isActive ? ' is-active' : ''}`}
+              >
+                {label}
+              </NavLink>
+            ))}
             <NavLink
-              key={to}
-              to={`${base}/${to}`}
-              className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
+              to="/how-to-play"
+              className={({ isActive }) => `ds-nav-link${isActive ? ' is-active' : ''}`}
             >
-              {label}
+              How to play
             </NavLink>
-          ))}
-          <NavLink
-            to="/terms"
-            className={({ isActive }) => `nav-link${isActive ? ' nav-link-active' : ''}`}
-          >
-            T&amp;Cs
-          </NavLink>
-        </nav>
+            <NavLink
+              to="/terms"
+              className={({ isActive }) => `ds-nav-link${isActive ? ' is-active' : ''}`}
+            >
+              T&amp;Cs
+            </NavLink>
+          </nav>
 
-        <div className="header-user">
-          {user ? (
-            <UserMenu user={user} groupId={groupId} />
-          ) : (
-            <div className="header-auth-btns">
-              <button className="btn-signin" onClick={() => { setInitialMode('login'); setShowAuth(true); }}>
-                Sign in
-              </button>
-              <button className="btn-register" onClick={() => { setInitialMode('register'); setShowAuth(true); }}>
-                Create account
-              </button>
-            </div>
-          )}
+          <div className="ds-header__actions">
+            {user ? (
+              <UserMenu user={user} />
+            ) : (
+              <>
+                <button className="ds-header__signin" onClick={() => openAuth('login')}>
+                  Sign in
+                </button>
+                <Button variant="primary" size="sm" onClick={() => openAuth('register')}>
+                  Create account
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className="main">{children}</main>
+      <main className="ds-main">{children}</main>
 
-      <footer className="footer">
-        <div className="footer-inner">
-          <span className="footer-copy">© 2026 Final Serve-ivor · A game of skill</span>
-          <div className="footer-links">
-            <NavLink to="/terms" className="footer-link">Terms &amp; Conditions</NavLink>
+      <footer className="ds-footer">
+        <div className="ds-footer__inner">
+          <div className="ds-footer__brand">
+            <span className="ds-footer__wordmark">
+              Final <em>Serve-ivor</em>
+            </span>
+            <p className="ds-footer__tagline">A tennis survivor pool · A game of skill</p>
           </div>
+          <div className="ds-footer__links">
+            <NavLink to="/how-to-play" className="ds-footer__link">How to play</NavLink>
+            <NavLink to="/terms" className="ds-footer__link">Terms &amp; conditions</NavLink>
+          </div>
+          <p className="ds-footer__copy">© 2026 Final Serve-ivor</p>
         </div>
       </footer>
 

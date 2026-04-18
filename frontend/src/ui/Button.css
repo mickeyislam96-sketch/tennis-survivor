@@ -1,0 +1,90 @@
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+
+  font-family: var(--ds-font-sans);
+  font-weight: var(--ds-weight-semi);
+  letter-spacing: var(--ds-tracking-normal);
+  line-height: 1;
+
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-pill);
+  cursor: pointer;
+  user-select: none;
+
+  transition:
+    background-color var(--ds-dur-fast) var(--ds-ease),
+    color           var(--ds-dur-fast) var(--ds-ease),
+    border-color    var(--ds-dur-fast) var(--ds-ease),
+    transform       var(--ds-dur-fast) var(--ds-ease),
+    box-shadow      var(--ds-dur-fast) var(--ds-ease);
+
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ui-btn:active { transform: translateY(1px); }
+.ui-btn:disabled,
+.ui-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ui-btn__label { display: inline-block; }
+.ui-btn__icon  { display: inline-flex; align-items: center; }
+
+/* ── Sizes ─────────────────────────────────────────────────────────── */
+.ui-btn--sm { padding: 8px 14px;  font-size: var(--ds-text-sm); }
+.ui-btn--md { padding: 12px 22px; font-size: var(--ds-text-md); }
+.ui-btn--lg { padding: 16px 28px; font-size: var(--ds-text-lg); }
+
+.ui-btn--block { display: flex; width: 100%; }
+
+/* ── Primary — deep emerald ───────────────────────────────────────── */
+.ui-btn--primary {
+  background: var(--ds-primary);
+  color: var(--ds-primary-ink);
+}
+.ui-btn--primary:hover { background: var(--ds-primary-hover); box-shadow: var(--ds-shadow-md); }
+.ui-btn--primary:active { background: var(--ds-primary-active); }
+
+/* ── Secondary — soft emerald outline ─────────────────────────────── */
+.ui-btn--secondary {
+  background: var(--ds-surface);
+  color: var(--ds-primary);
+  border-color: var(--ds-primary);
+}
+.ui-btn--secondary:hover {
+  background: var(--ds-primary-soft);
+}
+
+/* ── Ghost — text-only ─────────────────────────────────────────────── */
+.ui-btn--ghost {
+  background: transparent;
+  color: var(--ds-ink);
+}
+.ui-btn--ghost:hover {
+  background: var(--ds-surface-muted);
+}
+
+/* ── Danger ────────────────────────────────────────────────────────── */
+.ui-btn--danger {
+  background: var(--ds-danger);
+  color: #fff;
+}
+.ui-btn--danger:hover { background: #8E2D1F; }
+
+/* ── Gold — winner / marquee moments ──────────────────────────────── */
+.ui-btn--gold {
+  background: var(--ds-gold);
+  color: var(--ds-gold-ink);
+  box-shadow: 0 2px 0 var(--ds-gold-deep);
+}
+.ui-btn--gold:hover {
+  background: #FFDB66;
+}
+
+.ui-btn--loading .ui-btn__label { opacity: 0.6; }
