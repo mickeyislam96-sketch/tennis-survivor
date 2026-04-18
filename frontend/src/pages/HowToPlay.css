@@ -1,0 +1,128 @@
+/* ============================================================
+   HowToPlay — Direction A
+   Namespace: .htp-*
+   ============================================================ */
+
+.htp-page {
+  min-height: 100vh;
+  background: var(--ds-canvas);
+}
+
+/* ── Steps grid ────────────────────────────────────────── */
+.htp-steps {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 24px;
+}
+
+.htp-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.htp-step-num {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ds-accent, #C1572E);
+  margin-bottom: 2px;
+}
+
+.htp-step-icon {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.htp-step-title {
+  margin: 0 0 4px;
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ds-ink);
+  line-height: 1.2;
+}
+
+.htp-step-body {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ds-ink-muted);
+}
+
+/* ── Tips grid ────────────────────────────────────────── */
+.htp-tips {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-top: 24px;
+}
+
+.htp-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.htp-tip-title {
+  margin: 0 0 4px;
+  font-family: var(--ds-font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ds-ink);
+  letter-spacing: -0.005em;
+}
+
+.htp-tip-body {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ds-ink-muted);
+}
+
+/* ── CTA block (on primary tone section) ──────────────── */
+.htp-cta {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 8px 0;
+}
+
+.htp-cta-title {
+  margin: 0 0 8px;
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 500;
+  color: var(--ds-canvas, #FAFAF7);
+  line-height: 1.1;
+}
+
+.htp-cta-title em {
+  font-style: italic;
+  color: var(--ds-gold, #FFC933);
+}
+
+.htp-cta-sub {
+  margin: 0 0 24px;
+  font-family: var(--ds-font-sans);
+  font-size: 16px;
+  color: rgba(250, 250, 247, 0.8);
+}
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .htp-steps {
+    grid-template-columns: 1fr;
+  }
+  .htp-tips {
+    grid-template-columns: 1fr;
+  }
+}

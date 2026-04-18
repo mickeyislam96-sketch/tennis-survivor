@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { Section } from '../ui/Section.jsx';
+import { Card } from '../ui/Card.jsx';
+import { Button } from '../ui/Button.jsx';
+import './ResetPassword.css';
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -17,7 +21,6 @@ export function ResetPassword() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  // Verify token on mount
   useEffect(() => {
     if (!token) {
       setTokenState('invalid');
@@ -64,8 +67,6 @@ export function ResetPassword() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Password reset failed.');
 
-      // Auto-login with the returned user
-      // (backend returns the user directly after reset)
       setDone(true);
       setTimeout(() => navigate('/'), 2500);
     } catch (err) {
@@ -76,70 +77,84 @@ export function ResetPassword() {
   };
 
   return (
-    <div className="page auth-page">
-      <div className="auth-card">
-        <div className="auth-card-header">
-          <Link to="/" className="auth-card-logo">Final Serve-ivor</Link>
-        </div>
+    <div className="rp-page">
+      <Section tone="canvas" size="lg">
+        <Card tone="surface" padding="lg" className="rp-card">
 
-        {/* Checking token */}
-        {tokenState === 'checking' && (
-          <p className="auth-card-hint">Verifying your reset link…</p>
-        )}
-
-        {/* Invalid token */}
-        {tokenState === 'invalid' && (
-          <div className="auth-card-body">
-            <div className="auth-status-icon">⚠️</div>
-            <h2 className="auth-card-title">Link invalid or expired</h2>
-            <p className="auth-card-hint">{tokenError}</p>
-            <Link to="/" className="btn primary btn-lg" style={{ display: 'block', textAlign: 'center' }}>
-              Back to home
-            </Link>
+          <div className="rp-header">
+            <Link to="/" className="rp-logo">Final Serve-ivor</Link>
           </div>
-        )}
 
-        {/* Success state */}
-        {done && (
-          <div className="auth-card-body">
-            <div className="auth-status-icon">✅</div>
-            <h2 className="auth-card-title">Password updated</h2>
-            <p className="auth-card-hint">Your password has been changed. Redirecting you to the home page…</p>
-          </div>
-        )}
+          {/* Checking token */}
+          {tokenState === 'checking' && (
+            <div className="rp-body">
+              <div className="rp-spinner" aria-hidden="true" />
+              <p className="rp-hint">Verifying your reset link…</p>
+            </div>
+          )}
 
-        {/* Reset form */}
-        {tokenState === 'valid' && !done && (
-          <div className="auth-card-body">
-            <h2 className="auth-card-title">Choose a new password</h2>
-            <p className="auth-card-hint">Enter and confirm your new password below.</p>
+          {/* Invalid token */}
+          {tokenState === 'invalid' && (
+            <div className="rp-body">
+              <div className="rp-icon" aria-hidden="true">⚠️</div>
+              <h2 className="rp-title">Link invalid or expired</h2>
+              <p className="rp-hint">{tokenError}</p>
+              <Button as={Link} to="/" variant="primary" size="lg" fullWidth>
+                Back to home
+              </Button>
+            </div>
+          )}
 
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <input
-                className="input"
-                type="password"
-                placeholder="New password (min. 8 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoFocus
-              />
-              <input
-                className="input"
-                type="password"
-                placeholder="Confirm new password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-              />
-              {error && <p className="error">{error}</p>}
-              <button type="submit" className="btn primary btn-lg" disabled={loading}>
-                {loading ? 'Updating password…' : 'Set new password →'}
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
+          {/* Success state */}
+          {done && (
+            <div className="rp-body">
+              <div className="rp-check" aria-hidden="true">✓</div>
+              <h2 className="rp-title">Password updated</h2>
+              <p className="rp-hint">
+                Your password has been changed. Redirecting you to the home page…
+              </p>
+            </div>
+          )}
+
+          {/* Reset form */}
+          {tokenState === 'valid' && !done && (
+            <div className="rp-body">
+              <h2 className="rp-title">Choose a <em>new password</em>.</h2>
+              <p className="rp-hint">Enter and confirm your new password below.</p>
+
+              <form className="rp-form" onSubmit={handleSubmit}>
+                <input
+                  className="rp-input"
+                  type="password"
+                  placeholder="New password (min. 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoFocus
+                />
+                <input
+                  className="rp-input"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
+                {error && <p className="rp-error">{error}</p>}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={loading}
+                  fullWidth
+                >
+                  {loading ? 'Updating password…' : 'Set new password →'}
+                </Button>
+              </form>
+            </div>
+          )}
+        </Card>
+      </Section>
     </div>
   );
 }

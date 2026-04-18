@@ -1,0 +1,240 @@
+/* ============================================================
+   JoinGroup — Direction A
+   Namespace: .jg-*
+   ============================================================ */
+
+.jg-page {
+  min-height: 100vh;
+  background: var(--ds-canvas);
+}
+
+.jg-loading {
+  text-align: center;
+  font-family: var(--ds-font-sans);
+  color: var(--ds-ink-muted);
+  padding: 48px 0;
+}
+
+/* ── Invalid invite state ─────────────────────────────── */
+.jg-invalid-card {
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+}
+.jg-invalid-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+.jg-invalid-title {
+  margin: 0 0 8px;
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ds-ink);
+}
+.jg-invalid-sub {
+  margin: 0 0 20px;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  color: var(--ds-ink-muted);
+  line-height: 1.5;
+}
+
+/* ── Main card ────────────────────────────────────────── */
+.jg-card {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ── Stats row ────────────────────────────────────────── */
+.jg-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--ds-border, #E4DFD1);
+  border-bottom: 1px solid var(--ds-border, #E4DFD1);
+  margin-bottom: 20px;
+}
+
+/* ── Rules list ───────────────────────────────────────── */
+.jg-rules {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.jg-rules li {
+  position: relative;
+  padding-left: 22px;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ds-ink);
+}
+.jg-rules li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ds-primary, #0F4A23);
+  border-right: 0;
+  border-top: 0;
+  transform: rotate(-45deg);
+}
+
+/* ── Beta free notice ─────────────────────────────────── */
+.jg-beta-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--ds-gold, #FFC933) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-gold, #FFC933) 55%, transparent);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.jg-beta-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.jg-beta-title {
+  margin: 0 0 2px;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ds-ink);
+}
+.jg-beta-sub {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 13px;
+  color: var(--ds-ink-muted);
+}
+
+/* ── Auth tabs ────────────────────────────────────────── */
+.jg-auth {
+  margin-top: 8px;
+}
+
+.jg-auth-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--ds-border, #E4DFD1);
+  margin-bottom: 16px;
+}
+
+.jg-auth-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 10px 16px;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ds-ink-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.jg-auth-tab:hover {
+  color: var(--ds-ink);
+}
+.jg-auth-tab.is-active {
+  color: var(--ds-ink);
+  border-bottom-color: var(--ds-primary, #0F4A23);
+}
+
+.jg-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jg-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-family: var(--ds-font-sans);
+  font-size: 15px;
+  color: var(--ds-ink);
+  background: var(--ds-surface, #FFFFFF);
+  border: 1px solid var(--ds-border, #E4DFD1);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.jg-input:focus {
+  border-color: var(--ds-primary, #0F4A23);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-primary, #0F4A23) 18%, transparent);
+}
+.jg-input::placeholder {
+  color: var(--ds-ink-muted);
+}
+
+.jg-auth-hint {
+  margin: 4px 0 0;
+  font-family: var(--ds-font-sans);
+  font-size: 12px;
+  color: var(--ds-ink-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+.jg-error {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 13px;
+  color: var(--ds-danger, #B3301C);
+  background: color-mix(in srgb, var(--ds-danger, #B3301C) 10%, transparent);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+/* ── Already in / Join action ─────────────────────────── */
+.jg-already,
+.jg-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.jg-already-msg {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  color: var(--ds-ink-muted);
+}
+
+.jg-welcome {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  color: var(--ds-ink-muted);
+}
+.jg-welcome strong {
+  color: var(--ds-ink);
+}
+
+.jg-disclaimer {
+  margin: 4px 0 0;
+  font-family: var(--ds-font-sans);
+  font-size: 12px;
+  color: var(--ds-ink-muted);
+  font-style: italic;
+}
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .jg-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}

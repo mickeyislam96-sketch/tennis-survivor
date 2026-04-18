@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAuth } from '../App';
-import { API } from '../App';
+import { useAuth, API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
+import { Hero } from '../ui/Hero.jsx';
+import { Section, SectionHeader } from '../ui/Section.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Badge } from '../ui/Badge.jsx';
+import { Card } from '../ui/Card.jsx';
+import './PickScreen.css';
 
-// ── Helper components defined before PickScreen to ensure they are available
-// ── regardless of bundler hoisting behaviour ──────────────────────────────
-
+// ── Helpers ────────────────────────────────────────────────────
 function formatWindowTime(isoString) {
   const d = new Date(isoString);
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -14,7 +17,12 @@ function formatWindowTime(isoString) {
     + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function Countdown({ to, className = 'countdown-value', onExpire }) {
+const ROUND_LABELS = {
+  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
+  R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', F: 'Final',
+};
+
+function Countdown({ to, className = 'ps-countdown-value', onExpire }) {
   const [left, setLeft] = useState('');
 
   useEffect(() => {
@@ -27,11 +35,11 @@ function Countdown({ to, className = 'countdown-value', onExpire }) {
         if (onExpire) onExpire();
         return;
       }
-      const ms  = end - now;
-      const d   = Math.floor(ms / 86400000);
-      const h   = Math.floor((ms % 86400000) / 3600000);
-      const m   = Math.floor((ms % 3600000)  / 60000);
-      const s   = Math.floor((ms % 60000)    / 1000);
+      const ms = end - now;
+      const d  = Math.floor(ms / 86400000);
+      const h  = Math.floor((ms % 86400000) / 3600000);
+      const m  = Math.floor((ms % 3600000)  / 60000);
+      const s  = Math.floor((ms % 60000)    / 1000);
       setLeft(d > 0 ? `${d}d ${h}h ${m}m ${s}s` : `${h}h ${m}m ${s}s`);
     };
     tick();
@@ -42,43 +50,39 @@ function Countdown({ to, className = 'countdown-value', onExpire }) {
   return <span className={className}>{left}</span>;
 }
 
+// ── Main component ─────────────────────────────────────────────
 export function PickScreen() {
   const { groupId } = useParams();
   const { userId } = useAuth();
-  const [available, setAvailable] = useState([]);
-  const [rounds, setRounds] = useState([]);
+  const [available, setAvailable]     = useState([]);
+  const [rounds, setRounds]           = useState([]);
   const [currentRound, setCurrentRound] = useState('R1');
-  const [pickMatchDetail, setPickMatchDetail] = useState(null);
-  const [deadline, setDeadline] = useState(null);
-  const [opensAt, setOpensAt] = useState(null);
-  const [deadlines, setDeadlines] = useState([]);
-  const [search, setSearch] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
+  const [pickMatchDetail]             = useState(null);
+  const [deadline, setDeadline]       = useState(null);
+  const [opensAt, setOpensAt]         = useState(null);
+  const [deadlines, setDeadlines]     = useState([]);
+  const [search, setSearch]           = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+  const [message, setMessage]         = useState('');
   const [myPickThisRound, setMyPickThisRound] = useState(null);
-  const [member, setMember] = useState(null);
-  const [rowError, setRowError] = useState({ id: null, msg: '' });
+  const [member, setMember]           = useState(null);
+  const [rowError, setRowError]       = useState({ id: null, msg: '' });
   const [drawAvailable, setDrawAvailable] = useState(true);
   const [tournamentCompleted, setTournamentCompleted] = useState(false);
+  const [allPicks, setAllPicks]       = useState([]);
 
   useEffect(() => {
-    fetch(`${API}/draw/rounds`)
-      .then((r) => r.json())
-      .then(setRounds);
+    fetch(`${API}/draw/rounds`).then((r) => r.json()).then(setRounds);
   }, []);
 
   const fetchDeadlines = () => {
     fetch(`${API}/draw/deadlines`)
       .then((r) => r.json())
-      .then((list) => {
-        setDeadlines(Array.isArray(list) ? list : []);
-      })
+      .then((list) => setDeadlines(Array.isArray(list) ? list : []))
       .catch(() => setDeadlines([]));
   };
 
-  useEffect(() => {
-    fetchDeadlines();
-  }, []);
+  useEffect(() => { fetchDeadlines(); }, []);
 
   useEffect(() => {
     if (!groupId || !userId) return;
@@ -88,15 +92,11 @@ export function PickScreen() {
       .catch(() => setAvailable([]));
   }, [groupId, userId, currentRound]);
 
-  const [allPicks, setAllPicks] = useState([]);
-
   useEffect(() => {
     if (!groupId || !userId) return;
     fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
       .then((r) => r.json())
-      .then((picks) => {
-        setAllPicks(Array.isArray(picks) ? picks : []);
-      })
+      .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
       .catch(() => setAllPicks([]));
   }, [groupId, userId]);
 
@@ -105,13 +105,9 @@ export function PickScreen() {
     setMyPickThisRound(pick || null);
   }, [allPicks, currentRound]);
 
-  // When deadlines load, always navigate to the most recent open round so the
-  // user lands on the right tab — whether they have a pick there or not.
-  // Runs once on load (deadlines dependency only); user can still click tabs manually.
   useEffect(() => {
     if (!deadlines.length) return;
     const now = new Date();
-
     for (const d of deadlines) {
       const lockAt = d.lockAt ? new Date(d.lockAt) : null;
       const isLocked = lockAt && now >= lockAt;
@@ -125,7 +121,6 @@ export function PickScreen() {
     }
   }, [deadlines]);
 
-  // When the user switches tabs, update the deadline and opens-at for that round.
   useEffect(() => {
     if (!deadlines.length) return;
     const d = deadlines.find((d) => d.round === currentRound);
@@ -140,7 +135,6 @@ export function PickScreen() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
-        // Check if this tournament's draw has been released yet
         const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
         if (tournament?.drawAvailable === false) setDrawAvailable(false);
         if (tournament?.status === 'completed') {
@@ -160,12 +154,9 @@ export function PickScreen() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId,
-        groupId,
-        round: currentRound,
-        playerId: player.id,
-        playerName: player.name
-      })
+        userId, groupId, round: currentRound,
+        playerId: player.id, playerName: player.name,
+      }),
     })
       .then((r) => {
         if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed'); });
@@ -174,14 +165,11 @@ export function PickScreen() {
       .then((pick) => {
         const wasChange = !!myPickThisRound;
         const oldPick = myPickThisRound;
-
         setMyPickThisRound(pick);
-
         setAllPicks((prev) => [
           ...prev.filter((p) => p.round !== currentRound),
           pick,
         ]);
-
         setAvailable((prev) => {
           let updated = prev.filter((p) => p.id !== player.id);
           if (wasChange && oldPick && !updated.find((p) => p.id === oldPick.playerId)) {
@@ -189,7 +177,6 @@ export function PickScreen() {
           }
           return updated;
         });
-
         setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
       })
       .catch((e) => {
@@ -201,7 +188,6 @@ export function PickScreen() {
   };
 
   const usedIds = new Set(allPicks.map((p) => p.playerId).filter(Boolean));
-
   const usedLastNames = new Set(
     allPicks
       .map((p) => {
@@ -213,24 +199,19 @@ export function PickScreen() {
 
   const filtered = available.filter((p) => {
     const name = (p.name || '').toLowerCase().trim();
-    const alive = !p.roundEliminated; // backend should omit eliminated players, but double-check here
+    const alive = !p.roundEliminated;
     const matchesSearch = !search.trim() || name.includes(search.trim().toLowerCase());
     return alive && matchesSearch;
   });
 
-  const lockTime   = deadline ? new Date(deadline) : null;
-  const openTime   = opensAt  ? new Date(opensAt)  : null;
-  const isLocked      = lockTime && new Date() >= lockTime;
-  const isNotYetOpen  = !isLocked && openTime && new Date() < openTime;
-  const isOpen        = !isLocked && !isNotYetOpen;
+  const lockTime     = deadline ? new Date(deadline) : null;
+  const openTime     = opensAt  ? new Date(opensAt)  : null;
+  const isLocked     = lockTime && new Date() >= lockTime;
+  const isNotYetOpen = !isLocked && openTime && new Date() < openTime;
+  const isOpen       = !isLocked && !isNotYetOpen;
 
   const survivedCount = allPicks.filter((p) => p.survived === true).length;
 
-  // ── Previous round result pending banner ─────────────────────────────────────
-  // When the current round window is open but the previous round pick hasn't been
-  // graded yet (survived===null) and the previous window is locked, show a banner
-  // so the user knows to make their current-round pick speculatively. Works for
-  // any round transition, not just R1/R64.
   const prevRound = rounds[rounds.indexOf(currentRound) - 1] || null;
   const prevRoundPick = prevRound ? allPicks.find((p) => p.round === prevRound) : null;
   const prevRoundDeadline = prevRound ? deadlines.find((d) => d.round === prevRound) : null;
@@ -240,272 +221,357 @@ export function PickScreen() {
   const showPrevPickPending =
     isOpen && prevRoundPick && prevRoundPick.survived === null && prevRoundIsLocked;
 
-  // ── Round overlap tip ───────────────────────────────────────────────────────
-  // When the current round's pick window is open and some available players
-  // still have unresolved previous-round matches, show a helpful hint telling
-  // the user there's no rush — they can wait for today's play to finish.
   const hasPendingPlayers = available.some((p) => p.pendingPrevRound);
   const showOverlapTip = isOpen && hasPendingPlayers && prevRound;
 
+  const roundLabel = ROUND_LABELS[currentRound] || currentRound;
+
+  // ── Empty state: draw not released / tournament complete ─────
   if (!drawAvailable) {
     return (
-      <div className="page pick-screen">
-        <div className="pick-header">
-          <h1>{tournamentCompleted ? 'Tournament complete' : 'Make your pick'}</h1>
-          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-        </div>
-        <div className="draw-empty-state">
-          <div className="draw-empty-icon">{tournamentCompleted ? '🏆' : '🎾'}</div>
-          <p className="draw-empty-title">{tournamentCompleted ? 'This tournament has finished' : 'Picks not open yet'}</p>
-          <p className="draw-empty-sub">
-            {tournamentCompleted
-              ? 'Head back to the group page to see the final results and standings.'
-              : "The draw hasn't been released. Once it is, you'll be able to make your pick here."}
-          </p>
-          {tournamentCompleted && (
-            <Link to={`/group/${groupId}`} className="btn primary" style={{ marginTop: '1rem' }}>
-              View results →
-            </Link>
-          )}
-        </div>
+      <div className="ps-page">
+        <Hero
+          tone={tournamentCompleted ? 'gold' : 'ink'}
+          compact
+          showCourt
+          eyebrow={tournamentCompleted ? 'TOURNAMENT COMPLETE' : 'MAKE YOUR PICK'}
+          title={tournamentCompleted ? <>This one's <em>in the books</em>.</> : <>Picks aren't <em>open</em> yet.</>}
+          lede={tournamentCompleted
+            ? "Head back to the pool to see the final standings and the winner."
+            : "The draw hasn't been released. Once it drops, you'll be able to make your pick here."}
+        />
+        <Section tone="canvas" size="md">
+          <div className="ps-back-row">
+            <Button as={Link} to={`/group/${groupId}`} variant="ghost" size="sm">
+              ← Back to pool
+            </Button>
+          </div>
+          <Card tone="muted" padding="lg" className="ps-empty-card">
+            <div className="ps-empty-icon" aria-hidden="true">
+              {tournamentCompleted ? '🏆' : '🎾'}
+            </div>
+            <p className="ps-empty-title">
+              {tournamentCompleted ? 'Tournament finished' : 'Waiting on the draw'}
+            </p>
+            <p className="ps-empty-sub">
+              {tournamentCompleted
+                ? 'Final standings are up on the pool page.'
+                : "We'll open picks automatically the moment the bracket is released."}
+            </p>
+            {tournamentCompleted && (
+              <Button as={Link} to={`/group/${groupId}`} variant="primary" size="md">
+                View final standings →
+              </Button>
+            )}
+          </Card>
+        </Section>
       </div>
     );
   }
 
+  // ── Header state description ─────────────────────────────────
+  const heroTone = isLocked ? 'ink' : isNotYetOpen ? 'ink' : 'primary';
+  const heroLede = isOpen
+    ? `Pick one player to make it through ${roundLabel}. You can swap your pick until the window closes.`
+    : isNotYetOpen
+      ? `The ${roundLabel} pick window hasn't opened yet. Check back when the draw lines up.`
+      : `${roundLabel} is locked. No more changes for this round.`;
+
   return (
-    <div className="page pick-screen">
-      <div className="pick-header">
-        <h1>Make your pick</h1>
-        <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-      </div>
-
-      {/* Status strip */}
-      {member !== null && (
-        <div className={`ps-status-strip ${member.isAlive ? 'ps-alive' : 'ps-out'}`}>
-          <span className="ps-status-dot" />
-          <span className="ps-status-label">
-            {member.isAlive
-              ? `You're alive · ${survivedCount} round${survivedCount !== 1 ? 's' : ''} survived`
-              : `Eliminated in ${member.eliminatedRound}`}
-          </span>
-        </div>
-      )}
-
-      <div className="round-tabs">
-        {rounds.map((r) => (
-          <button
-            key={r}
-            type="button"
-            className={`round-tab ${r === currentRound ? 'active' : ''}`}
-            onClick={() => setCurrentRound(r)}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-
-      {/* Window is open: closing countdown */}
-      {isOpen && deadline && (
-        <div className="countdown-card">
-          <span className="countdown-label">Pick window closes in</span>
-          <Countdown to={deadline} onExpire={fetchDeadlines} />
-        </div>
-      )}
-
-      {/* Window not yet open: show open + close times */}
-      {isNotYetOpen && (
-        <div className="future-window-card">
-          <div className="future-window-row">
-            <span className="future-window-label">Pick window opens in</span>
-            <Countdown to={opensAt} className="future-window-value" />
-          </div>
-          {deadline && (
-            <div className="future-window-close">
-              Closes: {formatWindowTime(deadline)}
+    <div className="ps-page">
+      <Hero
+        tone={heroTone}
+        compact
+        showCourt
+        eyebrow={`PICK · ${roundLabel.toUpperCase()}`}
+        title={<>Make your <em>pick</em>.</>}
+        lede={heroLede}
+        meta={
+          member !== null ? (
+            <div className="ps-hero-status">
+              {member.isAlive ? (
+                <Badge tone="success" size="md" dot>
+                  Alive · {survivedCount} round{survivedCount !== 1 ? 's' : ''} survived
+                </Badge>
+              ) : (
+                <Badge tone="danger" size="md" dot>
+                  Eliminated in {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound}
+                </Badge>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          ) : null
+        }
+      />
 
-      {/* Round overlap tip — previous round still in progress */}
-      {showOverlapTip && (
-        <div className="overlap-tip">
-          <span className="overlap-tip-icon">💡</span>
-          <div className="overlap-tip-body">
-            <p className="overlap-tip-title">No rush — {prevRound} matches still in play</p>
-            <p className="overlap-tip-sub">
-              Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
-              You can wait until today's play finishes to see the full picture before picking.
-              Look for players whose opponent is already known — they're the safest bets right now.
-            </p>
+      <Section tone="canvas" size="md">
+        <div className="ps-top-row">
+          <SectionHeader
+            eyebrow={`ROUND · ${roundLabel.toUpperCase()}`}
+            title={<>Who's going <em>through</em>?</>}
+          />
+          <Button as={Link} to={`/group/${groupId}`} variant="ghost" size="sm">
+            ← Back to pool
+          </Button>
+        </div>
+
+        {/* Round tabs */}
+        {rounds.length > 0 && (
+          <div className="ps-round-tabs" role="tablist" aria-label="Select round">
+            {rounds.map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="tab"
+                aria-selected={r === currentRound}
+                className={`ps-round-tab${r === currentRound ? ' is-active' : ''}`}
+                onClick={() => setCurrentRound(r)}
+              >
+                {r}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Previous round result pending, current window open */}
-      {showPrevPickPending && (
-        <div className={`pending-prev-pick-banner${!myPickThisRound ? ' pending-prev-pick-banner--urgent' : ''}`}>
-          <span className="pending-prev-pick-icon">{myPickThisRound ? '⏳' : '⚠️'}</span>
-          <div className="pending-prev-pick-body">
-            <p className="pending-prev-pick-title">
-              {myPickThisRound
-                ? `${currentRound} pick submitted — waiting on your ${prevRound} result`
-                : `Make your ${currentRound} pick now`}
-            </p>
-            <p className="pending-prev-pick-sub">
-              {myPickThisRound
-                ? `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but you're covered — your ${currentRound} pick is saved and will count if they come through.`
-                : `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but the ${currentRound} window is already open. Submit your ${currentRound} pick now — it will only count if ${prevRoundPick.playerName} advances.`}
-            </p>
-          </div>
-        </div>
-      )}
+        {/* Window open: closing countdown */}
+        {isOpen && deadline && (
+          <Card tone="primary" padding="md" className="ps-countdown-card">
+            <span className="ps-countdown-label">Pick window closes in</span>
+            <Countdown to={deadline} onExpire={fetchDeadlines} />
+          </Card>
+        )}
 
-      {/* Window is locked: show locked pick or missed-pick warning */}
-      {isLocked && myPickThisRound && (() => {
-        const survived = myPickThisRound.survived;
-        const md = pickMatchDetail;
-        const opponent = md
-          ? (md.player1Id === myPickThisRound.playerId ? md.player2Name : md.player1Name)
-          : null;
-        const s = (md?.status || '').toLowerCase();
-        const isLiveNow = s === 'in_progress' || s === '1' || s === '2' || s === '3' || s.startsWith('set');
-        const statusText = survived === true ? 'Advanced ✓'
-          : survived === false ? 'Eliminated ✗'
-          : isLiveNow ? '● Live now'
-          : s === 'completed' ? 'Match complete'
-          : md?.startTime ? `Scheduled ${new Date(md.startTime).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}`
-          : null;
-        const statusCls = survived === true ? 'ps-status--won'
-          : survived === false ? 'ps-status--lost'
-          : isLiveNow ? 'ps-status--live' : 'ps-status--pending';
-        return (
-          <div className={`picked-card picked-card--locked${survived === true ? ' picked-card--survived' : survived === false ? ' picked-card--eliminated' : ''}`}>
-            <div className="picked-card-inner">
-              <span className="picked-card-icon">{survived === true ? '✓' : survived === false ? '✗' : '🔒'}</span>
-              <div>
-                <p className="picked-card-label">Your {currentRound} pick — locked in</p>
-                <p className="picked-card-player">{myPickThisRound.playerName}</p>
-                {opponent && <p className="picked-card-opponent">vs {opponent}</p>}
-                {statusText && <p className={`ps-match-status ${statusCls}`}>{statusText}</p>}
+        {/* Window not yet open */}
+        {isNotYetOpen && (
+          <Card tone="muted" padding="md" className="ps-future-card">
+            <div className="ps-future-row">
+              <span className="ps-future-label">Pick window opens in</span>
+              <Countdown to={opensAt} className="ps-future-value" />
+            </div>
+            {deadline && (
+              <div className="ps-future-close">
+                Closes: {formatWindowTime(deadline)}
               </div>
+            )}
+          </Card>
+        )}
+
+        {/* Round overlap tip */}
+        {showOverlapTip && (
+          <div className="ps-banner ps-banner--info">
+            <span className="ps-banner-icon" aria-hidden="true">💡</span>
+            <div className="ps-banner-body">
+              <p className="ps-banner-title">No rush — {prevRound} matches still in play</p>
+              <p className="ps-banner-sub">
+                Some {prevRound} results aren't in yet, so not all {currentRound} matchups are confirmed.
+                You can wait until today's play finishes to see the full picture before picking.
+                Look for players whose opponent is already known.
+              </p>
             </div>
           </div>
-        );
-      })()}
-      {isLocked && !myPickThisRound && (
-        <div className="picked-card picked-card--missed">
-          <span className="picked-card-icon">⚠️</span>
-          <p className="picked-card-label">Pick window closed — no pick made for {currentRound}</p>
-        </div>
-      )}
+        )}
 
-      {/* Not signed in: prompt to log in */}
-      {isOpen && !userId && (
-        <div className="auth-prompt">
-          <p className="auth-prompt-text">Sign in to make your pick.</p>
-        </div>
-      )}
+        {/* Previous round pending */}
+        {showPrevPickPending && (
+          <div className={`ps-banner ${myPickThisRound ? 'ps-banner--waiting' : 'ps-banner--urgent'}`}>
+            <span className="ps-banner-icon" aria-hidden="true">
+              {myPickThisRound ? '⏳' : '⚠️'}
+            </span>
+            <div className="ps-banner-body">
+              <p className="ps-banner-title">
+                {myPickThisRound
+                  ? `${currentRound} pick submitted — waiting on your ${prevRound} result`
+                  : `Make your ${currentRound} pick now`}
+              </p>
+              <p className="ps-banner-sub">
+                {myPickThisRound
+                  ? `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but you're covered — your ${currentRound} pick is saved and will count if they come through.`
+                  : `Your ${prevRound} pick (${prevRoundPick.playerName}) hasn't finished yet, but the ${currentRound} window is already open. Submit your ${currentRound} pick now — it will only count if ${prevRoundPick.playerName} advances.`}
+              </p>
+            </div>
+          </div>
+        )}
 
-      {/* Eliminated: block picking, show elimination message */}
-      {isOpen && userId && member && !member.isAlive && (
-        <div className="eliminated-card">
-          <div className="eliminated-card-icon">🎾</div>
-          <h2 className="eliminated-card-title">You're out of this one</h2>
-          <p className="eliminated-card-sub">
-            Your pick in {member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
-          </p>
-          <p className="eliminated-card-cta">
-            You can still follow the action on the{' '}
-            <Link to={`/group/${groupId}`}>group page</Link>{' '}
-            and the{' '}
-            <Link to={`/group/${groupId}/draw`}>bracket</Link>.
-          </p>
-        </div>
-      )}
-
-      {/* Window is still open: show current pick banner (if any) + full player list */}
-      {isOpen && userId && (!member || member.isAlive) && (
-        <>
-          {myPickThisRound && (
-            <div className="picked-card picked-card--changeable">
-              <div className="picked-card-inner">
-                <span className="picked-card-icon">✓</span>
-                <div>
-                  <p className="picked-card-label">Current {currentRound} pick</p>
-                  <p className="picked-card-player">{myPickThisRound.playerName}</p>
+        {/* Locked pick result */}
+        {isLocked && myPickThisRound && (() => {
+          const survived = myPickThisRound.survived;
+          const md = pickMatchDetail;
+          const opponent = md
+            ? (md.player1Id === myPickThisRound.playerId ? md.player2Name : md.player1Name)
+            : null;
+          const s = (md?.status || '').toLowerCase();
+          const isLiveNow = s === 'in_progress' || s === '1' || s === '2' || s === '3' || s.startsWith('set');
+          const statusText = survived === true ? 'Advanced ✓'
+            : survived === false ? 'Eliminated ✗'
+            : isLiveNow ? '● Live now'
+            : s === 'completed' ? 'Match complete'
+            : md?.startTime ? `Scheduled ${new Date(md.startTime).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}`
+            : null;
+          const tone = survived === true ? 'success'
+            : survived === false ? 'danger'
+            : isLiveNow ? 'info' : 'neutral';
+          return (
+            <Card
+              tone={survived === true ? 'gold' : survived === false ? 'default' : 'muted'}
+              padding="md"
+              className={`ps-picked-card ps-picked-card--locked${survived === false ? ' ps-picked-card--eliminated' : ''}`}
+            >
+              <div className="ps-picked-inner">
+                <span className="ps-picked-icon" aria-hidden="true">
+                  {survived === true ? '✓' : survived === false ? '✗' : '🔒'}
+                </span>
+                <div className="ps-picked-body">
+                  <p className="ps-picked-label">Your {currentRound} pick — locked in</p>
+                  <p className="ps-picked-player">{myPickThisRound.playerName}</p>
+                  {opponent && <p className="ps-picked-opponent">vs {opponent}</p>}
+                  {statusText && (
+                    <div className="ps-picked-status">
+                      <Badge tone={tone} size="sm" dot={tone !== 'neutral'}>{statusText}</Badge>
+                    </div>
+                  )}
                 </div>
-                <span className="picked-card-hint">You can change until the window closes</span>
+              </div>
+            </Card>
+          );
+        })()}
+
+        {isLocked && !myPickThisRound && (
+          <Card tone="default" padding="md" className="ps-picked-card ps-picked-card--missed">
+            <div className="ps-picked-inner">
+              <span className="ps-picked-icon" aria-hidden="true">⚠️</span>
+              <div className="ps-picked-body">
+                <p className="ps-picked-label">Pick window closed — no pick made for {currentRound}</p>
               </div>
             </div>
-          )}
+          </Card>
+        )}
 
-          <div className="search-row">
-            <input
-              type="text"
-              placeholder="Search players…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input search-input"
-            />
-          </div>
-          <p className="available-count">{filtered.length} players available</p>
-          <Link to={`/group/${groupId}/draw`} className="bracket-hint">
-            Tap a matchup in the bracket to compare players before you pick →
-          </Link>
-          <ul className="player-list">
-            {filtered.slice(0, 80).map((player) => {
-              const name = (player.name || '').toLowerCase().trim();
-              const lastName = name.split(' ').pop();
-              const isCurrentPick = player.id === myPickThisRound?.playerId;
-              // "Used" only counts picks from OTHER rounds — the current round's pick is replaceable
-              const usedInOtherRound = !isCurrentPick &&
-                (usedIds.has(player.id) || (lastName && usedLastNames.has(lastName)));
-              const isTopSeed = player.seed && player.seed <= 8;
-              return (
-                <li key={player.id} className={[
-                  'player-row',
-                  usedInOtherRound ? 'player-used' : '',
-                  isTopSeed ? 'player-top-seed' : '',
-                  isCurrentPick ? 'player-current-pick' : '',
-                ].filter(Boolean).join(' ')}>
-                  {player.seed ? (
-                    <span className="player-seed-badge">#{player.seed}</span>
-                  ) : (
-                    <span className="player-seed-placeholder" />
-                  )}
-                  <span className="player-name">
-                    {player.name}
-                    {usedInOtherRound && <span className="player-used-label">Already used</span>}
-                    {isCurrentPick && <span className="player-current-label">Your pick</span>}
-                    {!usedInOtherRound && player.pendingPrevRound && (
-                      <span className="player-pending-badge" title={`Still in ${prevRound} — pick counts only if they advance`}>
-                        ⚠️ {prevRound} result pending
-                      </span>
+        {/* Not signed in */}
+        {isOpen && !userId && (
+          <Card tone="muted" padding="md" className="ps-auth-prompt">
+            <p>Sign in to make your pick.</p>
+          </Card>
+        )}
+
+        {/* Eliminated */}
+        {isOpen && userId && member && !member.isAlive && (
+          <Card tone="default" padding="lg" className="ps-eliminated-card">
+            <div className="ps-eliminated-icon" aria-hidden="true">🎾</div>
+            <h2 className="ps-eliminated-title">You're out of this one</h2>
+            <p className="ps-eliminated-sub">
+              Your pick in {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
+            </p>
+            <p className="ps-eliminated-cta">
+              You can still follow the action on the{' '}
+              <Link to={`/group/${groupId}`} className="ps-inline-link">pool page</Link>{' '}
+              and the{' '}
+              <Link to={`/group/${groupId}/draw`} className="ps-inline-link">bracket</Link>.
+            </p>
+          </Card>
+        )}
+
+        {/* Window open + alive: current pick banner + player list */}
+        {isOpen && userId && (!member || member.isAlive) && (
+          <>
+            {myPickThisRound && (
+              <Card tone="primary" padding="md" className="ps-picked-card ps-picked-card--changeable">
+                <div className="ps-picked-inner">
+                  <span className="ps-picked-icon" aria-hidden="true">✓</span>
+                  <div className="ps-picked-body">
+                    <p className="ps-picked-label">Current {currentRound} pick</p>
+                    <p className="ps-picked-player">{myPickThisRound.playerName}</p>
+                  </div>
+                  <span className="ps-picked-hint">You can change until the window closes</span>
+                </div>
+              </Card>
+            )}
+
+            <div className="ps-search-row">
+              <input
+                type="text"
+                placeholder="Search players…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="ds-input ps-search-input"
+                aria-label="Search players"
+              />
+              <span className="ps-available-count">
+                {filtered.length} player{filtered.length === 1 ? '' : 's'} available
+              </span>
+            </div>
+
+            <Link to={`/group/${groupId}/draw`} className="ps-bracket-hint">
+              Tap a matchup in the bracket to compare players before you pick →
+            </Link>
+
+            <ul className="ps-player-list">
+              {filtered.slice(0, 80).map((player) => {
+                const name = (player.name || '').toLowerCase().trim();
+                const lastName = name.split(' ').pop();
+                const isCurrentPick = player.id === myPickThisRound?.playerId;
+                const usedInOtherRound = !isCurrentPick &&
+                  (usedIds.has(player.id) || (lastName && usedLastNames.has(lastName)));
+                const isTopSeed = player.seed && player.seed <= 8;
+
+                const rowClass = [
+                  'ps-player-row',
+                  usedInOtherRound ? 'ps-player-row--used' : '',
+                  isTopSeed ? 'ps-player-row--top-seed' : '',
+                  isCurrentPick ? 'ps-player-row--current' : '',
+                ].filter(Boolean).join(' ');
+
+                return (
+                  <li key={player.id} className={rowClass}>
+                    {player.seed ? (
+                      <span className="ps-player-seed">#{player.seed}</span>
+                    ) : (
+                      <span className="ps-player-seed-placeholder" aria-hidden="true" />
                     )}
-                  </span>
-                  {rowError.id === player.id && (
-                    <span className="player-row-error">{rowError.msg}</span>
-                  )}
-                  {!usedInOtherRound && !isCurrentPick && rowError.id !== player.id && (
-                    <button
-                      type="button"
-                      className="btn primary btn-sm"
-                      disabled={submitting}
-                      onClick={() => submitPick(player)}
-                    >
-                      {myPickThisRound ? 'Switch' : 'Pick'}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {filtered.length > 80 && <p className="text-muted">Showing first 80. Use search to find others.</p>}
-        </>
-      )}
+                    <span className="ps-player-name">
+                      <span className="ps-player-name-text">{player.name}</span>
+                      <span className="ps-player-tags">
+                        {usedInOtherRound && (
+                          <Badge tone="neutral" size="sm">Already used</Badge>
+                        )}
+                        {isCurrentPick && (
+                          <Badge tone="primary" size="sm" dot>Your pick</Badge>
+                        )}
+                        {!usedInOtherRound && player.pendingPrevRound && (
+                          <Badge
+                            tone="warning"
+                            size="sm"
+                            title={`Still in ${prevRound} — pick counts only if they advance`}
+                          >
+                            ⚠ {prevRound} pending
+                          </Badge>
+                        )}
+                      </span>
+                    </span>
+                    {rowError.id === player.id && (
+                      <span className="ps-player-error">{rowError.msg}</span>
+                    )}
+                    {!usedInOtherRound && !isCurrentPick && rowError.id !== player.id && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        loading={submitting}
+                        onClick={() => submitPick(player)}
+                      >
+                        {myPickThisRound ? 'Switch' : 'Pick'}
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
 
-      {message && <p className="success-msg">{message}</p>}
+            {filtered.length > 80 && (
+              <p className="ps-overflow-hint">Showing first 80 — use search to find others.</p>
+            )}
+          </>
+        )}
+
+        {message && <p className="ps-success">{message}</p>}
+      </Section>
     </div>
   );
 }

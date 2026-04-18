@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { Hero } from '../ui/Hero.jsx';
+import { Section, SectionHeader } from '../ui/Section.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Card } from '../ui/Card.jsx';
+import { Badge } from '../ui/Badge.jsx';
+import './Profile.css';
 
 const ROUND_LABELS = {
   R1: 'R1', R64: 'R64', R32: 'R32',
@@ -23,7 +29,7 @@ function fmtDate(iso) {
   });
 }
 
-// -- Pool history section -------------------------------------------------
+/* -- Pool history -------------------------------------------------------- */
 function PoolHistory({ userId }) {
   const [pools, setPools] = useState(null);
   const [error, setError] = useState('');
@@ -36,17 +42,21 @@ function PoolHistory({ userId }) {
       .catch(() => { setError('Could not load pool history.'); setPools([]); });
   }, [userId]);
 
-  if (pools === null) return <p className="lb-picks-loading">Loading pools…</p>;
-  if (error) return <p className="error">{error}</p>;
-  if (pools.length === 0) return (
-    <p style={{ color: '#888', fontStyle: 'italic' }}>
-      No pools yet. Join a tournament pool to get started!
-    </p>
-  );
+  if (pools === null) return <p className="pr-loading">Loading pools…</p>;
+  if (error) return <p className="pr-error">{error}</p>;
+  if (pools.length === 0) {
+    return (
+      <Card tone="muted" padding="md" className="pr-empty">
+        <p className="pr-empty-text">
+          No pools yet. Join a tournament pool to get started.
+        </p>
+      </Card>
+    );
+  }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table className="lb-picks-table" style={{ width: '100%' }}>
+    <div className="pr-pools-wrap">
+      <table className="pr-pools-table">
         <thead>
           <tr>
             <th>Pool</th>
@@ -58,25 +68,24 @@ function PoolHistory({ userId }) {
         </thead>
         <tbody>
           {pools.map(p => (
-            <tr key={p.groupId} className={!p.isAlive ? 'lb-pick-row-out' : ''}>
-              <td style={{ fontWeight: 500 }}>
-                <Link to={`/group/${p.groupId}`} style={{ color: 'inherit' }}>
-                  {p.groupName}
-                </Link>
+            <tr key={p.groupId} className={!p.isAlive ? 'pr-row-out' : ''}>
+              <td className="pr-pool-name">
+                <Link to={`/group/${p.groupId}`}>{p.groupName}</Link>
               </td>
               <td>
-                {p.isAlive
-                  ? <span className="status-alive">Alive</span>
-                  : <span className="status-out">
-                      Eliminated{p.eliminatedRound
-                        ? ` (${ROUND_LABELS[p.eliminatedRound] || p.eliminatedRound})`
-                        : ''}
-                    </span>
-                }
+                {p.isAlive ? (
+                  <Badge tone="success" size="sm">Alive</Badge>
+                ) : (
+                  <Badge tone="danger" size="sm">
+                    Out{p.eliminatedRound
+                      ? ` · ${ROUND_LABELS[p.eliminatedRound] || p.eliminatedRound}`
+                      : ''}
+                  </Badge>
+                )}
               </td>
-              <td>{fmtGBP(p.prizePoolCents || 0)}</td>
-              <td>{p.totalMembers}</td>
-              <td style={{ color: '#888', fontSize: '0.85rem' }}>{fmtDate(p.joinedAt)}</td>
+              <td className="pr-mono">{fmtGBP(p.prizePoolCents || 0)}</td>
+              <td className="pr-mono">{p.totalMembers}</td>
+              <td className="pr-date">{fmtDate(p.joinedAt)}</td>
             </tr>
           ))}
         </tbody>
@@ -85,7 +94,7 @@ function PoolHistory({ userId }) {
   );
 }
 
-// -- Account settings section ---------------------------------------------
+/* -- Account settings ---------------------------------------------------- */
 function AccountSettings({ user, updateUser }) {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -149,67 +158,80 @@ function AccountSettings({ user, updateUser }) {
   };
 
   return (
-    <form onSubmit={handleSave} style={{ maxWidth: 420, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      <div>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
-          Display name
-        </label>
-        <input className="input" type="text" value={displayName}
-          onChange={e => setDisplayName(e.target.value)} placeholder="Your name" />
+    <form onSubmit={handleSave} className="pr-form">
+      <div className="pr-field">
+        <label className="pr-label">Display name</label>
+        <input
+          className="pr-input"
+          type="text"
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+          placeholder="Your name"
+        />
       </div>
-      <div>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
-          Email address
-        </label>
-        <input className="input" type="email" value={email}
-          onChange={e => setEmail(e.target.value)} placeholder="your@email.com" />
+      <div className="pr-field">
+        <label className="pr-label">Email address</label>
+        <input
+          className="pr-input"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="your@email.com"
+        />
       </div>
-      <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '0.25rem 0' }} />
-      <p style={{ fontSize: '0.85rem', color: '#555', margin: 0 }}>
-        Change password — leave blank to keep current password
-      </p>
-      <div>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
-          Current password
-        </label>
-        <input className="input" type="password" value={currentPwd}
+
+      <div className="pr-divider">Change password</div>
+      <p className="pr-hint">Leave blank to keep your current password.</p>
+
+      <div className="pr-field">
+        <label className="pr-label">Current password</label>
+        <input
+          className="pr-input"
+          type="password"
+          value={currentPwd}
           onChange={e => setCurrentPwd(e.target.value)}
           placeholder="Required to change password"
-          autoComplete="current-password" />
+          autoComplete="current-password"
+        />
       </div>
-      <div>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
-          New password
-        </label>
-        <input className="input" type="password" value={newPwd}
+      <div className="pr-field">
+        <label className="pr-label">New password</label>
+        <input
+          className="pr-input"
+          type="password"
+          value={newPwd}
           onChange={e => setNewPwd(e.target.value)}
           placeholder="Min. 8 characters"
-          autoComplete="new-password" />
+          autoComplete="new-password"
+        />
       </div>
-      <div>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: '#666', marginBottom: '0.3rem' }}>
-          Confirm new password
-        </label>
-        <input className="input" type="password" value={confirmPwd}
+      <div className="pr-field">
+        <label className="pr-label">Confirm new password</label>
+        <input
+          className="pr-input"
+          type="password"
+          value={confirmPwd}
           onChange={e => setConfirmPwd(e.target.value)}
           placeholder="Repeat new password"
-          autoComplete="new-password" />
+          autoComplete="new-password"
+        />
       </div>
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success-msg">{success}</p>}
-      <button type="submit" className="btn primary" disabled={saving} style={{ alignSelf: 'flex-start' }}>
+
+      {error && <p className="pr-error">{error}</p>}
+      {success && <p className="pr-success">{success}</p>}
+
+      <Button type="submit" variant="primary" size="md" disabled={saving}>
         {saving ? 'Saving…' : 'Save changes'}
-      </button>
+      </Button>
     </form>
   );
 }
 
-// -- Main Profile page ----------------------------------------------------
+/* -- Main Profile page --------------------------------------------------- */
 export function Profile() {
   const { user, userId, updateUser } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to home if not logged in
   useEffect(() => {
     if (user === null) navigate('/', { replace: true });
   }, [user, navigate]);
@@ -217,28 +239,41 @@ export function Profile() {
   if (!user) return null;
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <Link to="/" className="back-link">← Back to pools</Link>
-        <h1 style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
-          {user.displayName || 'Profile'}
-        </h1>
-        <p style={{ color: '#888', margin: 0 }}>{user.email}</p>
-      </div>
+    <div className="pr-page">
+      <Hero
+        tone="ink"
+        compact
+        showCourt
+        eyebrow="PROFILE"
+        title={<>Hi, <em>{user.displayName || 'player'}</em>.</>}
+        lede={user.email}
+      />
 
-      <section style={{ marginBottom: '2.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-          My pools
-        </h2>
-        <PoolHistory userId={userId} />
-      </section>
+      <Section tone="canvas" size="md">
+        <div className="pr-back-row">
+          <Button as={Link} to="/" variant="ghost" size="sm">
+            ← Back to pools
+          </Button>
+        </div>
 
-      <section>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-          Account settings
-        </h2>
-        <AccountSettings user={user} updateUser={updateUser} />
-      </section>
+        <SectionHeader
+          eyebrow="MY POOLS"
+          title={<>Where you're <em>playing</em>.</>}
+        />
+
+        <div className="pr-section-body">
+          <PoolHistory userId={userId} />
+        </div>
+
+        <SectionHeader
+          eyebrow="ACCOUNT"
+          title={<>Update your <em>details</em>.</>}
+        />
+
+        <Card tone="surface" padding="lg" className="pr-settings-card">
+          <AccountSettings user={user} updateUser={updateUser} />
+        </Card>
+      </Section>
     </div>
   );
 }

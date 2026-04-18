@@ -1,0 +1,84 @@
+/* ============================================================
+   TermsAndConditions — Direction A
+   Namespace: .tc-*
+   ============================================================ */
+
+.tc-page {
+  min-height: 100vh;
+  background: var(--ds-canvas);
+}
+
+.tc-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ds-border, #E4DFD1);
+}
+
+.tc-updated {
+  margin: 0;
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  color: var(--ds-ink-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ── Content layout ───────────────────────────────────── */
+.tc-content {
+  max-width: 720px;
+  margin: 0 auto;
+  font-family: var(--ds-font-sans);
+}
+
+.tc-section {
+  margin-bottom: 32px;
+}
+
+.tc-section:last-child {
+  margin-bottom: 0;
+}
+
+.tc-h2 {
+  margin: 0 0 12px;
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ds-ink);
+  line-height: 1.2;
+}
+
+.tc-h3 {
+  margin: 20px 0 8px;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ds-ink);
+  letter-spacing: 0.01em;
+}
+
+.tc-content p {
+  margin: 0 0 12px;
+  font-family: var(--ds-font-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ds-ink);
+}
+
+.tc-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .tc-h2 {
+    font-size: 20px;
+  }
+  .tc-content p {
+    font-size: 14.5px;
+  }
+}

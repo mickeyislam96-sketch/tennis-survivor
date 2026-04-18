@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
+import { Hero } from '../ui/Hero.jsx';
+import { Section } from '../ui/Section.jsx';
+import { Card } from '../ui/Card.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Stat } from '../ui/Stat.jsx';
+import './JoinGroup.css';
 
 function fmtGBP(cents) {
   return '£' + (cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -49,7 +55,6 @@ export function JoinGroup() {
       } else {
         authUser = await login(authEmail.trim(), authPassword);
       }
-      // Auto-join the group immediately after auth succeeds
       if (authUser && group) {
         join(authUser);
       }
@@ -65,7 +70,6 @@ export function JoinGroup() {
     const uName = currentUser?.displayName || user?.displayName || 'Player';
     if (!group || !uid) return;
 
-    // Paid group: redirect to payment flow instead of joining directly
     if (group.entryFeeCents && group.entryFeeCents > 0 && !group.betaFree) {
       setJoining(true);
       navigate(`/group/${group.id}/pay`);
@@ -88,17 +92,37 @@ export function JoinGroup() {
       .finally(() => setJoining(false));
   };
 
-  if (loading) return <div className="page-loading">Loading…</div>;
+  if (loading) {
+    return (
+      <Section tone="canvas" size="lg">
+        <p className="jg-loading">Loading invite…</p>
+      </Section>
+    );
+  }
 
   if (!group) {
     return (
-      <div className="page join-page">
-        <div className="join-invalid">
-          <span className="join-invalid-icon">🎾</span>
-          <h2>Invalid invite code</h2>
-          <p>This invite code isn't valid or has expired. Double-check the link and try again.</p>
-          <Link to="/" className="btn primary">Back to home</Link>
-        </div>
+      <div className="jg-page">
+        <Hero
+          tone="ink"
+          compact
+          showCourt
+          eyebrow="INVITE"
+          title={<>That link <em>expired</em>.</>}
+          lede="This invite code isn't valid or has already been used. Ask your pool host for a fresh link."
+        />
+        <Section tone="canvas" size="md">
+          <Card tone="muted" padding="lg" className="jg-invalid-card">
+            <div className="jg-invalid-icon" aria-hidden="true">🎾</div>
+            <h2 className="jg-invalid-title">Invalid invite code</h2>
+            <p className="jg-invalid-sub">
+              Double-check the full URL, or ask the person who invited you to resend it.
+            </p>
+            <Button as={Link} to="/" variant="primary" size="md">
+              Back to home
+            </Button>
+          </Card>
+        </Section>
       </div>
     );
   }
@@ -107,132 +131,154 @@ export function JoinGroup() {
   const memberCount = group.members?.length ?? 0;
 
   return (
-    <div className="page join-page">
-      <div className="join-card">
+    <div className="jg-page">
+      <Hero
+        tone="ink"
+        compact
+        showCourt
+        eyebrow="YOU'VE BEEN INVITED"
+        title={<>Join <em>{group.name}</em>.</>}
+        lede="One pick per round. Survive, or you're out. Last one standing takes the pot."
+      />
 
-        <div className="join-card-hero">
-          <p className="join-eyebrow">🎾 You've been invited to join</p>
-          <h1 className="join-group-name">{group.name}</h1>
-        </div>
+      <Section tone="canvas" size="md">
+        <Card tone="surface" padding="lg" className="jg-card">
 
-        <div className="join-details">
-          <div className="join-detail-item">
-            <span className="join-detail-value">{fmtGBP(group.entryFeeCents || 0)}</span>
-            <span className="join-detail-label">Entry fee</span>
+          <div className="jg-stats">
+            <Stat
+              label="Entry fee"
+              value={fmtGBP(group.entryFeeCents || 0)}
+              tone={group.betaFree ? 'accent' : 'default'}
+            />
+            <Stat
+              label="Prize pool"
+              value={fmtGBP(group.prizePoolCents || 0)}
+              tone="primary"
+            />
+            <Stat
+              label="Players in"
+              value={memberCount}
+            />
           </div>
-          <div className="join-detail-divider" />
-          <div className="join-detail-item">
-            <span className="join-detail-value">{fmtGBP(group.prizePoolCents || 0)}</span>
-            <span className="join-detail-label">Prize pool</span>
-          </div>
-          <div className="join-detail-divider" />
-          <div className="join-detail-item">
-            <span className="join-detail-value">{memberCount}</span>
-            <span className="join-detail-label">Players in</span>
-          </div>
-        </div>
 
-        <ul className="join-rules-list">
-          <li>Pick one player per round — if they win, you survive</li>
-          <li>You can never pick the same player twice</li>
-          <li>Last player standing wins the entire prize pool</li>
-        </ul>
+          <ul className="jg-rules">
+            <li>Pick one player per round. If they win, you survive.</li>
+            <li>You can never pick the same player twice.</li>
+            <li>Last player standing takes the entire prize pool.</li>
+          </ul>
 
-        {group.betaFree && (
-          <div className="beta-waiver-notice">
-            <span className="beta-waiver-icon">🎁</span>
-            <div>
-              <p className="beta-waiver-title">Free entry</p>
-              <p className="beta-waiver-sub">No payment required for this tournament.</p>
+          {group.betaFree && (
+            <div className="jg-beta-notice">
+              <span className="jg-beta-icon" aria-hidden="true">🎁</span>
+              <div>
+                <p className="jg-beta-title">Free entry</p>
+                <p className="jg-beta-sub">No payment required for this tournament.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ── Not logged in: show register / login form ── */}
-        {!userId && (
-          <div className="join-auth-section">
-            <div className="join-auth-tabs">
-              <button
-                className={`join-auth-tab${authMode === 'register' ? ' active' : ''}`}
-                onClick={() => { setAuthMode('register'); setAuthError(''); setAuthPassword(''); }}
-              >
-                Create account
-              </button>
-              <button
-                className={`join-auth-tab${authMode === 'login' ? ' active' : ''}`}
-                onClick={() => { setAuthMode('login'); setAuthError(''); setAuthPassword(''); }}
-              >
-                Sign in
-              </button>
-            </div>
+          {/* ── Not logged in ── */}
+          {!userId && (
+            <div className="jg-auth">
+              <div className="jg-auth-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={authMode === 'register'}
+                  className={`jg-auth-tab${authMode === 'register' ? ' is-active' : ''}`}
+                  onClick={() => { setAuthMode('register'); setAuthError(''); setAuthPassword(''); }}
+                >
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={authMode === 'login'}
+                  className={`jg-auth-tab${authMode === 'login' ? ' is-active' : ''}`}
+                  onClick={() => { setAuthMode('login'); setAuthError(''); setAuthPassword(''); }}
+                >
+                  Sign in
+                </button>
+              </div>
 
-            <form className="join-auth-form" onSubmit={handleAuth}>
-              {authMode === 'register' && (
+              <form className="jg-auth-form" onSubmit={handleAuth}>
+                {authMode === 'register' && (
+                  <input
+                    className="jg-input"
+                    type="text"
+                    placeholder="Your name"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                )}
                 <input
-                  className="input"
-                  type="text"
-                  placeholder="Your name"
-                  value={authName}
-                  onChange={(e) => setAuthName(e.target.value)}
+                  className="jg-input"
+                  type="email"
+                  placeholder="Email address"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
                   required
-                  autoFocus
+                  autoFocus={authMode === 'login'}
                 />
-              )}
-              <input
-                className="input"
-                type="email"
-                placeholder="Email address"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                required
-                autoFocus={authMode === 'login'}
-              />
-              <input
-                className="input"
-                type="password"
-                placeholder={authMode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                required
-              />
-              {authError && <p className="error">{authError}</p>}
-              <button
-                type="submit"
-                className="btn primary btn-lg join-submit-btn"
-                disabled={authLoading}
-              >
-                {authLoading
-                  ? (authMode === 'register' ? 'Creating account…' : 'Signing in…')
-                  : (authMode === 'register' ? 'Create account & join →' : 'Sign in & join →')}
-              </button>
-              {authMode === 'register' && (
-                <p className="join-auth-hint">We'll send you a confirmation email.</p>
-              )}
-            </form>
-          </div>
-        )}
+                <input
+                  className="jg-input"
+                  type="password"
+                  placeholder={authMode === 'register' ? 'Create a password (min. 8 characters)' : 'Password'}
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  required
+                />
+                {authError && <p className="jg-error">{authError}</p>}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={authLoading}
+                  fullWidth
+                >
+                  {authLoading
+                    ? (authMode === 'register' ? 'Creating account…' : 'Signing in…')
+                    : (authMode === 'register' ? 'Create account & join →' : 'Sign in & join →')}
+                </Button>
+                {authMode === 'register' && (
+                  <p className="jg-auth-hint">We'll send you a confirmation email.</p>
+                )}
+              </form>
+            </div>
+          )}
 
-        {/* ── Logged in: show join / already member ── */}
-        {userId && (
-          isMember ? (
-            <div className="join-already">
-              <p className="text-muted">You're already in this pool.</p>
-              <Link to={`/group/${group.id}`} className="btn primary btn-lg">Go to group →</Link>
-            </div>
-          ) : (
-            <div className="join-action">
-              <p className="join-welcome">Joining as <strong>{user?.displayName}</strong></p>
-              <button onClick={() => join()} className="btn primary btn-lg join-submit-btn" disabled={joining}>
-                {joining ? 'Joining…' : group.betaFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
-              </button>
-              {!group.betaFree && (
-                <p className="join-disclaimer">Entry fee is non-refundable once the tournament begins.</p>
-              )}
-              {error && <p className="error">{error}</p>}
-            </div>
-          )
-        )}
-      </div>
+          {/* ── Logged in ── */}
+          {userId && (
+            isMember ? (
+              <div className="jg-already">
+                <p className="jg-already-msg">You're already in this pool.</p>
+                <Button as={Link} to={`/group/${group.id}`} variant="primary" size="lg" fullWidth>
+                  Go to pool →
+                </Button>
+              </div>
+            ) : (
+              <div className="jg-action">
+                <p className="jg-welcome">Joining as <strong>{user?.displayName}</strong></p>
+                <Button
+                  onClick={() => join()}
+                  variant="primary"
+                  size="lg"
+                  disabled={joining}
+                  fullWidth
+                >
+                  {joining ? 'Joining…' : group.betaFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
+                </Button>
+                {!group.betaFree && (
+                  <p className="jg-disclaimer">Entry fee is non-refundable once the tournament begins.</p>
+                )}
+                {error && <p className="jg-error">{error}</p>}
+              </div>
+            )
+          )}
+        </Card>
+      </Section>
     </div>
   );
 }

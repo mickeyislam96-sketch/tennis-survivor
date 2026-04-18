@@ -3,8 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
 import { TOURNAMENTS } from '../data/tournaments';
 import { MatchupModal } from '../components/MatchupModal';
+import { Hero } from '../ui/Hero.jsx';
+import { Section, SectionHeader } from '../ui/Section.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Badge } from '../ui/Badge.jsx';
+import { Card } from '../ui/Card.jsx';
+import './DrawViewer.css';
 
-// Round labels — extended to cover any tournament structure
+// ── Round labels ───────────────────────────────────────────────
 const ROUND_LABELS = {
   R1: 'R1', R64: 'R64', R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
 };
@@ -18,16 +24,9 @@ const ROUND_FULL = {
   F:   'Final',
 };
 
-// These are derived dynamically from API data — see DrawViewer component.
-// Kept as fallback only.
 const MATCH_COUNTS_FALLBACK = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
-// ─── Bracket ordering ────────────────────────────────────────────────────────
-// The API returns matches in arbitrary order. To draw a correct bracket we
-// need adjacent pairs in each column to feed into the same next-round match.
-// Algorithm: DFS from the Final, tracing each player back to their previous-
-// round match. Player1's feeder comes first (top of bracket), Player2's second.
-
+// ── Bracket ordering (DFS) ─────────────────────────────────────
 function findFeeder(playerId, prevRoundMatches) {
   if (!playerId) return null;
   return prevRoundMatches.find(
@@ -55,11 +54,6 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
     dfs(findFeeder(match.player2Id, prevMatches), roundIdx - 1);
   }
 
-  // Start DFS from the highest round that has actual match data.
-  // If we always seed from the Final, we get nothing until the Final is played.
-  // Starting from the highest available round (e.g. R16) means each R16 match
-  // pulls its two feeder R32 matches into adjacent positions — so connector
-  // lines pair correctly even mid-tournament.
   let topIdx = bracketRounds.length - 1;
   while (topIdx > 0 && (matchesByRound[bracketRounds[topIdx]] || []).length === 0) {
     topIdx--;
@@ -68,7 +62,6 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
     dfs(fm, topIdx)
   );
 
-  // Append any orphan matches (not yet connected to the final bracket path)
   bracketRounds.forEach(round => {
     const placed = new Set(ordered[round].map(m => m.id));
     (matchesByRound[round] || [])
@@ -79,11 +72,7 @@ function buildOrderedBracket(matchesByRound, bracketRounds) {
   return ordered;
 }
 
-// ─── SVG bracket connectors (DOM-measured) ────────────────────────────────────
-// Reads actual slot positions from the adjacent BracketCol DOM nodes so that
-// connector lines always align with card centres, even when completed cards
-// (which include a score row) are taller than pending ones.
-
+// ── SVG connectors ─────────────────────────────────────────────
 function DomConnector({ leftColRef, rightColRef, totalHeight }) {
   const svgRef = useRef(null);
   const [lines, setLines] = useState([]);
@@ -99,7 +88,6 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
       const leftSlots  = [...leftBody.querySelectorAll(':scope > .bc-slot')];
       const rightSlots = [...rightBody.querySelectorAll(':scope > .bc-slot')];
 
-      // Centre Y of each slot relative to the SVG's top edge
       const leftCentres  = leftSlots.map(el => {
         const r = el.getBoundingClientRect();
         return r.top + r.height / 2 - svgRect.top;
@@ -110,7 +98,6 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
       });
 
       const newLines = [];
-      // Each right-column match is fed by a pair of left-column matches
       for (let k = 0; k < rightCentres.length; k++) {
         const topIdx = k * 2;
         const botIdx = k * 2 + 1;
@@ -128,10 +115,8 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
       setLines(newLines);
     }
 
-    // Measure after paint
     measure();
 
-    // Re-measure if card sizes change (e.g. results loading in)
     const leftBody  = leftColRef?.current?.querySelector('.bc-col-body');
     const rightBody = rightColRef?.current?.querySelector('.bc-col-body');
     const observer = new ResizeObserver(measure);
@@ -143,14 +128,14 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
   const h = totalHeight || 2048;
   return (
     <svg ref={svgRef} width="32" height={h} className="bc-connector" aria-hidden="true">
-      <g stroke="#d1d5db" strokeWidth="1.5" fill="none">
+      <g stroke="var(--ds-border-strong, #C9C2B1)" strokeWidth="1.5" fill="none">
         {lines.map(l => <line key={l.key} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
       </g>
     </svg>
   );
 }
 
-// ─── Bracket match card ───────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 function isLive(status) {
   if (!status) return false;
   const s = status.toLowerCase();
@@ -163,12 +148,12 @@ function canShowMatchup(match) {
   const skip = ['TBD', 'BYE'];
   const p1 = match.player1Name;
   const p2 = match.player2Name;
-  // Clickable if at least one real player is present
   const p1Real = p1 && !skip.includes(p1);
   const p2Real = p2 && !skip.includes(p2);
   return p1Real || p2Real;
 }
 
+// ── Bracket card ──────────────────────────────────────────────
 function BracketCard({ match, onMatchClick }) {
   if (!match) {
     return (
@@ -180,7 +165,6 @@ function BracketCard({ match, onMatchClick }) {
     );
   }
 
-  // Bye card: seed has a first-round bye
   if (match.bye) {
     return (
       <div className="bc-card bc-card--bye">
@@ -236,7 +220,7 @@ const BracketCol = forwardRef(function BracketCol({ round, matches, totalHeight,
   );
 });
 
-// ─── List-view match card ─────────────────────────────────────────────────────
+// ── List card ─────────────────────────────────────────────────
 function ListCard({ match, onMatchClick }) {
   const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
@@ -271,34 +255,31 @@ function ListCard({ match, onMatchClick }) {
       </div>
       <div className="lc-meta">
         {date && <span className="lc-date">{date}</span>}
-        <span className={`lc-badge${live ? ' lc-badge--live' : done ? ' lc-badge--done' : ' lc-badge--upcoming'}`}>
-          {live ? 'Live' : done ? 'Finished' : 'Scheduled'}
-        </span>
+        {live ? (
+          <Badge tone="danger" size="sm" dot>Live</Badge>
+        ) : done ? (
+          <Badge tone="success" size="sm">Finished</Badge>
+        ) : (
+          <Badge tone="neutral" size="sm">Scheduled</Badge>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────
 export function DrawViewer() {
   const { groupId } = useParams();
-  const [data, setData]             = useState(null);
+  const [data, setData] = useState(null);
   const [drawAvailable, setDrawAvailable] = useState(true);
-  const [view, setView]             = useState('bracket');
-  const [listRound, setListRound]   = useState('R1');
-  const [tournamentId, setTournamentId] = useState(null);
+  const [view, setView] = useState('bracket');
+  const [listRound, setListRound] = useState('R1');
+  const [, setTournamentId] = useState(null);
   const [selectedMatch, setSelectedMatch] = useState(null);
 
-  const handleMatchClick = useCallback((match) => {
-    setSelectedMatch(match);
-  }, []);
+  const handleMatchClick = useCallback((match) => setSelectedMatch(match), []);
+  const handleCloseModal = useCallback(() => setSelectedMatch(null), []);
 
-  const handleCloseModal = useCallback(() => {
-    setSelectedMatch(null);
-  }, []);
-
-  // Refs for each bracket column — connectors read these to measure slot positions.
-  // Must be declared here (before early returns) to satisfy React's rules of hooks.
   const colRefs = useRef({});
   function getColRef(round) {
     if (!colRefs.current[round]) colRefs.current[round] = { current: null };
@@ -308,7 +289,6 @@ export function DrawViewer() {
   useEffect(() => {
     if (!groupId) return;
 
-    // Fetch group first to get the tournament, then conditionally fetch the draw.
     fetch(`${API}/groups/${groupId}`)
       .then(r => r.ok ? r.json() : null)
       .then(g => {
@@ -316,11 +296,7 @@ export function DrawViewer() {
         const tid = g.tournamentId;
         if (tid) setTournamentId(tid);
 
-        // Check frontend config — if the draw hasn't been released for this
-        // tournament yet, show the "coming soon" state without hitting the API.
         const tournament = TOURNAMENTS.find(t => t.id === tid);
-        // Show draw for active tournaments (live data) and completed tournaments
-        // (historical data). Only block if draw isn't available yet (upcoming).
         if (tournament?.drawAvailable === false && tournament?.status !== 'completed') {
           setDrawAvailable(false);
           return;
@@ -330,7 +306,6 @@ export function DrawViewer() {
           return;
         }
 
-        // Draw is available — fetch it.
         return fetch(`${API}/draw/bracket?round=F`)
           .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
           .then(d => {
@@ -343,9 +318,6 @@ export function DrawViewer() {
             const first = rounds.find(r => byRound[r] > 0);
             if (first) setListRound(first);
 
-            // If no bracket rounds (R32+) have data yet, default to list view
-            // so users see live R1 matches rather than an empty bracket
-            // Check if any round beyond R1 has data (bracket view needs at least R32+)
             const hasBracketData = rounds.filter(r => r !== 'R1').some((r) =>
               (d.matches || []).some((m) => m.round === r)
             );
@@ -358,21 +330,40 @@ export function DrawViewer() {
 
   if (!drawAvailable) {
     return (
-      <div className="page draw-viewer">
-        <div className="draw-header">
-          <h1>Tournament Draw</h1>
-          <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-        </div>
-        <div className="draw-tbc-banner">
-          <div className="draw-tbc-icon">🎾</div>
-          <h2 className="draw-tbc-title">Draw not yet released</h2>
-          <p className="draw-tbc-sub">Check back nearer to the start date — usually 1–2 days before play begins.</p>
-        </div>
+      <div className="dv-page">
+        <Hero
+          tone="ink"
+          compact
+          showCourt
+          eyebrow="TOURNAMENT DRAW"
+          title={<>The bracket <em>drops soon</em>.</>}
+          lede="Draws are usually released 1–2 days before play begins. We'll open picks automatically."
+        />
+        <Section tone="canvas" size="md">
+          <div className="dv-back-row">
+            <Button as={Link} to={`/group/${groupId}`} variant="ghost" size="sm">
+              ← Back to pool
+            </Button>
+          </div>
+          <Card tone="muted" padding="lg" className="dv-empty-card">
+            <div className="dv-empty-icon" aria-hidden="true">🎾</div>
+            <p className="dv-empty-title">Draw not yet released</p>
+            <p className="dv-empty-sub">
+              Check back nearer to the start date — usually 1–2 days before play begins.
+            </p>
+          </Card>
+        </Section>
       </div>
     );
   }
 
-  if (!data) return <div className="page-loading">Loading draw…</div>;
+  if (!data) {
+    return (
+      <Section tone="canvas" size="lg">
+        <p className="dv-loading">Loading draw…</p>
+      </Section>
+    );
+  }
 
   const rounds = data.rounds || [];
   const matchesByRound = (data.matches || []).reduce((acc, m) => {
@@ -380,26 +371,18 @@ export function DrawViewer() {
     return acc;
   }, {});
 
-  // Compute match counts dynamically from the draw data (handles any draw size)
-  // Fallback to known counts if API data is incomplete.
   const matchCounts = {};
   rounds.forEach(r => {
     matchCounts[r] = (matchesByRound[r] || []).length || MATCH_COUNTS_FALLBACK[r] || 1;
   });
 
-  // Bracket shows all rounds. Fixed height based on the first round (most matches).
-  // 80px per slot — completed cards with score rows are ~74px tall; 80px avoids clipping.
   const firstRound    = rounds[0];
   const firstCount    = matchCounts[firstRound] || 1;
   const BRACKET_H_DYN = Math.max(firstCount * 80, 512);
 
-  // All rounds with data form the bracket
   const bracketRounds  = rounds.filter(r => (matchesByRound[r] || []).length > 0);
   const orderedBracket = buildOrderedBracket(matchesByRound, bracketRounds);
 
-  // Sort each round by matchOrder (set by backend for correct bracket alignment).
-  // This fixes positioning when DFS cannot follow the bracket tree (e.g. pre-tournament
-  // state where R32 player references are null and feeders become orphans).
   bracketRounds.forEach(round => {
     orderedBracket[round].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
   });
@@ -430,87 +413,115 @@ export function DrawViewer() {
     );
   });
 
-  // Only show rounds that have at least one match
   const roundsWithData = rounds.filter(r => (matchesByRound[r] || []).length > 0);
 
   return (
-    <div className="page draw-viewer">
-      <div className="draw-header">
-        <div>
-          <h1>Tournament Draw</h1>
-          {data.tournament && <p className="draw-tournament-name">{data.tournament}</p>}
+    <div className="dv-page">
+      <Hero
+        tone="ink"
+        compact
+        showCourt
+        eyebrow={data.tournament ? `DRAW · ${data.tournament.toUpperCase()}` : 'TOURNAMENT DRAW'}
+        title={<>The <em>bracket</em>.</>}
+        lede="Live results, scores, and every matchup. Tap any fixture to compare the two players."
+      />
+
+      <Section tone="canvas" size="md">
+        <div className="dv-top-row">
+          <SectionHeader
+            eyebrow="RESULTS"
+            title={<>How the <em>draw</em> is shaping up.</>}
+          />
+          <Button as={Link} to={`/group/${groupId}`} variant="ghost" size="sm">
+            ← Back to pool
+          </Button>
         </div>
-        <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-      </div>
 
-      <div className="draw-view-toggle">
-        <button className={`dvt-btn${view === 'bracket' ? ' dvt-active' : ''}`} onClick={() => setView('bracket')}>
-          Bracket
-        </button>
-        <button className={`dvt-btn${view === 'list' ? ' dvt-active' : ''}`} onClick={() => setView('list')}>
-          By Round
-        </button>
-      </div>
-
-      <p className="bracket-hint">Tap a matchup to compare players before you pick</p>
-
-      {view === 'bracket' ? (
-        bracketEls.length === 0 ? (
-          <div className="draw-empty-state">
-            <span className="draw-empty-icon">🎾</span>
-            <p className="draw-empty-title">Bracket not yet available</p>
-            <p className="draw-empty-sub">Switch to "By Round" to see individual match data, or check back once more fixtures are published.</p>
+        <div className="dv-controls">
+          <div className="dv-view-toggle" role="tablist" aria-label="View mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'bracket'}
+              className={`dv-view-btn${view === 'bracket' ? ' is-active' : ''}`}
+              onClick={() => setView('bracket')}
+            >
+              Bracket
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'list'}
+              className={`dv-view-btn${view === 'list' ? ' is-active' : ''}`}
+              onClick={() => setView('list')}
+            >
+              By round
+            </button>
           </div>
-        ) : (
-          <>
+          <p className="dv-hint">Tap a matchup to compare players.</p>
+        </div>
+
+        {view === 'bracket' ? (
+          bracketEls.length === 0 ? (
+            <Card tone="muted" padding="lg" className="dv-empty-card">
+              <div className="dv-empty-icon" aria-hidden="true">🎾</div>
+              <p className="dv-empty-title">Bracket not yet available</p>
+              <p className="dv-empty-sub">
+                Switch to "By round" to see individual match data, or check back once more fixtures are published.
+              </p>
+            </Card>
+          ) : (
             <div className="bracket-scroll-wrap">
               <div className="bracket-wrap">{bracketEls}</div>
             </div>
-          </>
-        )
-      ) : (
-        <>
-          <div className="round-tabs">
-            {roundsWithData.map(r => (
-              <button
-                key={r}
-                className={`round-tab${r === listRound ? ' active' : ''}`}
-                onClick={() => setListRound(r)}
-              >
-                {ROUND_LABELS[r]}
-              </button>
-            ))}
-          </div>
-          {/* Filter out bye entries from the list view — users only see real matches */}
-          {(() => {
-            const listMatches = (matchesByRound[listRound] || []).filter(m => !m.bye);
-            return (
-              <>
-          <div className="draw-round-label">
-            {ROUND_FULL[listRound] || listRound}
-            <span className="draw-round-count"> · {listMatches.length} matches</span>
-          </div>
-
-          {listMatches.length === 0 ? (
-            <div className="draw-empty-state">
-              <span className="draw-empty-icon">🎾</span>
-              <p className="draw-empty-title">No fixtures yet</p>
-              <p className="draw-empty-sub">Check back once earlier rounds complete.</p>
-            </div>
-          ) : (
-            <div className="lc-grid">
-              {listMatches.map((m, idx) => (
-                <ListCard key={m.id || idx} match={m} onMatchClick={handleMatchClick} />
+          )
+        ) : (
+          <>
+            <div className="dv-round-tabs" role="tablist" aria-label="Select round">
+              {roundsWithData.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  role="tab"
+                  aria-selected={r === listRound}
+                  className={`dv-round-tab${r === listRound ? ' is-active' : ''}`}
+                  onClick={() => setListRound(r)}
+                >
+                  {ROUND_LABELS[r]}
+                </button>
               ))}
             </div>
-          )}
-              </>
-            );
-          })()}
-        </>
-      )}
 
-      <p className="draw-footer-note">Results update automatically as matches complete.</p>
+            {(() => {
+              const listMatches = (matchesByRound[listRound] || []).filter(m => !m.bye);
+              return (
+                <>
+                  <div className="dv-round-header">
+                    <span className="dv-round-title">{ROUND_FULL[listRound] || listRound}</span>
+                    <span className="dv-round-count">· {listMatches.length} matches</span>
+                  </div>
+
+                  {listMatches.length === 0 ? (
+                    <Card tone="muted" padding="lg" className="dv-empty-card">
+                      <div className="dv-empty-icon" aria-hidden="true">🎾</div>
+                      <p className="dv-empty-title">No fixtures yet</p>
+                      <p className="dv-empty-sub">Check back once earlier rounds complete.</p>
+                    </Card>
+                  ) : (
+                    <div className="lc-grid">
+                      {listMatches.map((m, idx) => (
+                        <ListCard key={m.id || idx} match={m} onMatchClick={handleMatchClick} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </>
+        )}
+
+        <p className="dv-footer-note">Results update automatically as matches complete.</p>
+      </Section>
 
       {selectedMatch && (
         <MatchupModal

@@ -1,0 +1,117 @@
+/* ============================================================
+   PaymentFlow — Direction A
+   Namespace: .pf-*
+   ============================================================ */
+
+.pf-page {
+  min-height: 100vh;
+  background: var(--ds-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-card {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pf-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.pf-eyebrow {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ds-accent, #C1572E);
+}
+
+.pf-group {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ds-ink);
+}
+
+.pf-amount {
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: clamp(40px, 8vw, 56px);
+  font-weight: 500;
+  color: var(--ds-primary, #0F4A23);
+  line-height: 1;
+  margin: 4px 0 8px;
+}
+
+.pf-title {
+  margin: 0;
+  font-family: var(--ds-font-serif, 'Fraunces', serif);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ds-ink);
+  line-height: 1.2;
+}
+
+.pf-sub {
+  margin: 0;
+  font-family: var(--ds-font-sans);
+  font-size: 14px;
+  color: var(--ds-ink-muted);
+  line-height: 1.55;
+  max-width: 380px;
+}
+
+.pf-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* ── Spinner ──────────────────────────────────────────── */
+.pf-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--ds-border, #E4DFD1);
+  border-top-color: var(--ds-primary, #0F4A23);
+  border-radius: 50%;
+  animation: pf-spin 0.8s linear infinite;
+  margin-bottom: 6px;
+}
+
+@keyframes pf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Success ──────────────────────────────────────────── */
+.pf-state--success .pf-check {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ds-primary, #0F4A23);
+  color: var(--ds-canvas, #FAFAF7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ds-primary, #0F4A23) 28%, transparent);
+}
+
+/* ── Error ────────────────────────────────────────────── */
+.pf-state--error .pf-title {
+  color: var(--ds-danger, #B3301C);
+}

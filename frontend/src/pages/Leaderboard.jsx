@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAuth } from '../App';
-import { API } from '../App';
+import { useAuth, API } from '../App';
+import { Section, SectionHeader } from '../ui/Section.jsx';
+import { Hero } from '../ui/Hero.jsx';
+import { Badge } from '../ui/Badge.jsx';
+import { Stat } from '../ui/Stat.jsx';
+import { Button } from '../ui/Button.jsx';
+import './Leaderboard.css';
 
 // ── Formatting helpers ────────────────────────────────────────
 function fmtGBP(cents) {
@@ -20,8 +25,8 @@ function initials(name) {
 }
 
 const AVATAR_COLOURS = [
-  '#16a34a', '#0891b2', '#7c3aed', '#db2777',
-  '#d97706', '#65a30d', '#0369a1', '#9333ea',
+  '#0F4A23', '#1E7A3E', '#C1572E', '#A84620',
+  '#1F5580', '#7C3AED', '#B67300', '#0891B2',
 ];
 
 function avatarColour(name) {
@@ -31,8 +36,8 @@ function avatarColour(name) {
 }
 
 const ROUND_LABELS = {
-  R1: '1st Round', R64: '2nd Round', R32: '3rd Round',
-  R16: '4th Round', QF: 'QF', SF: 'SF', F: 'Final',
+  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
+  R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', F: 'Final',
 };
 
 // ── Pick History Modal ────────────────────────────────────────
@@ -42,75 +47,71 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
 
   useEffect(() => {
     fetch(`${API}/picks/history?userId=${member.userId}&groupId=${groupId}`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setPicks)
       .catch(() => { setError(true); setPicks([]); });
   }, [member.userId, groupId]);
 
   const colour = avatarColour(member.displayName);
   const ini    = initials(member.displayName);
+  const visiblePicks = (picks || []).filter(p => !currentRound || p.round !== currentRound);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box lb-picks-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="lb-picks-modal-header">
-          <span className="lb-avatar" style={{ background: colour, width: 36, height: 36, fontSize: '0.8rem' }}>
-            {ini}
-          </span>
-          <div>
-            <p className="lb-picks-modal-name">{member.displayName}</p>
-            <p className="lb-picks-modal-sub">
-              {member.isAlive
-                ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
-                : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`
-              }
-            </p>
+    <div className="ds-modal-backdrop" onClick={onClose}>
+      <div className="ds-modal-card lb-picks-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="ds-modal-header lb-picks-modal-header">
+          <div className="lb-picks-modal-identity">
+            <span
+              className="lb-avatar lb-avatar--lg"
+              style={{ background: colour }}
+            >
+              {ini}
+            </span>
+            <div>
+              <span className="ds-modal-eyebrow">PICK HISTORY</span>
+              <h3 className="ds-modal-title">{member.displayName}</h3>
+              <p className="lb-picks-modal-sub">
+                {member.isAlive
+                  ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
+                  : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`}
+              </p>
+            </div>
           </div>
-          <button className="modal-close" onClick={onClose} style={{ marginLeft: 'auto' }}>✕</button>
-        </div>
+          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </header>
 
-        {/* Full pick history — current open round is hidden until picks lock */}
-        <div className="lb-picks-history-wrap">
-          <p className="lb-picks-history-title">Pick history</p>
-
-          {picks === null && (
-            <p className="lb-picks-loading">Loading…</p>
-          )}
-
-          {error && (
-            <p className="lb-picks-error">Could not load picks.</p>
-          )}
-
-          {picks !== null && !error && picks.filter(p => !currentRound || p.round !== currentRound).length === 0 && (
+        <div className="ds-modal-body">
+          {picks === null && <p className="lb-picks-loading">Loading picks…</p>}
+          {error && <p className="ds-form-error">Could not load picks.</p>}
+          {picks !== null && !error && visiblePicks.length === 0 && (
             <p className="lb-picks-empty">No picks submitted yet.</p>
           )}
 
-          {picks !== null && picks.filter(p => !currentRound || p.round !== currentRound).length > 0 && (
-            <table className="lb-picks-table">
-              <thead>
-                <tr>
-                  <th>Round</th>
-                  <th>Player picked</th>
-                  <th>Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {picks.filter(p => !currentRound || p.round !== currentRound).map((p) => (
-                  <tr key={p.id || p.round} className={
-                    p.survived === false ? 'lb-pick-row-out' : ''
-                  }>
-                    <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
-                    <td className="lb-pick-player">{p.playerName || '—'}</td>
-                    <td className="lb-pick-result">
-                      {p.survived === true  && <span className="status-alive">✓ Survived</span>}
-                      {p.survived === false && <span className="status-out">✗ Eliminated</span>}
-                      {p.survived == null   && <span className="lb-progress-pending">Pending</span>}
-                    </td>
+          {visiblePicks.length > 0 && (
+            <div className="lb-picks-table-wrap">
+              <table className="lb-picks-table">
+                <thead>
+                  <tr>
+                    <th>Round</th>
+                    <th>Player picked</th>
+                    <th className="lb-picks-table__result">Result</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visiblePicks.map((p) => (
+                    <tr key={p.id || p.round} className={p.survived === false ? 'lb-pick-row-out' : ''}>
+                      <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
+                      <td className="lb-pick-player">{p.playerName || '—'}</td>
+                      <td className="lb-pick-result">
+                        {p.survived === true  && <Badge tone="success" size="sm" dot>Survived</Badge>}
+                        {p.survived === false && <Badge tone="danger" size="sm" dot>Out</Badge>}
+                        {p.survived == null   && <Badge tone="neutral" size="sm">Pending</Badge>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -122,7 +123,7 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
 export function Leaderboard() {
   const { groupId } = useParams();
   const { userId } = useAuth();
-  const [data, setData]           = useState(null);
+  const [data, setData] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
 
   useEffect(() => {
@@ -144,152 +145,166 @@ export function Leaderboard() {
       .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
   }, [groupId]);
 
-  if (!data) return <div className="page-loading">Loading leaderboard…</div>;
+  if (!data) {
+    return (
+      <Section tone="canvas" size="lg">
+        <p className="lb-loading">Loading leaderboard…</p>
+      </Section>
+    );
+  }
 
   const { group, leaderboard, aliveCount, currentRound, roundIsLocked } = data;
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
-  // Winner: check isWinner flag from backend (handles both alive-winner and last-eliminated-winner)
-  const winners       = leaderboard.filter(m => m.isWinner);
+  const winners       = leaderboard.filter((m) => m.isWinner);
   const winner        = winners.length > 0 ? winners[0] : null;
+  const prizePool     = group?.prizePoolCents || 0;
 
   return (
-    <div className="page leaderboard">
-      <div className="leaderboard-header">
-        <h1>Leaderboard</h1>
-        <Link to={`/group/${groupId}`} className="back-link">← Back to group</Link>
-      </div>
+    <div className="lb-page">
+      <Hero
+        tone={winner ? 'gold' : 'ink'}
+        compact
+        showCourt
+        eyebrow={winner ? 'TOURNAMENT COMPLETE' : 'LEADERBOARD'}
+        title={winner ? (
+          <>Winner: <em>{winner.displayName}</em></>
+        ) : (
+          <>{group?.name}</>
+        )}
+        lede={winner
+          ? `${winner.isAlive ? 'Last one standing' : 'Lasted the longest'} from ${totalEntrants} entrants.`
+          : `${group?.name || 'Pool'} — updated live as results come in.`}
+        meta={
+          <>
+            <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(prizePool)} />
+            <Stat
+              size="sm"
+              label={winner ? (winners.length === 1 ? 'Winner' : 'Winners') : 'Still in'}
+              value={winner ? winners.length : aliveCount}
+            />
+            <Stat size="sm" label="Eliminated" value={winner ? totalEntrants - winners.length : eliminated} />
+            <Stat size="sm" label="Total entrants" value={totalEntrants} />
+          </>
+        }
+      />
 
-      {/* Winner banner */}
-      {winner && (
-        <div className="lb-winner-banner">
-          <div className="lb-winner-trophy">🏆</div>
-          <div className="lb-winner-body">
-            <span className="lb-winner-eyebrow">Tournament Winner</span>
-            <span className="lb-winner-name">{winner.displayName}</span>
-            <span className="lb-winner-sub">{winner.isAlive ? 'Last one standing' : 'Lasted longest'} · {totalEntrants} entrants</span>
-          </div>
-          {group?.prizePoolCents > 0 && (
-            <div className="lb-winner-prize">{fmtGBP(group.prizePoolCents)}</div>
-          )}
+      <Section tone="canvas" size="md">
+        <div className="lb-top-row">
+          <SectionHeader
+            eyebrow={currentRound ? `CURRENT ROUND · ${ROUND_LABELS[currentRound] || currentRound}` : 'STANDINGS'}
+            title={<>Who's <em>still in</em>.</>}
+          />
+          <Button as={Link} to={`/group/${groupId}`} variant="ghost" size="sm">
+            ← Back to pool
+          </Button>
         </div>
-      )}
 
-      {/* Stats bar */}
-      <div className="lb-stats-bar">
-        <div className="lb-stat lb-stat-alive">
-          <span className="lb-stat-value">{winner ? winners.length : aliveCount}</span>
-          <span className="lb-stat-label">{winner ? (winners.length === 1 ? 'Winner' : 'Winners') : 'Still in'}</span>
-        </div>
-        <div className="lb-stat lb-stat-out">
-          <span className="lb-stat-value">{winner ? totalEntrants - winners.length : eliminated}</span>
-          <span className="lb-stat-label">Eliminated</span>
-        </div>
-        <div className="lb-stat">
-          <span className="lb-stat-value">{totalEntrants}</span>
-          <span className="lb-stat-label">Total entrants</span>
-        </div>
-        <div className="lb-stat">
-          <span className="lb-stat-value">{fmtGBP(group?.prizePoolCents || 0)}</span>
-          <span className="lb-stat-label">Prize pool</span>
-        </div>
-      </div>
+        <p className="lb-click-hint">Click any player to see their pick history.</p>
 
-      <p className="lb-group-name">{group?.name}</p>
-      <p className="lb-click-hint">Click any player to see their picks</p>
-
-      <div className="lb-table-wrap">
-        <table className="leaderboard-table">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th className="lb-th-status">Status</th>
-              <th className="lb-th-progress">Progress</th>
-              {currentRound && <th className="lb-th-pick">{currentRound} Pick</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.length === 0 && (
+        <div className="lb-table-wrap">
+          <table className="lb-table">
+            <thead>
               <tr>
-                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                  No entries yet — be the first to join!
-                </td>
+                <th>Player</th>
+                <th className="lb-th-status">Status</th>
+                <th className="lb-th-progress">Progress</th>
+                {currentRound && <th className="lb-th-pick">{currentRound} pick</th>}
               </tr>
-            )}
-            {leaderboard.map((m) => {
-              const isYou    = m.userId === userId;
-              const survived = m.survivedRounds ?? 0;
-              const rowClass = [
-                'lb-row-clickable',
-                isYou ? 'lb-row-you' : '',
-                m.isWinner ? 'lb-row-winner' : (m.isAlive ? '' : 'lb-row-out'),
-              ].filter(Boolean).join(' ');
+            </thead>
+            <tbody>
+              {leaderboard.length === 0 && (
+                <tr>
+                  <td colSpan={currentRound ? 4 : 3} className="lb-empty-row">
+                    No entries yet — be the first to join!
+                  </td>
+                </tr>
+              )}
+              {leaderboard.map((m) => {
+                const isYou    = m.userId === userId;
+                const survived = m.survivedRounds ?? 0;
+                const rowClass = [
+                  'lb-row',
+                  isYou ? 'lb-row--you' : '',
+                  m.isWinner ? 'lb-row--winner' : m.isAlive ? 'lb-row--alive' : 'lb-row--out',
+                ].filter(Boolean).join(' ');
 
-              return (
-                <tr
-                  key={m.id}
-                  className={rowClass}
-                  onClick={() => setSelectedMember(m)}
-                  title="Click to view picks"
-                >
-                  <td className="lb-td-player">
-                    <span
-                      className="lb-avatar"
-                      style={{ background: avatarColour(m.displayName) }}
-                    >
-                      {initials(m.displayName)}
-                    </span>
-                    <span className="lb-display-name">{m.displayName}</span>
-                    {isYou && <span className="lb-you-tag">You</span>}
-                    {m.isWinner && <span className="lb-winner-tag">🏆</span>}
-                  </td>
-                  <td className="lb-td-status">
-                    {m.isWinner
-                      ? <span className="status-winner">Winner</span>
-                      : m.isAlive
-                        ? <span className="status-alive">Alive</span>
-                        : <span className="status-out">Eliminated</span>
-                    }
-                  </td>
-                  <td className="lb-td-progress">
-                    {m.isWinner ? (
-                      <span className="lb-progress-winner">
-                        {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                return (
+                  <tr
+                    key={m.id}
+                    className={rowClass}
+                    onClick={() => setSelectedMember(m)}
+                    title="Click to view picks"
+                  >
+                    <td className="lb-td-player">
+                      <span
+                        className="lb-avatar"
+                        style={{ background: avatarColour(m.displayName) }}
+                      >
+                        {initials(m.displayName)}
                       </span>
-                    ) : m.isAlive ? (
-                      survived === 0
-                        ? <span className="lb-progress-pending">No results yet</span>
-                        : <span className="lb-progress-alive">
+                      <span className="lb-display-name">
+                        {m.displayName}
+                      </span>
+                      {isYou && <Badge tone="primary" size="sm">You</Badge>}
+                      {m.isWinner && <span className="lb-winner-tag" aria-hidden="true">🏆</span>}
+                    </td>
+                    <td className="lb-td-status">
+                      {m.isWinner ? (
+                        <Badge tone="gold" size="sm" dot>Winner</Badge>
+                      ) : m.isAlive ? (
+                        <Badge tone="success" size="sm" dot>Alive</Badge>
+                      ) : (
+                        <Badge tone="danger" size="sm">Out</Badge>
+                      )}
+                    </td>
+                    <td className="lb-td-progress">
+                      {m.isWinner ? (
+                        <span className="lb-progress-value">
+                          {survived} {survived === 1 ? 'round' : 'rounds'} survived
+                        </span>
+                      ) : m.isAlive ? (
+                        survived === 0 ? (
+                          <span className="lb-progress-muted">No results yet</span>
+                        ) : (
+                          <span className="lb-progress-value">
                             {survived} {survived === 1 ? 'round' : 'rounds'} survived
                           </span>
-                    ) : (
-                      <span className="lb-progress-out">
-                        Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
-                        {survived > 0 && (
-                          <span className="lb-progress-sub">
-                            {' '}· {survived} {survived === 1 ? 'round' : 'rounds'}
+                        )
+                      ) : (
+                        <span className="lb-progress-out">
+                          Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
+                          {survived > 0 && (
+                            <span className="lb-progress-sub"> · {survived} {survived === 1 ? 'round' : 'rounds'}</span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    {currentRound && (
+                      <td className="lb-td-pick">
+                        {roundIsLocked ? (
+                          m.currentRoundPick ? (
+                            <span className={m.isAlive ? 'lb-pick-live' : 'lb-pick-dead'}>
+                              {m.currentRoundPick}
+                            </span>
+                          ) : (
+                            <span className="lb-pick-none">—</span>
+                          )
+                        ) : (
+                          <span className="lb-pick-hidden">
+                            <span aria-hidden="true">🔒</span> Hidden
                           </span>
                         )}
-                      </span>
+                      </td>
                     )}
-                  </td>
-                  {currentRound && (
-                    <td className="lb-td-pick">
-                      {roundIsLocked
-                        ? (m.currentRoundPick
-                            ? <span className={m.isAlive ? 'lb-pick-alive' : 'lb-pick-out'}>{m.currentRoundPick}</span>
-                            : <span className="lb-pick-none">—</span>)
-                        : <span className="lb-pick-hidden">🔒 Hidden</span>}
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Section>
 
-      {/* Pick history modal */}
       {selectedMember && (
         <PickHistoryModal
           member={selectedMember}

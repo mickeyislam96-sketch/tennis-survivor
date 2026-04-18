@@ -1,4 +1,9 @@
 import { Link } from 'react-router-dom';
+import { Hero } from '../ui/Hero.jsx';
+import { Section, SectionHeader } from '../ui/Section.jsx';
+import { Card } from '../ui/Card.jsx';
+import { Button } from '../ui/Button.jsx';
+import './HowToPlay.css';
 
 const STEPS = [
   {
@@ -54,43 +59,61 @@ const TIPS = [
 
 export function HowToPlay() {
   return (
-    <div className="page how-to-play">
-      <div className="htp-header">
-        <div>
-          <h1>How to Play</h1>
-          <p className="htp-subtitle">The rules are simple. The strategy is everything.</p>
-        </div>
-        <Link to="/" className="back-link">&larr; Back to home</Link>
-      </div>
+    <div className="htp-page">
+      <Hero
+        tone="ink"
+        showCourt
+        eyebrow="HOW TO PLAY"
+        title={<>The rules are <em>simple</em>.<br />The strategy is everything.</>}
+        lede="Pick one player per round. If they win, you survive. If they lose, you're out. Last one standing takes the pot."
+        primaryCta={{ label: 'Find a pool', to: '/' }}
+      />
 
-      <div className="htp-steps">
-        {STEPS.map((s) => (
-          <div key={s.num} className="htp-step">
-            <div className="htp-step-icon">{s.icon}</div>
-            <div className="htp-step-num">{s.num}</div>
-            <h3 className="htp-step-title">{s.title}</h3>
-            <p className="htp-step-body">{s.body}</p>
-          </div>
-        ))}
-      </div>
+      <Section tone="canvas" size="lg">
+        <SectionHeader
+          eyebrow="THE GAME"
+          title={<>Five steps, one <em>winner</em>.</>}
+          lede="It's the oldest survivor format, adapted for tennis. No fantasy points, no weekly line-ups. Just one pick and one question: will they win?"
+        />
 
-      <div className="htp-tips-section">
-        <h2 className="htp-tips-heading">Strategy Tips</h2>
-        <div className="htp-tips">
-          {TIPS.map((t, i) => (
-            <div key={i} className="htp-tip">
-              <h4 className="htp-tip-title">{t.title}</h4>
-              <p className="htp-tip-body">{t.body}</p>
-            </div>
+        <div className="htp-steps">
+          {STEPS.map((s) => (
+            <Card key={s.num} tone="default" padding="lg" className="htp-step">
+              <div className="htp-step-num" aria-hidden="true">{String(s.num).padStart(2, '0')}</div>
+              <div className="htp-step-icon" aria-hidden="true">{s.icon}</div>
+              <h3 className="htp-step-title">{s.title}</h3>
+              <p className="htp-step-body">{s.body}</p>
+            </Card>
           ))}
         </div>
-      </div>
+      </Section>
 
-      <div className="htp-cta-section">
-        <h2>Ready to play?</h2>
-        <p>Join a pool and make your first pick.</p>
-        <Link to="/" className="btn primary">Find a pool &rarr;</Link>
-      </div>
+      <Section tone="sunken" size="lg">
+        <SectionHeader
+          eyebrow="STRATEGY"
+          title={<>A few tips to <em>survive</em> longer.</>}
+          lede="You can't control the outcomes, but you can control when you spend your best picks."
+        />
+
+        <div className="htp-tips">
+          {TIPS.map((t, i) => (
+            <Card key={i} tone="surface" padding="lg" className="htp-tip">
+              <h4 className="htp-tip-title">{t.title}</h4>
+              <p className="htp-tip-body">{t.body}</p>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section tone="primary" size="md">
+        <div className="htp-cta">
+          <h2 className="htp-cta-title">Ready to <em>play</em>?</h2>
+          <p className="htp-cta-sub">Join a pool and make your first pick.</p>
+          <Button as={Link} to="/" variant="gold" size="lg">
+            Find a pool →
+          </Button>
+        </div>
+      </Section>
     </div>
   );
 }
