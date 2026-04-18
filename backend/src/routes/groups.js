@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
-import { TOURNAMENTS, getTournament } from '../data/tournaments.js';
+import { TOURNAMENTS } from '../data/tournaments.js';
 import { sendTournamentJoinEmail } from '../utils/email.js';
 
 export const groupsRouter = Router();
@@ -235,7 +235,7 @@ groupsRouter.post('/:id/join', async (req, res) => {
         const user = userResult.rows[0];
         const group = groupResult.rows[0];
         const prize = prizeResult.rows[0];
-        const tournament = getTournament(group?.tournament_id);
+        const tournament = TOURNAMENTS.find(t => t.id === group?.tournament_id);
         if (user && tournament) {
           const fmt = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
           sendTournamentJoinEmail({

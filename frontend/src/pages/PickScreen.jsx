@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { TOURNAMENTS, getTournament } from '../data/tournaments';
+import { TOURNAMENTS } from '../data/tournaments';
 
 // ── Helper components defined before PickScreen to ensure they are available
 // ── regardless of bundler hoisting behaviour ──────────────────────────────
@@ -141,7 +141,7 @@ export function PickScreen() {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
         // Check if this tournament's draw has been released yet
-        const tournament = getTournament(g?.tournamentId);
+        const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
         if (tournament?.drawAvailable === false) setDrawAvailable(false);
         if (tournament?.status === 'completed') {
           setTournamentCompleted(true);

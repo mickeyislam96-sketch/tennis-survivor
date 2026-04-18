@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect, forwardRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
-import { TOURNAMENTS, getTournament } from '../data/tournaments';
+import { TOURNAMENTS } from '../data/tournaments';
 import { MatchupModal } from '../components/MatchupModal';
 
 // Round labels — extended to cover any tournament structure
@@ -318,7 +318,7 @@ export function DrawViewer() {
 
         // Check frontend config — if the draw hasn't been released for this
         // tournament yet, show the "coming soon" state without hitting the API.
-        const tournament = getTournament(tid);
+        const tournament = TOURNAMENTS.find(t => t.id === tid);
         // Show draw for active tournaments (live data) and completed tournaments
         // (historical data). Only block if draw isn't available yet (upcoming).
         if (tournament?.drawAvailable === false && tournament?.status !== 'completed') {
