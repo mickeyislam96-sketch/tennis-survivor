@@ -73,12 +73,11 @@ export function CourtBackdrop({
         <line x1={sLeft} y1={top} x2={sLeft} y2={bottom} />
         <line x1={sRight} y1={top} x2={sRight} y2={bottom} />
 
-        {/* Service lines (top and bottom) */}
+        {/* Service line (top only — bottom removed for cleaner fade) */}
         <line x1={sLeft} y1={svcTop} x2={sRight} y2={svcTop} />
-        <line x1={sLeft} y1={svcBot} x2={sRight} y2={svcBot} />
 
-        {/* Centre service line */}
-        <line x1={centreX} y1={svcTop} x2={centreX} y2={svcBot} />
+        {/* Centre service line (top half only) */}
+        <line x1={centreX} y1={svcTop} x2={centreX} y2={netY} />
 
         {/* Net (dashed) */}
         <line
