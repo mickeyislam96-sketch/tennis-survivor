@@ -20,22 +20,9 @@ export const TOURNAMENTS = [
     entryClosedReason: 'completed',
     bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2487/season/80797/cuptree/10848110?widgetTitle=2026%20Indian%20Wells%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
   },
-  {
-    id: 'miami-2026',
-    name: 'Miami Open',
-    shortName: 'Miami',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-03-19',
-    endDate: '2026-03-30',
-    location: 'Miami, FL',
-    surface: 'Hard',
-    status: 'active',
-    drawDate: '2026-03-16',
-    drawAvailable: true,
-    entryOpen: true,
-    bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2430/season/80799/cuptree/10850024?widgetTitle=2026%20Miami%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
-  },
+  // Miami Open 2026 — internal test run only, intentionally omitted from the
+  // user-facing lobby. Kept out of the frontend registry so no hardcoded
+  // references can accidentally surface it.
   {
     id: 'monte-carlo-2026',
     name: 'Rolex Monte-Carlo Masters',
@@ -90,6 +77,30 @@ export const TOURNAMENTS = [
   },
 ];
 
+/**
+ * Compute tournament status from its start/end dates.
+ * Overrides any hardcoded `status` field on the registry so the lobby never
+ * drifts out of reality (e.g. an event left as 'active' weeks after it ended).
+ */
+export function computeStatus(startDate, endDate, now = new Date()) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const endOfDay = new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1);
+  if (now > endOfDay) return 'completed';
+  if (now >= start) return 'active';
+  return 'upcoming';
+}
+
+function withComputedStatus(t) {
+  if (!t) return t;
+  return { ...t, status: computeStatus(t.startDate, t.endDate) };
+}
+
 export function getTournament(id) {
-  return TOURNAMENTS.find(t => t.id === id) || null;
+  const raw = TOURNAMENTS.find(t => t.id === id);
+  return raw ? withComputedStatus(raw) : null;
+}
+
+export function getAllTournaments() {
+  return TOURNAMENTS.map(withComputedStatus);
 }

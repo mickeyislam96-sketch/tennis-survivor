@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
-import { TOURNAMENTS } from '../data/tournaments.js';
+import { TOURNAMENTS, getTournament } from '../data/tournaments.js';
 import { sendTournamentJoinEmail } from '../utils/email.js';
 
 export const groupsRouter = Router();
@@ -51,7 +51,12 @@ groupsRouter.get('/', async (req, res) => {
          ORDER BY g.created_at DESC`,
         [userId]
       );
-      return res.json(result.rows.map(rowToGroup));
+      // Filter out groups whose tournament is no longer in the registry
+      // (e.g. Miami test run) so stale memberships don't surface in the UI.
+      const visible = result.rows
+        .map(rowToGroup)
+        .filter(g => getTournament(g.tournamentId) !== null);
+      return res.json(visible);
     } catch (e) {
       console.error('DB groups list error:', e.message);
     }

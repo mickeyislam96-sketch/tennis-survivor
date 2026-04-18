@@ -21,23 +21,9 @@ export const TOURNAMENTS = [
     pickWindowOpen: null,
     pickWindowClose: null,
   },
-  {
-    id: 'miami-2026',
-    name: 'Miami Open',
-    shortName: 'Miami',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-03-19',
-    endDate: '2026-03-30',
-    location: 'Miami, FL, USA',
-    surface: 'Hard (outdoor)',
-    status: 'active',
-    drawDate: 'March 16, 2026',
-    drawAvailable: true,
-    entryCloseAt: '2026-03-17T16:00:00Z',  // Closes 4pm UK time March 17
-    pickWindowOpen: null,
-    pickWindowClose: null,
-  },
+  // Miami Open 2026 — internal test run only, intentionally omitted from the
+  // user-facing lobby. The registry skips it so getTournament('miami-2026')
+  // returns null and the /pools endpoint drops any orphan groups referencing it.
   {
     id: 'monte-carlo-2026',
     name: 'Rolex Monte-Carlo Masters',
@@ -91,6 +77,35 @@ export const TOURNAMENTS = [
   },
 ];
 
+/**
+ * Compute tournament status from its start/end dates.
+ * Overrides any hardcoded `status` field on the registry so the lobby never
+ * drifts out of reality (e.g. an event left as 'active' weeks after it ended).
+ *
+ * Boundary rules:
+ *   - before startDate           → 'upcoming'
+ *   - between start and end-day  → 'active'
+ *   - after end-of-endDate (UTC) → 'completed'
+ */
+export function computeStatus(startDate, endDate, now = new Date()) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const endOfDay = new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1);
+  if (now > endOfDay) return 'completed';
+  if (now >= start) return 'active';
+  return 'upcoming';
+}
+
+function withComputedStatus(t) {
+  if (!t) return t;
+  return { ...t, status: computeStatus(t.startDate, t.endDate) };
+}
+
 export function getTournament(id) {
-  return TOURNAMENTS.find(t => t.id === id) || null;
+  const raw = TOURNAMENTS.find(t => t.id === id);
+  return raw ? withComputedStatus(raw) : null;
+}
+
+export function getAllTournaments() {
+  return TOURNAMENTS.map(withComputedStatus);
 }
