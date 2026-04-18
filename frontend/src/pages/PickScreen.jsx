@@ -238,7 +238,7 @@ export function PickScreen() {
     return (
       <div className="ps-page">
         <Hero
-          tone={tournamentCompleted ? 'gold' : 'ink'}
+          tone={tournamentCompleted ? 'gold' : 'primary'}
           compact
           showCourt
           eyebrow={tournamentCompleted ? 'TOURNAMENT COMPLETE' : 'MAKE YOUR PICK'}
@@ -277,7 +277,7 @@ export function PickScreen() {
   }
 
   // ── Header state description ─────────────────────────────────
-  const heroTone = isLocked ? 'ink' : isNotYetOpen ? 'ink' : 'primary';
+  const heroTone = 'primary';
   const heroLede = isOpen
     ? `Pick one player to make it through ${roundLabel}. You can swap your pick until the window closes.`
     : isNotYetOpen

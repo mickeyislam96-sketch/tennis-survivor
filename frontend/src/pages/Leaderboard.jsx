@@ -160,7 +160,7 @@ export function Leaderboard() {
   return (
     <div className="lb-page">
       <Hero
-        tone={winner ? 'gold' : 'ink'}
+        tone={winner ? 'gold' : 'primary'}
         compact
         showCourt
         eyebrow={winner ? 'TOURNAMENT COMPLETE' : 'LEADERBOARD'}
