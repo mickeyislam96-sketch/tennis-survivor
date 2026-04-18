@@ -759,83 +759,45 @@ export function GroupHome() {
   const upcomingPools  = allPools.filter(p => p.tournament?.status === 'upcoming');
   const completedPools = allPools.filter(p => p.tournament?.status === 'completed');
 
-  // Total entries across every pool — powers the live hero stat.
-  const totalEntries = allPools.reduce((sum, p) => sum + (p.memberCount || 0), 0);
-  // Pick the nearest "anchor" tournament for the hero eyebrow: first active,
-  // else first upcoming. Falls back to a neutral label if the feed is empty.
-  const anchorPool = activePools[0] || upcomingPools[0] || null;
-  const anchorLabel = anchorPool
-    ? (() => {
-        const t = anchorPool.tournament;
-        const status = t?.status === 'active' ? 'Live now' : 'Launches';
-        const date = t?.startDate
-          ? new Date(t.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-          : null;
-        return `${t?.name || 'Featured tournament'} · ${date ? `${status} ${date}` : status}`;
-      })()
-    : 'Year-round ATP tennis prediction';
-
   return (
     <div className="page home-page">
-      {/* ═══ Marquee hero ═══ */}
       <div className="home-hero">
+        <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
-          <span className="home-hero-eyebrow">{anchorLabel}</span>
-          <h1 className="home-hero-title">Pick one. <em>Outlast</em> everyone.</h1>
+          <p className="home-hero-eyebrow">🎾 Year-round ATP tennis prediction</p>
+          <h1 className="home-hero-title">Final Serve<em>-ivor</em></h1>
           <p className="home-hero-sub">
-            Pick one player per round. Get it wrong once and you are out. Last one standing wins.
+            Pick one player per round. If they win, you survive.<br />
+            Last one standing takes the prize.
           </p>
-          <div className="home-hero-cta">
-            <a className="home-hero-btn home-hero-btn--primary" href="#open-now">Enter a pool</a>
-            <a className="home-hero-btn home-hero-btn--ghost" href="#how-it-works">How it works</a>
-          </div>
-          <div className="home-hero-stats">
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">{totalEntries || '—'}</div>
-              <div className="home-hero-stat-label">Entries so far</div>
-            </div>
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">7</div>
-              <div className="home-hero-stat-label">Rounds to survive</div>
-            </div>
-            <div className="home-hero-stat">
-              <div className="home-hero-stat-num">1:∞</div>
-              <div className="home-hero-stat-label">One wrong pick, out</div>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ═══ How it works ═══ */}
-      <section id="how-it-works" className="how-it-works">
-        <div className="hiw-inner">
-          <div className="hiw-section-head">
-            <div className="hiw-kicker">How it works</div>
-            <h2 className="hiw-heading">How it <em>works</em></h2>
+      {/* How it works */}
+      <section className="how-it-works">
+        <h2 className="hiw-heading">How it works</h2>
+        <div className="hiw-steps">
+          <div className="hiw-step">
+            <div className="hiw-step-num">1</div>
+            <h3 className="hiw-step-title">Enter a pool</h3>
+            <p className="hiw-step-desc">Join an open tournament pool below, or use a friend's invite code to enter their private group.</p>
           </div>
-          <div className="hiw-steps">
-            <div className="hiw-step">
-              <div className="hiw-step-num">I</div>
-              <h3 className="hiw-step-title">Enter a pool</h3>
-              <p className="hiw-step-desc">Join an open tournament pool below, or use a friend's invite code to enter their private group.</p>
-            </div>
-            <div className="hiw-step">
-              <div className="hiw-step-num">II</div>
-              <h3 className="hiw-step-title">Pick one player</h3>
-              <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
-            </div>
-            <div className="hiw-step">
-              <div className="hiw-step-num">III</div>
-              <h3 className="hiw-step-title">Last one standing wins</h3>
-              <p className="hiw-step-desc">If your player loses, you're out. Run out of valid picks and you're eliminated — so don't burn your best players too soon. Outlast everyone else and take the entire prize pool.</p>
-            </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">2</div>
+            <h3 className="hiw-step-title">Pick one player</h3>
+            <p className="hiw-step-desc">Each round, pick any player you predict will win. You can never pick the same player twice.</p>
+          </div>
+          <div className="hiw-step">
+            <div className="hiw-step-num">3</div>
+            <h3 className="hiw-step-title">Last one standing wins</h3>
+            <p className="hiw-step-desc">If your player loses, you're out. Run out of valid picks and you're eliminated — so don't burn your best players too soon. Outlast everyone else and take the entire prize pool.</p>
           </div>
         </div>
       </section>
 
       {/* Active tournaments */}
       {activePools.length > 0 && (
-        <section id="open-now" className="home-section">
+        <section className="home-section">
           <h2 className="home-section-title">Open now</h2>
           <div className="pool-card-list">
             {activePools.map(p => <PoolCard key={p.id} pool={p} />)}
@@ -892,45 +854,6 @@ export function GroupHome() {
         <p className="home-section-sub">Enter a private group invite code below.</p>
         <JoinForm />
       </section>
-
-      {/* ═══ Final CTA ═══ */}
-      <section className="home-final-cta">
-        <h2 className="home-final-cta-title">Ready to <em>play</em>?</h2>
-        {anchorPool && (
-          <p className="home-final-cta-sub">
-            {anchorPool.tournament?.name}
-            {anchorPool.tournament?.startDate
-              ? ` starts ${new Date(anchorPool.tournament.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}.`
-              : '.'}
-          </p>
-        )}
-        <a className="home-final-cta-btn" href="#open-now">Enter a pool</a>
-      </section>
-
-      {/* ═══ Site footer ═══ */}
-      <footer className="home-site-footer">
-        <div className="home-footer-inner">
-          <div className="home-footer-brand">
-            <div className="home-footer-logo">Final Serve<em>-ivor</em></div>
-            <p>Tennis survivor pools.</p>
-          </div>
-          <div className="home-footer-col">
-            <h4>Product</h4>
-            <Link to="/">Tournaments</Link>
-            <a href="#how-it-works">How it works</a>
-          </div>
-          <div className="home-footer-col">
-            <h4>Legal</h4>
-            <Link to="/terms">Terms</Link>
-            <Link to="/privacy">Privacy</Link>
-            <Link to="/rules">Rules</Link>
-          </div>
-        </div>
-        <div className="home-footer-bottom">
-          <div>© {new Date().getFullYear()} Final Serve-ivor</div>
-          <div>All rights reserved</div>
-        </div>
-      </footer>
     </div>
   );
 }
