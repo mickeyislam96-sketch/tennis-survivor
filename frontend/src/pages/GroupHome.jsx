@@ -765,7 +765,7 @@ export function GroupHome() {
         <div className="home-hero-court" aria-hidden="true" />
         <div className="home-hero-inner">
           <p className="home-hero-eyebrow">🎾 Year-round ATP tennis prediction</p>
-          <h1 className="home-hero-title">Final Serve<em>-ivor</em></h1>
+          <h1 className="home-hero-title">Final Serve-ivor</h1>
           <p className="home-hero-sub">
             Pick one player per round. If they win, you survive.<br />
             Last one standing takes the prize.
