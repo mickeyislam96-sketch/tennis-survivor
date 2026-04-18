@@ -329,6 +329,45 @@ export async function fetchApiDrawRaw() {
 // Falls back to empty object if no config — rounds will use API start times or fallback dates.
 const LOCKTIME_OVERRIDES = ACTIVE_TOURNAMENT?.lockTimeOverrides || {};
 
+// ── Runtime lock overrides ──────────────────────────────────────────────────
+// In-memory overrides that take precedence over LOCKTIME_OVERRIDES and API data.
+// Lets the admin adjust lock times mid-tournament without redeploying.
+// Acceptable for single-instance Railway deployment. Cleared on restart (by design
+// — config-level overrides in activeTournament.js are the durable source of truth).
+const runtimeLockOverrides = {};
+
+/**
+ * Set a runtime lock override for a specific round.
+ * @param {string} round - Round key (e.g. 'R32', 'QF')
+ * @param {string} isoDate - ISO 8601 date string for the lock time
+ */
+export function setRuntimeLockOverride(round, isoDate) {
+  if (!ROUNDS.includes(round)) throw new Error(`Invalid round: ${round}`);
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) throw new Error(`Invalid date: ${isoDate}`);
+  runtimeLockOverrides[round] = isoDate;
+  console.log(`[tennisData] Runtime lock override set: ${round} → ${isoDate}`);
+}
+
+/**
+ * Clear a runtime lock override for a specific round.
+ * Falls back to LOCKTIME_OVERRIDES or API-derived times.
+ * @param {string} round - Round key to clear
+ */
+export function clearRuntimeLockOverride(round) {
+  if (!ROUNDS.includes(round)) throw new Error(`Invalid round: ${round}`);
+  delete runtimeLockOverrides[round];
+  console.log(`[tennisData] Runtime lock override cleared: ${round}`);
+}
+
+/**
+ * Get all current runtime lock overrides.
+ * @returns {Object} Map of round → ISO date string
+ */
+export function getRuntimeLockOverrides() {
+  return { ...runtimeLockOverrides };
+}
+
 export async function getDeadlines() {
   const fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
@@ -347,7 +386,8 @@ export async function getDeadlines() {
     return ROUNDS.map((round, i) => {
       const firstStart = ROUND_DATES[round] ? new Date(ROUND_DATES[round]) : null;
       let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-      if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+      if (runtimeLockOverrides[round]) lockAtDate = new Date(runtimeLockOverrides[round]);
+      else if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
       let lockAt    = lockAtDate ? lockAtDate.toISOString() : null;
       let isLocked  = lockAtDate ? now >= lockAtDate : false;
 
@@ -410,7 +450,8 @@ export async function getDeadlines() {
     const firstStart   = apiFirstStart || fallbackDate;
 
     let lockAtDate = firstStart ? new Date(firstStart.getTime() - 60 * 60 * 1000) : null;
-    if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
+    if (runtimeLockOverrides[round]) lockAtDate = new Date(runtimeLockOverrides[round]);
+    else if (LOCKTIME_OVERRIDES[round]) lockAtDate = new Date(LOCKTIME_OVERRIDES[round]);
     let lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
     let isLocked   = lockAtDate ? now >= lockAtDate : false;
 

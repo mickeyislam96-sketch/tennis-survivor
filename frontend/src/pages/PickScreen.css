@@ -463,6 +463,31 @@
   flex-wrap: wrap;
 }
 
+.ps-player-opponent {
+  display: block;
+  width: 100%;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-ink-soft);
+  font-weight: var(--ds-weight-normal);
+  line-height: 1.3;
+}
+
+.ps-player-match-time {
+  display: block;
+  width: 100%;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-ink-muted);
+  font-weight: var(--ds-weight-normal);
+  font-family: var(--ds-font-mono);
+  letter-spacing: 0.02em;
+}
+
+.ps-countdown-value--info {
+  font-size: var(--ds-text-sm) !important;
+  color: var(--ds-ink-soft);
+  font-weight: var(--ds-weight-normal);
+}
+
 .ps-player-error {
   font-family: var(--ds-font-sans);
   font-size: var(--ds-text-sm);

@@ -111,9 +111,15 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   let openRound = null; // the currently open round (picks hidden in modal)
   try {
     const deadlines = await getDeadlines();
-    const lastLocked = [...deadlines].filter((d) => d.isLocked).pop();
-    if (lastLocked) {
-      currentRound  = lastLocked.round;
+    // Find the latest locked round using the known round order (not date sorting).
+    // ROUNDS is ordered R1 → R64 → R32 → ... → F, so the last locked entry
+    // in round-order is the one whose picks should be displayed.
+    const lockedRounds = deadlines.filter((d) => d.isLocked);
+    if (lockedRounds.length > 0) {
+      const latest = lockedRounds.reduce((best, d) =>
+        ROUNDS.indexOf(d.round) > ROUNDS.indexOf(best.round) ? d : best
+      );
+      currentRound  = latest.round;
       roundIsLocked = true;
     }
     const currentlyOpen = deadlines.find((d) => d.isOpen);

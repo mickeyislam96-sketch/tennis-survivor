@@ -22,6 +22,14 @@ const ROUND_LABELS = {
   R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', F: 'Final',
 };
 
+function formatMatchTime(isoString) {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    + ', ' + d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function Countdown({ to, className = 'ps-countdown-value', onExpire }) {
   const [left, setLeft] = useState('');
 
@@ -70,6 +78,7 @@ export function PickScreen() {
   const [drawAvailable, setDrawAvailable] = useState(true);
   const [tournamentCompleted, setTournamentCompleted] = useState(false);
   const [allPicks, setAllPicks]       = useState([]);
+  const [isPerMatchLock, setIsPerMatchLock] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/draw/rounds`).then((r) => r.json()).then(setRounds);
@@ -116,6 +125,7 @@ export function PickScreen() {
         setCurrentRound(d.round);
         setDeadline(d.lockAt || null);
         setOpensAt(d.opensAt || null);
+        setIsPerMatchLock(d.perMatchLock || false);
         return;
       }
     }
@@ -126,6 +136,7 @@ export function PickScreen() {
     const d = deadlines.find((d) => d.round === currentRound);
     setDeadline(d ? d.lockAt : null);
     setOpensAt(d ? d.opensAt : null);
+    setIsPerMatchLock(d ? (d.perMatchLock || false) : false);
   }, [currentRound, deadlines]);
 
   useEffect(() => {
@@ -332,11 +343,17 @@ export function PickScreen() {
           </div>
         )}
 
-        {/* Window open: closing countdown */}
-        {isOpen && deadline && (
+        {/* Window open: closing countdown or per-match lock hint */}
+        {isOpen && deadline && !isPerMatchLock && (
           <Card tone="primary" padding="md" className="ps-countdown-card">
             <span className="ps-countdown-label">Pick window closes in</span>
             <Countdown to={deadline} onExpire={fetchDeadlines} />
+          </Card>
+        )}
+        {isOpen && isPerMatchLock && (
+          <Card tone="primary" padding="md" className="ps-countdown-card">
+            <span className="ps-countdown-label">Per-match lock active</span>
+            <span className="ps-countdown-value ps-countdown-value--info">Players removed as their match starts</span>
           </Card>
         )}
 
@@ -528,6 +545,14 @@ export function PickScreen() {
                     )}
                     <span className="ps-player-name">
                       <span className="ps-player-name-text">{player.name}</span>
+                      {player.opponentName && (
+                        <span className="ps-player-opponent">vs {player.opponentName}</span>
+                      )}
+                      {isPerMatchLock && player.matchStartTime && (
+                        <span className="ps-player-match-time">
+                          {formatMatchTime(player.matchStartTime)}
+                        </span>
+                      )}
                       <span className="ps-player-tags">
                         {usedInOtherRound && (
                           <Badge tone="neutral" size="sm">Already used</Badge>

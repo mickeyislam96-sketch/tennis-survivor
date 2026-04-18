@@ -17,7 +17,7 @@
 
 import { Router } from 'express';
 import { autoProcessResults, processRoundResults, eliminateNonPickers } from '../services/resultsProcessor.js';
-import { getDeadlines } from '../services/tennisData.js';
+import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRuntimeLockOverrides } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
 import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails } from '../utils/email.js';
@@ -58,14 +58,38 @@ adminRouter.post('/process-results', async (req, res) => {
 });
 
 // ── POST /api/admin/set-lock-override ────────────────────────────────────────
-// TODO: Runtime lock overrides — needs setRuntimeLockOverride() in tennisData.js.
-// For now, lock overrides are set statically in activeTournament.js.
+// Force a round's lock time without redeploying.
+// Body: { secret, round: "R32", lockAt: "2026-04-26T17:00:00Z" }
+adminRouter.post('/set-lock-override', (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { round, lockAt } = req.body;
+  if (!round)  return res.status(400).json({ error: 'round is required (e.g. "R32")' });
+  if (!lockAt) return res.status(400).json({ error: 'lockAt is required (ISO 8601 date string)' });
+  try {
+    setRuntimeLockOverride(round, lockAt);
+    res.json({ ok: true, round, lockAt, message: `Lock override set: ${round} locks at ${lockAt}` });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
 
 // ── POST /api/admin/clear-lock-override ──────────────────────────────────────
-// TODO: Needs clearRuntimeLockOverride() in tennisData.js.
+// Remove a runtime lock override. Falls back to config or API times.
+// Body: { secret, round: "R32" }
+adminRouter.post('/clear-lock-override', (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { round } = req.body;
+  if (!round) return res.status(400).json({ error: 'round is required' });
+  try {
+    clearRuntimeLockOverride(round);
+    res.json({ ok: true, round, message: `Lock override cleared for ${round}` });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
 
 // ── POST /api/admin/invalidate-cache ─────────────────────────────────────────
-// TODO: Needs invalidateCache() in tennisData.js.
+// TODO: Needs invalidateCache() in tennisData.js when caching is implemented.
 
 // ── POST /api/admin/eliminate-non-pickers ────────────────────────────────────
 // Manually eliminate players who didn't pick for a specific round.
@@ -112,6 +136,7 @@ adminRouter.get('/status', async (req, res) => {
         r1PerMatchLock: TOURNAMENT.r1PerMatchLock || false,
       },
       deadlines,
+      runtimeLockOverrides: getRuntimeLockOverrides(),
       db:              dbResult?.rows?.[0] ?? null,
       timestamp:       new Date().toISOString(),
     });
