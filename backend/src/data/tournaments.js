@@ -91,6 +91,31 @@ export const TOURNAMENTS = [
   },
 ];
 
+/**
+ * Compute tournament status from its start/end dates.
+ * Overrides any hardcoded `status` on the registry to prevent stale data
+ * (e.g. Miami left as 'active' after it finished).
+ */
+export function computeStatus(startDate, endDate, now = new Date()) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  // Treat end-of-endDate as the cutover (23:59:59 UTC of endDate).
+  const endOfDay = new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1);
+  if (now > endOfDay) return 'completed';
+  if (now >= start) return 'active';
+  return 'upcoming';
+}
+
+function withComputedStatus(t) {
+  if (!t) return t;
+  return { ...t, status: computeStatus(t.startDate, t.endDate) };
+}
+
 export function getTournament(id) {
-  return TOURNAMENTS.find(t => t.id === id) || null;
+  const raw = TOURNAMENTS.find(t => t.id === id);
+  return raw ? withComputedStatus(raw) : null;
+}
+
+export function getAllTournaments() {
+  return TOURNAMENTS.map(withComputedStatus);
 }

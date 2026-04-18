@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
+import { TOURNAMENTS, getTournament } from '../data/tournaments';
 
 export function PickHistory() {
   const { groupId } = useParams();
@@ -26,7 +26,7 @@ export function PickHistory() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
-        const t = g?.tournamentId ? TOURNAMENTS.find(t => t.id === g.tournamentId) : null;
+        const t = g?.tournamentId ? getTournament(g.tournamentId) : null;
         setTournamentStatus(t?.status || null);
       })
       .catch(() => setMember(null));

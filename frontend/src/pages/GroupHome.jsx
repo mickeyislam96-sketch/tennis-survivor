@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { getTournament, TOURNAMENTS } from '../data/tournaments';
+import { getTournament, TOURNAMENTS, getAllTournaments } from '../data/tournaments';
 
 // Days until a YYYY-MM-DD date (positive = future)
 function daysUntil(dateStr) {
@@ -239,7 +239,7 @@ export function GroupHome() {
       ? lbWinners
       : (isCompleted ? (group.members || []).filter(m => m.isAlive) : []);
     // Next tournament for CTA
-    const nextTournament = TOURNAMENTS.find(t => t.status === 'upcoming' || t.status === 'active');
+    const nextTournament = getAllTournaments().find(t => t.status === 'upcoming' || t.status === 'active');
 
     // ── Pre-launch dashboard for NON-MEMBERS (join CTA) ──────────
     if (preLaunch && tournament && !isMember) {
@@ -484,7 +484,7 @@ export function GroupHome() {
     // ── Completed tournament dashboard ──────────────────────────
     if (isCompleted && tournament) {
       const winnerNames = winners.map(w => w.displayName);
-      const nextT = TOURNAMENTS.find(t => t.status === 'upcoming' && t.id !== tournament.id);
+      const nextT = getAllTournaments().find(t => t.status === 'upcoming' && t.id !== tournament.id);
 
       return (
         <div className="page group-home">
@@ -755,9 +755,24 @@ export function GroupHome() {
   }
 
   // ── Lobby / home ────────────────────────────────────────────
-  const activePools    = allPools.filter(p => p.tournament?.status === 'active');
-  const upcomingPools  = allPools.filter(p => p.tournament?.status === 'upcoming');
-  const completedPools = allPools.filter(p => p.tournament?.status === 'completed');
+  // Defensive: recompute each pool's tournament.status from its dates. Guards
+  // against stale backend data (e.g. Miami left as 'active' post-tournament).
+  const nowTs = Date.now();
+  const poolsWithFreshStatus = allPools.map(p => {
+    const t = p.tournament;
+    if (!t || !t.startDate || !t.endDate) return p;
+    const endTs = new Date(t.endDate).getTime() + 24 * 60 * 60 * 1000 - 1;
+    const startTs = new Date(t.startDate).getTime();
+    let status;
+    if (nowTs > endTs) status = 'completed';
+    else if (nowTs >= startTs) status = 'active';
+    else status = 'upcoming';
+    return { ...p, tournament: { ...t, status } };
+  });
+
+  const activePools    = poolsWithFreshStatus.filter(p => p.tournament?.status === 'active');
+  const upcomingPools  = poolsWithFreshStatus.filter(p => p.tournament?.status === 'upcoming');
+  const completedPools = poolsWithFreshStatus.filter(p => p.tournament?.status === 'completed');
 
   // Anchor the hero to a single tournament — first active, else first upcoming.
   // Everything in the marquee (eyebrow, CTA, stats) reads off this pool so the
@@ -782,12 +797,16 @@ export function GroupHome() {
     : 'Year-round ATP tennis prediction';
 
   // Primary CTA copy + destination — matches how the user relates to the anchor pool.
+  // Always names the tournament so the user knows exactly where they are going.
+  const anchorDisplay = anchorName
+    ? `${anchorName}${anchorYear ? ` ${anchorYear}` : ''}`
+    : 'the pool';
   const primaryCta = anchorPool
     ? {
         to: `/group/${anchorPool.id}`,
         label: anchorIsMember
-          ? (anchorIsActive ? 'View your pool' : 'View your entry')
-          : `Enter ${anchorName}${anchorYear ? ` ${anchorYear}` : ''}`,
+          ? `View ${anchorDisplay}`
+          : `Enter ${anchorDisplay}`,
       }
     : { to: '#open-now', label: 'See pools' };
 
