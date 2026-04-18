@@ -143,6 +143,6 @@ app.post('/api/admin/approve-emails', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Final Serve-ivor API running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Final Serve-ivor API running on 0.0.0.0:${PORT}`);
 });
