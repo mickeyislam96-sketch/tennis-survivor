@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { Button } from '../ui/Button.jsx';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import './Layout.css';
 
 // ── Error Boundary ─────────────────────────────────────────────
@@ -150,6 +151,7 @@ function AuthModal({ onClose, initialMode = 'login' }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const trapRef = useFocusTrap(true);
 
   const switchMode = (m) => { setMode(m); setError(''); setPassword(''); };
 
@@ -196,9 +198,21 @@ function AuthModal({ onClose, initialMode = 'login' }) {
     'forgot-sent': 'Check your inbox',
   }[mode];
 
+  const handleBackdropKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="ds-modal-backdrop" onClick={onClose}>
+    <div
+      className="ds-modal-backdrop"
+      onClick={onClose}
+      onKeyDown={handleBackdropKeyDown}
+      role="presentation"
+    >
       <div
+        ref={trapRef}
         className="ds-modal-card"
         role="dialog"
         aria-modal="true"

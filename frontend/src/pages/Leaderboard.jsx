@@ -8,6 +8,7 @@ import { Stat } from '../ui/Stat.jsx';
 import { Button } from '../ui/Button.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
 import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import './Leaderboard.css';
 
 // ── Formatting helpers ────────────────────────────────────────
@@ -41,6 +42,7 @@ function avatarColour(name) {
 function PickHistoryModal({ member, groupId, currentRound, onClose }) {
   const [picks, setPicks] = useState(null);
   const [error, setError] = useState(false);
+  const trapRef = useFocusTrap(true);
 
   useEffect(() => {
     fetch(`${API}/picks/history?userId=${member.userId}&groupId=${groupId}`)
@@ -53,9 +55,27 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
   const ini    = initials(member.displayName);
   const visiblePicks = (picks || []).filter(p => !currentRound || p.round !== currentRound);
 
+  const handleBackdropKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="ds-modal-backdrop" onClick={onClose}>
-      <div className="ds-modal-card lb-picks-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="ds-modal-backdrop"
+      onClick={onClose}
+      onKeyDown={handleBackdropKeyDown}
+      role="presentation"
+    >
+      <div
+        ref={trapRef}
+        className="ds-modal-card lb-picks-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pick-history-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <header className="ds-modal-header lb-picks-modal-header">
           <div className="lb-picks-modal-identity">
             <span
@@ -66,7 +86,7 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
             </span>
             <div>
               <span className="ds-modal-eyebrow">PICK HISTORY</span>
-              <h3 className="ds-modal-title">{member.displayName}</h3>
+              <h3 id="pick-history-modal-title" className="ds-modal-title">{member.displayName}</h3>
               <p className="lb-picks-modal-sub">
                 {member.isAlive
                   ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
@@ -226,11 +246,22 @@ export function Leaderboard() {
                   m.isWinner ? 'lb-row--winner' : m.isAlive ? 'lb-row--alive' : 'lb-row--out',
                 ].filter(Boolean).join(' ');
 
+                const handleRowKeyDown = (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedMember(m);
+                  }
+                };
+
                 return (
                   <tr
                     key={m.id}
                     className={rowClass}
                     onClick={() => setSelectedMember(m)}
+                    onKeyDown={handleRowKeyDown}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View pick history for ${m.displayName}`}
                     title="Click to view picks"
                   >
                     <td className="lb-td-player">
