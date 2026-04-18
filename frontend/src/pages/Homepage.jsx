@@ -32,7 +32,7 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: 'Survive every round',
-    body: 'If your pick wins, you move on. If they lose, you are out. The later rounds are where it gets tough.',
+    body: 'If your pick wins, you move on. If they lose, you are out.',
   },
   {
     step: 3,

@@ -51,10 +51,6 @@ const TIPS = [
     title: 'Check the draw before you pick',
     body: "Use the Draw page to see the full bracket. If your player has a tough next-round opponent, think twice before using them now.",
   },
-  {
-    title: 'Monitor withdrawals',
-    body: "If your picked player withdraws after the deadline closes, we'll email you with a chance to re-pick before their match starts. Keep an eye on your inbox during the tournament.",
-  },
 ];
 
 export function HowToPlay() {
