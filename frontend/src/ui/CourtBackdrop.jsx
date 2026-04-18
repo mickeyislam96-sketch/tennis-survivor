@@ -64,8 +64,10 @@ export function CourtBackdrop({
       {...rest}
     >
       <g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-        {/* Doubles outer boundary (baselines + doubles sidelines) */}
-        <rect x={left} y={top} width={W} height={H} rx="1" />
+        {/* Doubles outer boundary — top baseline + sidelines (no bottom baseline) */}
+        <line x1={left} y1={top} x2={right} y2={top} />
+        <line x1={left} y1={top} x2={left} y2={bottom} />
+        <line x1={right} y1={top} x2={right} y2={bottom} />
 
         {/* Singles sidelines */}
         <line x1={sLeft} y1={top} x2={sLeft} y2={bottom} />
@@ -86,9 +88,8 @@ export function CourtBackdrop({
           strokeDasharray="8 5"
         />
 
-        {/* Centre marks on baselines */}
+        {/* Centre mark on top baseline only (bottom baseline removed) */}
         <line x1={centreX} y1={top} x2={centreX} y2={top + 16} />
-        <line x1={centreX} y1={bottom - 16} x2={centreX} y2={bottom} />
       </g>
     </svg>
   );
