@@ -8,6 +8,7 @@ import { Button } from '../ui/Button.jsx';
 import { Badge, Pill } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
 import { Stat } from '../ui/Stat.jsx';
+import { PageSkeleton } from '../ui/Skeleton.jsx';
 import './GroupHome.css';
 
 // ── Date + formatting helpers ─────────────────────────────────
@@ -323,7 +324,7 @@ function JoinForm() {
       .then((group) => {
         window.location.href = `/group/${group.id}`;
       })
-      .catch(() => setError('Invalid invite code'))
+      .catch(() => setError("That invite code doesn't match any pool. Double-check the code or ask your friend to resend it."))
       .finally(() => setLoading(false));
   };
 
@@ -442,12 +443,12 @@ export function GroupHome() {
           navigate(`/group/${group.id}/pay`);
           return;
         }
-        throw new Error(d.error || 'Could not join');
+        throw new Error(d.error || 'Failed to join this pool. Please refresh the page and try again.');
       }
       const updated = await fetch(`${API}/groups/${group.id}`).then(r => r.json());
       setGroup(updated);
     } catch (e) {
-      setJoinError(e.message);
+      setJoinError(e.message || 'Something went wrong while joining. Please try again in a moment.');
     } finally {
       setJoining(false);
     }
@@ -463,7 +464,7 @@ export function GroupHome() {
   if (loading) {
     return (
       <Section tone="canvas" size="lg">
-        <p className="gh-loading">Loading…</p>
+        <PageSkeleton />
       </Section>
     );
   }
@@ -853,8 +854,8 @@ export function GroupHome() {
             <div className="gh-banner gh-banner--info">
               <span className="gh-banner-icon" aria-hidden="true">🎾</span>
               <span className="gh-banner-text">
-                <strong>R1 is open.</strong>{' '}
-                Pick any player before their match starts. Players are removed from the list as matches begin.
+                <strong>R1 is open — no fixed deadline.</strong>{' '}
+                Pick any player before their match starts. Both players lock once a match begins.
               </span>
               <Button as={Link} to={`/group/${groupId}/pick`} variant="primary" size="sm">
                 Make your pick →
@@ -906,7 +907,7 @@ export function GroupHome() {
                     </Button>
                     {openRound === 'R1' ? (
                       <p className="gh-cta-hint">
-                        No deadline for R1. Players are removed as their match starts, so pick before your player begins.
+                        No fixed deadline for R1. Pick before your player's match starts — once it begins, both players lock.
                       </p>
                     ) : openRound ? (
                       <p className="gh-cta-hint">
@@ -988,7 +989,7 @@ export function GroupHome() {
           <Card tone="muted" padding="md">
             <Pill tone="primary" size="md">1</Pill>
             <h3 className="gh-hiw-title">Enter a pool</h3>
-            <p className="gh-hiw-desc">Join an open tournament pool below, or use a friend's invite code to enter their private group.</p>
+            <p className="gh-hiw-desc">Join an open tournament pool below, or use a friend's invite code to enter their private pool.</p>
           </Card>
           <Card tone="muted" padding="md">
             <Pill tone="primary" size="md">2</Pill>
@@ -1058,7 +1059,7 @@ export function GroupHome() {
           <SectionHeader
             eyebrow="INVITE CODE"
             title={<>Have an <em>invite code</em>?</>}
-            kicker="Enter a private group invite code to join friends."
+            kicker="Enter a private pool invite code to join friends."
           />
           <JoinForm />
         </Card>

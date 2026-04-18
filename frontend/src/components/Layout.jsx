@@ -1,8 +1,55 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { Button } from '../ui/Button.jsx';
 import './Layout.css';
+
+// ── Error Boundary ─────────────────────────────────────────────
+// Catches render errors and shows a friendly fallback instead of
+// a white screen. This has saved us from 3 separate incidents.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary]', error, info?.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', minHeight: '60vh', padding: '2rem',
+          fontFamily: 'Outfit, sans-serif', textAlign: 'center',
+        }}>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#141414' }}>
+            Something went wrong
+          </h2>
+          <p style={{ color: '#4A4A46', marginBottom: '1.5rem', maxWidth: '400px' }}>
+            The page hit an unexpected error. A refresh usually fixes it.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#0F4A23', color: '#fff', border: 'none',
+              padding: '12px 24px', borderRadius: '8px', fontSize: '1rem',
+              cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+            }}
+          >
+            Refresh page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export { ErrorBoundary };
 
 const groupNav = [
   { to: 'pick',        label: 'Make pick' },

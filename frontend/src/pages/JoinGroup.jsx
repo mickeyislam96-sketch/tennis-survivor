@@ -59,7 +59,7 @@ export function JoinGroup() {
         join(authUser);
       }
     } catch (err) {
-      setAuthError(err.message || 'Something went wrong. Please try again.');
+      setAuthError(err.message || 'Sign-in failed. Please check your email and password, then try again.');
     } finally {
       setAuthLoading(false);
     }
@@ -88,7 +88,7 @@ export function JoinGroup() {
         return r.json();
       })
       .then(() => navigate(`/group/${group.id}`))
-      .catch((e) => setError(e.message || 'Could not join'))
+      .catch((e) => setError(e.message || 'Failed to join the pool. Please refresh the page and try again.'))
       .finally(() => setJoining(false));
   };
 

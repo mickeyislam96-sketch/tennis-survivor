@@ -1180,7 +1180,7 @@ input, select { font-family: var(--font); }
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .hiw-steps { grid-template-columns: 1fr; }
 }
 .hiw-step {
@@ -2092,7 +2092,7 @@ input, select { font-family: var(--font); }
 .btn-lg { padding: 0.8rem 1.75rem; font-size: 1rem; border-radius: var(--radius-sm); }
 
 /* ── Mobile responsive overrides ────────────────────────────── */
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .group-hero-title { font-size: 1.35rem; }
   .home-hero-title  { font-size: 1.65rem; }
   .group-hero-stats { gap: 0.75rem; }
@@ -2460,7 +2460,7 @@ input, select { font-family: var(--font); }
   white-space: nowrap;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .pool-card-top { flex-direction: column; gap: 0.5rem; }
   .pool-card-cta { margin-left: 0; }
 }
@@ -3314,7 +3314,7 @@ input, select { font-family: var(--font); }
   position: relative;
   z-index: 1;
 }
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .lb-winner-banner { padding: 1.25rem; gap: 1rem; }
   .lb-winner-trophy { font-size: 2.25rem; }
   .lb-winner-name   { font-size: 1.4rem; }
@@ -3372,7 +3372,7 @@ input, select { font-family: var(--font); }
    MOBILE POLISH — additional overrides (375px-first)
 ══════════════════════════════════════════════════════════════ */
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   /* Header: shrink auth buttons so they fit beside the logo */
   .header-auth-btns { gap: 0.35rem; }
   .btn-signin  { font-size: 0.78rem; padding: 0.32rem 0.6rem; }
@@ -3782,7 +3782,7 @@ input, select { font-family: var(--font); }
 }
 
 /* ── Mobile: remove excess vertical gap in pick screen ───────── */
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .modal-auth-header { padding: 1.25rem 1.25rem 1rem; }
   .modal-auth-body { padding: 1rem 1.25rem 1.25rem; }
   .modal-box--auth { max-width: 100%; }
@@ -3881,7 +3881,7 @@ input, select { font-family: var(--font); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .payment-flow { padding-top: 1.5rem; }
   .payment-card { padding: 1.5rem; margin: 0 1rem; }
   .payment-amount { font-size: 2rem; }
@@ -4025,7 +4025,7 @@ input, select { font-family: var(--font); }
   color: #fff;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .completed-stats { gap: 1rem; }
   .winner-name { font-size: 1.25rem; }
   .winner-trophy { font-size: 2.5rem; }

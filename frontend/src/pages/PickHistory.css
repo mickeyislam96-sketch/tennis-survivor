@@ -146,7 +146,7 @@
 }
 
 /* ── Mobile ───────────────────────────────────────────── */
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .ph-top-row {
     flex-direction: column;
     align-items: stretch;

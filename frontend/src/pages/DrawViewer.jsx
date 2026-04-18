@@ -8,21 +8,8 @@ import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
+import { ROUND_SHORT as ROUND_LABELS, ROUND_FULL } from '../data/roundLabels';
 import './DrawViewer.css';
-
-// ── Round labels ───────────────────────────────────────────────
-const ROUND_LABELS = {
-  R1: 'R1', R64: 'R64', R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
-};
-const ROUND_FULL = {
-  R1:  'First Round',
-  R64: 'Round of 64',
-  R32: 'Round of 32',
-  R16: 'Round of 16',
-  QF:  'Quarter-finals',
-  SF:  'Semi-finals',
-  F:   'Final',
-};
 
 const MATCH_COUNTS_FALLBACK = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 

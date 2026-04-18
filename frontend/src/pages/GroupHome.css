@@ -338,7 +338,7 @@
   color: var(--ds-ink);
 }
 
-.gh-pw-arrow { color: var(--ds-ink-ghost); }
+.gh-pw-arrow { color: var(--ds-ink-soft); }
 
 .gh-pw-closes { color: var(--ds-ink-soft); }
 
@@ -527,7 +527,7 @@
   justify-content: center;
   width: 32px; height: 32px;
   border-radius: var(--ds-radius-pill);
-  color: #fff;
+  color: var(--ds-primary-ink);
   font-family: var(--ds-font-mono);
   font-size: var(--ds-text-2xs);
   font-weight: var(--ds-weight-bold);
@@ -787,7 +787,7 @@
 }
 
 /* Mobile ------------------------------------------------------ */
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .gh-pick-done { flex-wrap: wrap; }
   .gh-banner { flex-direction: column; align-items: flex-start; }
   .gh-banner-text { flex-basis: 100%; }

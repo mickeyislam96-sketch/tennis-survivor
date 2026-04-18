@@ -1,0 +1,44 @@
+/* ── Skeleton loading placeholders ─────────────────────────────── */
+.ui-skeleton {
+  background: var(--ds-surface-muted);
+  border-radius: var(--ds-radius-sm);
+  animation: ui-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.ui-skeleton--text {
+  height: 1em;
+  width: 100%;
+  margin-bottom: var(--ds-space-2);
+}
+.ui-skeleton--text:last-child { width: 60%; }
+
+.ui-skeleton--heading {
+  height: 1.5em;
+  width: 40%;
+  margin-bottom: var(--ds-space-4);
+}
+
+.ui-skeleton--row {
+  height: 52px;
+  width: 100%;
+  margin-bottom: var(--ds-space-2);
+  border-radius: var(--ds-radius-md);
+}
+
+.ui-skeleton--card {
+  height: 120px;
+  width: 100%;
+  margin-bottom: var(--ds-space-4);
+  border-radius: var(--ds-radius-lg);
+}
+
+.ui-skeleton--stat {
+  height: 64px;
+  width: 100%;
+  border-radius: var(--ds-radius-md);
+}
+
+@keyframes ui-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}

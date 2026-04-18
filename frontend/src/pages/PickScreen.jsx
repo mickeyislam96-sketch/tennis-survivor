@@ -7,6 +7,7 @@ import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
+import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import './PickScreen.css';
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -16,11 +17,6 @@ function formatWindowTime(isoString) {
     + ' at '
     + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
-
-const ROUND_LABELS = {
-  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
-  R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', F: 'Final',
-};
 
 function formatMatchTime(isoString) {
   if (!isoString) return null;
@@ -191,7 +187,7 @@ export function PickScreen() {
         setMessage(wasChange ? 'Pick updated!' : 'Pick locked in!');
       })
       .catch((e) => {
-        const msg = e.message || 'Could not submit pick';
+        const msg = e.message || "Your pick couldn't be saved. The deadline may have passed. Refresh the page and try again.";
         setRowError({ id: player.id, msg });
         setTimeout(() => setRowError({ id: null, msg: '' }), 4000);
       })
@@ -352,8 +348,8 @@ export function PickScreen() {
         )}
         {isOpen && isPerMatchLock && (
           <Card tone="primary" padding="md" className="ps-countdown-card">
-            <span className="ps-countdown-label">Per-match lock active</span>
-            <span className="ps-countdown-value ps-countdown-value--info">Players removed as their match starts</span>
+            <span className="ps-countdown-label">R1: No fixed deadline</span>
+            <span className="ps-countdown-value ps-countdown-value--info">Pick any time before your player's match starts. Once a match begins, both players are locked.</span>
           </Card>
         )}
 

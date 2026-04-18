@@ -7,12 +7,8 @@ import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Card } from '../ui/Card.jsx';
 import { Badge } from '../ui/Badge.jsx';
+import { ROUND_SHORT as ROUND_LABELS } from '../data/roundLabels';
 import './Profile.css';
-
-const ROUND_LABELS = {
-  R1: 'R1', R64: 'R64', R32: 'R32',
-  R16: 'R16', QF: 'QF', SF: 'SF', F: 'Final',
-};
 
 function fmtGBP(cents) {
   return '£' + (cents / 100).toLocaleString('en-GB', {

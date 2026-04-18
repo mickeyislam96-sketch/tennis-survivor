@@ -6,6 +6,8 @@ import { Hero } from '../ui/Hero.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Stat } from '../ui/Stat.jsx';
 import { Button } from '../ui/Button.jsx';
+import { PageSkeleton } from '../ui/Skeleton.jsx';
+import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import './Leaderboard.css';
 
 // ── Formatting helpers ────────────────────────────────────────
@@ -34,11 +36,6 @@ function avatarColour(name) {
   for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
   return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
 }
-
-const ROUND_LABELS = {
-  R1: 'Round 1', R64: 'Round of 64', R32: 'Round of 32',
-  R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', F: 'Final',
-};
 
 // ── Pick History Modal ────────────────────────────────────────
 function PickHistoryModal({ member, groupId, currentRound, onClose }) {
@@ -103,9 +100,9 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
                       <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
                       <td className="lb-pick-player">{p.playerName || '—'}</td>
                       <td className="lb-pick-result">
-                        {p.survived === true  && <Badge tone="success" size="sm" dot>Survived</Badge>}
-                        {p.survived === false && <Badge tone="danger" size="sm" dot>Out</Badge>}
-                        {p.survived == null   && <Badge tone="neutral" size="sm">Pending</Badge>}
+                        {p.survived === true  && <Badge tone="success" size="sm" dot>Advanced</Badge>}
+                        {p.survived === false && <Badge tone="danger" size="sm" dot>Eliminated</Badge>}
+                        {p.survived == null   && <Badge tone="neutral" size="sm">Result pending</Badge>}
                       </td>
                     </tr>
                   ))}
@@ -148,7 +145,7 @@ export function Leaderboard() {
   if (!data) {
     return (
       <Section tone="canvas" size="lg">
-        <p className="lb-loading">Loading leaderboard…</p>
+        <PageSkeleton />
       </Section>
     );
   }
@@ -255,7 +252,7 @@ export function Leaderboard() {
                       ) : m.isAlive ? (
                         <Badge tone="success" size="sm" dot>Alive</Badge>
                       ) : (
-                        <Badge tone="danger" size="sm">Out</Badge>
+                        <Badge tone="danger" size="sm">Eliminated</Badge>
                       )}
                     </td>
                     <td className="lb-td-progress">

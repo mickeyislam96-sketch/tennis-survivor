@@ -73,9 +73,9 @@
 /* ── Danger ────────────────────────────────────────────────────────── */
 .ui-btn--danger {
   background: var(--ds-danger);
-  color: #fff;
+  color: var(--ds-primary-ink);
 }
-.ui-btn--danger:hover { background: #8E2D1F; }
+.ui-btn--danger:hover { background: var(--ds-danger-hover); }
 
 /* ── Gold — winner / marquee moments ──────────────────────────────── */
 .ui-btn--gold {
@@ -84,7 +84,7 @@
   box-shadow: 0 2px 0 var(--ds-gold-deep);
 }
 .ui-btn--gold:hover {
-  background: #FFDB66;
+  background: var(--ds-gold-hover);
 }
 
 .ui-btn--loading .ui-btn__label { opacity: 0.6; }

@@ -141,10 +141,10 @@ export function PickHistory() {
                     <span className="ph-player">{p.playerName}</span>
                   </div>
                   {state === 'pending' && (
-                    <Badge tone="neutral" size="sm">Pending</Badge>
+                    <Badge tone="neutral" size="sm">Result pending</Badge>
                   )}
                   {state === 'won' && (
-                    <Badge tone="success" size="sm">Survived ✓</Badge>
+                    <Badge tone="success" size="sm">Advanced ✓</Badge>
                   )}
                   {state === 'lost' && (
                     <Badge tone="danger" size="sm">Eliminated ✗</Badge>

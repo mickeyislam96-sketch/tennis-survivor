@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Layout } from './components/Layout';
+import { Layout, ErrorBoundary } from './components/Layout';
 import { Homepage } from './pages/Homepage';
 import { PickScreen } from './pages/PickScreen';
 import { DrawViewer } from './pages/DrawViewer';
@@ -19,6 +19,7 @@ export { useAuth, API } from './context/AuthContext';
 
 function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <Layout>
         <Routes>
@@ -38,6 +39,7 @@ function App() {
         </Routes>
       </Layout>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

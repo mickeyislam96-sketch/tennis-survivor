@@ -55,7 +55,7 @@ export function PaymentFlow() {
 
         if (paymentResult === 'cancel') {
           setStatus('failed');
-          setError('Payment was cancelled. You can try again.');
+          setError("Payment was cancelled. You can try again whenever you're ready.");
           return;
         }
 
@@ -68,11 +68,11 @@ export function PaymentFlow() {
         const data = await res.json();
 
         if (!res.ok) {
-          if (data.error === 'Already a member of this group') {
+          if (data.error === 'Already a member of this pool') {
             navigate(`/group/${groupId}`);
             return;
           }
-          throw new Error(data.error || 'Failed to create payment');
+          throw new Error(data.error || 'Failed to process the payment. Please refresh the page and try again.');
         }
 
         setOrder(data);
@@ -92,7 +92,7 @@ export function PaymentFlow() {
         setStatus('created');
       } catch (err) {
         setStatus('error');
-        setError(err.message);
+        setError(err.message || 'Something went wrong. Please try again in a moment.');
       }
     };
 
@@ -120,11 +120,11 @@ export function PaymentFlow() {
         } else if (data.status === 'failed') {
           clearInterval(pollRef.current);
           setStatus('failed');
-          setError('Payment was not successful. Please try again.');
+          setError('Payment was declined. Please check your card details and try again.');
         } else if (attempts >= maxAttempts) {
           clearInterval(pollRef.current);
           setStatus('error');
-          setError('Payment verification timed out. If you were charged, contact us and we will sort it out.');
+          setError("Payment is taking longer than expected. If your card was charged, we'll sort it out. Contact us and let us know.");
         }
       } catch {
         /* keep trying */

@@ -105,11 +105,14 @@
   font-weight: var(--ds-weight-medium);
   color: var(--ds-ink-muted);
   cursor: pointer;
-  padding: 8px 4px;
+  padding: var(--ds-space-2) var(--ds-space-1);
+  min-height: 44px; /* Apple HIG touch target */
+  display: inline-flex;
+  align-items: center;
 }
 .ds-header__signin:hover { color: var(--ds-ink); }
 
-@media (max-width: 860px) {
+@media (max-width: 640px) {
   .ds-header__inner {
     grid-template-columns: auto auto;
     grid-template-rows: auto auto;
@@ -142,14 +145,14 @@
   justify-content: center;
   width: 36px; height: 36px;
   border-radius: var(--ds-radius-pill);
-  color: #fff;
+  color: var(--ds-primary-ink);
   font-family: var(--ds-font-mono);
   font-size: var(--ds-text-xs);
   font-weight: var(--ds-weight-bold);
   letter-spacing: 0.02em;
 }
 
-.user-avatar-sm { width: 32px; height: 32px; font-size: 10px; }
+.user-avatar-sm { width: 32px; height: 32px; font-size: var(--ds-text-xs); }
 
 .user-menu-dropdown {
   position: absolute;
@@ -301,7 +304,7 @@
   margin: 0;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .ds-footer__inner {
     grid-template-columns: 1fr;
     text-align: center;
@@ -324,7 +327,7 @@
 
 .ds-modal-card {
   width: 100%;
-  max-width: 440px;
+  max-width: min(440px, 90vw); /* prevent cramped modal on 390px screens */
   background: var(--ds-surface);
   border-radius: var(--ds-radius-lg);
   box-shadow: var(--ds-shadow-lg);

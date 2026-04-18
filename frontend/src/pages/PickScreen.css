@@ -519,7 +519,7 @@
 }
 
 /* Mobile ------------------------------------------------------- */
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .ps-picked-inner {
     align-items: flex-start;
   }
@@ -529,9 +529,17 @@
   }
   .ps-player-row {
     flex-wrap: wrap;
+    min-height: 44px; /* Apple HIG touch target */
   }
   .ps-player-row > .ui-button {
     margin-left: auto;
+    min-height: 44px;
+  }
+  .ps-round-tab {
+    min-height: 44px; /* Apple HIG touch target */
+  }
+  .ps-search-input {
+    min-width: 0; /* prevent overflow on 390px screens */
   }
   .ps-countdown-card,
   .ps-future-row {

@@ -163,11 +163,11 @@ export function Homepage() {
       const res = await fetch(
         `${API}/groups/invite/${encodeURIComponent(joinCode.trim().toUpperCase())}`
       );
-      if (!res.ok) throw new Error('Invite code not found.');
+      if (!res.ok) throw new Error("That invite code doesn't match any pool. Double-check the code or ask your friend to resend it.");
       const group = await res.json();
       navigate(`/join/${group.inviteCode}`);
     } catch (err) {
-      setJoinError(err.message || 'Something went wrong.');
+      setJoinError(err.message || 'Something went wrong. Please try again in a moment.');
     } finally {
       setJoinBusy(false);
     }

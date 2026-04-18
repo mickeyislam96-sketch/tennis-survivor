@@ -96,4 +96,13 @@
 
 @media (max-width: 640px) {
   .ui-site-header__nav { display: none; }
+
+  /* Safe area: iPhone notch / home indicator */
+  .ui-site-header__inner {
+    padding-left: max(var(--ds-space-6), env(safe-area-inset-left));
+    padding-right: max(var(--ds-space-6), env(safe-area-inset-right));
+  }
+
+  /* Touch targets: 44px min for all tappable elements */
+  .ui-site-header__avatar { min-width: 44px; min-height: 44px; }
 }

@@ -120,7 +120,7 @@
   justify-content: center;
   width: 32px; height: 32px;
   border-radius: var(--ds-radius-pill);
-  color: #fff;
+  color: var(--ds-primary-ink);
   font-family: var(--ds-font-mono);
   font-size: var(--ds-text-2xs);
   font-weight: var(--ds-weight-bold);
@@ -181,7 +181,7 @@
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
-.lb-pick-none   { color: var(--ds-ink-ghost); }
+.lb-pick-none   { color: var(--ds-ink-soft); }
 .lb-pick-hidden {
   font-family: var(--ds-font-mono);
   font-size: var(--ds-text-xs);
@@ -199,7 +199,7 @@
 }
 
 /* Mobile ------------------------------------------------------- */
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .lb-table thead { display: none; }
 
   .lb-table tbody tr {
