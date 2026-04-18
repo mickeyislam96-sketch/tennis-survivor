@@ -49,3 +49,20 @@
   order: 3;
   margin-top: var(--ds-space-1);
 }
+
+/* Inside dark heroes, inherit the hero's light text colour
+   instead of using hardcoded ink/muted values. */
+.ui-hero--primary .ui-stat__label,
+.ui-hero--ink .ui-stat__label {
+  color: inherit;
+  opacity: 0.7;
+}
+.ui-hero--primary .ui-stat__value,
+.ui-hero--ink .ui-stat__value {
+  color: inherit;
+}
+/* Gold-toned stat values stay gold even on dark heroes */
+.ui-hero--primary .ui-stat--gold .ui-stat__value,
+.ui-hero--ink .ui-stat--gold .ui-stat__value {
+  color: var(--ds-gold);
+}

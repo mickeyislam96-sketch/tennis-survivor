@@ -31,7 +31,7 @@ export function Hero({
   // Sensible default opacities per tone
   const defaultCourtOpacity =
     courtOpacity ??
-    (tone === 'ink' ? 0.08 : tone === 'primary' ? 0.12 : tone === 'gold' ? 0.18 : 0.06);
+    (tone === 'ink' ? 0.08 : tone === 'primary' ? 0.18 : tone === 'gold' ? 0.18 : 0.06);
 
   return (
     <section className={classes} {...rest}>

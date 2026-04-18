@@ -182,7 +182,7 @@ export function Homepage() {
         variant="gold"
         size="lg"
       >
-        Enter {featured.tournament?.name} →
+        {featured.isMember ? 'View' : 'Enter'} {featured.tournament?.name} →
       </Button>
       <Button as={Link} to="/how-to-play" variant="ghost" size="lg">
         How it works
