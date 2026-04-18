@@ -218,7 +218,7 @@ export function Homepage() {
   return (
     <div className="hp">
       <Hero
-        tone="ink"
+        tone="primary"
         eyebrow="A TENNIS SURVIVOR POOL"
         title={<>One pick a round. <em>Survive</em> the draw. Take the pot.</>}
         lede="Pick a player each round. If they win, you advance. If they lose, you are out. Last one standing wins the prize pool."

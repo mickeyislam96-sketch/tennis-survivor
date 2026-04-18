@@ -332,7 +332,7 @@ export function DrawViewer() {
     return (
       <div className="dv-page">
         <Hero
-          tone="ink"
+          tone="primary"
           compact
           showCourt
           eyebrow="TOURNAMENT DRAW"
@@ -418,7 +418,7 @@ export function DrawViewer() {
   return (
     <div className="dv-page">
       <Hero
-        tone="ink"
+        tone="primary"
         compact
         showCourt
         eyebrow={data.tournament ? `DRAW · ${data.tournament.toUpperCase()}` : 'TOURNAMENT DRAW'}

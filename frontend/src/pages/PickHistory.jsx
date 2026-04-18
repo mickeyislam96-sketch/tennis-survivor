@@ -43,7 +43,7 @@ export function PickHistory() {
     return (
       <div className="ph-page">
         <Hero
-          tone="ink"
+          tone="primary"
           compact
           showCourt
           eyebrow="YOUR PICKS"
@@ -75,7 +75,7 @@ export function PickHistory() {
   return (
     <div className="ph-page">
       <Hero
-        tone="ink"
+        tone="primary"
         compact
         showCourt
         eyebrow="YOUR PICKS"

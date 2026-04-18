@@ -531,7 +531,7 @@ export function GroupHome() {
           )}
 
           <Hero
-            tone="ink"
+            tone="primary"
             compact
             showCourt
             eyebrow={`${tournament.name.toUpperCase()} ${tournament.year} · ${tournament.tourLevel.toUpperCase()}`}
@@ -620,7 +620,7 @@ export function GroupHome() {
       return (
         <div className="gh-page">
           <Hero
-            tone="ink"
+            tone="primary"
             compact
             showCourt
             eyebrow={`${tournament.name.toUpperCase()} ${tournament.year} · REGISTERED`}
@@ -810,7 +810,7 @@ export function GroupHome() {
     return (
       <div className="gh-page">
         <Hero
-          tone="ink"
+          tone="primary"
           compact
           showCourt
           eyebrow={
@@ -975,7 +975,7 @@ export function GroupHome() {
   return (
     <div className="gh-page">
       <Hero
-        tone="ink"
+        tone="primary"
         showCourt
         eyebrow="🎾 YEAR-ROUND ATP TENNIS PREDICTION"
         title={<>Final <em>Serve-ivor</em></>}

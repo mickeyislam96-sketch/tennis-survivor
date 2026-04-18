@@ -104,7 +104,7 @@ export function JoinGroup() {
     return (
       <div className="jg-page">
         <Hero
-          tone="ink"
+          tone="primary"
           compact
           showCourt
           eyebrow="INVITE"
@@ -133,7 +133,7 @@ export function JoinGroup() {
   return (
     <div className="jg-page">
       <Hero
-        tone="ink"
+        tone="primary"
         compact
         showCourt
         eyebrow="YOU'VE BEEN INVITED"

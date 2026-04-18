@@ -241,7 +241,7 @@ export function Profile() {
   return (
     <div className="pr-page">
       <Hero
-        tone="ink"
+        tone="primary"
         compact
         showCourt
         eyebrow="PROFILE"

@@ -8,7 +8,7 @@ export function TermsAndConditions() {
   return (
     <div className="tc-page">
       <Hero
-        tone="ink"
+        tone="primary"
         compact
         showCourt
         eyebrow="LEGAL"

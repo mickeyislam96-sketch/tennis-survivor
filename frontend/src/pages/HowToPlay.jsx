@@ -61,7 +61,7 @@ export function HowToPlay() {
   return (
     <div className="htp-page">
       <Hero
-        tone="ink"
+        tone="primary"
         showCourt
         eyebrow="HOW TO PLAY"
         title={<>The rules are <em>simple</em>.<br />The strategy is everything.</>}
