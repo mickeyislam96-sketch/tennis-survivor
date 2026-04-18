@@ -20,7 +20,7 @@ import { autoProcessResults, processRoundResults, eliminateNonPickers } from '..
 import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRuntimeLockOverrides } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
-import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails } from '../utils/email.js';
+import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
 
 export const adminRouter = Router();
 
@@ -444,6 +444,83 @@ adminRouter.post('/revive-member', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/withdrawal ───────────────────────────────────────────────
+// Flag a player withdrawal. Any user in the current tournament who picked that
+// player in that round (and hasn't yet been eliminated) gets their pick unlocked
+// so they can re-pick.
+// Body: { secret, playerId, playerName, round, replacementName? }
+adminRouter.post('/withdrawal', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { playerId, playerName, round, replacementName } = req.body;
+  if (!playerId || !playerName || !round) {
+    return res.status(400).json({ error: 'playerId, playerName, and round are required' });
+  }
+  try {
+    // Find all picks in the current tournament for this player in this round
+    // where the pick hasn't been resolved (survived IS NULL).
+    const pickResult = await pool.query(
+      `SELECT p.id, p.user_id::text, p.group_id::text, u.email, u.display_name, gm.display_name as group_name
+         FROM picks p
+         JOIN users u ON u.id = p.user_id
+         JOIN group_members gm ON gm.user_id = p.user_id AND gm.group_id = p.group_id
+         JOIN groups g ON g.id = p.group_id
+        WHERE p.player_id = $1
+          AND p.round = $2
+          AND p.survived IS NULL
+          AND g.tournament_id = $3
+        ORDER BY p.created_at`,
+      [playerId, round, TOURNAMENT.id]
+    );
+
+    const affectedPicks = pickResult.rows;
+    if (affectedPicks.length === 0) {
+      return res.json({ ok: true, message: 'No active picks found for this player/round', count: 0, userIds: [] });
+    }
+
+    // Unlock each pick and queue a withdrawal notification email
+    const userIds = [];
+    for (const pick of affectedPicks) {
+      // Unlock the pick
+      await pool.query(
+        'UPDATE picks SET player_id = NULL, player_name = NULL WHERE id = $1',
+        [pick.id]
+      );
+
+      // Queue withdrawal notification email
+      try {
+        await sendWithdrawalEmail({
+          userId: pick.user_id,
+          groupId: pick.group_id,
+          round,
+          email: pick.email,
+          displayName: pick.display_name,
+          withdrawnPlayer: playerName,
+          replacementPlayer: replacementName || null,
+          groupName: pick.group_name,
+        });
+      } catch (emailErr) {
+        // Log the error but don't fail the whole operation
+        console.error(`[admin] withdrawal: failed to queue email for ${pick.email}:`, emailErr.message);
+      }
+
+      userIds.push(pick.user_id);
+    }
+
+    console.log(`[admin] withdrawal: ${playerName} flagged as withdrawn in ${round}. Unlocked ${affectedPicks.length} picks (${userIds.join(', ')})`);
+    res.json({
+      ok: true,
+      playerName,
+      round,
+      count: affectedPicks.length,
+      userIds,
+      message: `Unlocked ${affectedPicks.length} pick(s) and queued withdrawal notifications`,
+    });
+  } catch (err) {
+    console.error('[admin] withdrawal error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
@@ -485,10 +562,65 @@ adminRouter.post('/approve-emails', async (req, res) => {
 });
 
 // ── POST /api/admin/send-draw-released ──────────────────────────────────────
-// TODO: Needs sendDrawReleasedEmail() in email.js — build email template first.
+// Queue draw-released emails for all members of the current tournament's groups.
+// Body: { secret }
 adminRouter.post('/send-draw-released', async (req, res) => {
   if (!checkSecret(req, res)) return;
-  res.status(501).json({ error: 'Draw released email template not yet implemented' });
+  try {
+    // Find all members in all groups for the current tournament
+    const result = await pool.query(
+      `SELECT DISTINCT u.id::text, u.email, u.display_name, gm.group_id::text, g.name as group_name
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+         JOIN groups g ON g.id = gm.group_id
+        WHERE g.tournament_id = $1
+        ORDER BY u.email, g.name`,
+      [TOURNAMENT.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ ok: true, message: 'No members found in this tournament', count: 0 });
+    }
+
+    // Queue an email for each member
+    let queued = 0;
+    let skipped = 0;
+
+    for (const row of result.rows) {
+      try {
+        const emailResult = await sendDrawReleasedEmail({
+          userId: row.id,
+          groupId: row.group_id,
+          email: row.email,
+          displayName: row.display_name,
+          tournamentName: TOURNAMENT.name,
+          groupName: row.group_name,
+        });
+
+        if (emailResult.queued) {
+          queued++;
+        } else {
+          skipped++;
+        }
+      } catch (emailErr) {
+        console.error(`[admin] send-draw-released: failed to queue for ${row.email}:`, emailErr.message);
+        skipped++;
+      }
+    }
+
+    console.log(`[admin] send-draw-released: queued ${queued} emails, ${skipped} skipped (dedup)`, TOURNAMENT.name);
+    res.json({
+      ok: true,
+      tournament: TOURNAMENT.name,
+      total: result.rows.length,
+      queued,
+      skipped,
+      message: `Draw released emails queued: ${queued} new, ${skipped} already queued`,
+    });
+  } catch (err) {
+    console.error('[admin] send-draw-released error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────

@@ -174,7 +174,7 @@ function SurvivorMeter({ alive, total }) {
       </div>
       <div className="gh-meter-footer">
         <span>{pct}% of the field eliminated</span>
-        <span>{alive === 1 ? '🏆 We have a winner' : 'Last one standing wins the prize pool'}</span>
+        <span>{alive === 1 ? '🏆 We have a winner' : 'Last one standing wins the prize pot'}</span>
       </div>
     </Card>
   );
@@ -999,7 +999,7 @@ export function GroupHome() {
           <Card tone="muted" padding="md">
             <Pill tone="primary" size="md">3</Pill>
             <h3 className="gh-hiw-title">Last one standing wins</h3>
-            <p className="gh-hiw-desc">If your player loses, you're out. Outlast everyone else and take the entire prize pool.</p>
+            <p className="gh-hiw-desc">If your player loses, you're out. Outlast everyone else and take the entire prize pot.</p>
           </Card>
         </div>
 

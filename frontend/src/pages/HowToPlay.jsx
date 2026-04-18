@@ -34,7 +34,7 @@ const STEPS = [
     num: 5,
     icon: '👑',
     title: 'Last one standing wins',
-    body: "The game continues round by round until one person is left. That survivor takes the entire prize pool. If multiple people make it to the end, the prize is split equally.",
+    body: "The game continues round by round until one person is left. That survivor takes the entire prize pot. If multiple people make it to the end, the prize is split equally.",
   },
 ];
 

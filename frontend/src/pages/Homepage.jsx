@@ -37,7 +37,7 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     title: 'Last one standing wins the pot',
-    body: 'Entry fees go into a single prize pool. The last one standing takes it all.',
+    body: 'Entry fees go into a single prize pot. The last one standing takes it all.',
   },
 ];
 
@@ -221,7 +221,7 @@ export function Homepage() {
         tone="primary"
         eyebrow="A TENNIS SURVIVOR POOL"
         title={<><em>Survive</em> the draw. Take the pot.</>}
-        lede="Pick a player each round. If they win, you advance. If they lose, you are out. Last one standing wins the prize pool."
+        lede="Pick a player each round. If they win, you advance. If they lose, you are out. Last one standing wins the prize pot."
         actions={heroCta}
         meta={heroMeta}
       />

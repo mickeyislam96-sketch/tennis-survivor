@@ -473,7 +473,9 @@
 }
 
 .ps-player-match-time {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
   width: 100%;
   font-size: var(--ds-text-xs);
   color: var(--ds-ink-muted);
@@ -482,10 +484,48 @@
   letter-spacing: 0.02em;
 }
 
+.ps-match-soon {
+  display: inline-block;
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-semi);
+  padding: 2px 6px;
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-sans);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.ps-match-soon--urgent {
+  color: var(--ds-danger);
+  background: color-mix(in srgb, var(--ds-danger) 12%, transparent);
+}
+
+.ps-match-soon--today {
+  color: var(--ds-gold-deep, #E6A500);
+  background: color-mix(in srgb, var(--ds-gold) 15%, transparent);
+}
+
+.ps-player-row--match-started {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .ps-countdown-value--info {
   font-size: var(--ds-text-sm) !important;
   color: var(--ds-ink-soft);
   font-weight: var(--ds-weight-normal);
+}
+
+.ps-countdown-card--r1 {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ps-countdown-r1-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  width: 100%;
 }
 
 .ps-player-error {

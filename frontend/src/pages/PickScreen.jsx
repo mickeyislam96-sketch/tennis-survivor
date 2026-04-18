@@ -26,6 +26,19 @@ function formatMatchTime(isoString) {
     + ', ' + d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+function getMatchStartHint(isoString) {
+  if (!isoString) return null;
+  const matchTime = new Date(isoString);
+  const now = new Date();
+  const msUntilStart = matchTime.getTime() - now.getTime();
+  const hoursUntilStart = msUntilStart / (1000 * 60 * 60);
+
+  if (hoursUntilStart < 0) return null; // Match already started or passed
+  if (hoursUntilStart <= 2) return 'urgent'; // Red badge for within 2 hours
+  if (hoursUntilStart <= 6) return 'today'; // Amber badge for within 6 hours
+  return null;
+}
+
 function Countdown({ to, className = 'ps-countdown-value', onExpire }) {
   const [left, setLeft] = useState('');
 
@@ -77,32 +90,46 @@ export function PickScreen() {
   const [isPerMatchLock, setIsPerMatchLock] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/draw/rounds`).then((r) => r.json()).then(setRounds);
+    const controller = new AbortController();
+    fetch(`${API}/draw/rounds`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then(setRounds)
+      .catch((e) => { if (e.name !== 'AbortError') setRounds([]); });
+    return () => controller.abort();
   }, []);
 
   const fetchDeadlines = () => {
-    fetch(`${API}/draw/deadlines`)
+    const controller = new AbortController();
+    fetch(`${API}/draw/deadlines`, { signal: controller.signal })
       .then((r) => r.json())
       .then((list) => setDeadlines(Array.isArray(list) ? list : []))
-      .catch(() => setDeadlines([]));
+      .catch((e) => { if (e.name !== 'AbortError') setDeadlines([]); });
+    return () => controller.abort();
   };
 
-  useEffect(() => { fetchDeadlines(); }, []);
+  useEffect(() => {
+    const cleanup = fetchDeadlines();
+    return cleanup;
+  }, []);
 
   useEffect(() => {
     if (!groupId || !userId) return;
-    fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`)
+    const controller = new AbortController();
+    fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
       .then((r) => r.json())
       .then(setAvailable)
-      .catch(() => setAvailable([]));
+      .catch((e) => { if (e.name !== 'AbortError') setAvailable([]); });
+    return () => controller.abort();
   }, [groupId, userId, currentRound]);
 
   useEffect(() => {
     if (!groupId || !userId) return;
-    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
+    const controller = new AbortController();
+    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
-      .catch(() => setAllPicks([]));
+      .catch((e) => { if (e.name !== 'AbortError') setAllPicks([]); });
+    return () => controller.abort();
   }, [groupId, userId]);
 
   useEffect(() => {
@@ -137,7 +164,8 @@ export function PickScreen() {
 
   useEffect(() => {
     if (!groupId) return;
-    fetch(`${API}/groups/${groupId}`)
+    const controller = new AbortController();
+    fetch(`${API}/groups/${groupId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
@@ -149,7 +177,8 @@ export function PickScreen() {
           setDrawAvailable(false);
         }
       })
-      .catch(() => setMember(null));
+      .catch((e) => { if (e.name !== 'AbortError') setMember(null); });
+    return () => controller.abort();
   }, [groupId, userId]);
 
   const submitPick = (player) => {
@@ -206,9 +235,21 @@ export function PickScreen() {
 
   const filtered = available.filter((p) => {
     const name = (p.name || '').toLowerCase().trim();
+    const opponentName = (p.opponentName || '').toLowerCase().trim();
+    const opponentPossible = (p.opponentPossible || []).join(' ').toLowerCase();
     const alive = !p.roundEliminated;
-    const matchesSearch = !search.trim() || name.includes(search.trim().toLowerCase());
+    const searchTerm = search.trim().toLowerCase();
+    const matchesSearch = !searchTerm ||
+      name.includes(searchTerm) ||
+      opponentName.includes(searchTerm) ||
+      opponentPossible.includes(searchTerm);
     return alive && matchesSearch;
+  }).sort((a, b) => {
+    // Sort by match start time (earliest first) in R1 per-match lock
+    if (!isPerMatchLock) return 0;
+    const timeA = a.matchStartTime ? new Date(a.matchStartTime).getTime() : Infinity;
+    const timeB = b.matchStartTime ? new Date(b.matchStartTime).getTime() : Infinity;
+    return timeA - timeB;
   });
 
   const lockTime     = deadline ? new Date(deadline) : null;
@@ -347,9 +388,11 @@ export function PickScreen() {
           </Card>
         )}
         {isOpen && isPerMatchLock && (
-          <Card tone="primary" padding="md" className="ps-countdown-card">
-            <span className="ps-countdown-label">R1: No fixed deadline</span>
-            <span className="ps-countdown-value ps-countdown-value--info">Pick any time before your player's match starts. Once a match begins, both players are locked.</span>
+          <Card tone="primary" padding="md" className="ps-countdown-card ps-countdown-card--r1">
+            <div className="ps-countdown-r1-content">
+              <span className="ps-countdown-label">Per-match lock</span>
+              <span className="ps-countdown-value ps-countdown-value--info">Your pick locks when the match starts. Players are removed from the list as their matches begin.</span>
+            </div>
           </Card>
         )}
 
@@ -547,6 +590,16 @@ export function PickScreen() {
                       {isPerMatchLock && player.matchStartTime && (
                         <span className="ps-player-match-time">
                           {formatMatchTime(player.matchStartTime)}
+                          {(() => {
+                            const hint = getMatchStartHint(player.matchStartTime);
+                            if (hint === 'urgent') {
+                              return <span className="ps-match-soon ps-match-soon--urgent">Starts soon</span>;
+                            }
+                            if (hint === 'today') {
+                              return <span className="ps-match-soon ps-match-soon--today">Today</span>;
+                            }
+                            return null;
+                          })()}
                         </span>
                       )}
                       <span className="ps-player-tags">

@@ -164,7 +164,7 @@ export function JoinGroup() {
           <ul className="jg-rules">
             <li>Pick one player per round. If they win, you survive.</li>
             <li>You can never pick the same player twice.</li>
-            <li>Last player standing takes the entire prize pool.</li>
+            <li>Last player standing takes the entire prize pot.</li>
           </ul>
 
           {group.betaFree && (

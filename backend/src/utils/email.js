@@ -874,3 +874,112 @@ export async function sendRoundResultEmail({ userId, groupId, round, email, disp
 
   return sendWithDedup({ userId, groupId, round, emailType: 'round_result', to: email, subject, html });
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. WITHDRAWAL NOTIFICATION — sent when a picked player withdraws before match
+//    Uses sendWithDedup — safe to call repeatedly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendWithdrawalEmail({ userId, groupId, round, email, displayName, withdrawnPlayer, replacementPlayer, groupName }) {
+  const groupUrl = `${APP_URL}/group/${groupId}`;
+
+  const subject = `${withdrawnPlayer} has withdrawn — re-pick now`;
+
+  const header = emailHeader({
+    eyebrow: 'Withdrawal Alert',
+    title: 'Your picked player has withdrawn',
+  });
+
+  const replacementText = replacementPlayer
+    ? `${replacementPlayer} has been added to the draw as their replacement.`
+    : 'A replacement has been added to the draw.';
+
+  const body = `
+    <tr>
+      <td style="padding:32px 40px 8px;">
+        <p style="margin:0 0 16px;font-family:${FONT_STACK};font-size:15px;color:${C.inkMuted};line-height:1.7;">
+          Hey <strong>${displayName}</strong>, <strong>${withdrawnPlayer}</strong> has withdrawn from the tournament.
+        </p>
+        <p style="margin:0 0 24px;font-family:${FONT_STACK};font-size:15px;color:${C.inkMuted};line-height:1.7;">
+          ${replacementText} You've been unlocked to make a new pick for <strong>${round}</strong> before the deadline.
+        </p>
+      </td>
+    </tr>
+
+    <!-- Alert card -->
+    <tr>
+      <td style="padding:0 40px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.surfaceMuted};border:1px solid ${C.border};border-radius:12px;border-left:4px solid #FFA500;overflow:hidden;">
+          <tr>
+            <td style="padding:20px 24px;">
+              <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Action required</p>
+              <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your new pick</p>
+              <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">Log in to your pool and select a different player for ${round}. Pick soon — the deadline is approaching.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    ${divider}
+
+    ${emailCTA(groupUrl, 'Make your new pick &rarr;')}
+  `;
+  const html = emailWrapper(header, body, email);
+
+  return sendWithDedup({ userId, groupId, round, emailType: 'withdrawal_alert', to: email, subject, html });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. DRAW RELEASED — sent when tournament draw is published and picking opens
+//    Uses sendWithDedup — safe to call repeatedly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendDrawReleasedEmail({ userId, groupId, email, displayName, tournamentName, groupName }) {
+  const groupUrl = `${APP_URL}/group/${groupId}`;
+
+  const subject = `The ${tournamentName} draw is out — make your pick`;
+
+  const header = emailHeader({
+    eyebrow: 'Draw Released',
+    title: `${tournamentName} is live`,
+    subtitle: 'Time to make your first pick.',
+  });
+
+  const body = `
+    <tr>
+      <td style="padding:32px 40px 8px;">
+        <p style="margin:0 0 16px;font-family:${FONT_STACK};font-size:15px;color:${C.inkMuted};line-height:1.7;">
+          Hey <strong>${displayName}</strong>, the draw for <strong>${tournamentName}</strong> has been released. The pick window is now open in <strong>${groupName}</strong>.
+        </p>
+        <p style="margin:0 0 24px;font-family:${FONT_STACK};font-size:15px;color:${C.inkMuted};line-height:1.7;">
+          Log in and select your Round 1 pick. Remember, you can only pick each player once across the entire tournament, so choose wisely.
+        </p>
+      </td>
+    </tr>
+
+    <!-- Info card -->
+    <tr>
+      <td style="padding:0 40px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.successSoft};border:1px solid ${C.border};border-radius:12px;border-left:4px solid ${C.success};overflow:hidden;">
+          <tr>
+            <td style="padding:20px 24px;">
+              <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Get started</p>
+              <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your Round 1 pick</p>
+              <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">The pick window is open now. Head to your pool and select the match winner you're backing for Round 1.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    ${divider}
+
+    ${emailCTA(groupUrl, 'View the draw &rarr;')}
+  `;
+  const html = emailWrapper(header, body, email);
+
+  return sendWithDedup({ userId, groupId, round: 'R1', emailType: 'draw_released', to: email, subject, html });
+}
