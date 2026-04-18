@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "node src/start.js"
+startCommand = "node src/healthcheck-only.cjs"
 healthcheckPath = "/ping"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
