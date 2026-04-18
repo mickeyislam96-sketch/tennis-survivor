@@ -239,6 +239,10 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/index.css` | All styles — see mobile section below |
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
+| `frontend/src/data/roundLabels.js` | Shared round label constants (ROUND_SHORT for tabs, ROUND_FULL for prose) |
+| `frontend/src/hooks/useFocusTrap.js` | Focus trap hook for modals (Tab cycling, auto-focus, Escape passthrough) |
+| `frontend/src/components/ErrorBoundary.jsx` | React error boundary wrapping entire app (crash recovery) |
+| `frontend/src/components/Skeleton.jsx` | Skeleton loading components for Leaderboard and GroupHome |
 
 ### Mobile app (separate repo: `tennis-survivor-mobile`)
 
@@ -420,25 +424,25 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
 - Pre-launch member view: leaderboard-style page with stats bar, member table, invite box (deployed 17 Apr)
 
-### What deployed on 17 Apr (backend + frontend)
-All code from the 13 Apr session plus 17 Apr fixes. **4 commits:**
-1. `0636b2c` — R1 per-match lock, data adapter, payment infra, pre-launch member view, T&Cs rewrite, Madrid date corrections (24 files)
-2. `254f0ee` — Winner detection fix for completed tournaments (GroupHome, Leaderboard, CSS)
-3. `0db1f0c` — Fix React hooks violation (useState inside conditional)
-4. `ce8c497` — Fix Railway build failure (dead imports in draw.js)
+### What deployed on 18 Apr (backend + frontend)
+Full-stack polish across 7 commits. **Key changes:**
+1. Backend audit: rate limiting, leaderboard sort fix, runtime lock overrides, 4 critical bug fixes
+2. Frontend audit: design tokens, breakpoints, copy, ErrorBoundary, Skeleton loaders, shared roundLabels.js
+3. Hero background fix (ink → primary on PickScreen + Leaderboard)
+4. Email reskin: all templates aligned to Direction A design system
+5. Pre-Madrid polish: admin withdrawal endpoint (`POST /api/admin/withdrawal`), withdrawal + draw-released email templates, PickScreen R1 enhancements (opponent search, match time sort, start-soon badges), AbortController on fetches, copy pass, OG image
+6. Accessibility: useFocusTrap hook, modal focus traps, keyboard-navigable leaderboard rows
 
 ### Outstanding actions (priority order)
-1. **18 Apr: Activate Goalserve trial** — Mickey signs up, gets API key, sets `GOALSERVE_API_KEY` env var in Railway
-2. **18 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`
-3. **18 Apr: Test R1 per-match lock** — end-to-end test with live data
-4. **19 Apr: Madrid tournament activation** — set `ACTIVE_TOURNAMENT=madrid-2026` in Railway, confirm draw loads
-5. **19 Apr: Set lock time overrides** — R64+ once order of play is announced
-6. **Pre-Madrid: Update PickScreen.jsx** — R1 view showing match start times, greying out started matches
-7. **Pre-Madrid: Build withdrawal notification flow** — email + push when picked player withdraws
-8. **Pre-Madrid: Build admin withdrawal endpoint** — `POST /api/admin/withdrawal` for manual overrides
-9. **SPF/DKIM for Brevo** — set up domain auth before paid tournaments
-10. **EAS Project ID** — set before App Store submission
-11. **App Store submission** — TestFlight, screenshots, metadata
+1. **19 Apr: Activate Goalserve trial** — Mickey signs up, gets API key, sets `GOALSERVE_API_KEY` env var in Railway
+2. **19 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`, map their fixture format to internal format
+3. **19 Apr: Test R1 per-match lock end-to-end** — validate with live Goalserve data: players disappearing on match start, pick locking, match time display
+4. **19 Apr: Madrid draw activation** — confirm draw loads from Goalserve, verify fixture count + round mapping
+5. **19 Apr: Set lock time overrides for R64+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour
+6. **Pre-Madrid: SPF/DKIM for Brevo** — set up domain auth before sending to more than 3 users
+7. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
+8. **Post-Madrid: EAS Project ID** — set before App Store submission
+9. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -482,6 +486,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 9 Apr 2026 (session 2) | **Mobile feature parity audit + full debug pass.** Ran 3 parallel audit agents mapping every feature across web (11 routes), mobile (13 screens), and backend API. Cross-referenced to find 9 gaps. **Fixes (commit `12dd81f`):** (1) Added T&Cs acceptance checkbox to RegisterScreen (legal requirement). (2) Added pool history table to ProfileScreen (web has it). (3) Fixed PickScreen search to filter on opponent name + opponentPossible (web does this). (4) Fixed PlayerRow to use `opponentName`/`opponentPossible` fields (was checking `opponent` which doesn't exist). (5) Added 60s auto-refresh polling to PickScreen (matches web). (6) Added mounted guards to PickScreen interval and LeaderboardScreen modal to prevent memory leaks. (7) Fixed pre-existing TypeScript errors (`entryOpen` type in groups.ts, Pick type guard in MyPicksScreen). Zero TypeScript errors after all fixes. **Noted but not fixed:** bracket view (list only on mobile — acceptable), EAS Project ID (set at submit time), password reset deep link (low priority — users can reset via web). Updated CLAUDE.md with full mobile app reference. |
 | 13 Apr 2026 | **R1 per-match lock + API replacement prep.** (1) Designed and built R1 per-match lock system: no fixed R1 deadline, players removed as match starts, withdrawal re-pick flow. (2) Created `dataAdapter.js` — unified data interface with provider chain (Goalserve stub/API-Tennis bridge/Sofascore). Internal fixture format with `isWithdrawal` and `startTime` fields. (3) Created `activeTournament.js` — centralised tournament config with `r1PerMatchLock` flag. (4) Updated `picks.js` — R1 branch in `getAvailablePlayers()` uses per-match filtering; R1 branch in `POST /api/picks` checks player's match start time. (5) Updated `getDeadlines()` — returns `perMatchLock: true` for R1, no `lockAt`. (6) Rewrote T&Cs: Section 5 split into 5a (R1 per-match), 5b (R2+), 5c (overlapping rounds); new Section 6 (withdrawals); new Section 11 (notifications). (7) Added R1 hint banner + CTA to GroupHome. (8) Updated FE+BE tournament configs: MC → completed, Madrid → upcoming with `r1PerMatchLock: true`. (9) Wrote handoff doc for 17 Apr session. No code pushed — all changes in mnt, ready for /tmp clone + push on 17 Apr. |
 | 17 Apr 2026 | **Big push + 3 hotfixes.** Pushed all 13 Apr session code (24 files) plus 3 same-day fixes. (1) `0636b2c`: R1 per-match lock, data adapter, payment infra, pre-launch member leaderboard view, T&Cs rewrite, Madrid dates corrected. (2) `254f0ee`: Winner detection fix — GroupHome fetches leaderboard API for `isWinner` flag (handles "lasted longest" winners); Leaderboard shows gold winner row instead of greyed out; PoolCard uses `winnerName`. (3) `0db1f0c`: **Hotfix** — React hooks violation. `useState(lbData)` was inside conditional block, crashing entire site with white screen (error #310). Moved to top level. (4) `ce8c497`: **Hotfix** — Railway build failure. `draw.js` imported `getApiKeyMap`/`getLiveDraw` which were removed in the 13 Apr refactor. Removed dead imports and 3 MC-only admin endpoints. **Stale mnt incident:** first push from mnt reverted winner detection commits (`ba5a47a`, `33008d7`) because Mickey's Mac hadn't pulled. Re-implemented in commit 2. **Lesson:** always diff against GitHub HEAD before pushing from mnt; prefer `/tmp` clone. |
+| 18 Apr 2026 | **Full-stack polish + pre-Madrid hardening.** 7 commits across 2 sessions. **Session 1 (design system + audit):** (1) Backend audit — rate limiting on auth (login 10/15min, register 5/hr, forgot-password 5/15min), leaderboard round sort fix, runtime lock override admin endpoints. (2) Frontend audit — design tokens (--ds-font-display, --ds-gold-hover, --ds-danger-hover), standardised breakpoints to 640px, viewport-fit for iPhone notch, ErrorBoundary, Skeleton loading states, hardcoded colours → tokens, 44px touch targets, shared roundLabels.js, copy improvements, OG meta tags, fixed apostrophe build failures. (3) Hero background fix — PickScreen and Leaderboard had tone="ink" (black) instead of "primary" (emerald). (4) 4 critical backend bugs — non-picker elimination typo, hardcoded Miami dates, webhook HMAC verification, admin router not mounted. **Session 2 (emails + features):** (5) Email reskin — all 5 templates + admin digest aligned to Direction A design system (emerald/gold/warm-stone, Outfit font, shared helpers). (6) Pre-Madrid polish — admin withdrawal endpoint (`POST /api/admin/withdrawal`) with pick unlocking and email notification; sendWithdrawalEmail and sendDrawReleasedEmail templates; wired send-draw-released admin endpoint; PickScreen R1 enhancements (opponent search, match time sort, "Starts soon"/"Today" badges, cleaner info card); AbortController on all 5 fetch calls; copy pass ("prize pool" → "prize pot" across 4 files); OG image created (1200x630 emerald+gold). (7) Accessibility — useFocusTrap hook, focus traps on AuthModal and PickHistoryModal, keyboard-navigable leaderboard rows (tabIndex, role=button, Enter/Space). All verified via Vite build + both deploys + backend smoke test. |
 
 ---
 
