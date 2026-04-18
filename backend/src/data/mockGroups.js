@@ -1,14 +1,7 @@
 export const MOCK_GROUPS = [
-  {
-    id: 'g3',
-    name: 'Monte Carlo 2026 Pool',
-    inviteCode: 'MONTE-CARLO-2026',
-    entryFeeCents: 0,
-    prizePoolCents: 0,
-    tournamentId: 'monte-carlo-2026',
-    adminUserId: 'u1',
-    createdAt: new Date().toISOString()
-  },
+  // Monte Carlo 2026 and Miami Open 2026 were closed friends-only runs. They
+  // are intentionally kept out of MOCK_GROUPS so the lobby never surfaces
+  // orphan pools for tournaments removed from the registry.
   {
     id: 'g4',
     name: 'Madrid 2026 Pool',

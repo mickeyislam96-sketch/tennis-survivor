@@ -94,25 +94,29 @@ poolsRouter.get('/', async (req, res) => {
   }
 
   // ── Mock groups (official demo pools) ─────────────────────────────────────
-  const mockPools = MOCK_GROUPS.map(group => {
-    const tournament = getTournament(group.tournamentId);
-    const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
-    const isMember = userId ? members.some(m => m.userId === userId) : false;
-    const aliveCount = members.filter(m => m.isAlive).length;
-    return {
-      id: group.id,
-      name: group.name,
-      inviteCode: group.inviteCode,
-      entryFeeCents: group.entryFeeCents,
-      prizePoolCents: group.prizePoolCents,
-      tournamentId: group.tournamentId,
-      tournament,
-      memberCount: members.length,
-      aliveCount,
-      isMember,
-      isReal: false,
-    };
-  });
+  // Drop any mock groups whose tournamentId isn't in the registry so retired
+  // events (Miami, Monte Carlo) can never leak into the lobby via the mock path.
+  const mockPools = MOCK_GROUPS
+    .map(group => ({ group, tournament: getTournament(group.tournamentId) }))
+    .filter(({ tournament }) => tournament !== null)
+    .map(({ group, tournament }) => {
+      const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
+      const isMember = userId ? members.some(m => m.userId === userId) : false;
+      const aliveCount = members.filter(m => m.isAlive).length;
+      return {
+        id: group.id,
+        name: group.name,
+        inviteCode: group.inviteCode,
+        entryFeeCents: group.entryFeeCents,
+        prizePoolCents: group.prizePoolCents,
+        tournamentId: group.tournamentId,
+        tournament,
+        memberCount: members.length,
+        aliveCount,
+        isMember,
+        isReal: false,
+      };
+    });
 
   // Combine: DB pools first, then mock pools that don't duplicate a tournament
   // (avoid showing both a real and mock pool for the same tournament)

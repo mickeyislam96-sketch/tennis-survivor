@@ -21,25 +21,11 @@ export const TOURNAMENTS = [
     pickWindowOpen: null,
     pickWindowClose: null,
   },
-  // Miami Open 2026 — internal test run only, intentionally omitted from the
-  // user-facing lobby. The registry skips it so getTournament('miami-2026')
-  // returns null and the /pools endpoint drops any orphan groups referencing it.
-  {
-    id: 'monte-carlo-2026',
-    name: 'Rolex Monte-Carlo Masters',
-    shortName: 'Monte Carlo',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-04-06',
-    endDate: '2026-04-13',
-    location: 'Monte-Carlo, Monaco',
-    surface: 'Clay (outdoor)',
-    status: 'completed',
-    drawDate: 'April 4, 2026',
-    drawAvailable: true,
-    pickWindowOpen: null,
-    pickWindowClose: null,
-  },
+  // Miami Open 2026 and Monte Carlo Masters 2026 — closed friends-only runs that
+  // pre-date the public Madrid launch. Intentionally omitted from the registry so
+  // getTournament() returns null and the /pools endpoint drops any orphan groups
+  // that still reference them. Keep the mock draw files on disk; just unwire them
+  // from the user-facing lobby.
   {
     id: 'madrid-2026',
     name: 'Mutua Madrid Open',

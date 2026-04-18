@@ -62,9 +62,10 @@ groupsRouter.get('/', async (req, res) => {
     }
   }
 
-  // Mock fallback
+  // Mock fallback — also filter against the registry as defence-in-depth.
   const myGroups = MOCK_GROUPS.filter(g =>
     MOCK_MEMBERS.some(m => m.groupId === g.id && m.userId === userId)
+    && getTournament(g.tournamentId) !== null
   );
   res.json(myGroups);
 });

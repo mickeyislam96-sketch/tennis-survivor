@@ -20,26 +20,9 @@ export const TOURNAMENTS = [
     entryClosedReason: 'completed',
     bracketWidget: 'https://widgets.sofascore.com/embed/unique-tournament/2487/season/80797/cuptree/10848110?widgetTitle=2026%20Indian%20Wells%2C%20USA&showCompetitionLogo=true&widgetTheme=light',
   },
-  // Miami Open 2026 — internal test run only, intentionally omitted from the
-  // user-facing lobby. Kept out of the frontend registry so no hardcoded
-  // references can accidentally surface it.
-  {
-    id: 'monte-carlo-2026',
-    name: 'Rolex Monte-Carlo Masters',
-    shortName: 'Monte Carlo',
-    year: 2026,
-    tourLevel: 'ATP Masters 1000',
-    startDate: '2026-04-06',
-    endDate: '2026-04-13',
-    location: 'Monte-Carlo, Monaco',
-    surface: 'Clay',
-    status: 'completed',
-    drawDate: '2026-04-04',
-    drawAvailable: true,
-    entryOpen: false,
-    entryClosedReason: 'completed',
-    bracketWidget: null,
-  },
+  // Miami Open 2026 and Monte Carlo Masters 2026 — closed friends-only runs that
+  // pre-date the public Madrid launch. Kept out of the frontend registry so no
+  // hardcoded references can accidentally surface them. Backend mirrors this.
   {
     id: 'madrid-2026',
     name: 'Mutua Madrid Open',
