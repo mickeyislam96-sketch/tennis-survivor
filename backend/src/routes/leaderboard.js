@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
 import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
+import { getTournament } from '../data/tournaments.js';
 
 const ROUNDS = getRounds();
 
@@ -137,13 +138,21 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   if (isUUID(groupId)) {
     try {
       const groupResult = await pool.query(
-        `SELECT id::text, name, prize_pool_cents FROM groups WHERE id = $1`,
+        `SELECT id::text, name, prize_pool_cents, tournament_id FROM groups WHERE id = $1`,
         [groupId]
       );
       if (groupResult.rows.length === 0) {
         return res.status(404).json({ error: 'Group not found' });
       }
       const g = groupResult.rows[0];
+
+      // If the tournament is completed, the live draw endpoint no longer
+      // carries this tournament's matches — regrading returns null for every
+      // pick and would falsely mark every member alive. For completed pools
+      // we trust the DB's persisted is_alive / eliminated_round / picks.survived
+      // (written at the time by the results processor).
+      const tournamentForGroup = getTournament(g.tournament_id);
+      const tournamentCompleted = tournamentForGroup?.status === 'completed';
 
       // Get all members
       const membersResult = await pool.query(
@@ -172,8 +181,19 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
       const members = membersResult.rows.map(m => {
         const picks = picksByUser[m.userId] || [];
 
-        // Grade picks using live draw data
-        const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
+        let survivedRounds, eliminatedRound, isAlive;
+        if (tournamentCompleted) {
+          // Trust the DB. Results processor writes these at tournament time.
+          survivedRounds  = picks.filter(p => p.survived === true).length;
+          eliminatedRound = m.eliminatedRound || null;
+          isAlive         = !!m.isAlive;
+        } else {
+          // Live tournament (or upcoming) — regrade against current draw.
+          const graded = gradeMember(picks, grade);
+          survivedRounds  = graded.survivedRounds;
+          eliminatedRound = graded.eliminatedRound || m.eliminatedRound;
+          isAlive         = picks.length > 0 ? graded.isAlive : m.isAlive;
+        }
 
         // Current round pick (for the "this round's pick" column)
         const currentPick = currentRound
@@ -184,8 +204,8 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
           ...m,
           picksCount: picks.length,
           survivedRounds,
-          eliminatedRound: eliminatedRound || m.eliminatedRound,
-          isAlive: picks.length > 0 ? isAlive : m.isAlive,
+          eliminatedRound,
+          isAlive,
           // Expose the pick only when the round is fully locked
           currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
         };
