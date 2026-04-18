@@ -1,20 +1,14 @@
 /**
- * CourtBackdrop — accurate top-down tennis court (ITF proportions).
+ * CourtBackdrop — top-down tennis court (ITF proportions), offset right.
  * Absolutely positioned inside a relatively-positioned parent.
  * Uses currentColor so the parent controls line colour via `color`.
+ * A CSS mask fades the court out on the left so text stays readable.
  *
  * ITF court dimensions (metres):
  *   Full doubles court: 23.77 × 10.97
  *   Singles sidelines:  23.77 × 8.23  (1.37m inside each doubles sideline)
  *   Service box depth:  6.40m from net each side
  *   Net at midpoint:    11.885m from each baseline
- *   Centre mark:        0.10m long (ignored at SVG scale)
- *
- * ViewBox maps 1m → 40px for clarity:
- *   width  = 10.97 × 40 ≈ 439     → padded to 539 (50px each side)
- *   height = 23.77 × 40 ≈ 951     → padded to 1051 (50px each side)
- *
- * Court origin at (50, 50).
  */
 export function CourtBackdrop({
   opacity = 0.08,
@@ -59,6 +53,9 @@ export function CourtBackdrop({
         height: '100%',
         opacity,
         pointerEvents: 'none',
+        // Fade out on the left so text area is clean, court visible on right
+        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, transparent 15%, rgba(0,0,0,0.3) 35%, rgba(0,0,0,1) 60%)',
+        maskImage: 'linear-gradient(to right, transparent 0%, transparent 15%, rgba(0,0,0,0.3) 35%, rgba(0,0,0,1) 60%)',
         ...style,
       }}
       {...rest}
@@ -73,11 +70,12 @@ export function CourtBackdrop({
         <line x1={sLeft} y1={top} x2={sLeft} y2={bottom} />
         <line x1={sRight} y1={top} x2={sRight} y2={bottom} />
 
-        {/* Service line (top only — bottom removed for cleaner fade) */}
+        {/* Service lines */}
         <line x1={sLeft} y1={svcTop} x2={sRight} y2={svcTop} />
+        <line x1={sLeft} y1={svcBot} x2={sRight} y2={svcBot} />
 
-        {/* Centre service line (top half only) */}
-        <line x1={centreX} y1={svcTop} x2={centreX} y2={netY} />
+        {/* Centre service line — full length between service lines */}
+        <line x1={centreX} y1={svcTop} x2={centreX} y2={svcBot} />
 
         {/* Net (dashed) */}
         <line
@@ -87,7 +85,7 @@ export function CourtBackdrop({
           strokeDasharray="8 5"
         />
 
-        {/* Centre mark on top baseline only (bottom baseline removed) */}
+        {/* Centre mark on top baseline */}
         <line x1={centreX} y1={top} x2={centreX} y2={top + 16} />
       </g>
     </svg>
