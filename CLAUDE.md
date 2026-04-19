@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 19 April 2026. Keep this file updated at the end of every session.
+> Last updated: 19 April 2026. See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -532,3 +532,45 @@ The mnt path reflects Mickey's Mac filesystem. If other Cowork sessions pushed c
 
 ### Risk assessment
 Before starting feature work, ask: "If this breaks, what's the blast radius?" If the answer is "the whole site goes down" and users are active, defer or implement with extreme caution.
+
+
+---
+
+## Session-end protocol (MANDATORY)
+
+When Mickey says "update context" or the session is ending, do ALL of the following:
+
+### 1. Update CLAUDE.md (this file)
+- Add a row to the **Session history** table summarising what was built, fixed, or decided
+- Update **Outstanding actions** — strike through completed items, add new ones
+- If any new files, endpoints, or config were added, update the relevant tables above
+- Push the updated CLAUDE.md to GitHub
+
+### 2. Update memory files in `.claude/memory/`
+These files live in the repo AND in the Cowork workspace. They capture lasting decisions and context that outlive individual sessions.
+
+| File | What to update |
+|---|---|
+| `MEMORY.md` | Index — add entries for any new topic files |
+| `final-serve-ivor.md` | Product state — tournament status, member counts, active features |
+| `design-system.md` | Any new fonts, colours, tokens, or component patterns |
+| `infrastructure.md` | New services, env vars, deployment changes |
+| `email-design.md` | Template changes, new templates, delivery flow changes |
+| `roadmap.md` | Phase progress, payment processor status, launch dates |
+| `design-audits.md` | New audit findings, items actioned |
+| `mickey.md` | New preferences or working patterns observed |
+
+Only update files where something actually changed. Don't touch files for the sake of it.
+
+### 3. Clean up workspace docs
+If task-specific docs were created in the workspace folder (`CTO - TS/`):
+- Delete any that are fully completed and whose insights are captured in memory files
+- Keep active handoff docs and reference docs for unbuilt features
+
+### 4. Push memory files to repo
+Memory files must be pushed to GitHub (under `.claude/memory/`) so non-Cowork sessions can access them too. Use the GitHub Contents API.
+
+### What NOT to do
+- Don't just append to session history and call it done — that's how context gets lost
+- Don't create new one-off docs for decisions that belong in the memory files
+- Don't skip the push — local-only files are invisible to other session types
