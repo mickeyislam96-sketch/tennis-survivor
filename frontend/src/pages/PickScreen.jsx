@@ -8,6 +8,7 @@ import { Button } from '../ui/Button.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
 import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
+import PlayerAvatar from '../ui/PlayerAvatar';
 import './PickScreen.css';
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -472,9 +473,7 @@ export function PickScreen() {
               className={`ps-picked-card ps-picked-card--locked${survived === false ? ' ps-picked-card--eliminated' : ''}`}
             >
               <div className="ps-picked-inner">
-                <span className="ps-picked-icon" aria-hidden="true">
-                  {survived === true ? '✓' : survived === false ? '✗' : '🔒'}
-                </span>
+                <PlayerAvatar playerId={myPickThisRound.playerId} playerName={myPickThisRound.playerName} size={40} />
                 <div className="ps-picked-body">
                   <p className="ps-picked-label">Your {currentRound} pick — locked in</p>
                   <p className="ps-picked-player">{myPickThisRound.playerName}</p>
@@ -531,7 +530,7 @@ export function PickScreen() {
             {myPickThisRound && (
               <Card tone="primary" padding="md" className="ps-picked-card ps-picked-card--changeable">
                 <div className="ps-picked-inner">
-                  <span className="ps-picked-icon" aria-hidden="true">✓</span>
+                  <PlayerAvatar playerId={myPickThisRound.playerId} playerName={myPickThisRound.playerName} size={40} />
                   <div className="ps-picked-body">
                     <p className="ps-picked-label">Current {currentRound} pick</p>
                     <p className="ps-picked-player">{myPickThisRound.playerName}</p>
@@ -582,6 +581,7 @@ export function PickScreen() {
                     ) : (
                       <span className="ps-player-seed-placeholder" aria-hidden="true" />
                     )}
+                    <PlayerAvatar playerId={player.id} playerName={player.name} size={32} />
                     <span className="ps-player-name">
                       <span className="ps-player-name-text">{player.name}</span>
                       {player.opponentName && (

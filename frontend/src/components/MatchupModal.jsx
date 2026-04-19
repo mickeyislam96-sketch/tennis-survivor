@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API } from '../App';
+import PlayerAvatar from '../ui/PlayerAvatar';
 
 // ── Score formatting ─────────────────────────────────────────────────────────
 // API-Tennis uses decimal notation for tiebreaks: "6.3" → "6(3)", "7.7" → "7(7)"
@@ -205,6 +206,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
         {/* H2H bar */}
         <div className="mu-h2h-bar">
           <div className="mu-player">
+            <PlayerAvatar playerId={player1Id} playerName={p1Name} size={56} />
             <div className="mu-player-name">{p1Name}</div>
             <div className="mu-player-meta">
               {p1Unknown ? 'TBC' : `${p1.country || ''}${p1.rank ? ` · #${p1.rank}` : ''}`}
@@ -225,6 +227,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
             </div>
           )}
           <div className="mu-player">
+            <PlayerAvatar playerId={player2Id} playerName={p2Name} size={56} />
             <div className="mu-player-name">{p2Name}</div>
             <div className="mu-player-meta">
               {p2Unknown ? 'TBC' : `${p2.country || ''}${p2.rank ? ` · #${p2.rank}` : ''}`}

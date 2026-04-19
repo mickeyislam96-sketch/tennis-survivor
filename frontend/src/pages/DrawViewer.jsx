@@ -9,6 +9,7 @@ import { Button } from '../ui/Button.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
 import { ROUND_SHORT as ROUND_LABELS, ROUND_FULL } from '../data/roundLabels';
+import PlayerAvatar from '../ui/PlayerAvatar';
 import './DrawViewer.css';
 
 const MATCH_COUNTS_FALLBACK = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
@@ -175,11 +176,13 @@ function BracketCard({ match, onMatchClick }) {
     >
       {live && <span className="bc-live-pip" />}
       <div className={`bc-row${p1w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
+        {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={20} />}
         <span className="bc-name">{match.player1Name || 'TBD'}</span>
         {p1w && <span className="bc-tick">✓</span>}
       </div>
       <div className="bc-divider" />
       <div className={`bc-row${p2w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
+        {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={20} />}
         <span className="bc-name">{match.player2Name || 'TBD'}</span>
         {p2w && <span className="bc-tick">✓</span>}
       </div>
@@ -227,11 +230,13 @@ function ListCard({ match, onMatchClick }) {
       <div className="lc-body">
         <div className="lc-players">
           <div className={`lc-row${p1w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+            {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={24} />}
             <span className="lc-name">{match.player1Name || 'TBD'}</span>
             {p1w && <span className="lc-win-dot" />}
           </div>
           <div className="lc-sep" />
           <div className={`lc-row${p2w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
+            {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={24} />}
             <span className="lc-name">{match.player2Name || 'TBD'}</span>
             {p2w && <span className="lc-win-dot" />}
           </div>

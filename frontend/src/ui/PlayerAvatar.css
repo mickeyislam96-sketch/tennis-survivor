@@ -1,0 +1,37 @@
+/* ── Player Avatar ────────────────────────────────────────────── */
+.player-avatar {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.player-avatar--photo {
+  object-fit: cover;
+  background: #f3f4f6;
+}
+
+/* Subtle border so initials circles don't float on white backgrounds */
+.player-avatar--initials {
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* Bracket card: tighter gap for small avatars */
+.bc-row .player-avatar { margin-right: 0.2rem; }
+
+/* List card: slightly more space */
+.lc-row .player-avatar { margin-right: 0.25rem; }
+
+/* Matchup modal: centre avatar above name */
+.mu-player .player-avatar {
+  margin-bottom: 0.35rem;
+}
+
+@media (max-width: 680px) {
+  /* Slightly smaller avatars on mobile pick screen rows */
+  .ps-player-row .player-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+  }
+  /* Hide bracket avatars on very small screens to save horizontal space */
+  .bc-row .player-avatar { display: none; }
+}

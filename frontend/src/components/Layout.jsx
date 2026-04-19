@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { Button } from '../ui/Button.jsx';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { avatarColour, initials } from '../utils/playerImage';
 import './Layout.css';
 
 // ── Error Boundary ─────────────────────────────────────────────
@@ -58,27 +59,6 @@ const groupNav = [
   { to: 'history',     label: 'My picks' },
   { to: 'leaderboard', label: 'Leaderboard' },
 ];
-
-// ── Avatar helpers ────────────────────────────────────────────
-const AVATAR_COLOURS = [
-  '#0F4A23', '#1E7A3E', '#C1572E', '#A84620',
-  '#1F5580', '#7C3AED', '#B67300', '#0891B2',
-];
-
-function avatarColour(name) {
-  let hash = 0;
-  for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
-  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
-}
-
-function initials(name) {
-  return (name || '?')
-    .split(' ')
-    .map((w) => w[0] || '')
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 // ── User menu component ───────────────────────────────────────
 function UserMenu({ user }) {
