@@ -24,6 +24,11 @@
 - Secondary: emerald pill — `background: #0F4A23; color: #FFFFFF; border-radius: 999px`
 - Outlined: transparent with border
 
+## Navigation patterns
+- **Gold pill nav link** (`.ds-nav-pool-pill`): used for "My Pool" link in header nav. Gold background (#FFC933), dark ink (#2B1F00), 999px border-radius, 700 weight, 13px font. Hover darkens to #E6A500. Active state: scale(0.97). Only visible to logged-in users with pool membership.
+- **Nav links**: Outfit 14px/600, muted ink (#4A4A46), hover to full ink. Active state: primary green (#0F4A23).
+- **Footer links**: same Outfit 14px/600 pattern. Includes: How to play, Terms & conditions, Support.
+
 ## Tennis court pattern (hero background)
 - SVG `ui-court-backdrop` — 10 solid white lines (2.5px) + 1 dashed net line (1.5px, dash 8px gap 5px)
 - Opacity: 0.18, with CSS mask-image gradient (left 35% opacity fading to right 100%)
