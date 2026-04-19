@@ -37,7 +37,7 @@ export const TOURNAMENTS = [
     drawDate: '2026-04-19',
     drawAvailable: false,
     entryOpen: true,
-    r1PerMatchLock: true,  // R1 has no fixed deadline; players removed as matches start
+    r1PerMatchLock: false,  // Standard fixed deadline for R1 (same as all other rounds)
     bracketWidget: null,
   },
   {

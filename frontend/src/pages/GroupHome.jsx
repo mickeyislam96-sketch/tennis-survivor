@@ -493,8 +493,8 @@ export function GroupHome() {
       || (entryDeadline && new Date() >= entryDeadline);
 
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
-    const closingSoon = !isCompleted && openRound && openRound !== 'R1' && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
-    const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick && tournament?.drawAvailable;
+    const closingSoon = !isCompleted && openRound && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick && tournament?.drawAvailable && !closingSoon;
 
     const lbWinners = lbData ? (lbData.leaderboard || []).filter(m => m.isWinner) : [];
     const winners = lbWinners.length > 0
@@ -854,8 +854,8 @@ export function GroupHome() {
             <div className="gh-banner gh-banner--info">
               <span className="gh-banner-icon" aria-hidden="true">🎾</span>
               <span className="gh-banner-text">
-                <strong>R1 is open — no fixed deadline.</strong>{' '}
-                Pick any player before their match starts. Both players lock once a match begins.
+                <strong>Round 1 is open.</strong>{' '}
+                Pick your player before the deadline to start the tournament.
               </span>
               <Button as={Link} to={`/group/${groupId}/pick`} variant="primary" size="sm">
                 Make your pick →

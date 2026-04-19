@@ -39,7 +39,7 @@ export const TOURNAMENTS = [
     status: 'upcoming',
     drawDate: 'April 19, 2026',
     drawAvailable: false,
-    r1PerMatchLock: true,
+    r1PerMatchLock: false,
     pickWindowOpen: null,
     pickWindowClose: null,
   },

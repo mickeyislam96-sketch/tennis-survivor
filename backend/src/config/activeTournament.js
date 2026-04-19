@@ -3,7 +3,7 @@
  *
  * This is the single place to change when switching between tournaments.
  * All tournament-specific settings live here: API keys, round structure,
- * lock time overrides, and R1 per-match lock config.
+ * lock time overrides, and R1 lock mode config.
  *
  * Usage: import { TOURNAMENT } from '../config/activeTournament.js';
  */
@@ -28,15 +28,16 @@ const TOURNAMENTS = {
     rounds: ['R1', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
     matchesPerRound: { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
 
-    // R1 per-match lock: no single deadline for R1.
-    // Players removed from pool as their match starts.
-    // Set to true for all Masters 1000 and Grand Slams.
-    r1PerMatchLock: true,
+    // R1 lock mode: false = standard fixed deadline (like all other rounds).
+    // true = per-match lock (players removed as their match starts).
+    // Standard deadline is simpler for users and works without push notifications.
+    // Per-match lock may be revisited when mobile app has push notifications.
+    r1PerMatchLock: false,
 
-    // Lock time overrides for R2+ (set 1h before first match of each round).
+    // Lock time overrides (set 1h before first match of each round).
     // UPDATE THESE once the order of play is announced for each round.
     lockTimeOverrides: {
-      // R1 has no lock time (per-match lock)
+      R1:  null,  // TBD — set once R1 schedule is announced (1h before first match)
       R64: null,  // TBD — set once R64 schedule is announced
       R32: null,  // TBD
       R16: null,  // TBD
@@ -94,7 +95,7 @@ const TOURNAMENTS = {
     seedsWithByes: 8,
     rounds: ['R1', 'R32', 'R16', 'QF', 'SF', 'F'],
     matchesPerRound: { R1: 24, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
-    r1PerMatchLock: true,
+    r1PerMatchLock: false,
     lockTimeOverrides: {},
     windowOpensOverrides: {},
     roundDateFallbacks: {},

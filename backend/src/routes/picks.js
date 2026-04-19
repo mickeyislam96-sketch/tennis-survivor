@@ -193,7 +193,7 @@ picksRouter.post('/', async (req, res) => {
       return res.status(400).json({ error: 'userId, groupId, round, playerId required' });
     }
 
-    // Validate pick window — R1 uses per-match lock, R2+ uses round-level lock
+    // Validate pick window — R1 per-match lock (if enabled), otherwise round-level lock
     const isR1 = round === 'R1';
     const usePerMatchLock = isR1 && TOURNAMENT.r1PerMatchLock;
 
