@@ -301,14 +301,26 @@ const divider = `
   </tr>
 `;
 
-// Shared header builder — emerald gradient with gold eyebrow pill
+// Court background image URL (hosted in frontend/public/)
+const COURT_BG = `${APP_URL}/email-court-bg.png`;
+
+// Shared header builder — emerald with tennis court background
 function emailHeader({ eyebrow, title, subtitle }) {
   return `
     <tr>
-      <td style="background:linear-gradient(135deg,${C.primary} 0%,${C.primaryHover} 100%);padding:40px 40px 32px;text-align:center;">
+      <td style="background-color:${C.primary};background-image:url('${COURT_BG}');background-size:cover;background-position:center;padding:40px 40px 32px;text-align:center;">
+        <!--[if gte mso 9]>
+        <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:180px;">
+          <v:fill type="tile" src="${COURT_BG}" color="${C.primary}" />
+          <v:textbox inset="0,0,0,0">
+        <![endif]-->
         <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,201,51,0.15);border:1px solid rgba(255,201,51,0.4);border-radius:20px;font-family:${FONT_MONO};font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.gold};">${eyebrow}</p>
         <h1 style="margin:0;font-family:${FONT_DISPLAY};font-size:30px;font-weight:700;color:${C.primaryInk};line-height:1.2;">${title}</h1>
         ${subtitle ? `<p style="margin:10px 0 0;font-family:${FONT_STACK};font-size:15px;color:rgba(255,255,255,0.65);">${subtitle}</p>` : ''}
+        <!--[if gte mso 9]>
+          </v:textbox>
+        </v:rect>
+        <![endif]-->
       </td>
     </tr>
   `;
