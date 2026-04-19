@@ -19,6 +19,11 @@
 - PAT stored in previous session transcript (search for `ghp_`)
 - Push via GitHub Contents API (no git CLI auth in Cowork sandbox)
 
+## API endpoints (notable)
+- `POST /api/support` — contact form submissions. Rate limited (5/hr per IP). Sends email directly via Brevo to finalservivor@gmail.com (bypasses approval queue). Attaches user context (name, email, group memberships) if logged in.
+- `POST /api/admin/withdrawal` — mark player withdrawal, unlock affected picks, send notification emails.
+- `GET /api/admin/api-diag` — data provider diagnostic info.
+
 ## Deployment gotchas
 - Every push to `main` auto-deploys to real users — treat every commit as production release
 - mnt files can be stale if Mickey hasn't run `git pull` — always diff against GitHub HEAD before pushing from mnt
