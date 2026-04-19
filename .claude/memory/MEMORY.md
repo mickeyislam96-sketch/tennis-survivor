@@ -12,5 +12,8 @@
 - [Roadmap & launch strategy](roadmap.md) — three-phase plan (Madrid/Rome/Roland Garros), payment processing, payout system, AI agent operations model
 - [Design audit summary](design-audits.md) — UI recommendations, player images plan, what's actioned vs pending
 
+## Security
+- [Security hardening](infrastructure.md#security) — JWT auth, CSRF, helmet, rate limiting, admin Bearer tokens (19 Apr 2026)
+
 ## Decisions & Context
 - [Email design decisions](email-design.md) — template architecture, brand alignment, court background

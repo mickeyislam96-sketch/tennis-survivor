@@ -23,10 +23,10 @@
 - `POST /api/support` — contact form submissions. Rate limited (5/hr per IP). Sends email directly via Brevo to finalservivor@gmail.com (bypasses approval queue). Attaches user context (name, email, group memberships) if logged in.
 - `POST /api/admin/withdrawal` — mark player withdrawal, unlock affected picks, send notification emails.
 - `GET /api/admin/api-diag` — data provider diagnostic info.
-- `GET /api/ops/summary?hours=24&secret=X` — structured operations overview (tournament state, picks, emails, recent activity).
-- `GET /api/ops/log?category=X&hours=48&secret=X` — raw ops log with filters.
+- `GET /api/ops/summary?hours=24&Authorization: Bearer` — structured operations overview (tournament state, picks, emails, recent activity).
+- `GET /api/ops/log?category=X&hours=48&Authorization: Bearer` — raw ops log with filters.
 - `POST /api/ops/setup-tournament` — create tournament group with invite code, verify data provider.
-- `GET /api/ops/health-deep?secret=X` — deep health check (DB, ops_log table, data provider, email service, tournament config).
+- `GET /api/ops/health-deep?Authorization: Bearer` — deep health check (DB, ops_log table, data provider, email service, tournament config).
 
 ## Automation (deployed 19 Apr 2026)
 - **15-min cron** in `index.js`: autoProcessResults → checkPickReminders → runOpsChecks → sendAdminDigest
@@ -34,6 +34,17 @@
 - **ops_log table**: persistent record of all automated actions (category, action, details JSONB, tournament_id)
 - **Daily ops brief**: Cowork scheduled task `fsv-daily-ops-brief` at 8am — calls /api/ops/summary, checks /api/health, checks Vercel deploy status
 - Key file: `backend/src/services/opsMonitor.js`
+
+## Security (deployed 19 Apr 2026)
+- **JWT authentication**: `backend/src/middleware/auth.js`. Tokens issued on login/register (7-day expiry). `requireAuth`/`optionalAuth` middleware. Dedicated `JWT_SECRET` env var.
+- **CSRF protection**: double-submit cookie pattern. Backend sets `csrf` cookie, frontend sends `X-CSRF-Token` header. Middleware checks match on state-changing requests.
+- **Helmet**: CSP, X-Frame-Options, HSTS, nosniff. Applied globally in `index.js`.
+- **Vercel headers**: X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy in `vercel.json`.
+- **Rate limiting**: auth (10 login/15min, 5 register/hr), admin/ops (20/min).
+- **Admin auth**: `Authorization: Bearer <ADMIN_SECRET>` header (no more query params).
+- **Frontend `authFetch()`**: in `AuthContext.jsx`, auto-attaches Authorization + X-CSRF-Token. All 9 pages use it.
+- **Legacy fallback**: `x-user-id` header and `?userId` param still accepted temporarily. Remove after Madrid.
+- **Secrets**: `JWT_SECRET` and `ADMIN_SECRET` are separate env vars (both rotated 19 Apr). GitHub PAT rotated.
 
 ## Deployment gotchas
 - Every push to `main` auto-deploys to real users — treat every commit as production release
