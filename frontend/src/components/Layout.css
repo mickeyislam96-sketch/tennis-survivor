@@ -91,6 +91,32 @@
   border-radius: 2px;
 }
 
+/* Gold pill nav link — "My Pool" CTA for logged-in users */
+.ds-nav-pool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: var(--ds-gold);
+  color: var(--ds-gold-ink, #2B1F00);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: background var(--ds-dur-fast) var(--ds-ease), transform 0.1s ease;
+  white-space: nowrap;
+}
+.ds-nav-pool-pill:hover { background: var(--ds-gold-deep, #E6A500); }
+.ds-nav-pool-pill:active { transform: scale(0.97); }
+
+@media (max-width: 640px) {
+  .ds-nav-pool-pill {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+}
+
 .ds-header__actions {
   display: flex;
   align-items: center;
