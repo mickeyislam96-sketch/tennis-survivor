@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 19 April 2026. See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 19 April 2026 (session 5). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -50,6 +50,8 @@
 | Deploy region | europe-west4 (Netherlands) |
 | Vercel Project ID | `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf` |
 | Vercel Team ID | `team_ekuiNPY7cIyY2ieq41oWMYvO` |
+| DB backup | GitHub Actions daily cron (03:00 UTC), 30-day artifact retention |
+| Branch protection | `main` — force pushes and branch deletion blocked |
 
 ### Mobile app reference
 
@@ -220,6 +222,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
 | `backend/src/routes/health.js` | Real production health check — validates env vars, live API call, DB ping |
+| `.github/workflows/db-backup.yml` | Daily automated PostgreSQL backup — pg_dump at 03:00 UTC, gzipped artifacts, 30-day retention, manual trigger |
 | `backend/src/services/sofascoreAdapter.js` | Sofascore fetch — reads `SOFASCORE_BASE_URL` env var |
 | `backend/src/config/tournament.js` | Round structure constants (ROUNDS, MATCHES_PER_ROUND) |
 | `backend/src/data/tournaments.js` | Tournament registry — all events, statuses, `r1PerMatchLock` flag |
@@ -462,6 +465,7 @@ Full-stack polish across 7 commits. **Key changes:**
 8. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
 9. **Post-Madrid: EAS Project ID** — set before App Store submission
 10. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+11. **Mickey: Add `DATABASE_URL` GitHub secret** — required for daily backup workflow to connect to Railway PostgreSQL. Go to repo Settings > Secrets and variables > Actions > New repository secret. Then test via Actions tab > Run workflow.
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -510,6 +514,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 
 | 19 Apr 2026 (session 3) | **Support system + nav + copy polish + context consolidation.** (1) Built full customer support contact form: `POST /api/support` endpoint with rate limiting (5/hr per IP), validation, user context auto-attachment; `sendSupportEmail()` in email.js sends directly via Brevo to finalservivor@gmail.com (bypasses approval queue); frontend `/support` page with category dropdown, subject, message, character counter, "Sending as" badge, success state. Route added in App.jsx, footer link added in Layout.jsx. (2) Added gold pill "My Pool" nav link — fetches user's pool membership via `/api/pools?userId=X`, shows pool name for single membership or "My Pools" for multiple. CSS class `.ds-nav-pool-pill` in Layout.css. Only visible when logged in. (3) Updated How to Play step card copy (4 changes): removed free/paid mention from step 1, removed strategy tip from step 2, removed retirement/withdrawal from step 4, removed prize-splitting from step 5. (4) Context consolidation: audited 17 workspace markdown files, consolidated into `.claude/memory/` files (roadmap.md, design-audits.md), added session-end protocol to CLAUDE.md, pushed all memory files to GitHub repo. |
 | 19 Apr 2026 (session 4) | **Player avatar headshots.** (1) Built PlayerAvatar component with fallback chain: Goalserve ID → name slug → initials circle. Integrated into PickScreen (32px rows, 40px picked card), DrawViewer (20px bracket, 24px list), MatchupModal (56px). Shared utility in `frontend/src/utils/playerImage.js`, component in `frontend/src/ui/PlayerAvatar.jsx` with responsive `.css`. (2) Sourced headshots from ATP Tour CDN (`atptour.com/-/media/alias/player-headshot/{4-char-id}`). Both Sofascore and ATP Tour block server-side requests (403), so used browser console script approach — paste JavaScript into Chrome DevTools on atptour.com to fetch same-origin. (3) First batch: 110 headshots downloaded and deployed (commit `c705be5`). (4) Cross-referenced against April 2026 ATP rankings (top 150), found 67 missing players. (5) Researched ATP Tour 4-char IDs for all 67 missing players via web search. (6) Created updated console download script with JSZip swapped for individual file downloads (no external library restrictions). (7) Mickey downloaded 63 of 67 missing headshots (4 not available on ATP CDN). (8) Committed and deployed (commit `5580f91`), Vercel deployment READY. Final coverage: 173 player headshots covering virtually all ATP top 150. |
+| 19 Apr 2026 (session 5) | **Project safety: backups + branch protection.** (1) Created `.github/workflows/db-backup.yml` — daily automated PostgreSQL backup via GitHub Actions. Runs `pg_dump` at 03:00 UTC, stores gzipped dumps as GitHub Actions artifacts with 30-day retention. Includes manual trigger, size sanity check, auto-cleanup of old artifacts (keeps latest 30). Commit `5bc4201`. (2) Enabled GitHub branch protection on `main` — force pushes and branch deletion now blocked via GitHub API. Normal pushes still work. (3) Deleted 3 completed workspace files (HANDOFF-player-images.md, PLAYER-IMAGES-IMPLEMENTATION-PLAN.md, console-download-missing-headshots.js). **Mickey action required:** add `DATABASE_URL` as a GitHub repository secret (Settings > Secrets and variables > Actions) with the Railway PostgreSQL connection string, then test via Actions tab > "Daily Database Backup" > Run workflow. |
 
 ---
 
