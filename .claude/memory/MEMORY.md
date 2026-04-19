@@ -9,7 +9,7 @@
 - [Final Serve-ivor — infrastructure](infrastructure.md) — GitHub, Vercel, Railway, Brevo, Goalserve
 
 ## Strategy & Planning
-- [Roadmap & launch strategy](roadmap.md) — three-phase plan (Madrid/Rome/Roland Garros), payment processing, payout system, mobile app
+- [Roadmap & launch strategy](roadmap.md) — three-phase plan (Madrid/Rome/Roland Garros), payment processing, payout system, AI agent operations model
 - [Design audit summary](design-audits.md) — UI recommendations, player images plan, what's actioned vs pending
 
 ## Decisions & Context

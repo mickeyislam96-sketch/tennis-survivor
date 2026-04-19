@@ -24,6 +24,12 @@
 - Target: feature parity with web (auth, lobby, pick screen, leaderboard, push notifications)
 - Estimated 2 weeks for competent React Native dev
 
+## AI agent operations model (decided 19 Apr 2026)
+Mickey plans to scale FSV using AI agents as his entire team. Three-phase rollout:
+1. **Phase 1 — Tournament Ops (COMPLETE):** 15-min cron handles results, withdrawals, draw detection, lock times. Daily ops brief at 8am. Playbook: `CTO - TS/FSV_AI_Agent_Operations_Playbook.docx`.
+2. **Phase 2 — Marketing Pipeline (post-Madrid):** weekly content batch, tournament announcements, social drafts.
+3. **Phase 3 — Full Network (post-RG):** customer support triage, multi-tournament orchestration, health monitoring alerts, payout prep.
+
 ## Monte Carlo post-mortem issues (to prevent in Madrid)
 - Premature elimination bug (results processor during open windows)
 - Pick visibility leak in leaderboard modal

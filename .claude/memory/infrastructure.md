@@ -23,10 +23,17 @@
 - `POST /api/support` — contact form submissions. Rate limited (5/hr per IP). Sends email directly via Brevo to finalservivor@gmail.com (bypasses approval queue). Attaches user context (name, email, group memberships) if logged in.
 - `POST /api/admin/withdrawal` — mark player withdrawal, unlock affected picks, send notification emails.
 - `GET /api/admin/api-diag` — data provider diagnostic info.
+- `GET /api/ops/summary?hours=24&secret=X` — structured operations overview (tournament state, picks, emails, recent activity).
+- `GET /api/ops/log?category=X&hours=48&secret=X` — raw ops log with filters.
+- `POST /api/ops/setup-tournament` — create tournament group with invite code, verify data provider.
+- `GET /api/ops/health-deep?secret=X` — deep health check (DB, ops_log table, data provider, email service, tournament config).
 
-## Backups & branch safety (added 19 Apr, verified working)
-- **Daily DB backup**: `.github/workflows/db-backup.yml` — pg_dump v17 at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention, auto-cleanup keeps latest 30). Manual trigger via Actions tab. `DATABASE_URL` GitHub secret set (public Railway connection string via `shortline.proxy.rlwy.net`). Verified end-to-end: run #3 succeeded (48s, artifact uploaded).
-- **Branch protection**: `main` branch has force push and branch deletion blocked via GitHub API. Normal pushes still work.
+## Automation (deployed 19 Apr 2026)
+- **15-min cron** in `index.js`: autoProcessResults → checkPickReminders → runOpsChecks → sendAdminDigest
+- **runOpsChecks** runs: checkDrawRelease → checkWithdrawals → autoSetLockTimes
+- **ops_log table**: persistent record of all automated actions (category, action, details JSONB, tournament_id)
+- **Daily ops brief**: Cowork scheduled task `fsv-daily-ops-brief` at 8am — calls /api/ops/summary, checks /api/health, checks Vercel deploy status
+- Key file: `backend/src/services/opsMonitor.js`
 
 ## Deployment gotchas
 - Every push to `main` auto-deploys to real users — treat every commit as production release

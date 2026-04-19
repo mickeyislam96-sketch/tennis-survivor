@@ -28,3 +28,5 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 - **How to Play page** (`/how-to-play`): 5-step guide + 3 strategy tips. Copy simplified 19 Apr — no mention of free/paid, retirements, or prize splitting.
 - **Email system**: 9 templates (pick reminder, survival, elimination, winner, draw released, withdrawal alert, admin digest, welcome, support). All aligned to brand design system.
 - **Micro-interactions**: button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit.
+- **Tournament ops automation (Phase 1)**: 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All logged to `ops_log` table. Daily ops brief via Cowork scheduled task at 8am. Key files: `opsMonitor.js`, `routes/ops.js`. Playbook: `CTO - TS/FSV_AI_Agent_Operations_Playbook.docx`.
+- **Ops API endpoints**: `GET /api/ops/summary` (structured overview), `GET /api/ops/log` (raw log with filters), `POST /api/ops/setup-tournament` (create groups), `GET /api/ops/health-deep` (component health). All behind ADMIN_SECRET auth.
