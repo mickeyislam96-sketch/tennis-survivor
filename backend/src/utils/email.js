@@ -65,9 +65,10 @@ const C = {
   accent:      '#C1572E',
 };
 
-// Font stack that loads Outfit via Google Fonts (Gmail, Apple Mail, iOS Mail support it)
-const FONT_STACK = "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
-const FONT_LINK = '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
+// Font stacks — mirroring frontend/src/styles/tokens.css
+const FONT_STACK = "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const FONT_MONO  = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
+const FONT_LINK  = '<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dedup + approval wrapper — queues emails as 'pending', never sends directly.
@@ -275,7 +276,7 @@ const emailWrapper = (headerContent, bodyContent, footerEmail) => `
           <!-- Footer -->
           <tr>
             <td style="background:${C.surfaceMuted};border-top:1px solid ${C.border};padding:24px 40px;text-align:center;">
-              <p style="margin:0 0 4px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:0.5px;">FINAL SERVE-IVOR</p>
+              <p style="margin:0 0 4px;font-family:${FONT_MONO};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:0.5px;">FINAL SERVE-IVOR</p>
               <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;color:${C.inkGhost};">A tennis survivor pool</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:11px;color:${C.inkGhost};">This email was sent to ${footerEmail}</p>
             </td>
@@ -304,7 +305,7 @@ function emailHeader({ eyebrow, title, subtitle }) {
   return `
     <tr>
       <td style="background:linear-gradient(135deg,${C.primary} 0%,${C.primaryHover} 100%);padding:40px 40px 32px;text-align:center;">
-        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,201,51,0.15);border:1px solid rgba(255,201,51,0.4);border-radius:20px;font-family:${FONT_STACK};font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.gold};">${eyebrow}</p>
+        <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,201,51,0.15);border:1px solid rgba(255,201,51,0.4);border-radius:20px;font-family:${FONT_MONO};font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.gold};">${eyebrow}</p>
         <h1 style="margin:0;font-family:${FONT_STACK};font-size:30px;font-weight:700;color:${C.primaryInk};line-height:1.2;">${title}</h1>
         ${subtitle ? `<p style="margin:10px 0 0;font-family:${FONT_STACK};font-size:15px;color:rgba(255,255,255,0.65);">${subtitle}</p>` : ''}
       </td>
@@ -328,7 +329,7 @@ function sectionEyebrow(text) {
   return `
     <tr>
       <td style="padding:28px 40px 16px;">
-        <p style="margin:0;font-family:${FONT_STACK};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.inkSoft};">${text}</p>
+        <p style="margin:0;font-family:${FONT_MONO};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.inkSoft};">${text}</p>
       </td>
     </tr>
   `;
@@ -590,7 +591,7 @@ const buildTournamentJoinHTML = ({
           <!-- Card header -->
           <tr>
             <td style="background:${C.primary};padding:12px 20px;">
-              <p style="margin:0;font-family:${FONT_STACK};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.gold};">Your entry</p>
+              <p style="margin:0;font-family:${FONT_MONO};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.gold};">Your entry</p>
             </td>
           </tr>
           <!-- Card body -->
@@ -851,7 +852,7 @@ export async function sendRoundResultEmail({ userId, groupId, round, email, disp
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.surfaceMuted};border:1px solid ${C.border};border-radius:12px;border-left:4px solid ${statusColor};overflow:hidden;">
           <tr>
             <td style="padding:20px 24px;">
-              <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Your pick</p>
+              <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Your pick</p>
               <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:18px;font-weight:700;color:${C.ink};">${playerName}</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${statusColor};">${statusLabel}</p>
             </td>
@@ -913,7 +914,7 @@ export async function sendWithdrawalEmail({ userId, groupId, round, email, displ
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.surfaceMuted};border:1px solid ${C.border};border-radius:12px;border-left:4px solid ${C.accent};overflow:hidden;">
           <tr>
             <td style="padding:20px 24px;">
-              <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Action required</p>
+              <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Action required</p>
               <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your new pick</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">Log in to your pool and select a different player for ${round}. Pick soon — the deadline is approaching.</p>
             </td>
@@ -966,7 +967,7 @@ export async function sendDrawReleasedEmail({ userId, groupId, email, displayNam
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.successSoft};border:1px solid ${C.border};border-radius:12px;border-left:4px solid ${C.success};overflow:hidden;">
           <tr>
             <td style="padding:20px 24px;">
-              <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Get started</p>
+              <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Get started</p>
               <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your Round 1 pick</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">The pick window is open now. Head to your pool and select the match winner you're backing for Round 1.</p>
             </td>
