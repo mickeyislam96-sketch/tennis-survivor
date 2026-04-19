@@ -22,6 +22,9 @@ Two audits conducted comparing live site against peer benchmarks (Stripe, Linear
 ## What's been actioned
 - Micro-interactions CSS deployed (19 Apr): button feedback, card animations, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge
 - Email brand alignment completed (19 Apr): three-font system, court background, gold pill CTAs, split-font footer
+- Support contact form built (19 Apr): full form with category, subject, message, user context badge, Brevo email delivery
+- Gold pill "My Pool" nav link added (19 Apr): fetches pool membership, links to group page, visible only when logged in
+- How to Play copy simplified (19 Apr): removed free/paid references, strategy tips, retirement/withdrawal language, prize-splitting detail
 
 ## What's NOT yet actioned
 - Wider canvas / layout changes
