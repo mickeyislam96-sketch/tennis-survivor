@@ -12,7 +12,7 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 ## Key architectural patterns
 - R1 uses per-match lock (players removed as their match starts), R2+ uses round-level lock deadlines
 - Data adapter layer in `dataAdapter.js` — unified interface for Goalserve (primary), API-Tennis (fallback), Sofascore (defunct)
-- Email dedup/approval: all emails queue as `pending`, admin approves via API endpoint. Cron never sends directly.
+- Email dedup/approval: all emails queue as `pending`, admin approves via API endpoint. Cron never sends directly. Exception: support emails send immediately.
 - Auto-deploys: every push to `main` deploys to Vercel (frontend) and Railway (backend) immediately
 
 ## Active tournament config
@@ -21,3 +21,10 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 ## Repositories
 - Web: `mickeyislam96-sketch/tennis-survivor` (GitHub)
 - Mobile: `mickeyislam96-sketch/tennis-survivor-mobile` (GitHub)
+
+## Key features built (as of 19 Apr 2026)
+- **Support contact form** (`/support`): category dropdown, subject, message, user context auto-attached. Backend: `POST /api/support` with rate limiting. Emails sent directly to finalservivor@gmail.com via Brevo.
+- **Gold pill "My Pool" nav link**: fetches user's pool membership, links directly to their group page. Shows pool name (single pool) or "My Pools" (multiple). Only visible when logged in.
+- **How to Play page** (`/how-to-play`): 5-step guide + 3 strategy tips. Copy simplified 19 Apr — no mention of free/paid, retirements, or prize splitting.
+- **Email system**: 9 templates (pick reminder, survival, elimination, winner, draw released, withdrawal alert, admin digest, welcome, support). All aligned to brand design system.
+- **Micro-interactions**: button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit.
