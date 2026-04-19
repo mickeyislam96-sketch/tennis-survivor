@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 17 April 2026. Keep this file updated at the end of every session.
+> Last updated: 19 April 2026. Keep this file updated at the end of every session.
 
 ---
 
@@ -225,6 +225,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `backend/src/data/tournaments.js` | Tournament registry — all events, statuses, `r1PerMatchLock` flag |
 | `backend/src/data/mockDraw.js` | Mock draw dispatcher |
 | `backend/src/data/miamiDraw.js` | Miami mock draw (legacy) |
+| `backend/src/utils/email.js` | All 7 transactional email builders + admin digest. Three-font system (Outfit/Fraunces/JetBrains Mono), gold pill CTAs, tennis court header background, dedup/approval queue via `emails_sent` table. |
 
 ### Frontend
 
@@ -236,7 +237,10 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/pages/DrawViewer.jsx` | Draw viewer — bracket + list view |
 | `frontend/src/pages/PickHistory.jsx` | User's pick history |
 | `frontend/src/components/Layout.jsx` | Nav header, auth modal |
+| `frontend/src/styles/tokens.css` | Design tokens — three font stacks (--ds-font-sans: Outfit, --ds-font-display: Fraunces, --ds-font-mono: JetBrains Mono), colour palette, spacing, motion |
+| `frontend/src/styles/micro-interactions.css` | 8 micro-interaction improvements — button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit |
 | `frontend/src/index.css` | All styles — see mobile section below |
+| `frontend/public/email-court-bg.png` | Tennis court background image for email headers (white lines at 18% opacity, dashed net, gradient mask) |
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
 | `frontend/src/data/roundLabels.js` | Shared round label constants (ROUND_SHORT for tabs, ROUND_FULL for prose) |
@@ -404,7 +408,7 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 
 ---
 
-## Current tournament state (as of 17 April 2026)
+## Current tournament state (as of 19 April 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
@@ -414,15 +418,26 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
 - Lessons: see memory `project_monte_carlo_activation.md`
 
-### Madrid 2026 (NEXT — preparation in progress)
+### Madrid 2026 (NEXT — almost ready)
 - Tournament: Mutua Madrid Open 2026
-- Status: `upcoming` — draw expected 19 Apr, tournament starts 22 Apr
+- Status: `upcoming` — draw expected 19-20 Apr, tournament starts 22 Apr
 - Entry: Free (second free tournament before Roland Garros paid launch)
 - R1 model: **Per-match lock** (new system, first deployment)
-- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (3 members: Mick, Rafa, Mark)
-- Data source: Goalserve (trial activating 18 Apr) with API-Tennis fallback
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (4 entries as of 19 Apr)
+- Data source: Goalserve (`GOALSERVE_API_KEY` set in Railway, adapter implemented) with API-Tennis fallback
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
 - Pre-launch member view: leaderboard-style page with stats bar, member table, invite box (deployed 17 Apr)
+- Goalserve adapter: implemented in `dataAdapter.js` with 5-min cache, status mapping, round mapping, withdrawal detection. **Needs testing once draw drops.**
+
+### Email design system (aligned 19 Apr)
+All 7 transactional email templates + admin digest in `backend/src/utils/email.js`. Fully aligned to live site design:
+- **Three-font system:** Outfit (body), Fraunces (display headings), JetBrains Mono (eyebrow labels). Loaded via Google Fonts `<link>`.
+- **Tennis court header:** `email-court-bg.png` background image (white court lines at 18% opacity, dashed net line, gradient mask). VML fallback for Outlook.
+- **Gold pill CTAs:** `background: #FFC933; color: #2B1F00; border-radius: 999px` — matches "Join pool" button on site.
+- **Footer brand:** Split-font treatment: "Final" in Outfit bold + "Serve-ivor" in Fraunces italic green. Tagline "A tennis survivor pool" in JetBrains Mono.
+- **Colour tokens:** Mirror `frontend/src/styles/tokens.css` — canvas #FAFAF7, primary #0F4A23, gold #FFC933, etc.
+- **Dedup/approval flow:** Emails queue as `pending` in `emails_sent` table. Admin approves via `POST /api/admin/approve-emails`. Cron never sends directly.
+- **Templates:** welcome, tournament-join, pick-reminder, round-survival, elimination, winner-announcement, withdrawal-alert, draw-released, admin-digest.
 
 ### What deployed on 18 Apr (backend + frontend)
 Full-stack polish across 7 commits. **Key changes:**
@@ -434,15 +449,16 @@ Full-stack polish across 7 commits. **Key changes:**
 6. Accessibility: useFocusTrap hook, modal focus traps, keyboard-navigable leaderboard rows
 
 ### Outstanding actions (priority order)
-1. **19 Apr: Activate Goalserve trial** — Mickey signs up, gets API key, sets `GOALSERVE_API_KEY` env var in Railway
-2. **19 Apr: Implement Goalserve adapter** — wire `fetchGoalserve()` in `dataAdapter.js`, map their fixture format to internal format
-3. **19 Apr: Test R1 per-match lock end-to-end** — validate with live Goalserve data: players disappearing on match start, pick locking, match time display
-4. **19 Apr: Madrid draw activation** — confirm draw loads from Goalserve, verify fixture count + round mapping
-5. **19 Apr: Set lock time overrides for R64+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour
-6. **Pre-Madrid: SPF/DKIM for Brevo** — set up domain auth before sending to more than 3 users
-7. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
-8. **Post-Madrid: EAS Project ID** — set before App Store submission
-9. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+1. ~~Activate Goalserve trial~~ DONE 19 Apr — API key set in Railway
+2. ~~Implement Goalserve adapter~~ DONE 19 Apr — `fetchGoalserve()` wired in `dataAdapter.js`
+3. **Test Goalserve against live data** — once Madrid draw drops (~19-20 Apr), verify fixture count, round mapping, player names, per-match lock times
+4. **Set lock time overrides for R64+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour
+5. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
+6. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
+7. **Pre-Madrid: SPF/DKIM for Brevo** — set up domain auth before sending to more than 3 users
+8. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
+9. **Post-Madrid: EAS Project ID** — set before App Store submission
+10. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -487,6 +503,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 13 Apr 2026 | **R1 per-match lock + API replacement prep.** (1) Designed and built R1 per-match lock system: no fixed R1 deadline, players removed as match starts, withdrawal re-pick flow. (2) Created `dataAdapter.js` — unified data interface with provider chain (Goalserve stub/API-Tennis bridge/Sofascore). Internal fixture format with `isWithdrawal` and `startTime` fields. (3) Created `activeTournament.js` — centralised tournament config with `r1PerMatchLock` flag. (4) Updated `picks.js` — R1 branch in `getAvailablePlayers()` uses per-match filtering; R1 branch in `POST /api/picks` checks player's match start time. (5) Updated `getDeadlines()` — returns `perMatchLock: true` for R1, no `lockAt`. (6) Rewrote T&Cs: Section 5 split into 5a (R1 per-match), 5b (R2+), 5c (overlapping rounds); new Section 6 (withdrawals); new Section 11 (notifications). (7) Added R1 hint banner + CTA to GroupHome. (8) Updated FE+BE tournament configs: MC → completed, Madrid → upcoming with `r1PerMatchLock: true`. (9) Wrote handoff doc for 17 Apr session. No code pushed — all changes in mnt, ready for /tmp clone + push on 17 Apr. |
 | 17 Apr 2026 | **Big push + 3 hotfixes.** Pushed all 13 Apr session code (24 files) plus 3 same-day fixes. (1) `0636b2c`: R1 per-match lock, data adapter, payment infra, pre-launch member leaderboard view, T&Cs rewrite, Madrid dates corrected. (2) `254f0ee`: Winner detection fix — GroupHome fetches leaderboard API for `isWinner` flag (handles "lasted longest" winners); Leaderboard shows gold winner row instead of greyed out; PoolCard uses `winnerName`. (3) `0db1f0c`: **Hotfix** — React hooks violation. `useState(lbData)` was inside conditional block, crashing entire site with white screen (error #310). Moved to top level. (4) `ce8c497`: **Hotfix** — Railway build failure. `draw.js` imported `getApiKeyMap`/`getLiveDraw` which were removed in the 13 Apr refactor. Removed dead imports and 3 MC-only admin endpoints. **Stale mnt incident:** first push from mnt reverted winner detection commits (`ba5a47a`, `33008d7`) because Mickey's Mac hadn't pulled. Re-implemented in commit 2. **Lesson:** always diff against GitHub HEAD before pushing from mnt; prefer `/tmp` clone. |
 | 18 Apr 2026 | **Full-stack polish + pre-Madrid hardening.** 7 commits across 2 sessions. **Session 1 (design system + audit):** (1) Backend audit — rate limiting on auth (login 10/15min, register 5/hr, forgot-password 5/15min), leaderboard round sort fix, runtime lock override admin endpoints. (2) Frontend audit — design tokens (--ds-font-display, --ds-gold-hover, --ds-danger-hover), standardised breakpoints to 640px, viewport-fit for iPhone notch, ErrorBoundary, Skeleton loading states, hardcoded colours → tokens, 44px touch targets, shared roundLabels.js, copy improvements, OG meta tags, fixed apostrophe build failures. (3) Hero background fix — PickScreen and Leaderboard had tone="ink" (black) instead of "primary" (emerald). (4) 4 critical backend bugs — non-picker elimination typo, hardcoded Miami dates, webhook HMAC verification, admin router not mounted. **Session 2 (emails + features):** (5) Email reskin — all 5 templates + admin digest aligned to Direction A design system (emerald/gold/warm-stone, Outfit font, shared helpers). (6) Pre-Madrid polish — admin withdrawal endpoint (`POST /api/admin/withdrawal`) with pick unlocking and email notification; sendWithdrawalEmail and sendDrawReleasedEmail templates; wired send-draw-released admin endpoint; PickScreen R1 enhancements (opponent search, match time sort, "Starts soon"/"Today" badges, cleaner info card); AbortController on all 5 fetch calls; copy pass ("prize pool" → "prize pot" across 4 files); OG image created (1200x630 emerald+gold). (7) Accessibility — useFocusTrap hook, focus traps on AuthModal and PickHistoryModal, keyboard-navigable leaderboard rows (tabIndex, role=button, Enter/Space). All verified via Vite build + both deploys + backend smoke test. |
+| 19 Apr 2026 | **Goalserve integration + micro-interactions + email brand alignment.** Across 2 sessions. **Session 1 (Goalserve + UI polish):** (1) Verified `GOALSERVE_API_KEY` set in Railway. (2) Researched Goalserve API format via docs — tennis endpoint is `/tennis/fixtures.json`, returns events with `participants` array, `time.status` for match state. (3) Implemented `fetchGoalserve()` in `dataAdapter.js` with 5-min cache, status mapping (Not Started/Finished/Cancelled/etc.), round name mapping, withdrawal detection, ISO 8601 time conversion. (4) Set `goalserveTournamentId` in `activeTournament.js` (Madrid 2026). (5) Rewrote Goalserve adapter after discovering API uses flat fixture structure, not nested rounds. (6) Built and pushed `frontend/src/styles/micro-interactions.css` — 8 improvements: button press feedback, card entrance animations, pick confirmation pulse, skeleton shimmer, tab switch crossfade, gold CTA shimmer, arrow nudge, modal exit animation. Added import in `main.jsx`. Both deployed via GitHub Contents API. **Session 2 (email brand alignment):** (7) Generated HTML mockup gallery of all 9 email templates with sample data. (8) Thorough side-by-side audit of email vs live site styles using Chrome DevTools. Discovered emails were missing Fraunces display font for headings, using wrong CTA colour/shape, and had incorrect footer logo treatment. Fixed in 3 commits: added `FONT_DISPLAY` (Fraunces) and `FONT_MONO` (JetBrains Mono) constants, updated all heading/title/step elements to use Fraunces, changed CTA from green rect to gold pill (matching site's "Join pool" button), fixed footer brand to use split-font treatment (Outfit "Final" + Fraunces italic "Serve-ivor"), updated withdrawal alert border to use design system accent token. (9) Removed "A game of skill" from site footer tagline in `Layout.jsx` (Mickey's request). (10) Created `email-court-bg.png` — tennis court background image for email headers matching the hero section pattern (white lines at 18% opacity on primary green, with left-to-right gradient mask and dashed net line). Pushed to `frontend/public/`. Updated `emailHeader()` to use `background-image` with VML fallback for Outlook. **Pending:** Modal exit animation needs JS trigger in Layout.jsx (CSS deployed but `.ds-modal--closing` class not yet added). Goalserve integration needs testing against live API once Madrid draw drops. Micro-interactions need visual verification on live site. |
 
 ---
 
