@@ -24,8 +24,8 @@
 - `POST /api/admin/withdrawal` — mark player withdrawal, unlock affected picks, send notification emails.
 - `GET /api/admin/api-diag` — data provider diagnostic info.
 
-## Backups & branch safety (added 19 Apr)
-- **Daily DB backup**: `.github/workflows/db-backup.yml` — pg_dump at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention). Manual trigger available via Actions tab. Requires `DATABASE_URL` GitHub repository secret (Railway PostgreSQL connection string).
+## Backups & branch safety (added 19 Apr, verified working)
+- **Daily DB backup**: `.github/workflows/db-backup.yml` — pg_dump v17 at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention, auto-cleanup keeps latest 30). Manual trigger via Actions tab. `DATABASE_URL` GitHub secret set (public Railway connection string via `shortline.proxy.rlwy.net`). Verified end-to-end: run #3 succeeded (48s, artifact uploaded).
 - **Branch protection**: `main` branch has force push and branch deletion blocked via GitHub API. Normal pushes still work.
 
 ## Deployment gotchas
