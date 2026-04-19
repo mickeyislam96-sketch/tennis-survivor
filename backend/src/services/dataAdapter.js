@@ -524,7 +524,17 @@ async function goalserveRequest(apiKey, path, queryParams) {
  * Discover the Goalserve tournament ID for Madrid from the leagues list.
  * Called when goalserveTournamentId is not set in config.
  */
+// In-memory cache for the discovered tournament ID — survives across requests
+// so we don't hammer the slow/flaky leagues endpoint repeatedly.
+let cachedTournamentId = null;
+
 async function discoverTournamentId(apiKey, config) {
+  // Return cached ID if we already found it
+  if (cachedTournamentId) return cachedTournamentId;
+
+  const targetName = (config?.shortName || config?.name || 'Madrid').toLowerCase();
+
+  // Strategy 1: Leagues list (comprehensive but slow/flaky)
   try {
     const data = await goalserveRequest(apiKey, 'tennis_scores/leagues');
     const leagues = toArray(data?.league || data?.leagues?.league);
@@ -534,25 +544,46 @@ async function discoverTournamentId(apiKey, config) {
       (l.country || '').toLowerCase() === 'atp-singles'
     );
 
-    const targetName = (config?.shortName || config?.name || 'Madrid').toLowerCase();
     const match = atpLeagues.find(l =>
       (l.name || '').toLowerCase().includes(targetName) ||
       (l.name || '').toLowerCase().includes('madrid')
     );
 
     if (match) {
-      console.log(`[Goalserve] Discovered Madrid tournament ID: ${match.id} ("${match.name}", season: ${match.season})`);
-      return String(match.id);
+      cachedTournamentId = String(match.id);
+      console.log(`[Goalserve] Discovered tournament ID from leagues: ${cachedTournamentId} ("${match.name}", season: ${match.season})`);
+      return cachedTournamentId;
     }
 
     // Log what we found for debugging
-    console.warn(`[Goalserve] Could not find Madrid in leagues list. ATP tournaments found:`,
+    console.warn(`[Goalserve] Could not find "${targetName}" in leagues list. ATP tournaments found:`,
       atpLeagues.slice(0, 20).map(l => `${l.name} (${l.id})`).join(', '));
-    return null;
   } catch (err) {
     console.warn(`[Goalserve] Leagues discovery failed: ${err.message}`);
-    return null;
   }
+
+  // Strategy 2: Scan livescore home for tournament category matching our name.
+  // This is fast (~2s) but only works once the tournament has started.
+  try {
+    console.log(`[Goalserve] Trying home livescore scan for "${targetName}"...`);
+    const data = await goalserveRequest(apiKey, 'tennis_scores/home');
+    const categories = toArray(data?.scores?.category);
+    const catMatch = categories.find(c => {
+      const catName = (c?.['@name'] || c?.name || '').toLowerCase();
+      return catName.includes(targetName) || catName.includes('madrid');
+    });
+
+    if (catMatch) {
+      cachedTournamentId = String(catMatch['@id'] || catMatch.id);
+      console.log(`[Goalserve] Discovered tournament ID from livescore: ${cachedTournamentId} ("${catMatch['@name'] || catMatch.name}")`);
+      return cachedTournamentId;
+    }
+    console.log(`[Goalserve] "${targetName}" not in today's livescore (tournament may not have started)`);
+  } catch (err) {
+    console.warn(`[Goalserve] Home livescore scan failed: ${err.message}`);
+  }
+
+  return null;
 }
 
 /**
@@ -579,13 +610,13 @@ async function fetchGoalserve(config) {
 
   console.log('[Goalserve] Fetching fresh data...');
 
-  // Resolve tournament ID
-  let tournamentId = config?.goalserveTournamentId;
+  // Resolve tournament ID (config > cached > discover)
+  let tournamentId = config?.goalserveTournamentId || cachedTournamentId;
   if (!tournamentId) {
     tournamentId = await discoverTournamentId(apiKey, config);
     if (tournamentId) {
       console.log(`[Goalserve] Using discovered tournament ID: ${tournamentId}. ` +
-        `Set goalserveTournamentId: '${tournamentId}' in activeTournament.js to skip discovery.`);
+        `Hardcode goalserveTournamentId: '${tournamentId}' in activeTournament.js to skip discovery.`);
     }
   }
 
