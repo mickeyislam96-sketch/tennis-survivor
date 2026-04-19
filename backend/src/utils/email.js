@@ -910,7 +910,7 @@ export async function sendWithdrawalEmail({ userId, groupId, round, email, displ
     <!-- Alert card -->
     <tr>
       <td style="padding:0 40px 24px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.surfaceMuted};border:1px solid ${C.border};border-radius:12px;border-left:4px solid #FFA500;overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.surfaceMuted};border:1px solid ${C.border};border-radius:12px;border-left:4px solid ${C.accent};overflow:hidden;">
           <tr>
             <td style="padding:20px 24px;">
               <p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:1px;text-transform:uppercase;">Action required</p>
@@ -983,3 +983,4 @@ export async function sendDrawReleasedEmail({ userId, groupId, email, displayNam
 
   return sendWithDedup({ userId, groupId, round: 'R1', emailType: 'draw_released', to: email, subject, html });
 }
+
