@@ -80,7 +80,7 @@ import { TOURNAMENT } from '../config/activeTournament.js';
 //   game_score (string, livescore only), seed (draw endpoint only)
 
 const GOALSERVE_BASE = 'https://www.goalserve.com/getfeed';
-const GOALSERVE_TIMEOUT = 12000;
+const GOALSERVE_TIMEOUT = 30000;
 const GOALSERVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // In-memory cache

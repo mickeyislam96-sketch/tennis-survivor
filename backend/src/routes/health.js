@@ -17,7 +17,7 @@ import { fetchFixtures } from '../services/dataAdapter.js';
 
 export const healthRouter = Router();
 
-const HEALTH_TIMEOUT  = 12000;
+const HEALTH_TIMEOUT  = 35000;
 
 healthRouter.get('/', async (_req, res) => {
   const checks = {};
