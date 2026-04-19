@@ -426,6 +426,7 @@ export function Layout({ children }) {
           <div className="ds-footer__links">
             <NavLink to="/how-to-play" className="ds-footer__link">How to play</NavLink>
             <NavLink to="/terms" className="ds-footer__link">Terms &amp; conditions</NavLink>
+            <NavLink to="/support" className="ds-footer__link">Support</NavLink>
           </div>
           <p className="ds-footer__copy">© 2026 Final Serve-ivor</p>
         </div>
