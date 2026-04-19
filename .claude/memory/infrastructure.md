@@ -24,6 +24,10 @@
 - `POST /api/admin/withdrawal` — mark player withdrawal, unlock affected picks, send notification emails.
 - `GET /api/admin/api-diag` — data provider diagnostic info.
 
+## Backups & branch safety (added 19 Apr)
+- **Daily DB backup**: `.github/workflows/db-backup.yml` — pg_dump at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention). Manual trigger available via Actions tab. Requires `DATABASE_URL` GitHub repository secret (Railway PostgreSQL connection string).
+- **Branch protection**: `main` branch has force push and branch deletion blocked via GitHub API. Normal pushes still work.
+
 ## Deployment gotchas
 - Every push to `main` auto-deploys to real users — treat every commit as production release
 - mnt files can be stale if Mickey hasn't run `git pull` — always diff against GitHub HEAD before pushing from mnt
