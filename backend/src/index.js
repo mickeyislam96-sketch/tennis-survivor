@@ -20,6 +20,7 @@ import { poolsRouter } from './routes/pools.js';
 import { healthRouter } from './routes/health.js';
 import { paymentsRouter } from './routes/payments.js';
 import { adminRouter } from './routes/admin.js';
+import { supportRouter } from './routes/support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/tiebreaker', tiebreakerRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/support', supportRouter);
 
 // Email smoke-test — uses sendPasswordResetEmail which throws on failure
 // Usage: GET /api/email-test?to=youraddress@gmail.com
