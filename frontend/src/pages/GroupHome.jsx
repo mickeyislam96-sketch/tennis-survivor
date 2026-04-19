@@ -905,11 +905,7 @@ export function GroupHome() {
                     <Button as={Link} to={`/group/${groupId}/pick`} variant="primary" size="lg">
                       {openRound ? `Pick for ${openRound} →` : 'Make your pick →'}
                     </Button>
-                    {openRound === 'R1' ? (
-                      <p className="gh-cta-hint">
-                        No fixed deadline for R1. Pick before your player's match starts — once it begins, both players lock.
-                      </p>
-                    ) : openRound ? (
+                    {openRound ? (
                       <p className="gh-cta-hint">
                         <PickWindow opensAt={openRoundOpensAt} lockAt={openRoundDeadline} />
                       </p>

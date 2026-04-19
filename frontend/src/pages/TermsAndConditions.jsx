@@ -74,20 +74,13 @@ export function TermsAndConditions() {
 
             <h3 className="tc-h3">5a. Round 1</h3>
             <p>
-              Round 1 does not have a fixed closing deadline. Instead, the pick window for Round 1
-              remains open throughout the round, and players are removed from the available list as
-              soon as their match begins. Once a match kicks off, both players in that match can no
-              longer be selected or switched to. You may pick or change your selection at any time,
-              provided your chosen player's match has not yet started.
+              Round 1 has a fixed pick deadline, displayed on the pick screen. The deadline is
+              typically set to one hour before the first Round 1 match is scheduled to begin. You
+              may pick or change your selection at any time before this deadline. After the deadline
+              passes, your pick is locked and cannot be changed.
             </p>
             <p>
-              Your pick is locked the moment your selected player's match begins. You cannot change
-              it after that point.
-            </p>
-            <p>
-              The Round 1 pick window closes entirely when the last Round 1 match begins, at which
-              point no further Round 1 selections can be made. If you have not submitted a pick by
-              the time all Round 1 matches have started, you will be eliminated.
+              If you have not submitted a pick by the deadline, you will be eliminated.
             </p>
 
             <h3 className="tc-h3">5b. Round 2 onwards</h3>
@@ -121,28 +114,29 @@ export function TermsAndConditions() {
           <section className="tc-section">
             <h2 className="tc-h2">6. Player Withdrawals</h2>
 
-            <h3 className="tc-h3">6a. Before your player's match starts</h3>
+            <h3 className="tc-h3">6a. Before the round deadline</h3>
             <p>
-              If a player you have selected withdraws from the tournament before their match begins,
-              you will be notified by email (and push notification if using the mobile app). You will
-              then be able to make a new selection from the remaining available players whose matches
-              have not yet started. The number of available replacements may be limited depending on
-              how many matches have already begun.
-            </p>
-            <p>
-              It is your responsibility to act on this notification promptly. If you do not submit a
-              replacement pick before all remaining matches in that round have started, you will be
-              eliminated.
+              If a player you have selected withdraws from the tournament before the round's pick
+              deadline, you will be notified by email. Your pick will be removed and you will be
+              able to make a new selection from the remaining available players before the deadline.
             </p>
 
-            <h3 className="tc-h3">6b. After your player's match starts</h3>
+            <h3 className="tc-h3">6b. After the round deadline (with no time to re-pick)</h3>
             <p>
-              If your selected player retires or is given a walkover after their match has started (or
-              after the round's pick window has closed for Round 2 onwards), no replacement pick is
-              available. The match result stands as recorded by the tournament, and your fate in the
-              competition follows accordingly. If the withdrawal results in your player being awarded
-              a walkover win, you advance. If your player retires or is recorded as the loser, you
-              are eliminated.
+              If a player you have selected withdraws after the round's pick deadline has passed,
+              or too close to the deadline for you to reasonably re-pick, your selection will
+              automatically transfer to the replacement player (lucky loser or alternate) who takes
+              the withdrawn player's place in the draw. You will be notified by email of this change.
+              If no replacement player enters the draw, you will receive a bye for that round and
+              continue to the next round.
+            </p>
+
+            <h3 className="tc-h3">6c. Mid-match retirement or walkover</h3>
+            <p>
+              If your selected player retires or is given a walkover after their match has started,
+              no replacement pick is available. The match result stands as recorded by the tournament.
+              If the withdrawal results in your player being awarded a walkover win, you advance.
+              If your player retires or is recorded as the loser, you are eliminated.
             </p>
           </section>
 

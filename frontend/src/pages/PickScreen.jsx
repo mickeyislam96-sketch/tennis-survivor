@@ -381,19 +381,11 @@ export function PickScreen() {
           </div>
         )}
 
-        {/* Window open: closing countdown or per-match lock hint */}
-        {isOpen && deadline && !isPerMatchLock && (
+        {/* Window open: closing countdown */}
+        {isOpen && deadline && (
           <Card tone="primary" padding="md" className="ps-countdown-card">
             <span className="ps-countdown-label">Pick window closes in</span>
             <Countdown to={deadline} onExpire={fetchDeadlines} />
-          </Card>
-        )}
-        {isOpen && isPerMatchLock && (
-          <Card tone="primary" padding="md" className="ps-countdown-card ps-countdown-card--r1">
-            <div className="ps-countdown-r1-content">
-              <span className="ps-countdown-label">Per-match lock</span>
-              <span className="ps-countdown-value ps-countdown-value--info">Your pick locks when the match starts. Players are removed from the list as their matches begin.</span>
-            </div>
           </Card>
         )}
 
