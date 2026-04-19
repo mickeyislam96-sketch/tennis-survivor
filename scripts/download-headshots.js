@@ -2,38 +2,29 @@
 /**
  * download-headshots.js
  *
- * Downloads ATP player headshots from atptour.com's public CDN
- * and saves them as name-slug JPGs for the PlayerAvatar component.
+ * Downloads ATP player headshots using a real browser (Puppeteer)
+ * to bypass bot detection. Saves as name-slug JPGs for PlayerAvatar.
+ *
+ * Setup (one time):
+ *   cd tennis-survivor
+ *   npm install puppeteer
  *
  * Usage:
- *   cd tennis-survivor
  *   node scripts/download-headshots.js
  *
  * Output: frontend/public/players/{name-slug}.jpg
  *
- * How it works:
- * 1. Uses a hardcoded map of player names → ATP Tour 4-char IDs
- * 2. Downloads headshot from https://www.atptour.com/-/media/alias/player-headshot/{id}
- * 3. Saves as {name-slug}.jpg in the players directory
- *
- * These are static files served by Vercel's CDN — no API calls at runtime.
- * Images rarely change (new headshots once per season), so run this script
- * once, commit the images, and you're done.
- *
- * To add a player: find their profile at atptour.com/en/players/{slug}/{ID}/overview
- * and add their name + 4-char ID to the ATP_IDS map below.
+ * These are static files — commit them once, Vercel serves them
+ * from its CDN. No runtime API calls, no database.
  */
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
-// ── Configuration ─────────────────────────────────────────────
 const OUTPUT_DIR = path.join(__dirname, '..', 'frontend', 'public', 'players');
 const BASE_URL = 'https://www.atptour.com/-/media/alias/player-headshot';
 
-// ATP Tour 4-character player IDs.
-// Source: atptour.com/en/players/{name-slug}/{ID}/overview
+// ATP Tour 4-char player IDs from atptour.com/en/players/{slug}/{ID}/overview
 const ATP_IDS = {
   // — Top 10 —
   'Jannik Sinner': 's0ag',
@@ -125,7 +116,7 @@ const ATP_IDS = {
   'Luca Van Assche': 'v0dz',
   'Tomas Martin Etcheverry': 'ea24',
 
-  // — 81-100 —
+  // — 81-100+ —
   'Filip Misolic': 'm0jz',
   'Laslo Djere': 'db63',
   'Federico Coria': 'ce77',
@@ -142,7 +133,7 @@ const ATP_IDS = {
   'Maximilian Marterer': 'mn13',
   'Reilly Opelka': 'o522',
 
-  // — Extras (frequent draw entrants, veterans) —
+  // — Extras —
   'Damir Dzumhur': 'd923',
   'Arthur Cazaux': 'c0h0',
   'Gregoire Barrere': 'bk24',
@@ -173,38 +164,18 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      },
-    }, (res) => {
-      // Follow redirects (up to 3)
-      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-        res.resume();
-        downloadFile(res.headers.location, dest).then(resolve).catch(reject);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        res.resume();
-        reject(new Error(`HTTP ${res.statusCode}`));
-        return;
-      }
-      const file = fs.createWriteStream(dest);
-      res.pipe(file);
-      file.on('finish', () => { file.close(); resolve(); });
-      file.on('error', (e) => { try { fs.unlinkSync(dest); } catch (_) {} reject(e); });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
-  });
-}
-
 // ── Main ──────────────────────────────────────────────────────
 
 async function main() {
+  // Check puppeteer is installed
+  let puppeteer;
+  try {
+    puppeteer = require('puppeteer');
+  } catch (e) {
+    console.error('Puppeteer not installed. Run:\n  npm install puppeteer\n');
+    process.exit(1);
+  }
+
   if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
@@ -215,65 +186,95 @@ async function main() {
   let failed = 0;
   const failures = [];
 
-  console.log(`Downloading headshots for ${entries.length} players...`);
+  console.log(`\nDownloading headshots for ${entries.length} players...`);
   console.log(`Source: ${BASE_URL}/{id}`);
   console.log(`Output: ${OUTPUT_DIR}\n`);
+
+  // Launch a real browser — bypasses Cloudflare/bot detection
+  console.log('Launching browser...\n');
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 720 });
+
+  // Visit ATP Tour homepage first to establish cookies/session
+  try {
+    await page.goto('https://www.atptour.com', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await sleep(2000);
+    console.log('Session established.\n');
+  } catch (e) {
+    console.log('Warning: could not load ATP homepage, continuing anyway...\n');
+  }
 
   for (const [name, atpId] of entries) {
     const slug = nameSlug(name);
     const dest = path.join(OUTPUT_DIR, `${slug}.jpg`);
 
-    // Skip if already downloaded (and file is non-trivial)
+    // Skip if already downloaded
     if (fs.existsSync(dest)) {
       const stat = fs.statSync(dest);
       if (stat.size > 500) {
         skipped++;
         continue;
       }
-      // Remove tiny/corrupt files and re-download
       fs.unlinkSync(dest);
     }
 
     try {
       const imageUrl = `${BASE_URL}/${atpId}`;
-      await downloadFile(imageUrl, dest);
 
-      // Verify the file is a real image (> 1KB)
-      const stat = fs.statSync(dest);
-      if (stat.size < 1000) {
-        console.log(`  WARN  ${name} (${atpId}) — file too small (${stat.size}B), removing`);
-        fs.unlinkSync(dest);
-        failed++;
-        failures.push(name);
-      } else {
-        downloaded++;
-        console.log(`  OK    ${name} → ${slug}.jpg (${Math.round(stat.size / 1024)}KB)`);
+      // Use page.goto to fetch the image (real browser request)
+      const response = await page.goto(imageUrl, {
+        waitUntil: 'load',
+        timeout: 10000,
+      });
+
+      if (!response || !response.ok()) {
+        throw new Error(`HTTP ${response ? response.status() : 'no response'}`);
       }
+
+      const buffer = await response.buffer();
+
+      if (buffer.length < 1000) {
+        throw new Error(`too small (${buffer.length}B)`);
+      }
+
+      fs.writeFileSync(dest, buffer);
+      downloaded++;
+      console.log(`  OK    ${name} → ${slug}.jpg (${Math.round(buffer.length / 1024)}KB)`);
+
     } catch (err) {
       console.log(`  FAIL  ${name} (${atpId}) — ${err.message}`);
       failed++;
       failures.push(name);
     }
 
-    // 200ms between requests
-    await sleep(200);
+    // Small delay between requests
+    await sleep(300);
   }
+
+  await browser.close();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Done: ${downloaded} downloaded, ${skipped} existed, ${failed} failed`);
-  console.log(`Total players in map: ${entries.length}`);
+  console.log(`Total: ${entries.length} players`);
   console.log(`Images in: ${OUTPUT_DIR}`);
 
   if (failures.length > 0) {
-    console.log(`\nFailed players:`);
+    console.log(`\nFailed (${failures.length}):`);
     failures.forEach(n => console.log(`  - ${n}`));
-    console.log(`\nRe-run the script to retry. It skips existing files.`);
+    console.log(`\nRe-run to retry (skips existing files).`);
   }
 
-  console.log(`\nNext steps:`);
-  console.log(`  git add frontend/public/players/*.jpg`);
-  console.log(`  git commit -m "add player headshot images"`);
-  console.log(`  git push origin main`);
+  if (downloaded > 0) {
+    console.log(`\nNext steps:`);
+    console.log(`  git add frontend/public/players/*.jpg`);
+    console.log(`  git commit -m "add player headshot images"`);
+    console.log(`  git push origin main`);
+  }
 }
 
 main().catch(console.error);
