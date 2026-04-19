@@ -4,98 +4,94 @@
  * Production health check. Never silently passes.
  *
  * Checks:
- *   1. Required env vars (TENNIS_API_KEY + active tournament key)
- *   2. API-Tennis live call for the active tournament
- *   3. Active data source (live_api | mock_data)
- *   4. In-memory cache status
- *   5. PostgreSQL connectivity
+ *   1. Required env vars (data provider keys + active tournament)
+ *   2. Data adapter live call (Goalserve / API-Tennis / fallback)
+ *   3. Active data source
+ *   4. PostgreSQL connectivity
  */
 
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { TOURNAMENT } from '../config/tournament.js';
-
-// getCacheStatus was removed in the tennisData → dataAdapter refactor.
-// Health check now reports cache as "unavailable" rather than crashing.
-const getCacheStatus = () => ({ status: 'unavailable', reason: 'cache layer removed in data adapter refactor' });
+import { TOURNAMENT } from '../config/activeTournament.js';
+import { fetchFixtures } from '../services/dataAdapter.js';
 
 export const healthRouter = Router();
 
-const API_BASE        = 'https://api.api-tennis.com/tennis';
-const HEALTH_TIMEOUT  = 8000;
+const HEALTH_TIMEOUT  = 12000;
 
 healthRouter.get('/', async (_req, res) => {
   const checks = {};
   let allOk    = true;
 
   // ── 1. Env vars ─────────────────────────────────────────────────────────────
-  const apiKey       = process.env.TENNIS_API_KEY;
-  const tournamentKey = TOURNAMENT.apiTournamentKey;
+  const goalserveKey  = process.env.GOALSERVE_API_KEY;
+  const apiTennisKey  = process.env.TENNIS_API_KEY;
+  const dataProvider  = process.env.TENNIS_DATA_PROVIDER || 'auto';
 
   checks.env = {
-    TENNIS_API_KEY:    apiKey        ? 'present' : 'MISSING',
-    TOURNAMENT_KEY:    tournamentKey ? 'present' : 'MISSING',
-    ACTIVE_TOURNAMENT: TOURNAMENT.id,
+    GOALSERVE_API_KEY:     goalserveKey  ? 'present' : 'NOT_SET',
+    TENNIS_API_KEY:        apiTennisKey  ? 'present' : 'NOT_SET',
+    TENNIS_DATA_PROVIDER:  dataProvider,
+    ACTIVE_TOURNAMENT:     TOURNAMENT.id,
   };
 
-  if (!apiKey)        { checks.env.TENNIS_API_KEY_error = 'Set TENNIS_API_KEY on Railway';     allOk = false; }
-  if (!tournamentKey) { checks.env.TOURNAMENT_KEY_warning = `Set ${TOURNAMENT.id.toUpperCase().replace(/-/g,'_')}_TOURNAMENT_KEY on Railway — running on mock data until set`; }
+  // ── 2. Data adapter live check ──────────────────────────────────────────────
+  // Call the unified fetchFixtures() which tries the provider chain.
+  // This tells us exactly which source is active and whether it returns data.
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
 
-  // ── 2. API-Tennis live call ──────────────────────────────────────────────────
-  if (apiKey && tournamentKey) {
-    // Use a narrow test range (just the first day) to minimise data returned
-    const url =
-      `${API_BASE}/?method=get_fixtures` +
-      `&APIkey=${apiKey}` +
-      `&tournament_key=${tournamentKey}` +
-      (TOURNAMENT.apiSeason ? `&tournament_season=${TOURNAMENT.apiSeason}` : '') +
-      `&date_start=${TOURNAMENT.apiDateStart}` +
-      `&date_stop=${TOURNAMENT.apiDateStart}`; // just first day
-
+    let result;
     try {
-      const controller = new AbortController();
-      const timer      = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
-      let httpRes;
-      try {
-        httpRes = await fetch(url, { signal: controller.signal });
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (!httpRes.ok) throw new Error(`HTTP ${httpRes.status} ${httpRes.statusText}`);
-      const data = await httpRes.json();
-      if (data?.success === false) throw new Error(`API error: ${data?.error || 'success=false'}`);
-      if (!Array.isArray(data?.result)) throw new Error('Unexpected response — result is not an array');
-
-      checks.tennis_api = {
-        status:            'ok',
-        fixtures_returned: data.result.length,
-        data_source:       'live_api',
-      };
-    } catch (err) {
-      const timedOut = err.name === 'AbortError';
-      checks.tennis_api = {
-        status:      'FAIL',
-        detail:      timedOut ? `Timed out after ${HEALTH_TIMEOUT}ms` : err.message,
-        data_source: 'mock_fallback',
-      };
-      allOk = false;
+      result = await fetchFixtures();
+    } finally {
+      clearTimeout(timer);
     }
-  } else {
-    checks.tennis_api = {
-      status:      'skipped',
-      reason:      'API keys not configured — running on mock data',
-      data_source: 'mock_data',
+
+    const { provider, fixtures } = result;
+
+    if (provider === 'none' || fixtures.length === 0) {
+      // No provider returned data — we're on mock fallback
+      checks.data_adapter = {
+        status:      'no_data',
+        provider:    provider,
+        data_source: 'mock_data',
+        detail:      goalserveKey
+          ? 'Goalserve key is set but returned no fixtures — tournament may not have started yet'
+          : 'No data provider configured — set GOALSERVE_API_KEY on Railway',
+      };
+    } else {
+      // Summarise what we got
+      const roundCounts = {};
+      for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
+
+      checks.data_adapter = {
+        status:            'ok',
+        provider,
+        data_source:       provider,
+        fixtures_total:    fixtures.length,
+        with_start_time:   fixtures.filter(f => f.startTime).length,
+        completed:         fixtures.filter(f => f.status === 'completed').length,
+        live:              fixtures.filter(f => f.status === 'live').length,
+        walkovers:         fixtures.filter(f => f.isWithdrawal).length,
+        rounds:            roundCounts,
+      };
+    }
+  } catch (err) {
+    const timedOut = err.name === 'AbortError';
+    checks.data_adapter = {
+      status:      'FAIL',
+      detail:      timedOut ? `Timed out after ${HEALTH_TIMEOUT}ms` : err.message,
+      data_source: 'mock_fallback',
     };
+    allOk = false;
   }
 
-  // ── 3. In-memory cache status ────────────────────────────────────────────────
-  checks.cache = getCacheStatus();
+  // ── 3. Active data source summary ───────────────────────────────────────────
+  checks.data_source = checks.data_adapter?.data_source ?? 'unknown';
 
-  // ── 4. Active data source summary ───────────────────────────────────────────
-  checks.data_source = checks.tennis_api?.data_source ?? 'unknown';
-
-  // ── 5. Database ──────────────────────────────────────────────────────────────
+  // ── 4. Database ──────────────────────────────────────────────────────────────
   try {
     await pool.query('SELECT 1');
     checks.database = 'ok';

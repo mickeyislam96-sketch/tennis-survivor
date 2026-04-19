@@ -64,14 +64,19 @@ const TOURNAMENTS = {
     },
 
     // API provider config
-    // Goalserve: set GOALSERVE_API_KEY + goalserveTournamentId once trial is active
-    goalserveTournamentId: null,  // TBD — find in Goalserve system
+    // Goalserve: set GOALSERVE_API_KEY env var in Railway.
+    // goalserveTournamentId: set after first successful API call — the adapter
+    // logs discovered tournament IDs to help you find the right one.
+    // If null, the adapter matches by tournament name ("Madrid").
+    goalserveTournamentId: null,  // Set once discovered from Goalserve API output
     apiTennisTournamentKey: null, // Legacy — set if falling back to API-Tennis
     apiSeason: null,              // Some APIs break with explicit season param
 
-    // Round name overrides for API round normalisation
+    // Round name overrides for Goalserve round normalisation.
+    // The adapter has broad defaults, but if Goalserve uses unexpected labels
+    // for Madrid, add them here. The adapter logs unknown labels to help.
     roundNameOverrides: {
-      // e.g. 'ATP Madrid - 1/64-finals': 'R1'
+      // e.g. 'atp madrid - 1/64-finals': 'R1'
       // Populated once we see actual API output
     },
   },
