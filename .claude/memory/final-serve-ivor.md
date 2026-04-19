@@ -1,0 +1,23 @@
+# Final Serve-ivor — Product Context
+
+## What it is
+Tennis survivor fantasy game. Players join groups, pick one match winner per round, eliminated if pick loses. Last survivor wins the prize pot. Built around major ATP draws.
+
+## History
+- Monte Carlo 2026: complete (Mark won, 11 entrants, free entry)
+- Madrid 2026: starts 20 Apr, free entry, draw expected 19-20 Apr, 4 members so far. Goalserve adapter implemented, awaiting draw drop.
+- Rome 2026: planned free + mobile app launch
+- Roland Garros 2026: planned first paid tournament
+
+## Key architectural patterns
+- R1 uses per-match lock (players removed as their match starts), R2+ uses round-level lock deadlines
+- Data adapter layer in `dataAdapter.js` — unified interface for Goalserve (primary), API-Tennis (fallback), Sofascore (defunct)
+- Email dedup/approval: all emails queue as `pending`, admin approves via API endpoint. Cron never sends directly.
+- Auto-deploys: every push to `main` deploys to Vercel (frontend) and Railway (backend) immediately
+
+## Active tournament config
+`backend/src/config/activeTournament.js` controls everything: tournament ID, Goalserve ID, lock time overrides, r1PerMatchLock flag.
+
+## Repositories
+- Web: `mickeyislam96-sketch/tennis-survivor` (GitHub)
+- Mobile: `mickeyislam96-sketch/tennis-survivor-mobile` (GitHub)
