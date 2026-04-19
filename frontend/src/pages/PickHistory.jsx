@@ -12,14 +12,14 @@ import './PickHistory.css';
 
 export function PickHistory() {
   const { groupId } = useParams();
-  const { userId } = useAuth();
+  const { userId, authFetch } = useAuth();
   const [picks, setPicks] = useState([]);
   const [member, setMember] = useState(null);
   const [tournamentStatus, setTournamentStatus] = useState(null);
 
   useEffect(() => {
     if (!groupId || !userId) return;
-    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
+    authFetch(`${API}/picks/history?groupId=${groupId}`)
       .then((r) => r.json())
       .then(setPicks)
       .catch(() => setPicks([]));

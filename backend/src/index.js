@@ -7,11 +7,13 @@ import { runOpsChecks } from './services/opsMonitor.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './db/pool.js';
 import { sendAdminDigest } from './utils/email.js';
+import { csrfProtection } from './middleware/auth.js';
 import { groupsRouter } from './routes/groups.js';
 import { picksRouter } from './routes/picks.js';
 import { drawRouter } from './routes/draw.js';
@@ -84,7 +86,9 @@ const ALLOWED_ORIGINS = [
   ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
 ];
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
+app.use(csrfProtection);
 
 app.use('/api/groups', groupsRouter);
 app.use('/api/pools', poolsRouter);

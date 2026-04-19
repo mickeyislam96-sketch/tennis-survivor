@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { pool } from '../db/pool.js';
 import { MOCK_USERS } from '../data/mockGroups.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email.js';
+import { issueToken, requireAuth, generateCsrfToken } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
@@ -35,9 +36,8 @@ const resetLimiter = rateLimit({
 });
 
 // ââ GET /api/auth/me?userId= âââââââââââââââââââââââââââââââââââââââââââââââââ
-authRouter.get('/me', async (req, res) => {
-  const userId = req.query.userId || req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'No userId provided' });
+authRouter.get('/me', requireAuth, async (req, res) => {
+  const userId = req.userId;
 
   try {
     const result = await pool.query(
@@ -92,7 +92,10 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
     // Non-blocking welcome email
     sendWelcomeEmail({ email: u.email, displayName: u.display_name });
 
-    return res.status(201).json({ id: u.id, email: u.email, displayName: u.display_name, isNew: true });
+    const token = issueToken(u.id);
+    const csrf = generateCsrfToken();
+    res.cookie('csrf', csrf, { httpOnly: false, sameSite: 'strict', secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    return res.status(201).json({ id: u.id, email: u.email, displayName: u.display_name, isNew: true, token, csrf });
   } catch (err) {
     console.error('Register error:', err.message);
     return res.status(500).json({ error: 'Registration failed. Please try again.' });
@@ -134,7 +137,10 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    return res.json({ id: u.id, email: u.email, displayName: u.display_name });
+    const token = issueToken(u.id);
+    const csrf = generateCsrfToken();
+    res.cookie('csrf', csrf, { httpOnly: false, sameSite: 'strict', secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    return res.json({ id: u.id, email: u.email, displayName: u.display_name, token, csrf });
   } catch (err) {
     console.error('Login error:', err.message);
     return res.status(500).json({ error: 'Login failed. Please try again.' });
@@ -260,9 +266,8 @@ authRouter.get('/verify-reset-token', async (req, res) => {
 
 // ââ PATCH /api/auth/me âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Update display name, email, and/or password
-authRouter.patch('/me', async (req, res) => {
-  const userId = req.query.userId || req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
+authRouter.patch('/me', requireAuth, async (req, res) => {
+  const userId = req.userId;
 
   const { displayName, email, currentPassword, newPassword } = req.body;
 
@@ -342,9 +347,8 @@ authRouter.patch('/me', async (req, res) => {
 
 // ââ GET /api/auth/me/pools âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Returns all pools (groups) the user has joined, with their alive/eliminated status
-authRouter.get('/me/pools', async (req, res) => {
-  const userId = req.query.userId || req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
+authRouter.get('/me/pools', requireAuth, async (req, res) => {
+  const userId = req.userId;
 
   try {
     const result = await pool.query(

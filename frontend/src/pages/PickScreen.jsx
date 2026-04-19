@@ -71,7 +71,7 @@ function Countdown({ to, className = 'ps-countdown-value', onExpire }) {
 // ── Main component ─────────────────────────────────────────────
 export function PickScreen() {
   const { groupId } = useParams();
-  const { userId } = useAuth();
+  const { userId, authFetch } = useAuth();
   const [available, setAvailable]     = useState([]);
   const [rounds, setRounds]           = useState([]);
   const [currentRound, setCurrentRound] = useState('R1');
@@ -116,7 +116,7 @@ export function PickScreen() {
   useEffect(() => {
     if (!groupId || !userId) return;
     const controller = new AbortController();
-    fetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
+    authFetch(`${API}/picks/available?groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
       .then((r) => r.json())
       .then(setAvailable)
       .catch((e) => { if (e.name !== 'AbortError') setAvailable([]); });
@@ -126,7 +126,7 @@ export function PickScreen() {
   useEffect(() => {
     if (!groupId || !userId) return;
     const controller = new AbortController();
-    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`, { signal: controller.signal })
+    authFetch(`${API}/picks/history?groupId=${groupId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
       .catch((e) => { if (e.name !== 'AbortError') setAllPicks([]); });
@@ -187,11 +187,11 @@ export function PickScreen() {
     setSubmitting(true);
     setMessage('');
     setRowError({ id: null, msg: '' });
-    fetch(`${API}/picks`, {
+    authFetch(`${API}/picks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId, groupId, round: currentRound,
+        groupId, round: currentRound,
         playerId: player.id, playerName: player.name,
       }),
     })

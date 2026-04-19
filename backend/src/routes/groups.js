@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 import { TOURNAMENTS, getTournament } from '../data/tournaments.js';
@@ -37,7 +38,7 @@ function rowToMember(m) {
 
 // GET /api/groups — groups the user belongs to
 groupsRouter.get('/', async (req, res) => {
-  const userId = req.query.userId || req.headers['x-user-id'];
+  const userId = req.userId || req.query.userId;  // JWT or legacy
   if (!userId) return res.json([]);
 
   if (isUUID(userId)) {
@@ -175,7 +176,8 @@ groupsRouter.post('/', async (req, res) => {
 
 // POST /api/groups/:id/join
 groupsRouter.post('/:id/join', async (req, res) => {
-  const { userId, displayName } = req.body;
+  const { displayName } = req.body;
+  const userId = req.userId || req.body.userId;  // JWT or legacy
   const groupId = req.params.id;
 
   if (isUUID(groupId) && isUUID(userId)) {

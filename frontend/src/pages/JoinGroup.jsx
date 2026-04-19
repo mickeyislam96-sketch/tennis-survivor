@@ -16,7 +16,7 @@ function fmtGBP(cents) {
 export function JoinGroup() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const { userId, user, register, login } = useAuth();
+  const { userId, user, register, login, authFetch } = useAuth();
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -78,10 +78,10 @@ export function JoinGroup() {
 
     setJoining(true);
     setError('');
-    fetch(`${API}/groups/${group.id}/join`, {
+    authFetch(`${API}/groups/${group.id}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: uid, displayName: uName })
+      body: JSON.stringify({ displayName: uName })
     })
       .then((r) => {
         if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed'); });

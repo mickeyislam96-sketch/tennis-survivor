@@ -9,6 +9,7 @@
  */
 
 import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { pool } from '../db/pool.js';
 import {
@@ -79,7 +80,8 @@ function rateLimit(key, maxPerMinute = 10) {
 
 // ── POST /api/payments/create-order ─────────────────────────────────────────
 paymentsRouter.post('/create-order', async (req, res) => {
-  const { groupId, userId } = req.body;
+  const { groupId } = req.body;
+  const userId = req.userId || req.body.userId;  // JWT or legacy
   if (!groupId || !userId) {
     return res.status(400).json({ error: 'groupId and userId required' });
   }

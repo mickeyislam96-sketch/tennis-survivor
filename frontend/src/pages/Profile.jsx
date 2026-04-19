@@ -26,17 +26,16 @@ function fmtDate(iso) {
 }
 
 /* -- Pool history -------------------------------------------------------- */
-function PoolHistory({ userId }) {
+function PoolHistory({ authFetch }) {
   const [pools, setPools] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!userId) return;
-    fetch(`${API}/auth/me/pools?userId=${userId}`)
+    authFetch(`${API}/auth/me/pools`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setPools)
       .catch(() => { setError('Could not load pool history.'); setPools([]); });
-  }, [userId]);
+  }, [authFetch]);
 
   if (pools === null) return <p className="pr-loading">Loading pools…</p>;
   if (error) return <p className="pr-error">{error}</p>;
@@ -91,7 +90,7 @@ function PoolHistory({ userId }) {
 }
 
 /* -- Account settings ---------------------------------------------------- */
-function AccountSettings({ user, updateUser }) {
+function AccountSettings({ user, updateUser, authFetch }) {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [currentPwd, setCurrentPwd] = useState('');
@@ -133,7 +132,7 @@ function AccountSettings({ user, updateUser }) {
         return;
       }
 
-      const res = await fetch(`${API}/auth/me?userId=${user.id}`, {
+      const res = await authFetch(`${API}/auth/me`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -225,7 +224,7 @@ function AccountSettings({ user, updateUser }) {
 
 /* -- Main Profile page --------------------------------------------------- */
 export function Profile() {
-  const { user, userId, updateUser } = useAuth();
+  const { user, userId, updateUser, authFetch } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -258,7 +257,7 @@ export function Profile() {
         />
 
         <div className="pr-section-body">
-          <PoolHistory userId={userId} />
+          <PoolHistory authFetch={authFetch} />
         </div>
 
         <SectionHeader
@@ -267,7 +266,7 @@ export function Profile() {
         />
 
         <Card tone="surface" padding="lg" className="pr-settings-card">
-          <AccountSettings user={user} updateUser={updateUser} />
+          <AccountSettings user={user} updateUser={updateUser} authFetch={authFetch} />
         </Card>
       </Section>
     </div>

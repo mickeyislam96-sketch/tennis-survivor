@@ -128,7 +128,7 @@ function PoolsGrid({ pools, emptyMsg, showDescription = true }) {
 
 export function Homepage() {
   const navigate = useNavigate();
-  const { userId, user } = useAuth();
+  const { userId, user, authFetch } = useAuth();
   const [allPools, setAllPools] = useState([]);
   const [myGroups, setMyGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -138,9 +138,9 @@ export function Homepage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/pools?userId=${userId || ''}`).then((r) => r.json()).catch(() => []),
+      authFetch(`${API}/pools`).then((r) => r.json()).catch(() => []),
       userId
-        ? fetch(`${API}/groups?userId=${userId}`).then((r) => r.json()).catch(() => [])
+        ? authFetch(`${API}/groups`).then((r) => r.json()).catch(() => [])
         : Promise.resolve([]),
     ])
       .then(([pools, groups]) => {

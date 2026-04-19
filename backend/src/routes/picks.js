@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
 import { pool } from '../db/pool.js';
 import { getDraw, getDeadlines } from '../services/tennisData.js';
 import { getRounds } from '../services/tennisData.js';
@@ -148,7 +149,8 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 // GET /api/picks/available?userId=&groupId=&round=
 picksRouter.get('/available', async (req, res) => {
   try {
-    const { userId, groupId, round } = req.query;
+    const { groupId, round } = req.query;
+  const userId = req.userId || req.query.userId;  // JWT or legacy
     if (!userId || !groupId) {
       return res.status(400).json({ error: 'userId and groupId required' });
     }
@@ -188,7 +190,8 @@ picksRouter.get('/history', async (req, res) => {
 // POST /api/picks
 picksRouter.post('/', async (req, res) => {
   try {
-    const { userId, groupId, round, playerId, playerName } = req.body;
+    const { groupId, round, playerId, playerName } = req.body;
+  const userId = req.userId || req.body.userId;  // JWT or legacy
     if (!userId || !groupId || !round || !playerId) {
       return res.status(400).json({ error: 'userId, groupId, round, playerId required' });
     }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { optionalAuth } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { pool } from '../db/pool.js';
 import { sendSupportEmail } from '../utils/email.js';
@@ -17,7 +18,8 @@ const supportLimiter = rateLimit({
 // Accepts a support request, auto-attaches user context, sends notification
 // email to finalservivor@gmail.com via Brevo.
 supportRouter.post('/', supportLimiter, async (req, res) => {
-  const { category, subject, message, userId } = req.body;
+  const { category, subject, message } = req.body;
+  const userId = req.userId || req.body.userId;  // JWT or legacy
 
   // Validate required fields
   if (!subject || !subject.trim()) {

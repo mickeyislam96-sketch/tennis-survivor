@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
 
 export const tiebreakerRouter = Router();
 
@@ -14,7 +15,8 @@ tiebreakerRouter.get('/questions', (_, res) => {
 });
 
 tiebreakerRouter.post('/answer', (req, res) => {
-  const { groupId, userId, matchId, questionKey, answerValue } = req.body;
+  const { groupId, matchId, questionKey, answerValue } = req.body;
+  const userId = req.userId || req.body.userId;  // JWT or legacy
   if (!groupId || !userId || !questionKey || answerValue == null) {
     return res.status(400).json({ error: 'Missing fields' });
   }

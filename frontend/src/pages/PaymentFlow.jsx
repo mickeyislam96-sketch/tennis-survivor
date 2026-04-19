@@ -25,7 +25,7 @@ export function PaymentFlow() {
   const { groupId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { userId, isRegistered } = useAuth();
+  const { userId, isRegistered, authFetch } = useAuth();
 
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState('loading');
@@ -59,10 +59,10 @@ export function PaymentFlow() {
           return;
         }
 
-        const res = await fetch(`${API}/payments/create-order`, {
+        const res = await authFetch(`${API}/payments/create-order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ groupId, userId }),
+          body: JSON.stringify({ groupId }),
         });
 
         const data = await res.json();

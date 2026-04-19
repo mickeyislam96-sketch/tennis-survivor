@@ -327,7 +327,7 @@ export function Layout({ children }) {
   const location = useLocation();
   const groupMatch = location.pathname.match(/^\/group\/([^/]+)/);
   const groupId = groupMatch ? groupMatch[1] : null;
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const base = groupId ? `/group/${groupId}` : '/';
 
   const [showAuth, setShowAuth] = useState(false);
@@ -338,7 +338,7 @@ export function Layout({ children }) {
   useEffect(() => {
     if (!user?.id) { setMyPool(null); return; }
     let cancelled = false;
-    fetch(`${API}/pools?userId=${user.id}`)
+    authFetch(`${API}/pools`)
       .then(r => r.ok ? r.json() : [])
       .then(pools => {
         if (cancelled) return;

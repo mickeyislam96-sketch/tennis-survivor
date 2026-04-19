@@ -7,6 +7,7 @@
  * "official" demo pools visible in the lobby).
  */
 import { Router } from 'express';
+import { optionalAuth } from '../middleware/auth.js';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 import { getTournament } from '../data/tournaments.js';
@@ -18,7 +19,7 @@ function isUUID(str) {
 }
 
 poolsRouter.get('/', async (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId || req.query.userId;  // JWT or legacy
 
   // ── Real DB groups ────────────────────────────────────────────────────────
   let dbPools = [];

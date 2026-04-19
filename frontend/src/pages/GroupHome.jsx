@@ -349,7 +349,7 @@ function JoinForm() {
 export function GroupHome() {
   const { groupId } = useParams();
   const navigate = useNavigate();
-  const { userId, isRegistered, register, login, user } = useAuth();
+  const { userId, isRegistered, register, login, user, authFetch } = useAuth();
   const [groups, setGroups] = useState([]);
   const [allPools, setAllPools] = useState([]);
   const [group, setGroup] = useState(null);
@@ -375,8 +375,8 @@ export function GroupHome() {
         .finally(() => setLoading(false));
     } else {
       Promise.all([
-        fetch(`${API}/pools?userId=${userId}`).then(r => r.json()).catch(() => []),
-        fetch(`${API}/groups?userId=${userId}`).then(r => r.json()).catch(() => []),
+        authFetch(`${API}/pools`).then(r => r.json()).catch(() => []),
+        authFetch(`${API}/groups`).then(r => r.json()).catch(() => []),
       ]).then(([pools, myGroups]) => {
         setAllPools(Array.isArray(pools) ? pools : []);
         setGroups(Array.isArray(myGroups) ? myGroups : []);
@@ -407,7 +407,7 @@ export function GroupHome() {
 
   useEffect(() => {
     if (!groupId || !userId || !openRound) return;
-    fetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
+    authFetch(`${API}/picks/history?groupId=${groupId}`)
       .then((r) => r.json())
       .then((picks) => {
         if (!Array.isArray(picks)) return;
@@ -432,10 +432,10 @@ export function GroupHome() {
     setJoining(true);
     setJoinError('');
     try {
-      const res = await fetch(`${API}/groups/${group.id}/join`, {
+      const res = await authFetch(`${API}/groups/${group.id}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: uid, displayName }),
+        body: JSON.stringify({ displayName }),
       });
       if (!res.ok) {
         const d = await res.json();

@@ -37,7 +37,6 @@ export function Support() {
           category: CATEGORIES.find(c => c.value === category)?.label || 'General',
           subject: subject.trim(),
           message: message.trim(),
-          userId: user?.id || null,
         }),
       });
 
