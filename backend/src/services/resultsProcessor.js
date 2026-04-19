@@ -7,6 +7,7 @@ import { pool } from '../db/pool.js';
 import { getDraw, getDeadlines } from './tennisData.js';
 import { ROUNDS } from '../config/tournament.js';
 import { sendRoundResultEmail } from '../utils/email.js';
+import { logOps } from './opsMonitor.js';
 
 /**
  * Process results for a single round.
@@ -67,6 +68,18 @@ export async function processRoundResults(round) {
 
   const nonPickers = await eliminateNonPickers(round);
   console.log(`[results] ${round}: ${completed.length} matches, ${picksUpdated} picks updated, ${eliminated} eliminated, ${nonPickers} non-pickers removed`);
+
+  // Log to persistent ops log (only when something actually happened)
+  if (picksUpdated > 0 || eliminated > 0 || nonPickers > 0) {
+    await logOps('results', 'processed', {
+      round,
+      matchesCompleted: completed.length,
+      picksUpdated,
+      eliminated,
+      nonPickers,
+    });
+  }
+
   return { round, processed: completed.length, picksUpdated, eliminated, nonPickers };
 }
 

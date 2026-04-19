@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cron from 'node-cron';
 import { autoProcessResults } from './services/resultsProcessor.js';
 import { checkPickReminders } from './services/emailScheduler.js';
+import { runOpsChecks } from './services/opsMonitor.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -21,6 +22,7 @@ import { healthRouter } from './routes/health.js';
 import { paymentsRouter } from './routes/payments.js';
 import { adminRouter } from './routes/admin.js';
 import { supportRouter } from './routes/support.js';
+import { opsRouter } from './routes/ops.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -63,6 +65,7 @@ app.use('/api/health', healthRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/support', supportRouter);
+app.use('/api/ops', opsRouter);
 
 // Email smoke-test — uses sendPasswordResetEmail which throws on failure
 // Usage: GET /api/email-test?to=youraddress@gmail.com
@@ -93,17 +96,30 @@ app.get('/api/db-check', async (req, res) => {
 
 
 
-// ── Automated results processor — every 15 minutes ───────────────────────────
+// ── Automated operations — every 15 minutes ─────────────────────────────────
 cron.schedule('*/15 * * * *', async () => {
+  const cronStart = Date.now();
+
+  // 1. Process match results and grade picks
   try { await autoProcessResults(); }
   catch (err) { console.error('[cron] Results error:', err.message); }
 
+  // 2. Send pick reminders (24h before lock)
   try { await checkPickReminders(); }
   catch (err) { console.error('[cron] Pick reminder error:', err.message); }
 
-  // Notify admin if there are emails waiting for approval
+  // 3. Ops monitor: draw detection, withdrawals, lock time auto-setting
+  try { await runOpsChecks(); }
+  catch (err) { console.error('[cron] Ops monitor error:', err.message); }
+
+  // 4. Notify admin if there are emails waiting for approval
   try { await sendAdminDigest(); }
   catch (err) { console.error('[cron] Admin digest error:', err.message); }
+
+  const elapsed = Date.now() - cronStart;
+  if (elapsed > 30000) {
+    console.warn(`[cron] Slow cycle: ${elapsed}ms`);
+  }
 });
 
 // Admin routes are now in routes/admin.js, mounted at /api/admin above.

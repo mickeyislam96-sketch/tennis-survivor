@@ -168,3 +168,20 @@ CREATE INDEX IF NOT EXISTS idx_payment_orders_processor_id
   ON payment_orders(processor_order_id);
 CREATE INDEX IF NOT EXISTS idx_payment_events_order
   ON payment_events(payment_order_id);
+
+-- Operations log: persistent record of all automated actions.
+-- Replaces console.log for anything the admin needs to review.
+-- Used by the ops-summary endpoint for the daily brief.
+CREATE TABLE IF NOT EXISTS ops_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL,        -- 'results', 'withdrawal', 'draw', 'lock_time', 'tournament', 'system'
+  action TEXT NOT NULL,           -- 'processed', 'detected', 'released', 'auto_set', 'setup', 'error'
+  details JSONB DEFAULT '{}',
+  tournament_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ops_log_tournament_time
+  ON ops_log(tournament_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ops_log_category
+  ON ops_log(category, created_at DESC);
