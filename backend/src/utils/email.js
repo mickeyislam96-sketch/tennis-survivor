@@ -998,3 +998,83 @@ export async function sendDrawReleasedEmail({ userId, groupId, email, displayNam
   return sendWithDedup({ userId, groupId, round: 'R1', emailType: 'draw_released', to: email, subject, html });
 }
 
+// ── Support request notification ─────────────────────────────────────────────
+// Sends directly via Brevo (NOT queued for approval — support requests need
+// immediate delivery to finalservivor@gmail.com).
+export async function sendSupportEmail({ category, subject, message, userContext }) {
+  if (!EMAIL_CONFIGURED) {
+    console.warn('[support-email] Brevo not configured — skipping send');
+    return;
+  }
+
+  const userRows = userContext ? `
+    <tr>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};width:120px;vertical-align:top;">Name</td>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.ink};">${userContext.displayName}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};vertical-align:top;">Email</td>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.ink};"><a href="mailto:${userContext.email}" style="color:${C.primary};">${userContext.email}</a></td>
+    </tr>
+    <tr>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};vertical-align:top;">Groups</td>
+      <td style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.ink};">${userContext.groups}</td>
+    </tr>
+  ` : `
+    <tr>
+      <td colspan="2" style="padding:6px 0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};font-style:italic;">Not logged in</td>
+    </tr>
+  `;
+
+  const header = emailHeader({
+    eyebrow: 'SUPPORT',
+    title: 'New support request',
+    subtitle: category,
+  });
+
+  const body = `
+    ${sectionEyebrow('Subject')}
+    <tr>
+      <td style="padding:0 40px 24px;">
+        <p style="margin:0;font-family:${FONT_DISPLAY};font-size:18px;font-weight:700;color:${C.ink};">${subject}</p>
+      </td>
+    </tr>
+
+    ${divider}
+
+    ${sectionEyebrow('Message')}
+    <tr>
+      <td style="padding:0 40px 24px;">
+        <div style="margin:0;font-family:${FONT_STACK};font-size:14px;color:${C.ink};line-height:1.6;white-space:pre-wrap;">${message}</div>
+      </td>
+    </tr>
+
+    ${divider}
+
+    ${sectionEyebrow('User details')}
+    <tr>
+      <td style="padding:0 40px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+          ${userRows}
+        </table>
+      </td>
+    </tr>
+
+    ${userContext?.email ? `
+    <tr>
+      <td style="padding:0 40px 32px;text-align:center;">
+        <a href="mailto:${userContext.email}" style="display:inline-block;padding:12px 32px;background:${C.gold};color:${C.goldInk};font-family:${FONT_STACK};font-size:14px;font-weight:700;text-decoration:none;border-radius:999px;">Reply to ${userContext.displayName} &rarr;</a>
+      </td>
+    </tr>
+    ` : ''}
+  `;
+
+  const html = emailWrapper(header, body, 'finalservivor@gmail.com');
+
+  await sendViaBrevo({
+    to: 'finalservivor@gmail.com',
+    subject: `[Support] ${category}: ${subject}`,
+    html,
+  });
+}
+
