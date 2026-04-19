@@ -1,0 +1,80 @@
+name: Daily Database Backup
+
+on:
+  schedule:
+    # Runs at 03:00 UTC every day (quiet period)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Create database backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
+          FILENAME="backup_${TIMESTAMP}.sql.gz"
+
+          echo "Starting backup at $(date -u)"
+
+          # pg_dump with compression, exclude pg_stat tables
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-privileges \
+            --clean \
+            --if-exists \
+            | gzip > "$FILENAME"
+
+          FILESIZE=$(stat -c%s "$FILENAME")
+          echo "Backup complete: ${FILENAME} (${FILESIZE} bytes)"
+
+          # Sanity check — file should be at least 1KB
+          if [ "$FILESIZE" -lt 1024 ]; then
+            echo "::error::Backup file suspiciously small (${FILESIZE} bytes). Possible empty database or connection failure."
+            exit 1
+          fi
+
+          echo "backup_file=${FILENAME}" >> $GITHUB_ENV
+
+      - name: Upload backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: ${{ env.backup_file }}
+          retention-days: 30
+          compression-level: 0  # Already gzipped
+
+      - name: Cleanup old artifacts (keep last 30)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+
+            const backups = artifacts.data.artifacts
+              .filter(a => a.name.startsWith('db-backup-'))
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            // Keep latest 30, delete the rest
+            const toDelete = backups.slice(30);
+            for (const artifact of toDelete) {
+              console.log(`Deleting old backup: ${artifact.name} (${artifact.created_at})`);
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+            }
+            console.log(`Kept ${Math.min(backups.length, 30)} backups, deleted ${toDelete.length}`);
