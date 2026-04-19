@@ -75,6 +75,8 @@
 | `GOALSERVE_API_KEY` | Goalserve API key — **set on 17 Apr when trial activates** |
 | `TENNIS_DATA_PROVIDER` | Active data provider: `goalserve`, `api-tennis`, `sofascore`, or `mock` |
 | `ACTIVE_TOURNAMENT` | Active tournament ID (e.g. `madrid-2026`) — used by `activeTournament.js` |
+| `JWT_SECRET` | JWT signing key for user authentication (set 19 Apr) |
+| `ADMIN_SECRET` | Admin endpoint auth + JWT fallback (rotated 19 Apr) |
 | `TENNIS_API_KEY` | API-Tennis auth key — **legacy fallback, keep for now** |
 | `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open (legacy) |
 | `SOFASCORE_BASE_URL` | Cloudflare proxy URL — `https://sofascore-proxy.finalservivor.workers.dev` |
@@ -206,6 +208,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 
 | File | What it does |
 |---|---|
+| `backend/src/middleware/auth.js` | **NEW** — JWT authentication middleware. `issueToken()`, `requireAuth`, `optionalAuth`, `csrfProtection`, `generateCsrfToken()`. Legacy userId fallback for migration. |
 | `backend/src/services/dataAdapter.js` | **NEW** — Unified data interface. Provider chain (Goalserve/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. |
 | `backend/src/config/activeTournament.js` | **NEW** — Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks, Goalserve tournament ID. |
 | `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()` (now returns `perMatchLock` flag for R1) |
@@ -232,6 +235,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/pages/GroupHome.jsx` | Group dashboard — hero, pick CTA, nav cards, invite box |
 | `frontend/src/pages/DrawViewer.jsx` | Draw viewer — bracket + list view |
 | `frontend/src/pages/PickHistory.jsx` | User's pick history |
+| `frontend/src/context/AuthContext.jsx` | **UPDATED** — Auth context with JWT token storage, `authFetch()` helper (auto-attaches Authorization + X-CSRF-Token headers), CSRF cookie reader. |
 | `frontend/src/components/Layout.jsx` | Nav header, auth modal |
 | `frontend/src/styles/tokens.css` | Design tokens — three font stacks (--ds-font-sans: Outfit, --ds-font-display: Fraunces, --ds-font-mono: JetBrains Mono), colour palette, spacing, motion |
 | `frontend/src/styles/micro-interactions.css` | 8 micro-interaction improvements — button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit |
