@@ -45,17 +45,36 @@ export function nameSlug(name) {
 }
 
 /**
- * Returns the URL for a player headshot, or null if we don't expect one.
+ * Is this a real data-provider ID or a mock placeholder?
+ * Mock IDs look like "p1", "p27", "mc-p5", etc.
+ */
+function isMockId(id) {
+  return !id || /^(mc-)?p\d+$/i.test(id);
+}
+
+/**
+ * Returns an ordered list of image URLs to try for a player.
  *
  * Resolution order:
- * 1. Goalserve player ID  → /players/{id}.jpg
+ * 1. Goalserve player ID  → /players/{id}.jpg  (skipped for mock IDs)
  * 2. Name slug fallback   → /players/{slug}.jpg
  *
- * The <img> onError handler in PlayerAvatar swaps to the initials
- * circle if the file doesn't exist, so there's no need for a manifest.
+ * PlayerAvatar walks this list: try the first URL, on 404 try the next,
+ * then fall back to initials.
  */
+export function getPlayerImageUrls(playerId, playerName) {
+  const urls = [];
+  if (playerId && !isMockId(playerId)) {
+    urls.push(`/players/${playerId}.jpg`);
+  }
+  if (playerName) {
+    urls.push(`/players/${nameSlug(playerName)}.jpg`);
+  }
+  return urls;
+}
+
+/** Convenience — returns the first URL to try, or null. */
 export function getPlayerImageUrl(playerId, playerName) {
-  if (playerId) return `/players/${playerId}.jpg`;
-  if (playerName) return `/players/${nameSlug(playerName)}.jpg`;
-  return null;
+  const urls = getPlayerImageUrls(playerId, playerName);
+  return urls.length > 0 ? urls[0] : null;
 }
