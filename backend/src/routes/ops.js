@@ -6,16 +6,36 @@
  */
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { getOpsSummary, setupTournament, logOps } from '../services/opsMonitor.js';
 import { pool } from '../db/pool.js';
 import { TOURNAMENT } from '../config/activeTournament.js';
 
 export const opsRouter = Router();
 
+// Rate-limit ops routes
+opsRouter.use(rateLimit({
+  windowMs: 60 * 1000, max: 20,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Too many requests.' },
+}));
+
 // ── Auth middleware ──────────────────────────────────────────────────────────
+// Accepts Authorization: Bearer <secret> or body.secret (POST). No query params.
 function requireAdmin(req, res, next) {
-  const secret = req.query.secret || req.body?.secret;
-  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) return res.status(401).json({ error: 'Unauthorised' });
+
+  let provided = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    provided = authHeader.slice(7);
+  }
+  if (!provided && req.body?.secret) {
+    provided = req.body.secret;
+  }
+
+  if (!provided || provided !== adminSecret) {
     return res.status(401).json({ error: 'Unauthorised' });
   }
   next();

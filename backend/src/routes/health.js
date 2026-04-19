@@ -28,11 +28,11 @@ healthRouter.get('/', async (_req, res) => {
   const apiTennisKey  = process.env.TENNIS_API_KEY;
   const dataProvider  = process.env.TENNIS_DATA_PROVIDER || 'auto';
 
+  // Only expose whether data config is present — not which specific keys are set.
+  // Detailed env status available via authenticated /api/admin/status endpoint.
   checks.env = {
-    GOALSERVE_API_KEY:     goalserveKey  ? 'present' : 'NOT_SET',
-    TENNIS_API_KEY:        apiTennisKey  ? 'present' : 'NOT_SET',
-    TENNIS_DATA_PROVIDER:  dataProvider,
-    ACTIVE_TOURNAMENT:     TOURNAMENT.id,
+    data_configured: !!(goalserveKey || apiTennisKey),
+    tournament:      TOURNAMENT.id,
   };
 
   // ── 2. Data adapter live check ──────────────────────────────────────────────

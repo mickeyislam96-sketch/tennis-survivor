@@ -1,21 +1,17 @@
 /**
  * Admin control endpoints.
  *
- * All routes require the ADMIN_SECRET env var to be set and passed as
- * { secret: "..." } in the request body (POST) or ?secret=... (GET).
+ * Auth: pass the ADMIN_SECRET via Authorization header:
+ *   Authorization: Bearer <ADMIN_SECRET>
+ * Legacy support: also accepts { secret: "..." } in POST body (NOT query params).
+ *
+ * Rate-limited to 20 requests per minute per IP to prevent brute-force.
  *
  * These are emergency / operational tools — not user-facing.
- *
- * Available endpoints:
- *   POST /api/admin/process-results       — manually trigger results processing
- *   POST /api/admin/set-lock-override     — force a round's lock time (emergency)
- *   POST /api/admin/clear-lock-override   — remove a runtime lock override
- *   POST /api/admin/invalidate-cache      — flush the API-Tennis data cache
- *   POST /api/admin/eliminate-non-pickers — manually eliminate non-pickers for a round
- *   GET  /api/admin/status                — system status summary
  */
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { autoProcessResults, processRoundResults, eliminateNonPickers } from '../services/resultsProcessor.js';
 import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRuntimeLockOverrides } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
@@ -23,6 +19,16 @@ import { pool } from '../db/pool.js';
 import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
 
 export const adminRouter = Router();
+
+// Rate-limit all admin routes — prevents brute-force of admin secret
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,   // 1 minute
+  max: 20,                // 20 requests per IP per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many admin requests. Please wait.' },
+});
+adminRouter.use(adminLimiter);
 
 function getAdminSecret() {
   const secret = process.env.ADMIN_SECRET;
@@ -32,8 +38,26 @@ function getAdminSecret() {
   return secret;
 }
 
+/**
+ * Check admin secret from (in priority order):
+ *   1. Authorization: Bearer <secret>   (preferred — not logged in URLs)
+ *   2. req.body.secret                  (legacy — POST body only)
+ * Query-param ?secret= is NO LONGER accepted (leaked in logs/history).
+ */
 function checkSecret(req, res) {
-  const secret = req.body?.secret || req.query?.secret;
+  let secret = null;
+
+  // 1. Authorization header (preferred)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    secret = authHeader.slice(7);
+  }
+
+  // 2. POST body fallback
+  if (!secret && req.body?.secret) {
+    secret = req.body.secret;
+  }
+
   if (!secret || secret !== getAdminSecret()) {
     res.status(401).json({ error: 'Unauthorised — invalid admin secret' });
     return false;

@@ -3,10 +3,22 @@ import { getDraw, getRounds, getDeadlines, getRawFixtures } from '../services/te
 
 export const drawRouter = Router();
 
-// Admin guard — diagnostic/fix endpoints require ?secret=ADMIN_SECRET
+// Admin guard — diagnostic endpoints require Authorization: Bearer <ADMIN_SECRET>
+// Also accepts body.secret (POST) for backward compat. Query-param no longer accepted.
 function requireAdmin(req, res, next) {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret || req.query.secret !== secret) {
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) return res.status(401).json({ error: 'Unauthorized' });
+
+  let provided = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    provided = authHeader.slice(7);
+  }
+  if (!provided && req.body?.secret) {
+    provided = req.body.secret;
+  }
+
+  if (!provided || provided !== adminSecret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();

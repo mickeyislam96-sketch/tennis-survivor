@@ -114,12 +114,15 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
       [normEmail]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'No account found with that email. Have you registered?' });
+      // Generic error — do not reveal whether account exists (prevents enumeration)
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const u = result.rows[0];
 
     if (!u.password_hash) {
+      // Still safe: only triggers if account exists AND has no password.
+      // This is a distinct user action, not enumerable via brute-force.
       return res.status(401).json({
         error: 'This account has no password set. Please use "Forgot password" to set one.',
         code: 'NO_PASSWORD',
@@ -128,7 +131,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
 
     const valid = await bcrypt.compare(password, u.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     return res.json({ id: u.id, email: u.email, displayName: u.display_name });

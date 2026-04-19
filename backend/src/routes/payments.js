@@ -213,12 +213,21 @@ paymentsRouter.post('/webhook/:processor', async (req, res) => {
   }
 });
 
+// ── Admin auth helper (Authorization header or body.secret) ─────────────────
+function checkAdminAuth(req, res) {
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) { res.status(401).json({ error: 'Unauthorised' }); return false; }
+  let provided = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) provided = authHeader.slice(7);
+  if (!provided && req.body?.secret) provided = req.body.secret;
+  if (!provided || provided !== adminSecret) { res.status(401).json({ error: 'Unauthorised' }); return false; }
+  return true;
+}
+
 // ── Admin: list all payment orders ──────────────────────────────────────────
 paymentsRouter.get('/admin/list', async (req, res) => {
-  const secret = req.query.secret;
-  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Unauthorised' });
-  }
+  if (!checkAdminAuth(req, res)) return;
 
   try {
     const result = await pool.query(`
@@ -239,10 +248,7 @@ paymentsRouter.get('/admin/list', async (req, res) => {
 
 // ── Admin: revenue summary ──────────────────────────────────────────────────
 paymentsRouter.get('/admin/revenue', async (req, res) => {
-  const secret = req.query.secret;
-  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Unauthorised' });
-  }
+  if (!checkAdminAuth(req, res)) return;
 
   try {
     const result = await pool.query(`

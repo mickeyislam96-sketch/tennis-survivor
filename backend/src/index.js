@@ -6,11 +6,12 @@ import { runOpsChecks } from './services/opsMonitor.js';
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './db/pool.js';
-import { sendPasswordResetEmail, sendAdminDigest } from './utils/email.js';
+import { sendAdminDigest } from './utils/email.js';
 import { groupsRouter } from './routes/groups.js';
 import { picksRouter } from './routes/picks.js';
 import { drawRouter } from './routes/draw.js';
@@ -45,6 +46,37 @@ app.get('/ping', (_req, res) => res.json({ ok: true }));
   }
 })();
 
+// ── Security headers ────────────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://finalserveivor.com", "https://www.finalserveivor.com"],
+      fontSrc:    ["'self'", "https://fonts.gstatic.com"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,  // Allow cross-origin images (player headshots)
+}));
+
+// ── Startup env-var validation ──────────────────────────────────────────────
+const REQUIRED_ENV = ['DATABASE_URL', 'ADMIN_SECRET'];
+const WARN_ENV     = ['BREVO_API_KEY', 'GOALSERVE_API_KEY'];
+
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`[FATAL] Missing required env var: ${key}. Server may malfunction.`);
+  }
+}
+for (const key of WARN_ENV) {
+  if (!process.env[key]) {
+    console.warn(`[WARN] Missing env var: ${key}. Feature will be degraded.`);
+  }
+}
+
 const ALLOWED_ORIGINS = [
   'https://finalserveivor.com',
   'https://www.finalserveivor.com',
@@ -67,32 +99,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/ops', opsRouter);
 
-// Email smoke-test — uses sendPasswordResetEmail which throws on failure
-// Usage: GET /api/email-test?to=youraddress@gmail.com
-app.get('/api/email-test', async (req, res) => {
-  const to = req.query.to;
-  if (!to) return res.status(400).json({ error: 'Provide ?to=email query param' });
-  try {
-    await sendPasswordResetEmail({
-      email: to,
-      displayName: 'Test User',
-      resetUrl: 'https://tennis-survivor.vercel.app/reset-password?token=test',
-    });
-    res.json({ ok: true, message: `Test email sent to ${to}` });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-// DB connectivity check
-app.get('/api/db-check', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT COUNT(*) FROM users');
-    res.json({ ok: true, userCount: Number(result.rows[0].count) });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
+// REMOVED: /api/email-test and /api/db-check — security risk (unauthenticated).
+// Use admin endpoints for diagnostics instead.
 
 
 
