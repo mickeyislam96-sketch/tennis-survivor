@@ -10,13 +10,13 @@ const STEPS = [
     num: 1,
     icon: '🏆',
     title: 'Join a pool',
-    body: 'Find an open tournament pool or use an invite code from a friend. Some pools are free, others have an entry fee that goes straight into the prize pot.',
+    body: 'Find an open tournament pool or use an invite code from a friend.',
   },
   {
     num: 2,
     icon: '🎾',
     title: 'Pick one player per round',
-    body: 'Before each round, choose one tennis player you think will win their match. You can pick any player in the draw, but you can never pick the same player twice in a tournament. Save your strongest picks for the later rounds when the field gets tougher.',
+    body: 'Before each round, choose one tennis player you think will win their match. You can pick any player in the draw, but you can never pick the same player twice in a tournament.',
   },
   {
     num: 3,
@@ -28,13 +28,13 @@ const STEPS = [
     num: 4,
     icon: '✅',
     title: 'Your player wins? You survive.',
-    body: "If your chosen player wins their match, you advance to the next round. If they lose, retire, or withdraw mid-match, you're out. Simple as that.",
+    body: "If your chosen player wins their match, you advance to the next round. If they lose, you're out. Simple as that.",
   },
   {
     num: 5,
     icon: '👑',
     title: 'Last one standing wins',
-    body: "The game continues round by round until one person is left. That survivor takes the entire prize pot. If multiple people make it to the end, the prize is split equally.",
+    body: "The game continues round by round until one person is left. That survivor takes the entire prize pot.",
   },
 ];
 
