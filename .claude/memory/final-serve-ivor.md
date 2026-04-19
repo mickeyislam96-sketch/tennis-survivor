@@ -10,13 +10,13 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 - Roland Garros 2026: planned first paid tournament
 
 ## Key architectural patterns
-- R1 uses per-match lock (players removed as their match starts), R2+ uses round-level lock deadlines
+- R1 uses standard fixed deadline (1h before first match), same as all other rounds. Per-match lock code retained but disabled (`r1PerMatchLock: false`). Withdrawal policy: re-pick if time allows, auto-assign replacement if not, mid-match results stand.
 - Data adapter layer in `dataAdapter.js` — unified interface for Goalserve (primary), API-Tennis (fallback), Sofascore (defunct)
 - Email dedup/approval: all emails queue as `pending`, admin approves via API endpoint. Cron never sends directly. Exception: support emails send immediately.
 - Auto-deploys: every push to `main` deploys to Vercel (frontend) and Railway (backend) immediately
 
 ## Active tournament config
-`backend/src/config/activeTournament.js` controls everything: tournament ID, Goalserve ID, lock time overrides, r1PerMatchLock flag.
+`backend/src/config/activeTournament.js` controls everything: tournament ID, Goalserve ID, lock time overrides, r1PerMatchLock flag (currently `false` for all tournaments).
 
 ## Repositories
 - Web: `mickeyislam96-sketch/tennis-survivor` (GitHub)
