@@ -66,9 +66,10 @@ const C = {
 };
 
 // Font stacks — mirroring frontend/src/styles/tokens.css
-const FONT_STACK = "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const FONT_MONO  = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
-const FONT_LINK  = '<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
+const FONT_STACK   = "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const FONT_DISPLAY = "'Fraunces', Georgia, 'Times New Roman', serif";
+const FONT_MONO    = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
+const FONT_LINK    = '<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;1,400&family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dedup + approval wrapper — queues emails as 'pending', never sends directly.
@@ -276,8 +277,8 @@ const emailWrapper = (headerContent, bodyContent, footerEmail) => `
           <!-- Footer -->
           <tr>
             <td style="background:${C.surfaceMuted};border-top:1px solid ${C.border};padding:24px 40px;text-align:center;">
-              <p style="margin:0 0 4px;font-family:${FONT_MONO};font-size:13px;color:${C.inkSoft};font-weight:600;letter-spacing:0.5px;">FINAL SERVE-IVOR</p>
-              <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;color:${C.inkGhost};">A tennis survivor pool</p>
+              <p style="margin:0 0 4px;font-size:14px;color:${C.inkSoft};"><span style="font-family:${FONT_STACK};font-weight:700;">Final </span><span style="font-family:${FONT_DISPLAY};font-style:italic;font-weight:400;color:${C.primary};">Serve-ivor</span></p>
+              <p style="margin:0 0 10px;font-family:${FONT_MONO};font-size:11px;color:${C.inkGhost};letter-spacing:1.5px;text-transform:uppercase;">A tennis survivor pool</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:11px;color:${C.inkGhost};">This email was sent to ${footerEmail}</p>
             </td>
           </tr>
@@ -306,7 +307,7 @@ function emailHeader({ eyebrow, title, subtitle }) {
     <tr>
       <td style="background:linear-gradient(135deg,${C.primary} 0%,${C.primaryHover} 100%);padding:40px 40px 32px;text-align:center;">
         <p style="margin:0 0 14px;display:inline-block;padding:5px 14px;background:rgba(255,201,51,0.15);border:1px solid rgba(255,201,51,0.4);border-radius:20px;font-family:${FONT_MONO};font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.gold};">${eyebrow}</p>
-        <h1 style="margin:0;font-family:${FONT_STACK};font-size:30px;font-weight:700;color:${C.primaryInk};line-height:1.2;">${title}</h1>
+        <h1 style="margin:0;font-family:${FONT_DISPLAY};font-size:30px;font-weight:700;color:${C.primaryInk};line-height:1.2;">${title}</h1>
         ${subtitle ? `<p style="margin:10px 0 0;font-family:${FONT_STACK};font-size:15px;color:rgba(255,255,255,0.65);">${subtitle}</p>` : ''}
       </td>
     </tr>
@@ -318,7 +319,7 @@ function emailCTA(href, label) {
   return `
     <tr>
       <td style="padding:28px 40px 36px;text-align:center;">
-        <a href="${href}" style="display:inline-block;padding:14px 36px;background:${C.primary};color:${C.primaryInk};font-family:${FONT_STACK};font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.3px;">${label}</a>
+        <a href="${href}" style="display:inline-block;padding:14px 36px;background:${C.gold};color:${C.goldInk};font-family:${FONT_STACK};font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;letter-spacing:0.3px;">${label}</a>
       </td>
     </tr>
   `;
@@ -391,7 +392,7 @@ const buildWelcomeHTML = ({ email, displayName }) => {
                     <div style="width:24px;height:24px;background:${C.gold};border-radius:50%;text-align:center;line-height:24px;font-family:${FONT_STACK};font-size:12px;font-weight:700;color:${C.goldInk};">1</div>
                   </td>
                   <td style="padding-left:12px;vertical-align:top;">
-                    <p style="margin:0 0 4px;font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${C.ink};">Join a tournament pool</p>
+                    <p style="margin:0 0 4px;font-family:${FONT_DISPLAY};font-size:15px;font-weight:700;color:${C.ink};">Join a tournament pool</p>
                     <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">Use an invite code to join a pool for an upcoming ATP tournament. Each pool has its own entry and prize pot.</p>
                   </td>
                 </tr>
@@ -414,7 +415,7 @@ const buildWelcomeHTML = ({ email, displayName }) => {
                     <div style="width:24px;height:24px;background:${C.gold};border-radius:50%;text-align:center;line-height:24px;font-family:${FONT_STACK};font-size:12px;font-weight:700;color:${C.goldInk};">2</div>
                   </td>
                   <td style="padding-left:12px;vertical-align:top;">
-                    <p style="margin:0 0 4px;font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${C.ink};">Pick a winner each round</p>
+                    <p style="margin:0 0 4px;font-family:${FONT_DISPLAY};font-size:15px;font-weight:700;color:${C.ink};">Pick a winner each round</p>
                     <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">Once the draw is released, log in and select one match winner per round. Pick correctly and you move on. Pick wrong and you're eliminated.</p>
                   </td>
                 </tr>
@@ -437,7 +438,7 @@ const buildWelcomeHTML = ({ email, displayName }) => {
                     <div style="width:24px;height:24px;background:${C.success};border-radius:50%;text-align:center;line-height:24px;font-family:${FONT_STACK};font-size:12px;font-weight:700;color:${C.primaryInk};">3</div>
                   </td>
                   <td style="padding-left:12px;vertical-align:top;">
-                    <p style="margin:0 0 4px;font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${C.ink};">Last one standing wins</p>
+                    <p style="margin:0 0 4px;font-family:${FONT_DISPLAY};font-size:15px;font-weight:700;color:${C.ink};">Last one standing wins</p>
                     <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">You can only pick each player once across the whole tournament, so don't burn your big names too early. Outlast everyone else and take the prize pot.</p>
                   </td>
                 </tr>
@@ -747,7 +748,7 @@ const buildPasswordResetHTML = ({ email, displayName, resetUrl }) => {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
           <tr>
             <td align="center">
-              <a href="${resetUrl}" style="display:inline-block;padding:14px 36px;background:${C.primary};color:${C.primaryInk};font-family:${FONT_STACK};font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.3px;">Reset my password</a>
+              <a href="${resetUrl}" style="display:inline-block;padding:14px 36px;background:${C.gold};color:${C.goldInk};font-family:${FONT_STACK};font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;letter-spacing:0.3px;">Reset my password</a>
             </td>
           </tr>
         </table>
@@ -853,7 +854,7 @@ export async function sendRoundResultEmail({ userId, groupId, round, email, disp
           <tr>
             <td style="padding:20px 24px;">
               <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Your pick</p>
-              <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:18px;font-weight:700;color:${C.ink};">${playerName}</p>
+              <p style="margin:0 0 12px;font-family:${FONT_DISPLAY};font-size:18px;font-weight:700;color:${C.ink};">${playerName}</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${statusColor};">${statusLabel}</p>
             </td>
           </tr>
@@ -915,7 +916,7 @@ export async function sendWithdrawalEmail({ userId, groupId, round, email, displ
           <tr>
             <td style="padding:20px 24px;">
               <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Action required</p>
-              <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your new pick</p>
+              <p style="margin:0 0 12px;font-family:${FONT_DISPLAY};font-size:15px;font-weight:700;color:${C.ink};">Make your new pick</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">Log in to your pool and select a different player for ${round}. Pick soon — the deadline is approaching.</p>
             </td>
           </tr>
@@ -968,7 +969,7 @@ export async function sendDrawReleasedEmail({ userId, groupId, email, displayNam
           <tr>
             <td style="padding:20px 24px;">
               <p style="margin:0 0 6px;font-family:${FONT_MONO};font-size:11px;color:${C.inkSoft};font-weight:700;letter-spacing:2px;text-transform:uppercase;">Get started</p>
-              <p style="margin:0 0 12px;font-family:${FONT_STACK};font-size:15px;font-weight:700;color:${C.ink};">Make your Round 1 pick</p>
+              <p style="margin:0 0 12px;font-family:${FONT_DISPLAY};font-size:15px;font-weight:700;color:${C.ink};">Make your Round 1 pick</p>
               <p style="margin:0;font-family:${FONT_STACK};font-size:13px;color:${C.inkMuted};line-height:1.6;">The pick window is open now. Head to your pool and select the match winner you're backing for Round 1.</p>
             </td>
           </tr>
