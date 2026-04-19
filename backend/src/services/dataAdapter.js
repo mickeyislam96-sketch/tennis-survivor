@@ -37,41 +37,66 @@ import { TOURNAMENT } from '../config/activeTournament.js';
 // }
 
 // ── Goalserve adapter ───────────────────────────────────────────────────────
-// Goalserve REST API: https://www.goalserve.com/getfeed/{apiKey}/tennis/...
+// Official docs: "Tennis Data Feed.pdf" from Goalserve support.
 //
-// Endpoints used:
-//   /getfeed/{key}/tennis/fixtures?json=1     — scheduled fixtures with start times
-//   /getfeed/{key}/tennis/livescore?json=1    — live + recently completed matches
-//   /getfeed/{key}/tennis/results?json=1      — completed results
+// Base URL: https://www.goalserve.com/getfeed/{apiKey}/tennis_scores/...
+// Add ?json=1 to any URL for JSON format (default is XML).
+// All times are UTC.
 //
-// Response shape (JSON):
-//   { scores: { tournament: [ { name, id, matches: { match: [...] } } ] } }
-//   or tournament can be a single object instead of an array.
+// Endpoints we use:
+//   1. Leagues list:         /tennis_scores/leagues
+//      → lists all tournaments with IDs. Use to find Madrid's tournament ID.
 //
-// Match object fields:
-//   id, status ("Fin.", "Walk Over", "Fin. (Ret)", "Susp.", "Postp.", set names),
-//   date ("DD.MM.YYYY"), time ("HH:MM"), court,
-//   player: [ { name, id, winner ("True"/"False"), set1..set5, sets_won } ]
+//   2. Fixtures/Results:     /tennis_scores/{tournamentId}
+//      → current season schedules/results for a tournament.
+//      → refresh: every 1 hour.
+//      → structure: tournament > week[] > match[] > player[2]
+//      → week.number = round name (e.g. "ATP Madrid – First Round")
+//      → week.qualification = "True" for qualifying (skip these)
 //
-// Round info is embedded in tournament name or match grouping.
-// We parse it from the tournament/category structure.
+//   3. Tournament Draw:      /tennis_scores/{tournamentId}-draw
+//      → complete draw with bracket connections.
+//      → structure: tournament > stage[] > round[] > match[] > player[2]
+//      → stage.qualification = "True" for qualifying (skip)
+//      → round.name = round label (e.g. "First Round", "Semi-finals", "Final")
+//      → match has match_number + next for bracket links
+//      → player has seed field ("1", "Alt", "WC", "Bye")
+//
+//   4. Livescore:            /tennis_scores/home (today) or /tennis_scores/home?cat={tournamentId}
+//      → refresh: every 5 seconds.
+//      → structure: category[] > match[] > player[2]
+//      → category.name includes tournament info, category.id = tournament ID
+//
+// Match status values (official, case-sensitive in XML, may vary in JSON):
+//   "Not Started", "Finished", "Retired", "Cancelled", "Suspended",
+//   "Awarded" (technical loss), "Walk over" (technical loss),
+//   "Postponed", "Abandoned", "Interrupted",
+//   "Set 1" .. "Set 5" (live set indicators)
+//
+// Player fields:
+//   name (string), id (int), winner ("True"/"False"),
+//   s1..s5 (set scores, can include tiebreak as "6.5"),
+//   totalscore (int, sets won), serve ("True"/"False", livescore only),
+//   game_score (string, livescore only), seed (draw endpoint only)
 
 const GOALSERVE_BASE = 'https://www.goalserve.com/getfeed';
 const GOALSERVE_TIMEOUT = 12000;
 const GOALSERVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// In-memory cache for Goalserve responses
+// In-memory cache
 let goalserveCache = { fixtures: null, fetchedAt: 0 };
 
-// Goalserve round name mapping.
-// Goalserve uses various round labels in the match or tournament grouping.
-// We normalise to our internal keys.
+// ── Round name mapping ──────────────────────────────────────────────────────
+// Goalserve's round labels vary by endpoint:
+//   - Fixtures feed: week.number = "ATP Madrid – Semi-finals" (prefixed with tournament)
+//   - Draw feed:     round.name  = "Final", "Semi-finals", "First Round" etc.
+//   - Livescore:     no round info (matched by matchId from fixtures/draw)
+//
+// We strip the tournament prefix and match the round portion.
 const GOALSERVE_ROUND_MAP = {
-  // Common Goalserve round labels (case-insensitive matching applied)
   'first round':         'R1',
   '1st round':           'R1',
   'round 1':             'R1',
-  'qualifying':          null, // skip qualifying
   'second round':        'R64',
   '2nd round':           'R64',
   'round 2':             'R64',
@@ -82,9 +107,9 @@ const GOALSERVE_ROUND_MAP = {
   '4th round':           'R16',
   'round 4':             'R16',
   'round of 128':        null, // qualifying
-  'round of 64':         'R1',  // 96-draw: "round of 64" = R1 (32 matches, non-seeds)
-  'round of 32':         'R64', // 96-draw: "round of 32" = R64 (seeds enter)
-  'round of 16':         'R32', // 96-draw: context-dependent
+  'round of 64':         'R1',  // 96-draw Masters: "round of 64" = R1
+  'round of 32':         'R64', // 96-draw Masters: "round of 32" = R64 (seeds enter)
+  'round of 16':         'R16',
   '1/64-finals':         'R1',
   '1/32-finals':         'R64',
   '1/16-finals':         'R32',
@@ -100,48 +125,51 @@ const GOALSERVE_ROUND_MAP = {
   'semifinals':          'SF',
   'final':               'F',
   'the final':           'F',
-};
-
-// For 96-draw Masters, Goalserve may label rounds by number of remaining players.
-// This maps those numeric round indicators.
-const GOALSERVE_NUMERIC_ROUND_MAP = {
-  64: 'R1',   // 96-draw: 64 players in first round = R1 (32 matches between non-seeds)
-  32: 'R64',  // 96-draw: 32 matches with seeds entering
-  16: 'R32',
-  8:  'R16',
-  4:  'QF',
-  2:  'SF',
-  1:  'F',
+  'qualifying':          null,
 };
 
 /**
  * Normalise a Goalserve round string to our internal key.
- * Handles the 96-draw mapping where Goalserve may use different labelling.
+ * Handles tournament-prefixed labels like "ATP Madrid – Semi-finals".
  */
 function normalizeGoalserveRound(raw, config) {
   if (!raw) return null;
-  const str = String(raw).toLowerCase().trim();
+  let str = String(raw).toLowerCase().trim();
 
-  // Check config-level overrides first (set once we see actual API output)
+  // Config-level overrides (populated once we see actual API output)
   if (config?.roundNameOverrides) {
     for (const [pattern, round] of Object.entries(config.roundNameOverrides)) {
       if (str.includes(pattern.toLowerCase())) return round;
     }
   }
 
-  // Direct match in our map
+  // Strip tournament prefix: "ATP Madrid – Semi-finals" → "semi-finals"
+  const dashIdx = str.lastIndexOf('–');
+  const hyphenIdx = str.lastIndexOf('-');
+  // Use the last separator that has text after it
+  const sepIdx = dashIdx > 0 ? dashIdx : hyphenIdx > 0 ? hyphenIdx : -1;
+  if (sepIdx > 0) {
+    const afterSep = str.slice(sepIdx + 1).trim();
+    // Only use the suffix if it looks like a round name (not just a number)
+    if (afterSep.length > 2 && /[a-z]/.test(afterSep)) {
+      str = afterSep;
+    }
+  }
+
+  // Direct match
   if (GOALSERVE_ROUND_MAP[str] !== undefined) return GOALSERVE_ROUND_MAP[str];
 
-  // Partial match (Goalserve sometimes prefixes with tournament name)
+  // Partial match
   for (const [label, round] of Object.entries(GOALSERVE_ROUND_MAP)) {
     if (str.includes(label)) return round;
   }
 
-  // Try numeric extraction (e.g. "Round of 32" -> 32)
-  const numMatch = str.match(/round\s+of\s+(\d+)/i) || str.match(/(\d+)(?:th|st|nd|rd)?\s*round/i);
+  // Numeric extraction: "Round of 32" → 32
+  const numMatch = str.match(/round\s+of\s+(\d+)/i);
   if (numMatch) {
-    const num = parseInt(numMatch[1], 10);
-    if (GOALSERVE_NUMERIC_ROUND_MAP[num] !== undefined) return GOALSERVE_NUMERIC_ROUND_MAP[num];
+    const n = parseInt(numMatch[1], 10);
+    const map = { 64: 'R1', 32: 'R64', 16: 'R32', 8: 'R16', 4: 'QF', 2: 'SF', 1: 'F' };
+    if (map[n] !== undefined) return map[n];
   }
 
   console.warn(`[Goalserve] Unknown round label: "${raw}"`);
@@ -149,51 +177,52 @@ function normalizeGoalserveRound(raw, config) {
 }
 
 /**
- * Map Goalserve match status to our internal status enum.
- * Goalserve uses abbreviated strings in the status field.
+ * Map Goalserve match status to our internal enum.
+ * Official values from docs: Not Started, Finished, Retired, Cancelled,
+ * Suspended, Awarded, Walk over, Postponed, Abandoned, Interrupted,
+ * Set 1..Set 5 (live).
  */
 function normalizeGoalserveStatus(rawStatus) {
   if (!rawStatus) return 'scheduled';
   const s = String(rawStatus).toLowerCase().trim();
 
-  if (s === 'fin.' || s === 'finished' || s === 'ended' || s === 'fin') return 'completed';
-  if (s.includes('ret') || s === 'fin. (ret)' || s === 'retired') return 'retired';
-  if (s === 'walk over' || s === 'walkover' || s === 'w/o' || s === 'w.o.') return 'walkover';
-  if (s === 'cancelled' || s === 'canceled' || s === 'canc.') return 'cancelled';
-  if (s === 'susp.' || s === 'suspended') return 'live'; // suspended = was live
-  if (s === 'postp.' || s === 'postponed') return 'scheduled';
-  if (s === 'not started' || s === '' || s === 'upcoming') return 'scheduled';
+  if (s === 'finished') return 'completed';
+  if (s === 'retired') return 'retired';
+  if (s === 'walk over' || s === 'walkover' || s === 'awarded') return 'walkover';
+  if (s === 'cancelled' || s === 'canceled') return 'cancelled';
+  if (s === 'abandoned') return 'cancelled';
+  if (s === 'suspended' || s === 'interrupted') return 'live'; // was live, temporarily stopped
+  if (s === 'postponed') return 'scheduled';
+  if (s === 'not started' || s === '') return 'scheduled';
 
-  // Active set indicators = live match
-  if (s.includes('set') || s.includes('tie') || s === 'in progress' || s === 'live') return 'live';
+  // "Set 1" through "Set 5" = live match
+  if (/^set\s*\d/.test(s)) return 'live';
 
-  // Default: if we don't recognise it, assume scheduled (safer than marking completed)
   return 'scheduled';
 }
 
 /**
  * Parse Goalserve date+time into ISO 8601.
- * Goalserve uses "DD.MM.YYYY" and "HH:MM" (UTC).
+ * Docs: date = DD.MM.YYYY, time = HH:MM, timezone = UTC.
  */
 function parseGoalserveDateTime(dateStr, timeStr) {
   if (!dateStr) return null;
 
-  // Handle DD.MM.YYYY format
-  const dateParts = dateStr.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (dateParts) {
-    const [, day, month, year] = dateParts;
+  // DD.MM.YYYY format
+  const dotParts = dateStr.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dotParts) {
+    const [, day, month, year] = dotParts;
     const time = timeStr || '00:00';
     const iso = `${year}-${month}-${day}T${time}:00Z`;
     const dt = new Date(iso);
     if (!Number.isNaN(dt.getTime())) return dt.toISOString();
   }
 
-  // Handle YYYY-MM-DD format (in case Goalserve uses it in some contexts)
-  const altParts = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (altParts) {
+  // YYYY-MM-DD fallback
+  const isoParts = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoParts) {
     const time = timeStr || '00:00';
-    const iso = `${dateStr}T${time}:00Z`;
-    const dt = new Date(iso);
+    const dt = new Date(`${dateStr}T${time}:00Z`);
     if (!Number.isNaN(dt.getTime())) return dt.toISOString();
   }
 
@@ -202,24 +231,21 @@ function parseGoalserveDateTime(dateStr, timeStr) {
 
 /**
  * Build score string from set data.
- * Goalserve provides set1..set5 fields on each player.
+ * Docs: s1..s5 fields on each player. "6.5" means tiebreak (6 set score, 5 TB score).
  */
-function buildScoreString(player1, player2) {
+function buildScoreString(p1, p2) {
   const sets = [];
   for (let i = 1; i <= 5; i++) {
-    const s1 = player1[`set${i}`];
-    const s2 = player2[`set${i}`];
-    if (s1 != null && s2 != null && (s1 !== '' || s2 !== '')) {
-      sets.push(`${s1}-${s2}`);
+    const a = p1[`s${i}`] ?? p1[`set${i}`];
+    const b = p2[`s${i}`] ?? p2[`set${i}`];
+    if (a != null && b != null && (String(a) !== '' || String(b) !== '')) {
+      sets.push(`${a}-${b}`);
     }
   }
   return sets.length > 0 ? sets.join(', ') : null;
 }
 
-/**
- * Coerce Goalserve tournament/match arrays.
- * Goalserve may return a single object or an array depending on count.
- */
+/** Coerce a single object or array to an array. Goalserve returns single-item as object. */
 function toArray(val) {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -227,89 +253,148 @@ function toArray(val) {
 }
 
 /**
- * Extract match fixtures from a Goalserve JSON response.
- * Handles multiple response shapes (the API is inconsistent).
+ * Check if a player element represents a BYE.
+ * Docs: BYE player has seed="Bye" and empty name.
  */
-function extractMatches(data, config) {
+function isByePlayer(p) {
+  if (!p) return true;
+  const seed = String(p.seed || '').toLowerCase();
+  const name = String(p.name || '').trim();
+  return seed === 'bye' || name === '' || name.toLowerCase() === 'bye';
+}
+
+// ── Fixtures/Results endpoint parser ────────────────────────────────────────
+// URL: /tennis_scores/{tournamentId}
+// Structure: { tournament: { week: [ { number, qualification, match: [...] } ] } }
+
+function parseFixturesResponse(data, config) {
   const fixtures = [];
+  const tournament = data?.tournament;
+  if (!tournament) return fixtures;
 
-  // Navigate to tournament data — shape varies by endpoint
-  const scores = data?.scores || data;
-  const tournaments = toArray(
-    scores?.tournament || scores?.tournaments?.tournament || scores?.category?.tournament
-  );
-
-  // Filter to our tournament if we have an ID
-  const targetId = config?.goalserveTournamentId;
-  const targetName = config?.name?.toLowerCase() || '';
-  const relevantTournaments = tournaments.filter(t => {
-    if (!t) return false;
-    if (targetId && String(t.id) === String(targetId)) return true;
-    if (targetName && (t.name || '').toLowerCase().includes(targetName)) return true;
-    if (targetName && (t.name || '').toLowerCase().includes('madrid')) return true;
-    // If no ID set yet, return all ATP tournaments (we'll filter by name)
-    if (!targetId) return true;
-    return false;
-  });
-
-  if (relevantTournaments.length === 0) {
-    console.warn('[Goalserve] No matching tournament found in response.',
-      `Looking for: id=${targetId}, name contains "${targetName}".`,
-      `Available: ${tournaments.map(t => `${t?.name} (${t?.id})`).join(', ') || 'none'}`);
-    return [];
+  // Log discovered tournament ID
+  if (tournament.id) {
+    console.log(`[Goalserve fixtures] Tournament: "${tournament.league}" (id: ${tournament.id}, season: ${tournament.season})`);
   }
 
-  for (const tournament of relevantTournaments) {
-    // Log tournament discovery for first-time setup
-    if (!targetId && tournament.id) {
-      console.log(`[Goalserve] Found tournament: "${tournament.name}" (id: ${tournament.id}). ` +
-        `Set goalserveTournamentId in activeTournament.js to lock to this tournament.`);
+  const weeks = toArray(tournament.week);
+
+  for (const week of weeks) {
+    // Skip qualifying rounds
+    if (String(week.qualification || '').toLowerCase() === 'true') continue;
+
+    // week.number = round name (e.g. "ATP Madrid – First Round")
+    const round = normalizeGoalserveRound(week.number, config);
+    if (round === null) continue;
+
+    const matches = toArray(week.match);
+    for (const m of matches) {
+      if (!m || !m.id) continue;
+
+      const players = toArray(m.player);
+      if (players.length < 2) continue;
+
+      const p1 = players[0];
+      const p2 = players[1];
+
+      // Skip BYE matches
+      if (isByePlayer(p1) || isByePlayer(p2)) continue;
+
+      const status = normalizeGoalserveStatus(m.status);
+      const startTime = parseGoalserveDateTime(m.date, m.time);
+      const score = buildScoreString(p1, p2);
+
+      // Winner detection: player.winner = "True" / "False"
+      let winnerId = null;
+      let winnerName = null;
+      if (String(p1.winner || '').toLowerCase() === 'true') {
+        winnerId = String(p1.id); winnerName = p1.name;
+      } else if (String(p2.winner || '').toLowerCase() === 'true') {
+        winnerId = String(p2.id); winnerName = p2.name;
+      }
+
+      // Withdrawal/walkover detection
+      const isWalkover = status === 'walkover';
+      const isCancelled = status === 'cancelled';
+      const isWithdrawal = isWalkover || isCancelled;
+      let withdrawnPlayerId = null;
+      if (isWalkover && winnerId) {
+        // The loser withdrew (winner advances without playing)
+        withdrawnPlayerId = winnerId === String(p1.id) ? String(p2.id) : String(p1.id);
+      }
+
+      fixtures.push({
+        matchId: String(m.id),
+        round,
+        player1Id: String(p1.id || `${m.id}-p1`),
+        player1Name: p1.name || 'TBD',
+        player2Id: String(p2.id || `${m.id}-p2`),
+        player2Name: p2.name || 'TBD',
+        winnerId, winnerName,
+        status: status === 'retired' ? 'retired' : status,
+        startTime,
+        score,
+        isWithdrawal,
+        withdrawnPlayerId,
+      });
     }
+  }
 
-    // Matches can be nested in various ways
-    const matchGroups = toArray(tournament.matches || tournament.match);
+  return fixtures;
+}
 
-    for (const group of matchGroups) {
-      // group might be { date, time, match: [...] } or the match itself
-      const matches = group.match ? toArray(group.match) : [group];
-      const groupDate = group.date || tournament.date;
+// ── Draw endpoint parser ────────────────────────────────────────────────────
+// URL: /tennis_scores/{tournamentId}-draw
+// Structure: { tournament: { stage: [ { name, qualification, round: [ { name, match: [...] } ] } ] } }
+// The draw has bracket connections (match_number, next) and seed info.
 
+function parseDrawResponse(data, config) {
+  const fixtures = [];
+  const tournament = data?.tournament;
+  if (!tournament) return fixtures;
+
+  if (tournament.id) {
+    console.log(`[Goalserve draw] Tournament: "${tournament.league}" (id: ${tournament.id})`);
+  }
+
+  const stages = toArray(tournament.stage);
+
+  for (const stage of stages) {
+    // Skip qualifying stages
+    if (String(stage.qualification || '').toLowerCase() === 'true') continue;
+
+    const rounds = toArray(stage.round);
+    for (const roundObj of rounds) {
+      // round.name = "Final", "Semi-finals", "First Round" etc.
+      const round = normalizeGoalserveRound(roundObj.name, config);
+      if (round === null) continue;
+
+      const matches = toArray(roundObj.match);
       for (const m of matches) {
         if (!m || !m.id) continue;
 
-        const players = toArray(m.player || m.players?.player);
+        const players = toArray(m.player);
         if (players.length < 2) continue;
 
         const p1 = players[0];
         const p2 = players[1];
-
-        // Determine round from match or tournament grouping
-        const roundRaw = m.round || group.round || tournament.round || null;
-        const round = normalizeGoalserveRound(roundRaw, config);
-        // Skip unknown rounds (likely qualifying or doubles)
-        if (round === null) continue;
+        if (isByePlayer(p1) || isByePlayer(p2)) continue;
 
         const status = normalizeGoalserveStatus(m.status);
-        const startTime = parseGoalserveDateTime(m.date || groupDate, m.time);
+        const startTime = parseGoalserveDateTime(m.date, m.time);
         const score = buildScoreString(p1, p2);
 
-        // Winner detection
         let winnerId = null;
         let winnerName = null;
-        const p1Won = String(p1.winner || '').toLowerCase() === 'true';
-        const p2Won = String(p2.winner || '').toLowerCase() === 'true';
-        if (p1Won) { winnerId = String(p1.id); winnerName = p1.name; }
-        else if (p2Won) { winnerId = String(p2.id); winnerName = p2.name; }
+        if (String(p1.winner || '').toLowerCase() === 'true') {
+          winnerId = String(p1.id); winnerName = p1.name;
+        } else if (String(p2.winner || '').toLowerCase() === 'true') {
+          winnerId = String(p2.id); winnerName = p2.name;
+        }
 
-        // Withdrawal/walkover detection
         const isWalkover = status === 'walkover';
-        const isRetired = status === 'retired';
         const isCancelled = status === 'cancelled';
         const isWithdrawal = isWalkover || isCancelled;
-
-        // Try to identify the withdrawn player:
-        // In a walkover, the winner advances without playing.
-        // The loser is the one who withdrew.
         let withdrawnPlayerId = null;
         if (isWalkover && winnerId) {
           withdrawnPlayerId = winnerId === String(p1.id) ? String(p2.id) : String(p1.id);
@@ -322,9 +407,7 @@ function extractMatches(data, config) {
           player1Name: p1.name || 'TBD',
           player2Id: String(p2.id || `${m.id}-p2`),
           player2Name: p2.name || 'TBD',
-          winnerId,
-          winnerName,
-          status: isRetired ? 'retired' : status,
+          winnerId, winnerName, status,
           startTime,
           score,
           isWithdrawal,
@@ -337,11 +420,89 @@ function extractMatches(data, config) {
   return fixtures;
 }
 
+// ── Livescore endpoint parser ───────────────────────────────────────────────
+// URL: /tennis_scores/home?cat={tournamentId}
+// Structure: { scores: { category: [ { name, id, match: [...] } ] } }
+// No round info in livescore — we match by matchId to existing fixtures.
+
+function parseLivescoreResponse(data, config) {
+  const fixtures = [];
+  const scores = data?.scores || data;
+  const categories = toArray(scores?.category);
+
+  // Filter to our tournament by ID or name
+  const targetId = config?.goalserveTournamentId;
+  const targetName = (config?.shortName || config?.name || '').toLowerCase();
+
+  const relevant = categories.filter(c => {
+    if (!c) return false;
+    if (targetId && String(c.id) === String(targetId)) return true;
+    const catName = (c.name || c.league || '').toLowerCase();
+    if (targetName && catName.includes(targetName)) return true;
+    if (catName.includes('madrid')) return true;
+    return false;
+  });
+
+  for (const cat of relevant) {
+    const matches = toArray(cat.match);
+    for (const m of matches) {
+      if (!m || !m.id) continue;
+
+      const players = toArray(m.player);
+      if (players.length < 2) continue;
+
+      const p1 = players[0];
+      const p2 = players[1];
+
+      const status = normalizeGoalserveStatus(m.status);
+      const startTime = parseGoalserveDateTime(m.date, m.time);
+      const score = buildScoreString(p1, p2);
+
+      let winnerId = null;
+      let winnerName = null;
+      if (String(p1.winner || '').toLowerCase() === 'true') {
+        winnerId = String(p1.id); winnerName = p1.name;
+      } else if (String(p2.winner || '').toLowerCase() === 'true') {
+        winnerId = String(p2.id); winnerName = p2.name;
+      }
+
+      const isWalkover = status === 'walkover';
+      const isWithdrawal = isWalkover || status === 'cancelled';
+      let withdrawnPlayerId = null;
+      if (isWalkover && winnerId) {
+        withdrawnPlayerId = winnerId === String(p1.id) ? String(p2.id) : String(p1.id);
+      }
+
+      // No round info from livescore — will be filled in during merge
+      fixtures.push({
+        matchId: String(m.id),
+        round: null,
+        player1Id: String(p1.id || `${m.id}-p1`),
+        player1Name: p1.name || 'TBD',
+        player2Id: String(p2.id || `${m.id}-p2`),
+        player2Name: p2.name || 'TBD',
+        winnerId, winnerName, status,
+        startTime,
+        score,
+        isWithdrawal,
+        withdrawnPlayerId,
+      });
+    }
+  }
+
+  return fixtures;
+}
+
 /**
  * Fetch a single Goalserve endpoint with timeout + error handling.
+ * @param {string} apiKey
+ * @param {string} path — e.g. "tennis_scores/19174" or "tennis_scores/home"
+ * @param {string} [queryParams] — e.g. "cat=19174"
  */
-async function goalserveRequest(apiKey, endpoint) {
-  const url = `${GOALSERVE_BASE}/${apiKey}/tennis/${endpoint}?json=1`;
+async function goalserveRequest(apiKey, path, queryParams) {
+  let url = `${GOALSERVE_BASE}/${apiKey}/${path}?json=1`;
+  if (queryParams) url += `&${queryParams}`;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GOALSERVE_TIMEOUT);
 
@@ -351,7 +512,7 @@ async function goalserveRequest(apiKey, endpoint) {
       headers: { 'Accept': 'application/json' },
     });
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      throw new Error(`HTTP ${res.status} ${res.statusText} for ${path}`);
     }
     return await res.json();
   } finally {
@@ -360,9 +521,50 @@ async function goalserveRequest(apiKey, endpoint) {
 }
 
 /**
+ * Discover the Goalserve tournament ID for Madrid from the leagues list.
+ * Called when goalserveTournamentId is not set in config.
+ */
+async function discoverTournamentId(apiKey, config) {
+  try {
+    const data = await goalserveRequest(apiKey, 'tennis_scores/leagues');
+    const leagues = toArray(data?.league || data?.leagues?.league);
+
+    // Filter to ATP Singles only
+    const atpLeagues = leagues.filter(l =>
+      (l.country || '').toLowerCase() === 'atp-singles'
+    );
+
+    const targetName = (config?.shortName || config?.name || 'Madrid').toLowerCase();
+    const match = atpLeagues.find(l =>
+      (l.name || '').toLowerCase().includes(targetName) ||
+      (l.name || '').toLowerCase().includes('madrid')
+    );
+
+    if (match) {
+      console.log(`[Goalserve] Discovered Madrid tournament ID: ${match.id} ("${match.name}", season: ${match.season})`);
+      return String(match.id);
+    }
+
+    // Log what we found for debugging
+    console.warn(`[Goalserve] Could not find Madrid in leagues list. ATP tournaments found:`,
+      atpLeagues.slice(0, 20).map(l => `${l.name} (${l.id})`).join(', '));
+    return null;
+  } catch (err) {
+    console.warn(`[Goalserve] Leagues discovery failed: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * Main Goalserve fetch function.
- * Calls fixtures + livescore endpoints, merges, deduplicates by matchId.
- * Uses 5-minute in-memory cache.
+ *
+ * Strategy:
+ * 1. Use tournament ID from config, or discover it from leagues list
+ * 2. Fetch fixtures/results (has round info + start times)
+ * 3. Fetch draw (has round info + seed info, good for pre-tournament)
+ * 4. Fetch livescore (has live status updates, no round info)
+ * 5. Merge: fixtures as base, draw fills gaps, livescore overrides status
+ * 6. Cache for 5 minutes
  */
 async function fetchGoalserve(config) {
   const apiKey = process.env.GOALSERVE_API_KEY;
@@ -377,50 +579,93 @@ async function fetchGoalserve(config) {
 
   console.log('[Goalserve] Fetching fresh data...');
 
-  // Fetch from multiple endpoints to get the fullest picture:
-  // - fixtures: scheduled/upcoming matches with start times (critical for R1 lock)
-  // - livescore: in-progress matches with live scores
-  // - results: completed matches (for winner/loser detection)
-  // We merge all three and deduplicate by matchId, preferring live > results > fixtures.
-
-  const allFixtures = new Map(); // matchId -> fixture (last write wins)
-
-  // Priority order: fixtures first (base data), then results (completed), then live (freshest)
-  const endpoints = ['fixtures', 'results', 'livescore'];
-
-  for (const endpoint of endpoints) {
-    try {
-      const data = await goalserveRequest(apiKey, endpoint);
-      const matches = extractMatches(data, config);
-      for (const m of matches) {
-        allFixtures.set(m.matchId, m);
-      }
-      console.log(`[Goalserve] ${endpoint}: ${matches.length} matches extracted`);
-    } catch (err) {
-      // livescore will 404 or be empty when no matches are live — that's fine
-      if (endpoint === 'livescore') {
-        console.log(`[Goalserve] livescore: no live matches (${err.message})`);
-      } else {
-        console.warn(`[Goalserve] ${endpoint} failed: ${err.message}`);
-      }
+  // Resolve tournament ID
+  let tournamentId = config?.goalserveTournamentId;
+  if (!tournamentId) {
+    tournamentId = await discoverTournamentId(apiKey, config);
+    if (tournamentId) {
+      console.log(`[Goalserve] Using discovered tournament ID: ${tournamentId}. ` +
+        `Set goalserveTournamentId: '${tournamentId}' in activeTournament.js to skip discovery.`);
     }
   }
 
-  const fixtures = Array.from(allFixtures.values());
+  if (!tournamentId) {
+    console.warn('[Goalserve] No tournament ID available. Cannot fetch fixtures.');
+    return null;
+  }
+
+  // matchId → fixture map. Later writes override earlier (livescore > draw > fixtures).
+  const allFixtures = new Map();
+
+  // 1. Fixtures/Results endpoint (base data with round info + start times)
+  try {
+    const data = await goalserveRequest(apiKey, `tennis_scores/${tournamentId}`);
+    const matches = parseFixturesResponse(data, config);
+    for (const m of matches) allFixtures.set(m.matchId, m);
+    console.log(`[Goalserve] fixtures: ${matches.length} matches`);
+  } catch (err) {
+    console.warn(`[Goalserve] fixtures endpoint failed: ${err.message}`);
+  }
+
+  // 2. Draw endpoint (has round names, good before tournament starts)
+  try {
+    const data = await goalserveRequest(apiKey, `tennis_scores/${tournamentId}-draw`);
+    const matches = parseDrawResponse(data, config);
+    for (const m of matches) {
+      const existing = allFixtures.get(m.matchId);
+      if (existing) {
+        // Draw has round info — fill in if fixtures didn't have it
+        if (!existing.round && m.round) existing.round = m.round;
+        // Draw may have start times if fixtures didn't
+        if (!existing.startTime && m.startTime) existing.startTime = m.startTime;
+      } else {
+        allFixtures.set(m.matchId, m);
+      }
+    }
+    console.log(`[Goalserve] draw: ${matches.length} matches`);
+  } catch (err) {
+    // Draw may not be available yet
+    console.log(`[Goalserve] draw endpoint: ${err.message}`);
+  }
+
+  // 3. Livescore endpoint (freshest status, no round info)
+  try {
+    const data = await goalserveRequest(apiKey, 'tennis_scores/home', `cat=${tournamentId}`);
+    const matches = parseLivescoreResponse(data, config);
+    for (const m of matches) {
+      const existing = allFixtures.get(m.matchId);
+      if (existing) {
+        // Livescore has the freshest status, score, and winner info
+        existing.status = m.status;
+        if (m.score) existing.score = m.score;
+        if (m.winnerId) { existing.winnerId = m.winnerId; existing.winnerName = m.winnerName; }
+        if (m.isWithdrawal) {
+          existing.isWithdrawal = true;
+          existing.withdrawnPlayerId = m.withdrawnPlayerId;
+        }
+      }
+      // Don't add live-only matches (they lack round info)
+    }
+    console.log(`[Goalserve] livescore: ${matches.length} live matches`);
+  } catch (err) {
+    // No live matches is normal when tournament hasn't started
+    console.log(`[Goalserve] livescore: ${err.message}`);
+  }
+
+  // Filter out fixtures with no round (couldn't be mapped)
+  const fixtures = Array.from(allFixtures.values()).filter(f => f.round !== null);
 
   if (fixtures.length === 0) {
-    console.warn('[Goalserve] No fixtures extracted from any endpoint');
+    console.warn('[Goalserve] No valid fixtures extracted');
     return null;
   }
 
   // Update cache
   goalserveCache = { fixtures, fetchedAt: Date.now() };
 
-  // Log summary for debugging
+  // Log summary
   const roundCounts = {};
-  for (const f of fixtures) {
-    roundCounts[f.round] = (roundCounts[f.round] || 0) + 1;
-  }
+  for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
   console.log(`[Goalserve] Total: ${fixtures.length} fixtures.`,
     `Rounds: ${JSON.stringify(roundCounts)}.`,
     `With startTime: ${fixtures.filter(f => f.startTime).length}.`,
@@ -430,9 +675,7 @@ async function fetchGoalserve(config) {
   return fixtures;
 }
 
-/**
- * Invalidate the Goalserve cache (e.g. after admin action).
- */
+/** Invalidate the Goalserve cache (e.g. after admin action). */
 export function invalidateGoalserveCache() {
   goalserveCache = { fixtures: null, fetchedAt: 0 };
   console.log('[Goalserve] Cache invalidated');
