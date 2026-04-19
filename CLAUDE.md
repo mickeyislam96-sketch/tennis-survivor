@@ -132,32 +132,23 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 ---
 
-## R1 Per-Match Lock (NEW — 13 Apr 2026)
+## R1 Lock Mode (updated 19 Apr 2026)
 
-**Applies to:** All Masters 1000 and Grand Slam R1 rounds. Controlled by `TOURNAMENT.r1PerMatchLock` in `activeTournament.js`.
+**Current mode:** Standard fixed deadline (`r1PerMatchLock: false` in `activeTournament.js`). R1 uses the same deadline system as all other rounds: 1 hour before the first R1 match.
 
-**How it works:**
-- R1 has NO fixed closing deadline
-- Players are removed from the available pick pool as their match starts (both players in the match)
-- Users can pick/switch freely among remaining players whose matches haven't started
-- A user's pick is locked the moment their selected player's match begins
-- R1 window closes organically when the last R1 match starts (pool becomes empty)
+**Per-match lock code is retained but inactive.** Set `r1PerMatchLock: true` to re-enable. Intended for future use when the mobile app has push notifications and Grand Slam R1 spans multiple days.
 
-**Withdrawal handling:**
-- If a picked player withdraws BEFORE their match starts, user is notified (email + push) and can re-pick from remaining available players
-- If withdrawal happens after match start (walkover/retirement mid-match), the result stands
-- Admin can manually flag withdrawals via `POST /api/admin/withdrawal` (TODO: build this endpoint)
-- Automatic detection: poll API every 5-10 min during R1 for withdrawal/walkover statuses
+**Withdrawal handling (all rounds):**
+- **Before deadline, time to re-pick:** User's pick is deleted, they re-pick from available players. Automated detection via `opsMonitor.js` or manual via `POST /api/admin/withdrawal`.
+- **After deadline or no time:** Auto-assign the replacement player (lucky loser/alternate). If no replacement, user gets a bye for that round.
+- **Mid-match retirement/walkover:** Result stands as recorded.
 
 **Key files:**
-- `backend/src/config/activeTournament.js` — tournament config with `r1PerMatchLock: true`
-- `backend/src/services/dataAdapter.js` — `getR1MatchTimes()`, `hasMatchStarted()`, `isR1Closed()`, `getAvailableR1Players()`
-- `backend/src/routes/picks.js` — R1 branch in `getAvailablePlayers()` and `POST /api/picks`
-- `backend/src/services/tennisData.js` — `getDeadlines()` returns `perMatchLock: true` for R1
-- `frontend/src/pages/GroupHome.jsx` — R1 hint banner ("Players removed as matches start")
-- `frontend/src/pages/PickScreen.jsx` — TODO: update R1 view to show match start times, grey out started matches
-
-**CRITICAL: The R1 per-match lock and the R2+ round-level lock are completely separate code paths.** Changing one must not affect the other. The branch point is `TOURNAMENT.r1PerMatchLock` checked at the start of each function.
+- `backend/src/config/activeTournament.js` — `r1PerMatchLock` flag (currently `false`)
+- `backend/src/routes/picks.js` — R1 per-match branch exists but inactive when flag is false
+- `backend/src/services/tennisData.js` — `getDeadlines()` returns standard deadline for R1
+- `backend/src/services/opsMonitor.js` — automated withdrawal detection
+- `frontend/src/pages/TermsAndConditions.jsx` — sections 5a and 6 cover R1 deadline and withdrawal policy
 
 ---
 
@@ -430,7 +421,7 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Tournament: Mutua Madrid Open 2026
 - Status: `upcoming` — draw expected 19-20 Apr, tournament starts 22 Apr
 - Entry: Free (second free tournament before Roland Garros paid launch)
-- R1 model: **Per-match lock** (new system, first deployment)
+- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). Per-match lock code retained for future mobile app use.
 - Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (4 entries as of 19 Apr)
 - Data source: Goalserve (`GOALSERVE_API_KEY` set in Railway, adapter implemented) with API-Tennis fallback
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
@@ -464,7 +455,7 @@ Full-stack polish across 7 commits. **Key changes:**
 5. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
 6. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
 7. **Pre-Madrid: SPF/DKIM for Brevo** — set up domain auth before sending to more than 3 users
-8. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
+8. **Pre-Madrid: Mobile app sync** — R1 standard deadline UI (no per-match lock copy) needs reflecting in React Native app
 9. **Post-Madrid: EAS Project ID** — set before App Store submission
 10. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
 11. ~~Add `DATABASE_URL` GitHub secret~~ DONE 19 Apr — secret set, backup workflow verified end-to-end (run #3 success, 48s, artifact uploaded)
@@ -520,7 +511,8 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 
 | 19 Apr 2026 (session 3) | **Support system + nav + copy polish + context consolidation.** (1) Built full customer support contact form: `POST /api/support` endpoint with rate limiting (5/hr per IP), validation, user context auto-attachment; `sendSupportEmail()` in email.js sends directly via Brevo to finalservivor@gmail.com (bypasses approval queue); frontend `/support` page with category dropdown, subject, message, character counter, "Sending as" badge, success state. Route added in App.jsx, footer link added in Layout.jsx. (2) Added gold pill "My Pool" nav link — fetches user's pool membership via `/api/pools?userId=X`, shows pool name for single membership or "My Pools" for multiple. CSS class `.ds-nav-pool-pill` in Layout.css. Only visible when logged in. (3) Updated How to Play step card copy (4 changes): removed free/paid mention from step 1, removed strategy tip from step 2, removed retirement/withdrawal from step 4, removed prize-splitting from step 5. (4) Context consolidation: audited 17 workspace markdown files, consolidated into `.claude/memory/` files (roadmap.md, design-audits.md), added session-end protocol to CLAUDE.md, pushed all memory files to GitHub repo. |
 | 19 Apr 2026 (session 4) | **Player avatar headshots.** (1) Built PlayerAvatar component with fallback chain: Goalserve ID → name slug → initials circle. Integrated into PickScreen (32px rows, 40px picked card), DrawViewer (20px bracket, 24px list), MatchupModal (56px). Shared utility in `frontend/src/utils/playerImage.js`, component in `frontend/src/ui/PlayerAvatar.jsx` with responsive `.css`. (2) Sourced headshots from ATP Tour CDN (`atptour.com/-/media/alias/player-headshot/{4-char-id}`). Both Sofascore and ATP Tour block server-side requests (403), so used browser console script approach — paste JavaScript into Chrome DevTools on atptour.com to fetch same-origin. (3) First batch: 110 headshots downloaded and deployed (commit `c705be5`). (4) Cross-referenced against April 2026 ATP rankings (top 150), found 67 missing players. (5) Researched ATP Tour 4-char IDs for all 67 missing players via web search. (6) Created updated console download script with JSZip swapped for individual file downloads (no external library restrictions). (7) Mickey downloaded 63 of 67 missing headshots (4 not available on ATP CDN). (8) Committed and deployed (commit `5580f91`), Vercel deployment READY. Final coverage: 173 player headshots covering virtually all ATP top 150. |
-| 19 Apr 2026 (session 5) | **Project safety: backups + branch protection.** (1) Created `.github/workflows/db-backup.yml` — daily automated PostgreSQL backup via GitHub Actions. Runs `pg_dump` at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention, auto-cleanup keeps latest 30). Initial commit `5bc4201`. (2) Enabled branch protection on `main` — force pushes and deletion blocked via GitHub API. (3) Added `DATABASE_URL` GitHub secret (public Railway connection string). (4) Fixed pg_dump version mismatch — Ubuntu default was v16, Railway runs PG 17. Installed `postgresql-client-17` and added PG 17 bin to `GITHUB_PATH` (commits `b415f45`, `533d46b`). (5) Verified workflow end-to-end — run #3 completed successfully (48s, artifact uploaded). (6) Deleted 3 completed workspace files. |
+| 19 Apr 2026 (session 5) | **Backup verification + R1 standard deadline switch.** (1) Verified GitHub Actions backup run #3 success (pg_dump v17, 48s, artifact uploaded). Updated infrastructure memory files. (2) **R1 CTA bug fix** — Madrid group page showed "R1 is open" pick CTA before draw was released; gated on `drawAvailable` flag (commit `5d6971b`). (3) **R1 lock mode decision** — after discussion, switched from per-match lock to standard fixed deadline for all tournaments. Rationale: web-only product has no push notifications, casual users need a single clear deadline. Per-match lock code retained for future mobile app use. Changed `r1PerMatchLock: false` in `activeTournament.js`, `tournaments.js` (FE+BE), updated `picks.js` comments (commit `5cadb13`). (4) **Withdrawal policy** — three-tier approach: before deadline (re-pick), after deadline/no time (auto-assign replacement player), mid-match (result stands). (5) **Frontend copy cleanup** — removed all per-match lock text from GroupHome (R1-specific hint branch eliminated), PickScreen (per-match lock info card removed, single countdown for all rounds), and TermsAndConditions (Section 5a rewritten for fixed deadline, Section 6 rewritten with 6a/6b/6c withdrawal tiers) (commit `78e2d07`). Vercel deploy confirmed READY. Updated CLAUDE.md R1 section, auto-memory, and project memory files. |
+| 19 Apr 2026 (session 5-prior) | **Project safety: backups + branch protection.** (1) Created `.github/workflows/db-backup.yml` — daily automated PostgreSQL backup via GitHub Actions. Runs `pg_dump` at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention, auto-cleanup keeps latest 30). Initial commit `5bc4201`. (2) Enabled branch protection on `main` — force pushes and deletion blocked via GitHub API. (3) Added `DATABASE_URL` GitHub secret (public Railway connection string). (4) Fixed pg_dump version mismatch — Ubuntu default was v16, Railway runs PG 17. Installed `postgresql-client-17` and added PG 17 bin to `GITHUB_PATH` (commits `b415f45`, `533d46b`). (5) Verified workflow end-to-end — run #3 completed successfully (48s, artifact uploaded). (6) Deleted 3 completed workspace files. |
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
 
 ---
