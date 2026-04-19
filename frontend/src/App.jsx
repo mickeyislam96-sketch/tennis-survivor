@@ -12,6 +12,7 @@ import { ResetPassword } from './pages/ResetPassword';
 import { Profile } from './pages/Profile';
 import { PaymentFlow } from './pages/PaymentFlow';
 import { HowToPlay } from './pages/HowToPlay';
+import { Support } from './pages/Support';
 import { AuthProvider } from './context/AuthContext';
 
 // Re-export so all existing page imports of `useAuth` and `API` from '../App' continue to work
@@ -35,6 +36,7 @@ function App() {
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/support" element={<Support />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
