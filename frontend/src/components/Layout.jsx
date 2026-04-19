@@ -353,6 +353,24 @@ export function Layout({ children }) {
   const [showAuth, setShowAuth] = useState(false);
   const [initialMode, setInitialMode] = useState('login');
 
+  // Fetch user's pool membership for the nav link
+  const [myPool, setMyPool] = useState(null);
+  useEffect(() => {
+    if (!user?.id) { setMyPool(null); return; }
+    let cancelled = false;
+    fetch(`${API}/pools?userId=${user.id}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(pools => {
+        if (cancelled) return;
+        const mine = (pools || []).filter(p => p.isMember);
+        if (mine.length === 1) setMyPool({ id: mine[0].id, name: mine[0].name });
+        else if (mine.length > 1) setMyPool({ id: null, name: 'My Pools' });
+        else setMyPool(null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const openAuth = (mode) => { setInitialMode(mode); setShowAuth(true); };
 
   return (
@@ -382,6 +400,14 @@ export function Layout({ children }) {
                 {label}
               </NavLink>
             ))}
+            {user && myPool && (
+              <Link
+                to={myPool.id ? `/group/${myPool.id}` : '/'}
+                className="ds-nav-pool-pill"
+              >
+                {myPool.name || 'My Pool'} <span aria-hidden="true">→</span>
+              </Link>
+            )}
             <NavLink
               to="/how-to-play"
               className={({ isActive }) => `ds-nav-link${isActive ? ' is-active' : ''}`}
