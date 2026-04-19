@@ -494,7 +494,7 @@ export function GroupHome() {
 
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
     const closingSoon = !isCompleted && openRound && openRound !== 'R1' && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
-    const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick;
+    const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick && tournament?.drawAvailable;
 
     const lbWinners = lbData ? (lbData.leaderboard || []).filter(m => m.isWinner) : [];
     const winners = lbWinners.length > 0
