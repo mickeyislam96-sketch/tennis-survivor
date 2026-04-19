@@ -1,0 +1,388 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   MICRO-INTERACTIONS — polish pass
+   Drop-in file: purely additive CSS. No overrides to existing layout/colour.
+   Import after index.css:  import './styles/micro-interactions.css'
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. BUTTON PRESS FEEDBACK ─────────────────────────────────────────────
+   Adds a satisfying "click" compression to every button variant.
+   The .ui-btn already has :active translateY(1px), but legacy .btn, pick
+   buttons, and other interactive elements have none.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.btn:active,
+.pick-cta-btn:active,
+.pick-cta-change-btn:active,
+.ps-round-tab:active,
+.ds-modal-tab:active,
+.pool-card-cta:active,
+.hp-invite-form .ui-btn:active,
+.card-action:active {
+  transform: scale(0.97);
+  transition-duration: 60ms;
+}
+
+/* Ensure gold CTA also gets a press */
+.ui-btn--gold:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 1px 0 var(--ds-gold-deep);
+}
+
+/* ── 2. CARD ENTRANCE ANIMATIONS ──────────────────────────────────────────
+   Staggered fade-up for pool cards, how-it-works steps, player rows,
+   and leaderboard rows. Uses nth-child for natural stagger without JS.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@keyframes mi-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pool cards on homepage */
+.hp-pool-grid > *,
+.hp-my-groups > *,
+.hp-how > * {
+  animation: mi-fade-up var(--ds-dur-med) var(--ds-ease) both;
+}
+
+.hp-pool-grid > *:nth-child(1),
+.hp-my-groups > *:nth-child(1),
+.hp-how > *:nth-child(1) { animation-delay: 0ms; }
+
+.hp-pool-grid > *:nth-child(2),
+.hp-my-groups > *:nth-child(2),
+.hp-how > *:nth-child(2) { animation-delay: 60ms; }
+
+.hp-pool-grid > *:nth-child(3),
+.hp-my-groups > *:nth-child(3),
+.hp-how > *:nth-child(3) { animation-delay: 120ms; }
+
+.hp-pool-grid > *:nth-child(4),
+.hp-my-groups > *:nth-child(4) { animation-delay: 180ms; }
+
+/* Player rows in pick screen — subtle stagger */
+.ps-player-list .ps-player-row {
+  animation: mi-fade-up var(--ds-dur-fast) var(--ds-ease) both;
+}
+.ps-player-list .ps-player-row:nth-child(1)  { animation-delay: 0ms; }
+.ps-player-list .ps-player-row:nth-child(2)  { animation-delay: 25ms; }
+.ps-player-list .ps-player-row:nth-child(3)  { animation-delay: 50ms; }
+.ps-player-list .ps-player-row:nth-child(4)  { animation-delay: 75ms; }
+.ps-player-list .ps-player-row:nth-child(5)  { animation-delay: 100ms; }
+.ps-player-list .ps-player-row:nth-child(6)  { animation-delay: 125ms; }
+.ps-player-list .ps-player-row:nth-child(7)  { animation-delay: 150ms; }
+.ps-player-list .ps-player-row:nth-child(8)  { animation-delay: 175ms; }
+.ps-player-list .ps-player-row:nth-child(n+9) { animation-delay: 200ms; }
+
+/* Pool cards in the open-now grid */
+.pool-card-list > * {
+  animation: mi-fade-up var(--ds-dur-med) var(--ds-ease) both;
+}
+.pool-card-list > *:nth-child(1) { animation-delay: 0ms; }
+.pool-card-list > *:nth-child(2) { animation-delay: 80ms; }
+.pool-card-list > *:nth-child(3) { animation-delay: 160ms; }
+
+/* ── 3. PICK CONFIRMATION PULSE ───────────────────────────────────────────
+   When the pick-done card is visible, it gets a one-shot "pop" to
+   reinforce that the selection registered. Also pulses the border.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@keyframes mi-pick-confirm {
+  0%   { transform: scale(0.96); opacity: 0.7; border-color: var(--ds-primary); }
+  50%  { transform: scale(1.01); border-color: var(--ds-gold); }
+  100% { transform: scale(1);    opacity: 1;   border-color: #bbf7d0; }
+}
+
+.pick-cta-done {
+  animation: mi-pick-confirm 0.4s var(--ds-ease) both;
+}
+
+/* Also animate the picked-card in the PickScreen page */
+@keyframes mi-picked-pop {
+  0%   { transform: scale(0.97); opacity: 0.5; }
+  60%  { transform: scale(1.005); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ps-picked-card {
+  animation: mi-picked-pop 0.35s var(--ds-ease) both;
+}
+
+/* Player row current pick highlight pulse */
+.ps-player-row--current {
+  position: relative;
+}
+
+.ps-player-row--current::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--ds-primary);
+  opacity: 0;
+  animation: mi-ring-flash 0.5s var(--ds-ease) 0.15s both;
+}
+
+@keyframes mi-ring-flash {
+  0%   { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* ── 4. SKELETON SHIMMER ──────────────────────────────────────────────────
+   Replace the plain opacity-pulse skeleton with a left-to-right shimmer
+   gradient. This is the modern standard (used by YouTube, Facebook, etc.)
+   ──────────────────────────────────────────────────────────────────────── */
+
+@keyframes mi-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.ui-skeleton,
+[class*="skeleton"] {
+  animation: mi-shimmer 1.5s ease-in-out infinite !important;
+  background: linear-gradient(
+    90deg,
+    var(--ds-surface-muted) 25%,
+    var(--ds-surface-sunken) 37%,
+    var(--ds-surface-muted) 63%
+  ) !important;
+  background-size: 200% 100% !important;
+}
+
+/* ── 5. TAB SWITCH CROSSFADE ──────────────────────────────────────────────
+   When active tab changes, the content area fades in smoothly.
+   Applied to round tabs and the content that follows them.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.ps-round-tab {
+  transition:
+    background-color 0.18s var(--ds-ease),
+    color 0.18s var(--ds-ease),
+    border-color 0.18s var(--ds-ease),
+    box-shadow 0.18s var(--ds-ease),
+    transform 0.12s var(--ds-ease);
+}
+
+.ps-round-tab:hover {
+  color: var(--ds-ink);
+  background: var(--ds-surface-muted);
+  transform: translateY(-1px);
+}
+
+.ps-round-tab.is-active {
+  box-shadow: var(--ds-shadow-sm);
+  transform: translateY(0);
+}
+
+/* Content area fade after tab switch */
+.ps-player-list,
+.ps-picked-card,
+.ps-countdown-card,
+.ps-banner {
+  animation: mi-tab-in var(--ds-dur-med) var(--ds-ease) both;
+}
+
+@keyframes mi-tab-in {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
+/* Modal tabs too */
+.ds-modal-tab {
+  transition:
+    background var(--ds-dur-fast) var(--ds-ease),
+    color var(--ds-dur-fast) var(--ds-ease),
+    box-shadow var(--ds-dur-fast) var(--ds-ease);
+}
+
+/* ── 6. GOLD CTA SHIMMER ─────────────────────────────────────────────────
+   A subtle moving light sweep across the gold CTA button on hover.
+   Draws the eye to the primary conversion action.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.ui-btn--gold {
+  position: relative;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ui-btn--gold::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ui-btn--gold:hover::before {
+  left: 125%;
+}
+
+/* Also add a subtle glow lift on hover */
+.ui-btn--gold:hover {
+  box-shadow:
+    0 2px 0 var(--ds-gold-deep),
+    0 4px 16px rgba(255, 201, 51, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ── 7. ARROW NUDGE ON HOVERABLE CARDS ────────────────────────────────────
+   Pool cards and group cards with arrows: the arrow slides right on hover.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.hp-my-group-arrow,
+.pool-card-cta,
+.card-action .arrow,
+.gh-nav-card .arrow,
+[class*="arrow"] {
+  transition: transform var(--ds-dur-fast) var(--ds-ease);
+  display: inline-block;
+}
+
+.hp-my-group-card:hover .hp-my-group-arrow {
+  transform: translateX(4px);
+}
+
+.pool-card:hover .pool-card-cta {
+  transform: translateX(3px);
+  color: var(--ds-primary);
+}
+
+/* Nav cards in group home */
+.card-action:hover .arrow,
+.gh-nav-card:hover .arrow {
+  transform: translateX(3px);
+}
+
+/* Also nudge the arrow icon inside ui-card--interactive */
+.ui-card--interactive:hover [class*="arrow"] {
+  transform: translateX(3px);
+}
+
+/* ── 8. MODAL EXIT ANIMATION ──────────────────────────────────────────────
+   Currently only ds-modal-in exists. We add a closing class that reverses
+   the entrance: fades out + slides down + shrinks.
+   Apply .ds-modal--closing to the backdrop when dismissing.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@keyframes mi-modal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes mi-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.ds-modal--closing .ds-modal-card {
+  animation: mi-modal-out 0.18s var(--ds-ease) forwards;
+}
+
+.ds-modal--closing.ds-modal-backdrop {
+  animation: mi-backdrop-out 0.2s ease forwards;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BONUS POLISH — small touches that compound into a premium feel
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Focus ring animation — subtle expand from centre */
+@keyframes mi-focus-ring {
+  from { box-shadow: 0 0 0 0px var(--ds-primary-soft); }
+  to   { box-shadow: 0 0 0 3px var(--ds-primary-soft); }
+}
+
+.ds-input:focus {
+  animation: mi-focus-ring 0.15s var(--ds-ease) forwards;
+}
+
+/* Status badge subtle entrance */
+.pool-status-badge,
+.ps-match-soon,
+.ui-badge {
+  animation: mi-fade-up 0.2s var(--ds-ease) both;
+}
+
+/* Hero section — content fade-up with slight delay chain */
+.ui-hero__eyebrow {
+  animation: mi-fade-up 0.35s var(--ds-ease) 0.05s both;
+}
+.ui-hero__title {
+  animation: mi-fade-up 0.4s var(--ds-ease) 0.1s both;
+}
+.ui-hero__lede {
+  animation: mi-fade-up 0.4s var(--ds-ease) 0.18s both;
+}
+.ui-hero__actions {
+  animation: mi-fade-up 0.35s var(--ds-ease) 0.25s both;
+}
+.ui-hero__meta {
+  animation: mi-fade-up 0.3s var(--ds-ease) 0.3s both;
+}
+
+/* Leaderboard row hover — smooth highlight slide */
+.lb-table tbody tr,
+.leaderboard-table tbody tr {
+  transition: background-color var(--ds-dur-fast) var(--ds-ease);
+}
+
+/* Smooth scroll for the whole page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Link underline grow-from-left on hover */
+.ds-nav-link::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--ds-primary);
+  border-radius: 2px;
+  transition: width var(--ds-dur-med) var(--ds-ease);
+}
+
+.ds-nav-link:hover::before {
+  width: 100%;
+}
+
+/* Remove the static ::after on active so it doesn't clash */
+.ds-nav-link.is-active::before {
+  width: 100%;
+}
+
+/* Respect reduced motion for everything above */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
