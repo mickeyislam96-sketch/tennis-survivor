@@ -421,7 +421,7 @@ export function Layout({ children }) {
             <span className="ds-footer__wordmark">
               Final <em>Serve-ivor</em>
             </span>
-            <p className="ds-footer__tagline">A tennis survivor pool · A game of skill</p>
+            <p className="ds-footer__tagline">A tennis survivor pool</p>
           </div>
           <div className="ds-footer__links">
             <NavLink to="/how-to-play" className="ds-footer__link">How to play</NavLink>
