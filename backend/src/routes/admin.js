@@ -716,6 +716,87 @@ adminRouter.get('/goalserve-discover', async (req, res) => {
   res.json(results);
 });
 
+// ── GET /api/admin/goalserve-test/:id ────────────────────────────────────────
+// Fetch fixtures + draw for a specific Goalserve tournament ID.
+// Temporarily public for discovery — re-add auth after.
+adminRouter.get('/goalserve-test/:id', async (req, res) => {
+  const apiKey = process.env.GOALSERVE_API_KEY;
+  if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
+  const tournId = req.params.id;
+  const results = { tournamentId: tournId };
+
+  // Try fixtures endpoint
+  try {
+    const fixUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}?json=1`;
+    const fixRes = await fetch(fixUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(30000),
+    });
+    const fixData = await fixRes.json();
+    // Return structure info + first few matches
+    const tournament = fixData?.tournament || fixData;
+    const weeks = tournament?.week
+      ? (Array.isArray(tournament.week) ? tournament.week : [tournament.week])
+      : [];
+    results.fixtures = {
+      weekCount: weeks.length,
+      weeks: weeks.map(w => ({
+        number: w.number || w['@number'],
+        qualification: w.qualification,
+        matchCount: w.match
+          ? (Array.isArray(w.match) ? w.match.length : 1)
+          : 0,
+        firstMatch: w.match
+          ? (Array.isArray(w.match) ? w.match[0] : w.match)
+          : null,
+      })),
+    };
+  } catch (err) {
+    results.fixturesError = err.message;
+  }
+
+  // Try draw endpoint
+  try {
+    const drawUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}-draw?json=1`;
+    const drawRes = await fetch(drawUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(30000),
+    });
+    const drawData = await drawRes.json();
+    const tournament = drawData?.tournament || drawData;
+    const stages = tournament?.stage
+      ? (Array.isArray(tournament.stage) ? tournament.stage : [tournament.stage])
+      : [];
+    results.draw = {
+      stageCount: stages.length,
+      stages: stages.map(s => {
+        const rounds = s?.round
+          ? (Array.isArray(s.round) ? s.round : [s.round])
+          : [];
+        return {
+          stageName: s.name || s['@name'],
+          roundCount: rounds.length,
+          rounds: rounds.map(r => {
+            const matches = r?.match
+              ? (Array.isArray(r.match) ? r.match : [r.match])
+              : [];
+            return {
+              roundName: r.name || r['@name'],
+              matchCount: matches.length,
+              firstMatch: matches[0] || null,
+            };
+          }),
+        };
+      }),
+    };
+  } catch (err) {
+    results.drawError = err.message;
+  }
+
+  results.ok = true;
+  res.json(results);
+});
+
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────
 // TODO: Needs sendNewTournamentEmail() in email.js — build email template first.
 adminRouter.post('/send-new-tournament', async (req, res) => {
