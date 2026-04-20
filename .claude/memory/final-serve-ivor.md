@@ -1,35 +1,44 @@
-# Final Serve-ivor — Product Context
+---
+name: Final Serve-ivor project context
+description: Full technical context for the Final Serve-ivor tennis survivor game — stack, repo, infrastructure IDs, key files, design system
+type: project
+originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
+---
+**Product:** Final Serve-ivor — tennis survivor fantasy game. Players pick one ATP player per round, eliminated if their pick loses. Live at https://finalserveivor.com. Monte Carlo 2026 complete (Mark won). Next: Madrid Open 2026 (22 Apr, free practice, 4 entries as of 19 Apr).
 
-## What it is
-Tennis survivor fantasy game. Players join groups, pick one match winner per round, eliminated if pick loses. Last survivor wins the prize pot. Built around major ATP draws.
+**Stack:**
+- Frontend: React + Vite → Vercel (auto-deploys from GitHub main)
+- Backend: Node.js / Express → Railway (auto-deploys from GitHub main)
+- GitHub repo: `mickeyislam96-sketch/tennis-survivor`
+- Primary data: Goalserve ($100/mo, 30-day trial activated 19 Apr)
+- Legacy data: API-Tennis — fully retired from matchup modal 20 Apr, kept only as automatic fallback in dataAdapter provider chain
+- Database: PostgreSQL on Railway volume (picks, groups, members)
+- Email: Brevo transactional (custom HTML templates in email.js, approval queue)
 
-## History
-- Monte Carlo 2026: complete (Mark won, 11 entrants, free entry)
-- Madrid 2026: starts 22 Apr, free entry, draw released 19 Apr, members joining. Goalserve adapter deployed and optimised (parallel fetch, promise dedup, 5-min cache). Seed draw loaded from PDF.
-- Rome 2026: planned free + mobile app launch
-- Roland Garros 2026: planned first paid tournament
+**Live URLs:**
+- Production frontend: https://finalserveivor.com
+- Vercel alias: https://tennis-survivor.vercel.app
+- Backend API: https://tennis-survivor-production.up.railway.app
 
-## Key architectural patterns
-- R1 uses standard fixed deadline (1h before first match), same as all other rounds. Per-match lock code retained but disabled (`r1PerMatchLock: false`). Withdrawal policy: re-pick if time allows, auto-assign replacement if not, mid-match results stand.
-- Data adapter layer in `dataAdapter.js` — unified interface for Goalserve (primary), API-Tennis (fallback), Sofascore (defunct)
-- Email dedup/approval: all emails queue as `pending`, admin approves via API endpoint. Cron never sends directly. Exception: support emails send immediately.
-- Auto-deploys: every push to `main` deploys to Vercel (frontend) and Railway (backend) immediately
+**Infrastructure IDs:**
+- Railway Project: `0ec066c7-c7e1-4abf-8897-3577208c64cd`
+- Railway Service: `df618c7b-3678-4595-aaf7-3ff2f0e86d72`
+- Railway Environment: `148fec0e-b919-423b-93d7-1487cdaa82d4`
+- Vercel Project: `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf`
+- Vercel Team: `team_ekuiNPY7cIyY2ieq41oWMYvO`
 
-## Active tournament config
-`backend/src/config/activeTournament.js` controls everything: tournament ID, Goalserve ID, lock time overrides, r1PerMatchLock flag (currently `false` for all tournaments).
+**Design system:** Direction A "Clean Court" — Outfit + Fraunces + JetBrains Mono, semantic colour tokens, 640px mobile breakpoint. Reference file: `CTO - TS/fsv-final-mockups.html`. Player avatars: 169-player CSS sprite sheet (205KB WebP), fallback to coloured initials circle.
 
-## Repositories
-- Web: `mickeyislam96-sketch/tennis-survivor` (GitHub)
-- Mobile: `mickeyislam96-sketch/tennis-survivor-mobile` (GitHub)
+**Seed draw system (20 Apr 2026):** Reusable two-phase architecture. Phase 1: static JSON from ATP draw PDF (seedDrawLoader.js). Phase 2: Goalserve live overlay (seedDrawOverlay.js). New tournament = add one JSON file. Template: `CTO - TS/New Tournament Setup Template.md`.
 
-## Key features built (as of 19 Apr 2026)
-- **Support contact form** (`/support`): category dropdown, subject, message, user context auto-attached. Backend: `POST /api/support` with rate limiting. Emails sent directly to finalservivor@gmail.com via Brevo.
-- **Gold pill "My Pool" nav link**: fetches user's pool membership, links directly to their group page. Shows pool name (single pool) or "My Pools" (multiple). Only visible when logged in.
-- **How to Play page** (`/how-to-play`): 5-step guide + 3 strategy tips. Copy simplified 19 Apr — no mention of free/paid, retirements, or prize splitting.
-- **Email system**: 9 templates (pick reminder, survival, elimination, winner, draw released, withdrawal alert, admin digest, welcome, support). All aligned to brand design system.
-- **Micro-interactions**: button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit.
-- **Tournament ops automation (Phase 1)**: 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All logged to `ops_log` table. Daily ops brief via Cowork scheduled task at 8am. Key files: `opsMonitor.js`, `routes/ops.js`. Playbook: `CTO - TS/FSV_AI_Agent_Operations_Playbook.docx`.
-- **Ops API endpoints**: `GET /api/ops/summary` (structured overview), `GET /api/ops/log` (raw log with filters), `POST /api/ops/setup-tournament` (create groups), `GET /api/ops/health-deep` (component health). All behind ADMIN_SECRET auth.
-- **Player headshot sprite** (20 Apr): 169 headshots in one 205KB WebP sprite. Replaces 170 individual requests (6.4MB). PlayerAvatar component checks in-memory manifest, uses CSS background-position.
-- **Goalserve parallel fetch** (20 Apr): 3 API endpoints fetched simultaneously via Promise.allSettled. Promise deduplication for concurrent callers. Cold miss ~5s (was 10-17s), cached <1.2s.
-- **Seed draw system** (20 Apr): Static JSON draw files (extracted from ATP PDF) loaded via `seedDrawLoader.js`, overlaid with live Goalserve data via `seedDrawOverlay.js` (2-pass name matching: exact + Levenshtein fuzzy). Reusable for future tournaments.
+**Matchup modal (20 Apr 2026):** Bracket cards are clickable, opens modal with player cards (name, seed, country flag), tournament form (W/L badges, scores). Uses seed draw + Goalserve fixture cache only — no external API calls, 139ms response. H2H placeholder (Goalserve has no H2H endpoint). CSS in `MatchupModal.css` with mobile bottom-sheet.
+
+**Key env vars (Railway):** `GOALSERVE_API_KEY` (primary data), `TENNIS_DATA_PROVIDER=goalserve`, `ACTIVE_TOURNAMENT=madrid-2026`, `ADMIN_SECRET`, `BREVO_API_KEY`, `TENNIS_API_KEY` (legacy, no longer used by matchup modal)
+
+**Performance (20 Apr 2026):** Draw/bracket endpoints ~130ms (was 10-20s). Three-layer fix: draw-level cache keyed on Goalserve timestamp, Goalserve-only fetch for seed draw tournaments (skip API-Tennis/Sofascore chain), cache empty Goalserve results. Sprite sheet: 97% image payload reduction (6.4MB → 205KB, 170 requests → 1).
+
+**Automation (Phase 1 — deployed 19 Apr):** 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All ops logged to `ops_log` table.
+
+**Mac repo path:** `/Users/mikaeelislam/tennis-survivor`
+
+**Why:** Full context in CLAUDE.md at repo root. Read this at the start of every session.
