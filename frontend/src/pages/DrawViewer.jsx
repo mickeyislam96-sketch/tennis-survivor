@@ -14,54 +14,14 @@ import './DrawViewer.css';
 
 const MATCH_COUNTS_FALLBACK = { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
-// ── Bracket ordering (DFS) ─────────────────────────────────────
-function findFeeder(playerId, prevRoundMatches) {
-  if (!playerId) return null;
-  return prevRoundMatches.find(
-    m => m.player1Id === playerId || m.player2Id === playerId
-  ) || null;
-}
-
-function buildOrderedBracket(matchesByRound, bracketRounds) {
-  const ordered = {};
-  bracketRounds.forEach(r => (ordered[r] = []));
-  const visited = new Set();
-
-  function dfs(match, roundIdx) {
-    if (!match || visited.has(match.id)) return;
-    visited.add(match.id);
-
-    const round = bracketRounds[roundIdx];
-    ordered[round].push(match);
-
-    if (roundIdx === 0) return;
-
-    const prevRound = bracketRounds[roundIdx - 1];
-    const prevMatches = matchesByRound[prevRound] || [];
-    dfs(findFeeder(match.player1Id, prevMatches), roundIdx - 1);
-    dfs(findFeeder(match.player2Id, prevMatches), roundIdx - 1);
-  }
-
-  let topIdx = bracketRounds.length - 1;
-  while (topIdx > 0 && (matchesByRound[bracketRounds[topIdx]] || []).length === 0) {
-    topIdx--;
-  }
-  (matchesByRound[bracketRounds[topIdx]] || []).forEach(fm =>
-    dfs(fm, topIdx)
-  );
-
-  bracketRounds.forEach(round => {
-    const placed = new Set(ordered[round].map(m => m.id));
-    (matchesByRound[round] || [])
-      .filter(m => !placed.has(m.id))
-      .forEach(m => ordered[round].push(m));
-  });
-
-  return ordered;
-}
+// ── Bracket ordering ──────────────────────────────────────────
+// Matches are ordered by matchOrder (assigned by seedDrawLoader from the
+// static draw JSON). This gives correct top-to-bottom bracket position
+// without needing DFS traversal through player IDs — which fails before
+// any results exist (all player IDs in R32+ are null pre-tournament).
 
 // ── SVG connectors ─────────────────────────────────────────────
-function DomConnector({ leftColRef, rightColRef, totalHeight }) {
+function DomConnector({ leftColRef, rightColRef, totalHeight, oneToOne }) {
   const svgRef = useRef(null);
   const [lines, setLines] = useState([]);
 
@@ -86,19 +46,30 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
       });
 
       const newLines = [];
-      for (let k = 0; k < rightCentres.length; k++) {
-        const topIdx = k * 2;
-        const botIdx = k * 2 + 1;
-        const topY = leftCentres[topIdx]  ?? 0;
-        const botY = leftCentres[botIdx]  ?? topY;
-        const midY = rightCentres[k]      ?? (topY + botY) / 2;
 
-        newLines.push(
-          { key: `ht${k}`, x1: 0,  y1: topY, x2: 16, y2: topY },
-          { key: `hb${k}`, x1: 0,  y1: botY, x2: 16, y2: botY },
-          { key: `v${k}`,  x1: 16, y1: topY, x2: 16, y2: botY },
-          { key: `hm${k}`, x1: 16, y1: midY, x2: 32, y2: midY },
-        );
+      if (oneToOne) {
+        // 1:1 connector — horizontal lines (R1 → R64 in a 96-draw)
+        const count = Math.min(leftCentres.length, rightCentres.length);
+        for (let k = 0; k < count; k++) {
+          const y = leftCentres[k] ?? 0;
+          newLines.push({ key: `h${k}`, x1: 0, y1: y, x2: 32, y2: rightCentres[k] ?? y });
+        }
+      } else {
+        // 2:1 connector — standard bracket
+        for (let k = 0; k < rightCentres.length; k++) {
+          const topIdx = k * 2;
+          const botIdx = k * 2 + 1;
+          const topY = leftCentres[topIdx]  ?? 0;
+          const botY = leftCentres[botIdx]  ?? topY;
+          const midY = rightCentres[k]      ?? (topY + botY) / 2;
+
+          newLines.push(
+            { key: `ht${k}`, x1: 0,  y1: topY, x2: 16, y2: topY },
+            { key: `hb${k}`, x1: 0,  y1: botY, x2: 16, y2: botY },
+            { key: `v${k}`,  x1: 16, y1: topY, x2: 16, y2: botY },
+            { key: `hm${k}`, x1: 16, y1: midY, x2: 32, y2: midY },
+          );
+        }
       }
       setLines(newLines);
     }
@@ -111,7 +82,7 @@ function DomConnector({ leftColRef, rightColRef, totalHeight }) {
     if (leftBody)  observer.observe(leftBody);
     if (rightBody) observer.observe(rightBody);
     return () => observer.disconnect();
-  }, [leftColRef, rightColRef]);
+  }, [leftColRef, rightColRef, oneToOne]);
 
   const h = totalHeight || 2048;
   return (
@@ -154,9 +125,16 @@ function BracketCard({ match, onMatchClick }) {
   }
 
   if (match.bye) {
+    // Detect which side is the real player (seed) vs the BYE slot
+    const p1IsBye = !match.player1Name || match.player1Name === 'BYE';
+    const seedName = p1IsBye ? match.player2Name : match.player1Name;
+    const seedId   = p1IsBye ? match.player2Id   : match.player1Id;
     return (
       <div className="bc-card bc-card--bye">
-        <div className="bc-row bc-won"><span className="bc-name">{match.player1Name}</span></div>
+        <div className="bc-row bc-won">
+          {seedName && <PlayerAvatar playerId={seedId} playerName={seedName} size={20} />}
+          <span className="bc-name">{seedName || 'TBD'}</span>
+        </div>
         <div className="bc-divider" />
         <div className="bc-row bc-row--tbd"><span className="bc-name bc-bye-label">BYE</span></div>
       </div>
@@ -359,32 +337,59 @@ export function DrawViewer() {
     return acc;
   }, {});
 
-  const matchCounts = {};
+  // For bracket display: filter bye matches from R1 (seeds advance automatically,
+  // they don't need a bracket slot). This makes R1 and R64 both have 32 entries,
+  // aligned 1:1, which is the correct visual for a 96-draw Masters 1000.
+  const bracketMatchesByRound = {};
   rounds.forEach(r => {
-    matchCounts[r] = (matchesByRound[r] || []).length || MATCH_COUNTS_FALLBACK[r] || 1;
+    if (r === 'R1') {
+      bracketMatchesByRound[r] = (matchesByRound[r] || []).filter(m => !m.bye);
+    } else {
+      bracketMatchesByRound[r] = matchesByRound[r] || [];
+    }
   });
 
+  const matchCounts = {};
+  rounds.forEach(r => {
+    matchCounts[r] = bracketMatchesByRound[r]?.length || MATCH_COUNTS_FALLBACK[r] || 1;
+  });
+
+  // Detect 96-draw: R1 and R64 both have 32 entries (1:1 alignment).
+  // 128-draw (Grand Slams): R1 has 64 and R64 has 32 (standard 2:1).
+  const r1Count  = matchCounts['R1']  || 0;
+  const r64Count = matchCounts['R64'] || 0;
+  const is96Draw = r1Count > 0 && r64Count > 0 && r1Count === r64Count;
+
+  // Height based on the largest first column (R1 non-bye matches for 96-draw)
   const firstRound    = rounds[0];
   const firstCount    = matchCounts[firstRound] || 1;
   const BRACKET_H_DYN = Math.max(firstCount * 80, 512);
 
-  const bracketRounds  = rounds.filter(r => (matchesByRound[r] || []).length > 0);
-  const orderedBracket = buildOrderedBracket(matchesByRound, bracketRounds);
+  const bracketRounds = rounds.filter(r => (bracketMatchesByRound[r] || []).length > 0);
 
+  // Build bracket ordering: sort each round by matchOrder (sequential top-to-bottom).
+  // DFS traversal is unreliable before results exist (null player IDs), so we use
+  // matchOrder as the primary ordering — it comes from the seed draw JSON and
+  // guarantees correct bracket position.
+  const orderedBracket = {};
   bracketRounds.forEach(round => {
-    orderedBracket[round].sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
+    orderedBracket[round] = [...(bracketMatchesByRound[round] || [])]
+      .sort((a, b) => (a.matchOrder ?? 999) - (b.matchOrder ?? 999));
   });
 
   const bracketEls = [];
   bracketRounds.forEach((round, i) => {
     if (i > 0) {
       const prevRound = bracketRounds[i - 1];
+      // Use 1:1 connector between R1→R64 in a 96-draw (same count in both columns)
+      const use1to1 = is96Draw && prevRound === 'R1' && round === 'R64';
       bracketEls.push(
         <DomConnector
           key={`conn-${round}`}
           leftColRef={getColRef(prevRound)}
           rightColRef={getColRef(round)}
           totalHeight={BRACKET_H_DYN}
+          oneToOne={use1to1}
         />
       );
     }
