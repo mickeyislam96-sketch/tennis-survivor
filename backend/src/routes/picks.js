@@ -15,6 +15,16 @@ function isUUID(str) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str || ''));
 }
 
+/**
+ * Check if a player is a qualifier placeholder (unnamed — not yet known).
+ * These should appear in the bracket but NOT in the pick pool.
+ */
+function isQualifierPlaceholder(p) {
+  if (!p?.name) return true;
+  const n = p.name.trim().toLowerCase();
+  return n.startsWith('qualifier') || n === 'tbd' || n === 'bye';
+}
+
 function rowToPick(p) {
   return {
     id: p.id,
@@ -56,7 +66,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
           const p1 = (draw.players || []).find(p => p.id === f.player1Id);
           const p2 = (draw.players || []).find(p => p.id === f.player2Id);
 
-          if (p1 && !p1.roundEliminated) {
+          if (p1 && !p1.roundEliminated && !isQualifierPlaceholder(p1)) {
             availablePlayers.push({
               ...p1,
               matchStartTime: f.startTime || null,
@@ -65,7 +75,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
               matchStatus: f.status,
             });
           }
-          if (p2 && !p2.roundEliminated) {
+          if (p2 && !p2.roundEliminated && !isQualifierPlaceholder(p2)) {
             availablePlayers.push({
               ...p2,
               matchStartTime: f.startTime || null,
@@ -83,12 +93,13 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     }
 
     // Fallback for R1: use draw data (no per-match filtering)
-    const r1Matches = (draw.matches || []).filter(m => m.round === 'R1');
+    // Exclude bye matches — seeds with byes don't play R1
+    const r1Matches = (draw.matches || []).filter(m => m.round === 'R1' && !m.bye);
     const r1PlayerIds = new Set(
       r1Matches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
     return (draw.players || [])
-      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id));
+      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id) && !isQualifierPlaceholder(p));
   }
 
   // ── R2+ standard path (existing logic) ─────────────────────────────────
@@ -134,7 +145,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     }
 
     const playerPool = (draw.players || [])
-      .filter(p => !p.roundEliminated && playingThisRound.has(p.id))
+      .filter(p => !p.roundEliminated && playingThisRound.has(p.id) && !isQualifierPlaceholder(p))
       .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 
     if (playerPool.length > 0) return playerPool;
@@ -142,7 +153,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 
   // Fallback: return all non-eliminated players.
   return (draw.players || [])
-    .filter(p => !p.roundEliminated)
+    .filter(p => !p.roundEliminated && !isQualifierPlaceholder(p))
     .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 }
 

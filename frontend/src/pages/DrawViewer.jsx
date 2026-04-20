@@ -293,10 +293,6 @@ export function DrawViewer() {
           setDrawAvailable(false);
           return;
         }
-        if (tournament?.status === 'upcoming') {
-          setDrawAvailable(false);
-          return;
-        }
 
         return fetch(`${API}/draw/bracket?round=F`)
           .then(r => { if (!r.ok) throw new Error('no-draw'); return r.json(); })
