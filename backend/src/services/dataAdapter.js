@@ -615,11 +615,11 @@ async function fetchGoalserve(config) {
   const apiKey = process.env.GOALSERVE_API_KEY;
   if (!apiKey) return null;
 
-  // Check cache
-  if (goalserveCache.fixtures && (Date.now() - goalserveCache.fetchedAt < GOALSERVE_CACHE_TTL)) {
+  // Check cache (fixtures can be empty array — "no data yet" is valid cached state)
+  if (goalserveCache.fixtures !== null && (Date.now() - goalserveCache.fetchedAt < GOALSERVE_CACHE_TTL)) {
     console.log(`[Goalserve] Serving from cache (${goalserveCache.fixtures.length} fixtures, ` +
       `age: ${Math.round((Date.now() - goalserveCache.fetchedAt) / 1000)}s)`);
-    return goalserveCache.fixtures;
+    return goalserveCache.fixtures.length > 0 ? goalserveCache.fixtures : null;
   }
 
   // Promise deduplication — return the existing in-flight promise if one exists
@@ -713,13 +713,15 @@ async function fetchGoalserve(config) {
       // Filter out fixtures with no round (couldn't be mapped)
       const fixtures = Array.from(allFixtures.values()).filter(f => f.round !== null);
 
+      // ALWAYS update cache — even with 0 fixtures. "No fixtures" is valid
+      // (tournament not started yet). Without caching empty results, every
+      // request triggers 3 fresh HTTP calls to Goalserve (~3-4s each time).
+      goalserveCache = { fixtures: fixtures.length > 0 ? fixtures : [], fetchedAt: Date.now() };
+
       if (fixtures.length === 0) {
-        console.warn('[Goalserve] No valid fixtures extracted');
+        console.warn('[Goalserve] No valid fixtures extracted (cached as empty)');
         return null;
       }
-
-      // Update cache
-      goalserveCache = { fixtures, fetchedAt: Date.now() };
 
       // Log summary
       const roundCounts = {};
