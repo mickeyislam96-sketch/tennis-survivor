@@ -338,7 +338,7 @@ export function Layout({ children }) {
   useEffect(() => {
     if (!user?.id) { setMyPool(null); return; }
     let cancelled = false;
-    authFetch(`${API}/pools`)
+    authFetch(`${API}/pools?userId=${user.id}`)
       .then(r => r.ok ? r.json() : [])
       .then(pools => {
         if (cancelled) return;

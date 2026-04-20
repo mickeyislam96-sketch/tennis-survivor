@@ -38,7 +38,7 @@ function rowToMember(m) {
 
 // GET /api/groups — groups the user belongs to
 groupsRouter.get('/', async (req, res) => {
-  const userId = req.userId;
+  const userId = req.userId || req.query.userId;  // JWT or legacy query param
   if (!userId) return res.json([]);
 
   if (isUUID(userId)) {

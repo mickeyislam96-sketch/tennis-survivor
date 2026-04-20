@@ -146,11 +146,11 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
 }
 
-// GET /api/picks/available?userId=&groupId=&round=
+// GET /api/picks/available?groupId=&round=
 picksRouter.get('/available', async (req, res) => {
   try {
     const { groupId, round } = req.query;
-  const userId = req.userId;
+    const userId = req.userId || req.query.userId;  // JWT or legacy query param
     if (!userId || !groupId) {
       return res.status(400).json({ error: 'userId and groupId required' });
     }
@@ -161,9 +161,10 @@ picksRouter.get('/available', async (req, res) => {
   }
 });
 
-// GET /api/picks/history?userId=&groupId=
+// GET /api/picks/history?groupId=
 picksRouter.get('/history', async (req, res) => {
-  const { userId, groupId } = req.query;
+  const userId = req.userId || req.query.userId;  // JWT or legacy query param
+  const { groupId } = req.query;
 
   if (isUUID(userId) && isUUID(groupId)) {
     try {

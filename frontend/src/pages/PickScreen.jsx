@@ -116,7 +116,7 @@ export function PickScreen() {
   useEffect(() => {
     if (!groupId || !userId) return;
     const controller = new AbortController();
-    authFetch(`${API}/picks/available?groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
+    authFetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
       .then((r) => r.json())
       .then(setAvailable)
       .catch((e) => { if (e.name !== 'AbortError') setAvailable([]); });
@@ -126,7 +126,7 @@ export function PickScreen() {
   useEffect(() => {
     if (!groupId || !userId) return;
     const controller = new AbortController();
-    authFetch(`${API}/picks/history?groupId=${groupId}`, { signal: controller.signal })
+    authFetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((picks) => setAllPicks(Array.isArray(picks) ? picks : []))
       .catch((e) => { if (e.name !== 'AbortError') setAllPicks([]); });

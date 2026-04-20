@@ -19,7 +19,7 @@ function isUUID(str) {
 }
 
 poolsRouter.get('/', async (req, res) => {
-  const userId = req.userId;
+  const userId = req.userId || req.query.userId;  // JWT or legacy query param
 
   // ── Real DB groups ────────────────────────────────────────────────────────
   let dbPools = [];

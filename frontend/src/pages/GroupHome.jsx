@@ -375,8 +375,8 @@ export function GroupHome() {
         .finally(() => setLoading(false));
     } else {
       Promise.all([
-        authFetch(`${API}/pools`).then(r => r.json()).catch(() => []),
-        authFetch(`${API}/groups`).then(r => r.json()).catch(() => []),
+        authFetch(`${API}/pools${userId ? `?userId=${userId}` : ''}`).then(r => r.json()).catch(() => []),
+        authFetch(`${API}/groups${userId ? `?userId=${userId}` : ''}`).then(r => r.json()).catch(() => []),
       ]).then(([pools, myGroups]) => {
         setAllPools(Array.isArray(pools) ? pools : []);
         setGroups(Array.isArray(myGroups) ? myGroups : []);
@@ -407,7 +407,7 @@ export function GroupHome() {
 
   useEffect(() => {
     if (!groupId || !userId || !openRound) return;
-    authFetch(`${API}/picks/history?groupId=${groupId}`)
+    authFetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
       .then((r) => r.json())
       .then((picks) => {
         if (!Array.isArray(picks)) return;

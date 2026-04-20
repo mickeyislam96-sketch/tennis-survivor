@@ -19,7 +19,7 @@ export function PickHistory() {
 
   useEffect(() => {
     if (!groupId || !userId) return;
-    authFetch(`${API}/picks/history?groupId=${groupId}`)
+    authFetch(`${API}/picks/history?userId=${userId}&groupId=${groupId}`)
       .then((r) => r.json())
       .then(setPicks)
       .catch(() => setPicks([]));

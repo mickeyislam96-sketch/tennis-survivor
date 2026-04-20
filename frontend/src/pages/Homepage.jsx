@@ -138,9 +138,9 @@ export function Homepage() {
 
   useEffect(() => {
     Promise.all([
-      authFetch(`${API}/pools`).then((r) => r.json()).catch(() => []),
+      authFetch(`${API}/pools${userId ? `?userId=${userId}` : ''}`).then((r) => r.json()).catch(() => []),
       userId
-        ? authFetch(`${API}/groups`).then((r) => r.json()).catch(() => [])
+        ? authFetch(`${API}/groups?userId=${userId}`).then((r) => r.json()).catch(() => [])
         : Promise.resolve([]),
     ])
       .then(([pools, groups]) => {

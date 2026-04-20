@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './db/pool.js';
 import { sendAdminDigest } from './utils/email.js';
-import { csrfProtection } from './middleware/auth.js';
+import { csrfProtection, optionalAuth } from './middleware/auth.js';
 import { groupsRouter } from './routes/groups.js';
 import { picksRouter } from './routes/picks.js';
 import { drawRouter } from './routes/draw.js';
@@ -89,6 +89,7 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(csrfProtection);
+app.use(optionalAuth);  // Attach req.userId from JWT when present (non-blocking)
 
 app.use('/api/groups', groupsRouter);
 app.use('/api/pools', poolsRouter);
