@@ -271,12 +271,48 @@ function buildDrawFromFixtures(fixtures) {
 }
 
 /**
- * Get draw with results. Uses live API if configured, else Indian Wells mock.
+ * Get draw with results.
+ *
+ * Priority:
+ *   1. Seed draw + Goalserve overlay (Madrid 2026+ — reusable system)
+ *   2. API-Tennis live fixtures → buildDrawFromFixtures (legacy)
+ *   3. Sofascore live fixtures → buildDrawFromFixtures (legacy)
+ *   4. Mock draw fallback (seed draw JSON or hardcoded mock)
  */
 export async function getDraw(roundFilter = null) {
-  // Priority: 1) API-Tennis (paid, configured via TENNIS_API_KEY)
-  //           2) Sofascore (free, unofficial, no key required)
-  //           3) Mock draw (local fallback)
+  const tournamentId = ACTIVE_TOURNAMENT?.id || 'unknown';
+
+  // ── Path 1: Seed draw + Goalserve overlay ──────────────────────────────
+  // If a seed draw JSON exists for this tournament, use it as the structural
+  // base and overlay Goalserve live data on top. This is the standard path
+  // for Madrid 2026+ tournaments.
+  try {
+    const { hasSeedDraw, loadSeedDraw } = await import('../data/seedDrawLoader.js');
+    if (hasSeedDraw(tournamentId)) {
+      const seedDraw = loadSeedDraw(tournamentId, roundFilter);
+
+      // Try to overlay Goalserve live data
+      try {
+        const { fetchFixtures } = await import('./dataAdapter.js');
+        const { provider, fixtures } = await fetchFixtures();
+
+        if (fixtures && fixtures.length > 0) {
+          const { overlayGoalserve } = await import('./seedDrawOverlay.js');
+          const merged = overlayGoalserve(seedDraw, fixtures);
+          return { ...merged, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1] };
+        }
+      } catch (overlayErr) {
+        console.warn(`[tennisData] Goalserve overlay failed, using seed draw alone:`, overlayErr.message);
+      }
+
+      // No live data available — return seed draw structure as-is
+      return { ...seedDraw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1] };
+    }
+  } catch (seedErr) {
+    console.warn(`[tennisData] Seed draw check failed:`, seedErr.message);
+  }
+
+  // ── Path 2+3: Legacy live fixture providers ────────────────────────────
   let fixtures = await fetchApiDraw();
   if (!fixtures || fixtures.length === 0) {
     fixtures = await fetchSofascoreFixtures();
@@ -286,6 +322,8 @@ export async function getDraw(roundFilter = null) {
     const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
     return { ...draw, currentRound };
   }
+
+  // ── Path 4: Mock draw fallback ─────────────────────────────────────────
   return getMiamiMockDraw(roundFilter || 'R1');
 }
 
