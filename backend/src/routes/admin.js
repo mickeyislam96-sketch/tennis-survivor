@@ -647,6 +647,74 @@ adminRouter.post('/send-draw-released', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/goalserve-discover ────────────────────────────────────────
+// Fetch the Goalserve leagues list and return all ATP tournaments so we can
+// find the correct tournament ID for the active tournament.
+adminRouter.get('/goalserve-discover', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const apiKey = process.env.GOALSERVE_API_KEY;
+  if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
+
+  const results = { apiKey: 'present', activeTournament: TOURNAMENT.id };
+
+  try {
+    const leaguesUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/leagues?json=1`;
+    const leaguesRes = await fetch(leaguesUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = await leaguesRes.json();
+
+    const rawLeagues = data?.league || data?.leagues?.league;
+    const leagues = Array.isArray(rawLeagues) ? rawLeagues : rawLeagues ? [rawLeagues] : [];
+
+    // All ATP Singles tournaments
+    const atpLeagues = leagues.filter(l =>
+      (l.country || '').toLowerCase().includes('atp')
+    );
+
+    // Try to find Madrid specifically
+    const madridMatches = leagues.filter(l =>
+      (l.name || '').toLowerCase().includes('madrid') ||
+      (l.name || '').toLowerCase().includes('mutua')
+    );
+
+    results.totalLeagues = leagues.length;
+    results.atpLeagues = atpLeagues.map(l => ({
+      id: l.id, name: l.name, country: l.country, season: l.season,
+    }));
+    results.madridMatches = madridMatches.map(l => ({
+      id: l.id, name: l.name, country: l.country, season: l.season,
+    }));
+    results.ok = true;
+  } catch (err) {
+    results.ok = false;
+    results.error = err.message;
+  }
+
+  // Also try livescore home scan
+  try {
+    const homeUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/home?json=1`;
+    const homeRes = await fetch(homeUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(30000),
+    });
+    const homeData = await homeRes.json();
+    const scores = homeData?.scores;
+    const categories = scores?.category
+      ? (Array.isArray(scores.category) ? scores.category : [scores.category])
+      : [];
+    results.liveCategories = categories.map(c => ({
+      id: c['@id'] || c.id,
+      name: c['@name'] || c.name,
+    }));
+  } catch (err) {
+    results.liveScanError = err.message;
+  }
+
+  res.json(results);
+});
+
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────
 // TODO: Needs sendNewTournamentEmail() in email.js — build email template first.
 adminRouter.post('/send-new-tournament', async (req, res) => {
