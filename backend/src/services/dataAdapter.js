@@ -767,6 +767,24 @@ export async function warmGoalserveCache() {
   }
 }
 
+/**
+ * Fetch from Goalserve ONLY (no fallback chain).
+ * Use this when a seed draw exists and we only need live overlay data.
+ * Returns empty array (not null) if Goalserve has no fixtures — callers
+ * should treat this as "tournament not started yet" rather than an error.
+ * Avoids wasting 4-12s on API-Tennis/Sofascore fallbacks that will also
+ * return empty for an un-started tournament.
+ */
+export async function fetchGoalserveOnly() {
+  try {
+    const fixtures = await fetchGoalserve(TOURNAMENT);
+    return { provider: 'goalserve', fixtures: fixtures || [] };
+  } catch (err) {
+    console.warn(`[dataAdapter] Goalserve-only fetch failed: ${err.message}`);
+    return { provider: 'none', fixtures: [] };
+  }
+}
+
 async function fetchApiTennis(config) {
   // Delegate to existing tennisData.js fetchApiDraw + buildDrawFromFixtures
   // This is a bridge — keeps working as-is while we migrate.

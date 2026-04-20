@@ -11,7 +11,7 @@ import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
 // Eager imports for seed draw pipeline — avoids 3 dynamic imports on every request
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
-import { fetchFixtures, getGoalserveCacheFetchedAt } from './dataAdapter.js';
+import { fetchFixtures, fetchGoalserveOnly, getGoalserveCacheFetchedAt } from './dataAdapter.js';
 import { overlayGoalserve } from './seedDrawOverlay.js';
 
 // Import active tournament config for R1 per-match lock feature
@@ -312,9 +312,10 @@ export async function getDraw(roundFilter = null) {
 
       const seedDraw = loadSeedDraw(tournamentId, roundFilter);
 
-      // Try to overlay Goalserve live data
+      // Try to overlay Goalserve live data (Goalserve only — no fallback chain.
+      // If Goalserve returns empty, tournament hasn't started; use seed draw alone.)
       try {
-        const { fixtures } = await fetchFixtures();
+        const { fixtures } = await fetchGoalserveOnly();
 
         if (fixtures && fixtures.length > 0) {
           const merged = overlayGoalserve(seedDraw, fixtures);
