@@ -35,7 +35,7 @@ export const TOURNAMENTS = [
     surface: 'Clay',
     status: 'upcoming',
     drawDate: '2026-04-19',
-    drawAvailable: false,
+    drawAvailable: true,
     entryOpen: true,
     r1PerMatchLock: false,  // Standard fixed deadline for R1 (same as all other rounds)
     bracketWidget: null,

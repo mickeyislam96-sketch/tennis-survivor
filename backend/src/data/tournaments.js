@@ -38,7 +38,7 @@ export const TOURNAMENTS = [
     surface: 'Clay (outdoor)',
     status: 'upcoming',
     drawDate: 'April 19, 2026',
-    drawAvailable: false,
+    drawAvailable: true,
     r1PerMatchLock: false,
     pickWindowOpen: null,
     pickWindowClose: null,
