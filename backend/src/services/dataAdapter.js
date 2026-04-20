@@ -747,6 +747,11 @@ export function invalidateGoalserveCache() {
   console.log('[Goalserve] Cache invalidated');
 }
 
+/** Return the timestamp when Goalserve data was last fetched (0 if never). */
+export function getGoalserveCacheFetchedAt() {
+  return goalserveCache.fetchedAt;
+}
+
 /**
  * Pre-warm the Goalserve cache. Called on server start and by the 15-min cron.
  * Ensures user requests almost always hit a warm cache (<1s response).

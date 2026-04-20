@@ -9,6 +9,11 @@ import { getMiamiMockDraw } from '../data/miamiDraw.js';
 import nodeFetch from 'node-fetch';
 import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
+// Eager imports for seed draw pipeline — avoids 3 dynamic imports on every request
+import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
+import { fetchFixtures, getGoalserveCacheFetchedAt } from './dataAdapter.js';
+import { overlayGoalserve } from './seedDrawOverlay.js';
+
 // Import active tournament config for R1 per-match lock feature
 let ACTIVE_TOURNAMENT = null;
 try {
@@ -17,6 +22,14 @@ try {
 } catch (e) {
   // activeTournament.js may not exist in older deployments — graceful fallback
 }
+
+// ── Draw result cache ───────────────────────────────────────────────────────
+// Caches the fully merged draw (seed draw + Goalserve overlay) so we don't
+// re-run Levenshtein matching on every request. Invalidated when Goalserve
+// fetches fresh data (checked via fetchedAt timestamp).
+// The roundFilter (currentRound label) is NOT part of the cache key because
+// the underlying draw data is identical regardless of which round is "current".
+let drawCache = { result: null, goalserveFetchedAt: 0 };
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
 
@@ -282,31 +295,39 @@ function buildDrawFromFixtures(fixtures) {
 export async function getDraw(roundFilter = null) {
   const tournamentId = ACTIVE_TOURNAMENT?.id || 'unknown';
 
-  // ── Path 1: Seed draw + Goalserve overlay ──────────────────────────────
+  // ── Path 1: Seed draw + Goalserve overlay (cached) ────────────────────
   // If a seed draw JSON exists for this tournament, use it as the structural
-  // base and overlay Goalserve live data on top. This is the standard path
-  // for Madrid 2026+ tournaments.
+  // base and overlay Goalserve live data on top. The merged result is cached
+  // until Goalserve fetches fresh data, avoiding expensive Levenshtein
+  // matching on every request.
   try {
-    const { hasSeedDraw, loadSeedDraw } = await import('../data/seedDrawLoader.js');
     if (hasSeedDraw(tournamentId)) {
+      const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
+
+      // Check if we can serve from draw cache (same Goalserve data = same overlay result)
+      const currentFetchedAt = getGoalserveCacheFetchedAt();
+      if (drawCache.result && drawCache.goalserveFetchedAt === currentFetchedAt) {
+        return { ...drawCache.result, currentRound };
+      }
+
       const seedDraw = loadSeedDraw(tournamentId, roundFilter);
 
       // Try to overlay Goalserve live data
       try {
-        const { fetchFixtures } = await import('./dataAdapter.js');
-        const { provider, fixtures } = await fetchFixtures();
+        const { fixtures } = await fetchFixtures();
 
         if (fixtures && fixtures.length > 0) {
-          const { overlayGoalserve } = await import('./seedDrawOverlay.js');
           const merged = overlayGoalserve(seedDraw, fixtures);
-          return { ...merged, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1] };
+          // Cache the merged result (without currentRound — applied per-call)
+          drawCache = { result: merged, goalserveFetchedAt: currentFetchedAt };
+          return { ...merged, currentRound };
         }
       } catch (overlayErr) {
         console.warn(`[tennisData] Goalserve overlay failed, using seed draw alone:`, overlayErr.message);
       }
 
       // No live data available — return seed draw structure as-is
-      return { ...seedDraw, currentRound: roundFilter || ROUNDS[ROUNDS.length - 1] };
+      return { ...seedDraw, currentRound };
     }
   } catch (seedErr) {
     console.warn(`[tennisData] Seed draw check failed:`, seedErr.message);
