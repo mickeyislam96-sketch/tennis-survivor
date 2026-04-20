@@ -2208,16 +2208,17 @@ input, select { font-family: var(--font); }
 .bc-col-body {
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
   width: 164px;
   height: 1280px;
 }
 
 .bc-slot {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2px 6px;
+  min-height: 0;
 }
 
 /* Bracket match card */
