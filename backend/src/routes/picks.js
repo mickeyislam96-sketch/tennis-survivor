@@ -102,6 +102,18 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id) && !isQualifierPlaceholder(p));
   }
 
+  // ── R1 without per-match lock ──────────────────────────────────────────
+  // Seeds have R1 byes — they don't play R1 and must not appear in the pool.
+  // This runs when r1PerMatchLock is disabled (standard fixed-deadline R1).
+  if (isR1) {
+    const r1Matches = (draw.matches || []).filter(m => m.round === 'R1' && !m.bye);
+    const r1PlayerIds = new Set(
+      r1Matches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
+    );
+    return (draw.players || [])
+      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id) && !isQualifierPlaceholder(p));
+  }
+
   // ── R2+ standard path (existing logic) ─────────────────────────────────
   // Build pending/confirmed sets from the previous round up-front.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
