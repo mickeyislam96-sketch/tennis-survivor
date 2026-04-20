@@ -86,6 +86,10 @@ const GOALSERVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // In-memory cache
 let goalserveCache = { fixtures: null, fetchedAt: 0 };
 
+// Promise-level deduplication: if a fetch is already in-flight, return the same promise
+// instead of spawning another set of HTTP calls.
+let goalserveInflight = null;
+
 // ── Round name mapping ──────────────────────────────────────────────────────
 // Goalserve's round labels vary by endpoint:
 //   - Fixtures feed: week.number = "ATP Madrid – Semi-finals" (prefixed with tournament)
@@ -599,11 +603,13 @@ async function discoverTournamentId(apiKey, config) {
  *
  * Strategy:
  * 1. Use tournament ID from config, or discover it from leagues list
- * 2. Fetch fixtures/results (has round info + start times)
- * 3. Fetch draw (has round info + seed info, good for pre-tournament)
- * 4. Fetch livescore (has live status updates, no round info)
- * 5. Merge: fixtures as base, draw fills gaps, livescore overrides status
- * 6. Cache for 5 minutes
+ * 2. Fetch fixtures + draw + livescore IN PARALLEL (was sequential — caused 10-17s response times)
+ * 3. Merge: fixtures as base, draw fills gaps, livescore overrides status
+ * 4. Cache for 5 minutes
+ *
+ * Promise deduplication: if multiple callers hit this simultaneously (e.g. /api/picks/available
+ * and /api/draw/bracket in the same page load), they share one in-flight promise instead of
+ * each spawning 3 HTTP calls.
  */
 async function fetchGoalserve(config) {
   const apiKey = process.env.GOALSERVE_API_KEY;
@@ -616,107 +622,128 @@ async function fetchGoalserve(config) {
     return goalserveCache.fixtures;
   }
 
-  console.log('[Goalserve] Fetching fresh data...');
-
-  // Resolve tournament ID (config > cached > discover)
-  let tournamentId = config?.goalserveTournamentId || cachedTournamentId;
-  if (!tournamentId) {
-    tournamentId = await discoverTournamentId(apiKey, config);
-    if (tournamentId) {
-      console.log(`[Goalserve] Using discovered tournament ID: ${tournamentId}. ` +
-        `Hardcode goalserveTournamentId: '${tournamentId}' in activeTournament.js to skip discovery.`);
-    }
+  // Promise deduplication — return the existing in-flight promise if one exists
+  if (goalserveInflight) {
+    console.log('[Goalserve] Joining existing in-flight fetch');
+    return goalserveInflight;
   }
 
-  if (!tournamentId) {
-    console.warn('[Goalserve] No tournament ID available. Cannot fetch fixtures.');
-    return null;
-  }
+  // Wrap the actual fetch work in a promise and store it for deduplication
+  goalserveInflight = (async () => {
+    try {
+      console.log('[Goalserve] Fetching fresh data...');
+      const t0 = Date.now();
 
-  // matchId → fixture map. Later writes override earlier (livescore > draw > fixtures).
-  const allFixtures = new Map();
-
-  // 1. Fixtures/Results endpoint (base data with round info + start times)
-  try {
-    const data = await goalserveRequest(apiKey, `tennis_scores/${tournamentId}`);
-    const matches = parseFixturesResponse(data, config);
-    for (const m of matches) allFixtures.set(m.matchId, m);
-    console.log(`[Goalserve] fixtures: ${matches.length} matches`);
-  } catch (err) {
-    console.warn(`[Goalserve] fixtures endpoint failed: ${err.message}`);
-  }
-
-  // 2. Draw endpoint (has round names, good before tournament starts)
-  try {
-    const data = await goalserveRequest(apiKey, `tennis_scores/${tournamentId}-draw`);
-    const matches = parseDrawResponse(data, config);
-    for (const m of matches) {
-      const existing = allFixtures.get(m.matchId);
-      if (existing) {
-        // Draw has round info — fill in if fixtures didn't have it
-        if (!existing.round && m.round) existing.round = m.round;
-        // Draw may have start times if fixtures didn't
-        if (!existing.startTime && m.startTime) existing.startTime = m.startTime;
-      } else {
-        allFixtures.set(m.matchId, m);
-      }
-    }
-    console.log(`[Goalserve] draw: ${matches.length} matches`);
-  } catch (err) {
-    // Draw may not be available yet
-    console.log(`[Goalserve] draw endpoint: ${err.message}`);
-  }
-
-  // 3. Livescore endpoint (freshest status, no round info)
-  try {
-    const data = await goalserveRequest(apiKey, 'tennis_scores/home', `cat=${tournamentId}`);
-    const matches = parseLivescoreResponse(data, config);
-    for (const m of matches) {
-      const existing = allFixtures.get(m.matchId);
-      if (existing) {
-        // Livescore has the freshest status, score, and winner info
-        existing.status = m.status;
-        if (m.score) existing.score = m.score;
-        if (m.winnerId) { existing.winnerId = m.winnerId; existing.winnerName = m.winnerName; }
-        if (m.isWithdrawal) {
-          existing.isWithdrawal = true;
-          existing.withdrawnPlayerId = m.withdrawnPlayerId;
+      // Resolve tournament ID (config > cached > discover)
+      let tournamentId = config?.goalserveTournamentId || cachedTournamentId;
+      if (!tournamentId) {
+        tournamentId = await discoverTournamentId(apiKey, config);
+        if (tournamentId) {
+          console.log(`[Goalserve] Using discovered tournament ID: ${tournamentId}. ` +
+            `Hardcode goalserveTournamentId: '${tournamentId}' in activeTournament.js to skip discovery.`);
         }
       }
-      // Don't add live-only matches (they lack round info)
+
+      if (!tournamentId) {
+        console.warn('[Goalserve] No tournament ID available. Cannot fetch fixtures.');
+        return null;
+      }
+
+      // ── Fetch all 3 endpoints IN PARALLEL ─────────────────────────────────
+      // Previously these were sequential (each 2-6s), totalling 6-18s.
+      // With Promise.allSettled, total time = max(individual) ≈ 2-6s.
+      const [fixturesResult, drawResult, livescoreResult] = await Promise.allSettled([
+        goalserveRequest(apiKey, `tennis_scores/${tournamentId}`),
+        goalserveRequest(apiKey, `tennis_scores/${tournamentId}-draw`),
+        goalserveRequest(apiKey, 'tennis_scores/home', `cat=${tournamentId}`),
+      ]);
+
+      console.log(`[Goalserve] All 3 endpoints returned in ${Date.now() - t0}ms`);
+
+      // matchId → fixture map. Later writes override earlier (livescore > draw > fixtures).
+      const allFixtures = new Map();
+
+      // 1. Fixtures/Results endpoint (base data with round info + start times)
+      if (fixturesResult.status === 'fulfilled') {
+        const matches = parseFixturesResponse(fixturesResult.value, config);
+        for (const m of matches) allFixtures.set(m.matchId, m);
+        console.log(`[Goalserve] fixtures: ${matches.length} matches`);
+      } else {
+        console.warn(`[Goalserve] fixtures endpoint failed: ${fixturesResult.reason?.message}`);
+      }
+
+      // 2. Draw endpoint (has round names, good before tournament starts)
+      if (drawResult.status === 'fulfilled') {
+        const matches = parseDrawResponse(drawResult.value, config);
+        for (const m of matches) {
+          const existing = allFixtures.get(m.matchId);
+          if (existing) {
+            if (!existing.round && m.round) existing.round = m.round;
+            if (!existing.startTime && m.startTime) existing.startTime = m.startTime;
+          } else {
+            allFixtures.set(m.matchId, m);
+          }
+        }
+        console.log(`[Goalserve] draw: ${matches.length} matches`);
+      } else {
+        console.log(`[Goalserve] draw endpoint: ${drawResult.reason?.message}`);
+      }
+
+      // 3. Livescore endpoint (freshest status, no round info)
+      if (livescoreResult.status === 'fulfilled') {
+        const matches = parseLivescoreResponse(livescoreResult.value, config);
+        for (const m of matches) {
+          const existing = allFixtures.get(m.matchId);
+          if (existing) {
+            existing.status = m.status;
+            if (m.score) existing.score = m.score;
+            if (m.winnerId) { existing.winnerId = m.winnerId; existing.winnerName = m.winnerName; }
+            if (m.isWithdrawal) {
+              existing.isWithdrawal = true;
+              existing.withdrawnPlayerId = m.withdrawnPlayerId;
+            }
+          }
+          // Don't add live-only matches (they lack round info)
+        }
+        console.log(`[Goalserve] livescore: ${matches.length} live matches`);
+      } else {
+        console.log(`[Goalserve] livescore: ${livescoreResult.reason?.message}`);
+      }
+
+      // Filter out fixtures with no round (couldn't be mapped)
+      const fixtures = Array.from(allFixtures.values()).filter(f => f.round !== null);
+
+      if (fixtures.length === 0) {
+        console.warn('[Goalserve] No valid fixtures extracted');
+        return null;
+      }
+
+      // Update cache
+      goalserveCache = { fixtures, fetchedAt: Date.now() };
+
+      // Log summary
+      const roundCounts = {};
+      for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
+      console.log(`[Goalserve] Total: ${fixtures.length} fixtures in ${Date.now() - t0}ms.`,
+        `Rounds: ${JSON.stringify(roundCounts)}.`,
+        `With startTime: ${fixtures.filter(f => f.startTime).length}.`,
+        `Completed: ${fixtures.filter(f => f.status === 'completed').length}.`,
+        `Walkovers: ${fixtures.filter(f => f.isWithdrawal).length}.`);
+
+      return fixtures;
+    } finally {
+      // Clear the in-flight promise so the next caller after cache expiry triggers a fresh fetch
+      goalserveInflight = null;
     }
-    console.log(`[Goalserve] livescore: ${matches.length} live matches`);
-  } catch (err) {
-    // No live matches is normal when tournament hasn't started
-    console.log(`[Goalserve] livescore: ${err.message}`);
-  }
+  })();
 
-  // Filter out fixtures with no round (couldn't be mapped)
-  const fixtures = Array.from(allFixtures.values()).filter(f => f.round !== null);
-
-  if (fixtures.length === 0) {
-    console.warn('[Goalserve] No valid fixtures extracted');
-    return null;
-  }
-
-  // Update cache
-  goalserveCache = { fixtures, fetchedAt: Date.now() };
-
-  // Log summary
-  const roundCounts = {};
-  for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
-  console.log(`[Goalserve] Total: ${fixtures.length} fixtures.`,
-    `Rounds: ${JSON.stringify(roundCounts)}.`,
-    `With startTime: ${fixtures.filter(f => f.startTime).length}.`,
-    `Completed: ${fixtures.filter(f => f.status === 'completed').length}.`,
-    `Walkovers: ${fixtures.filter(f => f.isWithdrawal).length}.`);
-
-  return fixtures;
+  return goalserveInflight;
 }
 
 /** Invalidate the Goalserve cache (e.g. after admin action). */
 export function invalidateGoalserveCache() {
   goalserveCache = { fixtures: null, fetchedAt: 0 };
+  goalserveInflight = null;
   console.log('[Goalserve] Cache invalidated');
 }
 
