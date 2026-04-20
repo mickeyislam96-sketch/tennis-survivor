@@ -725,17 +725,24 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
   const tournId = req.params.id;
   const results = { tournamentId: tournId };
 
+  async function goalserveFetch(path) {
+    const url = `https://www.goalserve.com/getfeed/${apiKey}/${path}?json=1`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    // Handle potential gzip: try json first, fall back to arrayBuffer decompress
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // Check for gzip magic bytes (1f 8b)
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const { gunzipSync } = await import('node:zlib');
+      const decompressed = gunzipSync(Buffer.from(buf));
+      return JSON.parse(decompressed.toString('utf-8'));
+    }
+    return JSON.parse(Buffer.from(buf).toString('utf-8'));
+  }
+
   // Try fixtures endpoint
   try {
-    const fixUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}?json=1`;
-    const fixRes = await fetch(fixUrl, {
-      headers: { 'Accept': 'application/json', 'Accept-Encoding': 'identity' },
-      signal: AbortSignal.timeout(30000),
-    });
-    const fixText = await fixRes.text();
-    let fixData;
-    try { fixData = JSON.parse(fixText); } catch { results.fixturesRaw = fixText.slice(0, 500); return res.json(results); }
-    // Return structure info + first few matches
+    const fixData = await goalserveFetch(`tennis_scores/${tournId}`);
     const tournament = fixData?.tournament || fixData;
     const weeks = tournament?.week
       ? (Array.isArray(tournament.week) ? tournament.week : [tournament.week])
@@ -759,14 +766,7 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
 
   // Try draw endpoint
   try {
-    const drawUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}-draw?json=1`;
-    const drawRes = await fetch(drawUrl, {
-      headers: { 'Accept': 'application/json', 'Accept-Encoding': 'identity' },
-      signal: AbortSignal.timeout(30000),
-    });
-    const drawText = await drawRes.text();
-    let drawData;
-    try { drawData = JSON.parse(drawText); } catch { results.drawRaw = drawText.slice(0, 500); return res.json(results); }
+    const drawData = await goalserveFetch(`tennis_scores/${tournId}-draw`);
     const tournament = drawData?.tournament || drawData;
     const stages = tournament?.stage
       ? (Array.isArray(tournament.stage) ? tournament.stage : [tournament.stage])
@@ -799,6 +799,52 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
 
   results.ok = true;
   res.json(results);
+});
+
+// ── GET /api/admin/goalserve-leagues ─────────────────────────────────────────
+// Full leagues dump with gzip handling and longer timeout.
+// Temporarily public for discovery.
+adminRouter.get('/goalserve-leagues', async (req, res) => {
+  const apiKey = process.env.GOALSERVE_API_KEY;
+  if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
+
+  try {
+    const url = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/leagues?json=1`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let data;
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const { gunzipSync } = await import('node:zlib');
+      data = JSON.parse(gunzipSync(Buffer.from(buf)).toString('utf-8'));
+    } else {
+      data = JSON.parse(Buffer.from(buf).toString('utf-8'));
+    }
+
+    const rawLeagues = data?.league || data?.leagues?.league;
+    const leagues = Array.isArray(rawLeagues) ? rawLeagues : rawLeagues ? [rawLeagues] : [];
+
+    // Return all ATP-related leagues
+    const atpLeagues = leagues.filter(l =>
+      (l.country || '').toLowerCase().includes('atp') ||
+      (l.name || '').toLowerCase().includes('madrid') ||
+      (l.name || '').toLowerCase().includes('mutua')
+    );
+
+    res.json({
+      ok: true,
+      totalLeagues: leagues.length,
+      atpCount: atpLeagues.length,
+      atpLeagues: atpLeagues.map(l => ({ id: l.id, name: l.name, country: l.country, season: l.season })),
+      // Also return ALL leagues with madrid/mutua in name regardless of country
+      madridAll: leagues.filter(l =>
+        (l.name || '').toLowerCase().includes('madrid') ||
+        (l.name || '').toLowerCase().includes('mutua')
+      ).map(l => ({ id: l.id, name: l.name, country: l.country, season: l.season })),
+    });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
 });
 
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────
