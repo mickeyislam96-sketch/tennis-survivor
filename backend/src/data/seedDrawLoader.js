@@ -226,31 +226,10 @@ export function loadSeedDraw(tournamentId, currentRound = null) {
     prevRoundMatches = roundMatches;
   }
 
-  // ── Apply round statuses based on currentRound ────────────────────────────
-  if (roundIndex >= 0) {
-    const eliminated = new Set();
-
-    matches.forEach(m => {
-      if (m.bye) return;
-      const r = rounds.indexOf(m.round);
-      if (r < roundIndex) {
-        // Past round — mark completed. player1 wins in mock mode.
-        m.status = 'completed';
-        m.winnerId = m.player1Id;
-        m.winnerName = m.player1Name;
-        if (m.player2Id) eliminated.add(m.player2Id);
-      } else if (r === roundIndex) {
-        m.status = 'in_progress';
-      }
-    });
-
-    // Mark eliminated players
-    for (const p of players) {
-      if (eliminated.has(p.id)) {
-        p.roundEliminated = currentRound; // approximate — real data overrides this
-      }
-    }
-  }
+  // NOTE: No fake round statuses are applied here.  The seed draw is
+  // structural data only — who plays whom and bye advancement.  Real match
+  // results come exclusively from the Goalserve overlay (seedDrawOverlay.js).
+  // All non-bye matches remain status: 'scheduled' until live data arrives.
 
   return {
     players,
