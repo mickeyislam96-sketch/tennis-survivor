@@ -514,7 +514,15 @@ async function goalserveRequest(apiKey, path, queryParams) {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ${res.statusText} for ${path}`);
     }
-    return await res.json();
+    // Goalserve sometimes sends gzip regardless of Accept-Encoding.
+    // Node fetch may not auto-decompress, so handle it manually.
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const { gunzipSync } = await import('node:zlib');
+      return JSON.parse(gunzipSync(Buffer.from(buf)).toString('utf-8'));
+    }
+    return JSON.parse(Buffer.from(buf).toString('utf-8'));
   } finally {
     clearTimeout(timer);
   }

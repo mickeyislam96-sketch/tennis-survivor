@@ -69,7 +69,7 @@ const TOURNAMENTS = {
     // goalserveTournamentId: set after first successful API call — the adapter
     // logs discovered tournament IDs to help you find the right one.
     // If null, the adapter matches by tournament name ("Madrid").
-    goalserveTournamentId: null,  // Set once discovered from Goalserve API output
+    goalserveTournamentId: '21256',  // Discovered from Goalserve livescore home scan (ATP Madrid)
     apiTennisTournamentKey: null, // Legacy — set if falling back to API-Tennis
     apiSeason: null,              // Some APIs break with explicit season param
 

@@ -651,8 +651,7 @@ adminRouter.post('/send-draw-released', async (req, res) => {
 // Fetch the Goalserve leagues list and return all ATP tournaments so we can
 // find the correct tournament ID for the active tournament.
 adminRouter.get('/goalserve-discover', async (req, res) => {
-  // Temporarily public for tournament ID discovery — re-add auth after
-  // if (!checkSecret(req, res)) return;
+  if (!checkSecret(req, res)) return;
   const apiKey = process.env.GOALSERVE_API_KEY;
   if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
 
@@ -718,8 +717,8 @@ adminRouter.get('/goalserve-discover', async (req, res) => {
 
 // ── GET /api/admin/goalserve-test/:id ────────────────────────────────────────
 // Fetch fixtures + draw for a specific Goalserve tournament ID.
-// Temporarily public for discovery — re-add auth after.
 adminRouter.get('/goalserve-test/:id', async (req, res) => {
+  if (!checkSecret(req, res)) return;
   const apiKey = process.env.GOALSERVE_API_KEY;
   if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
   const tournId = req.params.id;
@@ -803,8 +802,8 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
 
 // ── GET /api/admin/goalserve-leagues ─────────────────────────────────────────
 // Full leagues dump with gzip handling and longer timeout.
-// Temporarily public for discovery.
 adminRouter.get('/goalserve-leagues', async (req, res) => {
+  if (!checkSecret(req, res)) return;
   const apiKey = process.env.GOALSERVE_API_KEY;
   if (!apiKey) return res.json({ ok: false, error: 'GOALSERVE_API_KEY not set' });
 
