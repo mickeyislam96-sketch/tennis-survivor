@@ -5,7 +5,7 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 
 ## History
 - Monte Carlo 2026: complete (Mark won, 11 entrants, free entry)
-- Madrid 2026: starts 20 Apr, free entry, draw expected 19-20 Apr, 4 members so far. Goalserve adapter implemented, awaiting draw drop.
+- Madrid 2026: starts 22 Apr, free entry, draw released 19 Apr, members joining. Goalserve adapter deployed and optimised (parallel fetch, promise dedup, 5-min cache). Seed draw loaded from PDF.
 - Rome 2026: planned free + mobile app launch
 - Roland Garros 2026: planned first paid tournament
 
@@ -30,3 +30,6 @@ Tennis survivor fantasy game. Players join groups, pick one match winner per rou
 - **Micro-interactions**: button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit.
 - **Tournament ops automation (Phase 1)**: 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All logged to `ops_log` table. Daily ops brief via Cowork scheduled task at 8am. Key files: `opsMonitor.js`, `routes/ops.js`. Playbook: `CTO - TS/FSV_AI_Agent_Operations_Playbook.docx`.
 - **Ops API endpoints**: `GET /api/ops/summary` (structured overview), `GET /api/ops/log` (raw log with filters), `POST /api/ops/setup-tournament` (create groups), `GET /api/ops/health-deep` (component health). All behind ADMIN_SECRET auth.
+- **Player headshot sprite** (20 Apr): 169 headshots in one 205KB WebP sprite. Replaces 170 individual requests (6.4MB). PlayerAvatar component checks in-memory manifest, uses CSS background-position.
+- **Goalserve parallel fetch** (20 Apr): 3 API endpoints fetched simultaneously via Promise.allSettled. Promise deduplication for concurrent callers. Cold miss ~5s (was 10-17s), cached <1.2s.
+- **Seed draw system** (20 Apr): Static JSON draw files (extracted from ATP PDF) loaded via `seedDrawLoader.js`, overlaid with live Goalserve data via `seedDrawOverlay.js` (2-pass name matching: exact + Levenshtein fuzzy). Reusable for future tournaments.

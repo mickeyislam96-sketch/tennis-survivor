@@ -16,8 +16,8 @@
 
 ## GitHub access
 - Repo: `mickeyislam96-sketch/tennis-survivor`
-- PAT stored in previous session transcript (search for `ghp_`)
-- Push via GitHub Contents API (no git CLI auth in Cowork sandbox)
+- PAT: issued 20 Apr 2026 (stored in Cowork auto-memory and session transcript)
+- Push via /tmp clone (preferred) or GitHub Contents API
 
 ## API endpoints (notable)
 - `POST /api/support` — contact form submissions. Rate limited (5/hr per IP). Sends email directly via Brevo to finalservivor@gmail.com (bypasses approval queue). Attaches user context (name, email, group memberships) if logged in.
@@ -45,6 +45,13 @@
 - **Frontend `authFetch()`**: in `AuthContext.jsx`, auto-attaches Authorization + X-CSRF-Token. All 9 pages use it.
 - **Legacy fallback removed** (20 Apr): `x-user-id` header and `?userId` param no longer accepted. All auth via JWT only. Mobile app updated to send Bearer tokens (commit `83c71d1` in mobile repo).
 - **Secrets**: `JWT_SECRET` and `ADMIN_SECRET` are separate env vars (both rotated 19 Apr). GitHub PAT rotated.
+
+## Performance optimisations (20 Apr 2026)
+- **Goalserve parallel fetch**: 3 endpoints (fixtures, draw, livescore) run via `Promise.allSettled`. Cold miss ~5s (was 10-17s sequential).
+- **Promise deduplication**: `goalserveInflight` variable ensures concurrent callers share one fetch. Critical because page loads fire bracket + picks requests simultaneously.
+- **5-min server-side cache**: `goalserveCache` in `dataAdapter.js`. Cached responses <1.2s.
+- **CSS sprite sheet**: 169 player headshots in one 205KB WebP file (was 170 requests / 6.4MB). `playerManifest.json` checked in-memory — zero HTTP for missing players.
+- **Vercel CDN**: All static assets (sprite, JS, CSS) served from edge. Frontend load is fast; backend API was the bottleneck.
 
 ## Deployment gotchas
 - Every push to `main` auto-deploys to real users — treat every commit as production release
