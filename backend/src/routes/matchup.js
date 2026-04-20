@@ -23,9 +23,59 @@ export const matchupRouter = Router();
 const API_BASE = 'https://api.api-tennis.com/tennis';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const matchupCache = new Map();
+const nameToKeyCache = new Map(); // player name → API-Tennis key (persistent)
 
 async function doFetch(url) {
   return typeof fetch !== 'undefined' ? fetch(url) : nodeFetch(url);
+}
+
+// ── Name → API-Tennis key lookup ────────────────────────────────────────────
+// Seed draw IDs (madrid-s1, madrid-p23) aren't API-Tennis keys.
+// This resolves a player name to their API-Tennis player_key via search.
+
+async function resolvePlayerKey(nameOrKey) {
+  // If it looks like an API-Tennis key (numeric), use it directly
+  if (/^\d+$/.test(nameOrKey)) return nameOrKey;
+
+  // Check name cache
+  const cached = nameToKeyCache.get(nameOrKey.toLowerCase());
+  if (cached) return cached;
+
+  const apiKey = process.env.TENNIS_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    // Search by last name (more reliable than full name)
+    const lastName = nameOrKey.split(' ').pop();
+    const url = `${API_BASE}/?method=get_players&APIkey=${apiKey}&player_name=${encodeURIComponent(lastName)}`;
+    const res = await doFetch(url);
+    const data = await res.json();
+
+    if (!data?.success || !Array.isArray(data.result) || data.result.length === 0) return null;
+
+    // Find best match by full name (case-insensitive)
+    const target = nameOrKey.toLowerCase().trim();
+    const match = data.result.find(p =>
+      (p.player_name || '').toLowerCase().trim() === target
+    );
+
+    if (match?.player_key) {
+      nameToKeyCache.set(nameOrKey.toLowerCase(), String(match.player_key));
+      return String(match.player_key);
+    }
+
+    // Fuzzy: first result if last name matches
+    const first = data.result[0];
+    if (first?.player_key && (first.player_name || '').toLowerCase().includes(lastName.toLowerCase())) {
+      nameToKeyCache.set(nameOrKey.toLowerCase(), String(first.player_key));
+      return String(first.player_key);
+    }
+
+    return null;
+  } catch (e) {
+    console.warn(`[matchup] Name lookup failed for "${nameOrKey}":`, e.message);
+    return null;
+  }
 }
 
 // ── Fetch H2H from API-Tennis ────────────────────────────────────────────────
@@ -210,29 +260,49 @@ function annotateResults(matches, playerKey) {
 // ── Route handler ────────────────────────────────────────────────────────────
 
 matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
-  const { player1Key, player2Key } = req.params;
+  const { player1Key: rawKey1, player2Key: rawKey2 } = req.params;
+  // Player names passed as query params when IDs are seed-draw format
+  const name1 = req.query.name1;
+  const name2 = req.query.name2;
 
-  if (!player1Key || !player2Key) {
+  if (!rawKey1 || !rawKey2) {
     return res.status(400).json({ error: 'Both player keys are required' });
   }
 
-  // Cache key: sorted so A-vs-B and B-vs-A share the same cache entry
-  const cacheKey = [player1Key, player2Key].sort().join('-');
+  // Resolve seed-draw IDs to API-Tennis keys via name lookup
+  // If keys are already numeric (API-Tennis format), use directly
+  const [player1Key, player2Key] = await Promise.all([
+    /^\d+$/.test(rawKey1) ? rawKey1 : (name1 ? resolvePlayerKey(name1) : resolvePlayerKey(rawKey1)),
+    /^\d+$/.test(rawKey2) ? rawKey2 : (name2 ? resolvePlayerKey(name2) : resolvePlayerKey(rawKey2)),
+  ]);
+
+  // Cache key: use names for consistent caching when keys can't be resolved
+  const cacheId1 = player1Key || (name1 || rawKey1).toLowerCase();
+  const cacheId2 = player2Key || (name2 || rawKey2).toLowerCase();
+  const cacheKey = [cacheId1, cacheId2].sort().join('-');
   const cached = matchupCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return res.json(cached.data);
   }
 
   try {
-    // Fetch H2H and both player profiles in parallel
-    const [h2hResult, profile1, profile2] = await Promise.all([
-      fetchH2H(player1Key, player2Key),
-      fetchPlayer(player1Key),
-      fetchPlayer(player2Key),
-    ]);
+    // If we have API-Tennis keys, fetch full H2H and profiles
+    const hasKeys = player1Key && player2Key;
+
+    const [h2hResult, profile1, profile2] = hasKeys
+      ? await Promise.all([
+          fetchH2H(player1Key, player2Key),
+          fetchPlayer(player1Key),
+          fetchPlayer(player2Key),
+        ])
+      : [null, player1Key ? await fetchPlayer(player1Key) : null, player2Key ? await fetchPlayer(player2Key) : null];
 
     const p1Stats = parsePlayerStats(profile1);
     const p2Stats = parsePlayerStats(profile2);
+
+    // Override names with what the frontend sent (more reliable than API lookup)
+    if (name1 && !p1Stats.name) p1Stats.name = name1;
+    if (name2 && !p2Stats.name) p2Stats.name = name2;
 
     const h2h = h2hResult
       ? parseH2HMeetings(h2hResult.H2H, player1Key, player2Key)
@@ -246,15 +316,15 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
       : [];
 
     const response = {
-      player1: { key: player1Key, ...p1Stats, recent: p1Recent },
-      player2: { key: player2Key, ...p2Stats, recent: p2Recent },
+      player1: { key: player1Key || rawKey1, ...p1Stats, recent: p1Recent },
+      player2: { key: player2Key || rawKey2, ...p2Stats, recent: p2Recent },
       h2h,
     };
 
     matchupCache.set(cacheKey, { data: response, fetchedAt: Date.now() });
     res.json(response);
   } catch (err) {
-    console.error(`[matchup] Error fetching H2H for ${player1Key} vs ${player2Key}:`, err.message);
+    console.error(`[matchup] Error fetching H2H for ${rawKey1} vs ${rawKey2}:`, err.message);
     res.status(500).json({ error: 'Failed to fetch matchup data' });
   }
 });

@@ -80,8 +80,12 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
     setError(null);
 
     // Both players known: fetch full H2H
+    // Pass names as query params so the backend can resolve seed-draw IDs to API-Tennis keys
     if (player1Id && player2Id && !p1Unknown && !p2Unknown) {
-      fetch(`${API}/matchup/${player1Id}/${player2Id}`)
+      const params = new URLSearchParams();
+      if (player1Name) params.set('name1', player1Name);
+      if (player2Name) params.set('name2', player2Name);
+      fetch(`${API}/matchup/${player1Id}/${player2Id}?${params}`)
         .then(r => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.json();
@@ -94,9 +98,12 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
     // One player known: fetch just their profile via the matchup endpoint
     // using a dummy second key — the endpoint still returns player1 profile data
     const knownId = p1Unknown ? player2Id : player1Id;
+    const knownName = p1Unknown ? player2Name : player1Name;
     if (knownId) {
+      const params = new URLSearchParams();
+      if (knownName) { params.set('name1', knownName); params.set('name2', knownName); }
       // Fetch single player by requesting H2H with themselves (gives us their profile + recent form)
-      fetch(`${API}/matchup/${knownId}/${knownId}`)
+      fetch(`${API}/matchup/${knownId}/${knownId}?${params}`)
         .then(r => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.json();
