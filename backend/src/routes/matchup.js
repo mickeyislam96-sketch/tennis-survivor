@@ -1,259 +1,87 @@
 /**
  * GET /api/matchup/:player1Key/:player2Key
  *
- * Returns head-to-head data and recent form for two players.
- * Used by the matchup info modal on the draw/bracket view.
+ * Returns player info and tournament form for two players.
+ * Data sources: seed draw JSON (names, seeds, countries) + Goalserve fixtures
+ * (tournament results). No external API calls — instant responses.
  *
  * Response shape:
  *   {
- *     player1: { name, country, logo, rank, clay: { won, lost }, recent: [...] },
- *     player2: { name, country, logo, rank, clay: { won, lost }, recent: [...] },
- *     h2h: { player1Wins, player2Wins, meetings: [...] }
+ *     player1: { name, country, seed, tournamentForm: [...] },
+ *     player2: { name, country, seed, tournamentForm: [...] },
+ *     h2h: { available: false }
  *   }
  *
- * Caching: responses are cached in-memory for 1 hour (H2H data doesn't change
- * during a tournament). Cache key is the sorted pair of player keys.
+ * Caching: responses are cached for 5 minutes (tied to Goalserve cache TTL).
  */
 
 import { Router } from 'express';
-import nodeFetch from 'node-fetch';
+import { TOURNAMENT } from '../config/activeTournament.js';
+import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
+import { fetchGoalserveOnly } from '../services/dataAdapter.js';
 
 export const matchupRouter = Router();
 
-const API_BASE = 'https://api.api-tennis.com/tennis';
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min (matches Goalserve cache)
 const matchupCache = new Map();
-const nameToKeyCache = new Map(); // player name → API-Tennis key (persistent)
 
-async function doFetch(url) {
-  return typeof fetch !== 'undefined' ? fetch(url) : nodeFetch(url);
-}
+// ── Lookup player info from seed draw ──────────────────────────────────────
 
-// ── Name → API-Tennis key lookup ────────────────────────────────────────────
-// Seed draw IDs (madrid-s1, madrid-p23) aren't API-Tennis keys.
-// This resolves a player name to their API-Tennis player_key via search.
+function findPlayerInDraw(draw, playerKey, playerName) {
+  if (!draw || !draw.players) return null;
 
-async function resolvePlayerKey(nameOrKey) {
-  // If it looks like an API-Tennis key (numeric), use it directly
-  if (/^\d+$/.test(nameOrKey)) return nameOrKey;
+  // First try by ID
+  if (playerKey) {
+    const byId = draw.players.find(p => p.id === playerKey);
+    if (byId) return byId;
+  }
 
-  // Check name cache
-  const cached = nameToKeyCache.get(nameOrKey.toLowerCase());
-  if (cached) return cached;
-
-  const apiKey = process.env.TENNIS_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    // Search by last name (more reliable than full name)
-    const lastName = nameOrKey.split(' ').pop();
-    const url = `${API_BASE}/?method=get_players&APIkey=${apiKey}&player_name=${encodeURIComponent(lastName)}`;
-    const res = await doFetch(url);
-    const data = await res.json();
-
-    if (!data?.success || !Array.isArray(data.result) || data.result.length === 0) return null;
-
-    // Find best match by full name (case-insensitive)
-    const target = nameOrKey.toLowerCase().trim();
-    const match = data.result.find(p =>
-      (p.player_name || '').toLowerCase().trim() === target
+  // Then by name (case-insensitive)
+  if (playerName) {
+    const target = playerName.toLowerCase().trim();
+    const byName = draw.players.find(p =>
+      (p.name || '').toLowerCase().trim() === target
     );
-
-    if (match?.player_key) {
-      nameToKeyCache.set(nameOrKey.toLowerCase(), String(match.player_key));
-      return String(match.player_key);
-    }
-
-    // Fuzzy: first result if last name matches
-    const first = data.result[0];
-    if (first?.player_key && (first.player_name || '').toLowerCase().includes(lastName.toLowerCase())) {
-      nameToKeyCache.set(nameOrKey.toLowerCase(), String(first.player_key));
-      return String(first.player_key);
-    }
-
-    return null;
-  } catch (e) {
-    console.warn(`[matchup] Name lookup failed for "${nameOrKey}":`, e.message);
-    return null;
-  }
-}
-
-// ── Fetch H2H from API-Tennis ────────────────────────────────────────────────
-
-async function fetchH2H(player1Key, player2Key) {
-  const apiKey = process.env.TENNIS_API_KEY;
-  if (!apiKey) return null;
-
-  const url =
-    `${API_BASE}/?method=get_H2H` +
-    `&APIkey=${apiKey}` +
-    `&first_player_key=${player1Key}` +
-    `&second_player_key=${player2Key}`;
-
-  const res = await doFetch(url);
-  if (!res.ok) throw new Error(`H2H API HTTP ${res.status}`);
-  const data = await res.json();
-  if (!data?.success || !data?.result) return null;
-  return data.result;
-}
-
-// ── Fetch player profile from API-Tennis ──────────────────────────────────────
-
-async function fetchPlayer(playerKey) {
-  const apiKey = process.env.TENNIS_API_KEY;
-  if (!apiKey) return null;
-
-  const url =
-    `${API_BASE}/?method=get_players` +
-    `&APIkey=${apiKey}` +
-    `&player_key=${playerKey}`;
-
-  const res = await doFetch(url);
-  if (!res.ok) throw new Error(`Player API HTTP ${res.status}`);
-  const data = await res.json();
-  if (!data?.success || !Array.isArray(data?.result) || data.result.length === 0) return null;
-  return data.result[0];
-}
-
-// ── Parse recent match results ───────────────────────────────────────────────
-
-function parseRecentResults(matches, limit = 5) {
-  if (!Array.isArray(matches)) return [];
-  return matches
-    .filter(m => m.event_status === 'Finished')
-    .slice(0, limit)
-    .map(m => ({
-      date:       m.event_date,
-      opponent:   m.event_first_player,  // will be swapped if needed by caller
-      result:     m.event_final_result,
-      won:        m.event_winner === 'First Player' || m.event_winner === 'Second Player',
-      winner:     m.event_winner,
-      tournament: m.tournament_name,
-      round:      m.tournament_round || null,
-      surface:    null, // API doesn't include surface per match in H2H
-      scores:     m.scores || [],
-    }));
-}
-
-// ── Parse player profile for season stats ────────────────────────────────────
-//
-// Strategy: use 2025 as the primary season for overall/clay stats because
-// it's the most recent complete season with meaningful sample sizes.
-// Early 2026 data is too sparse (1-3 matches) to be useful for comparison.
-//
-// Rank: always from the most recent season entry (current ranking).
-// Clay: if the chosen season has empty clay stats, fall back to the most
-// recent season that has clay data.
-
-const PREFERRED_SEASON = '2025';
-
-function parsePlayerStats(profile) {
-  if (!profile) return { name: null, country: null, logo: null, rank: null, clay: { won: 0, lost: 0 }, overall: { won: 0, lost: 0 }, season: null };
-
-  const singlesStats = (profile.stats || [])
-    .filter(s => s.type === 'singles')
-    .sort((a, b) => parseInt(b.season) - parseInt(a.season));
-
-  if (singlesStats.length === 0) {
-    return { name: profile.player_name || null, country: profile.player_country || null, logo: profile.player_logo || null, rank: null, clay: { won: 0, lost: 0 }, overall: { won: 0, lost: 0 }, season: null };
+    if (byName) return byName;
   }
 
-  // Current rank from most recent entry
-  const mostRecent = singlesStats[0];
-  const rank = mostRecent.rank || null;
-
-  // Use preferred season for overall stats; fall back to most recent if not available
-  const preferred = singlesStats.find(s => s.season === PREFERRED_SEASON) || mostRecent;
-
-  // Clay: use preferred season if it has data, otherwise find most recent with clay
-  let claySeason = preferred;
-  if (!parseInt(preferred.clay_won) && !parseInt(preferred.clay_lost)) {
-    claySeason = singlesStats.find(s => parseInt(s.clay_won) || parseInt(s.clay_lost)) || preferred;
-  }
-
-  return {
-    name:    profile.player_name || null,
-    country: profile.player_country || null,
-    logo:    profile.player_logo || null,
-    rank,
-    clay: {
-      won:  parseInt(claySeason.clay_won) || 0,
-      lost: parseInt(claySeason.clay_lost) || 0,
-    },
-    claySeason: claySeason.season !== preferred.season ? claySeason.season : null,
-    overall: {
-      won:  parseInt(preferred.matches_won) || 0,
-      lost: parseInt(preferred.matches_lost) || 0,
-    },
-    season: preferred.season || null,
-  };
+  return null;
 }
 
-// ── Exhibition filter ────────────────────────────────────────────────────────
-// API-Tennis marks exhibitions (UTS, World Tennis League, etc.) with
-// event_type_type containing "Exhibition". We exclude these from both
-// H2H meetings and recent form since they don't reflect competitive play.
+// ── Build tournament form from Goalserve fixtures ──────────────────────────
+// Shows how each player has performed in THIS tournament so far.
 
-function isExhibition(match) {
-  return (match.event_type_type || '').toLowerCase().includes('exhibition');
-}
+function buildTournamentForm(fixtures, playerName) {
+  if (!fixtures || !playerName) return [];
 
-// ── Parse H2H meetings ──────────────────────────────────────────────────────
+  const target = playerName.toLowerCase().trim();
 
-function parseH2HMeetings(h2hMatches, player1Key, player2Key) {
-  if (!Array.isArray(h2hMatches) || h2hMatches.length === 0) {
-    return { player1Wins: 0, player2Wins: 0, meetings: [] };
-  }
-
-  let player1Wins = 0;
-  let player2Wins = 0;
-
-  const meetings = h2hMatches
-    .filter(m => m.event_status === 'Finished' && !isExhibition(m))
-    .map(m => {
-      const p1IsFirst = String(m.first_player_key) === String(player1Key);
-      const winnerIsFirst = m.event_winner === 'First Player';
-      const p1Won = p1IsFirst ? winnerIsFirst : !winnerIsFirst;
-
-      if (p1Won) player1Wins++;
-      else player2Wins++;
+  return fixtures
+    .filter(f => {
+      if (f.status !== 'completed' && f.status !== 'retired' && f.status !== 'walkover') return false;
+      const p1Match = (f.player1Name || '').toLowerCase().trim() === target;
+      const p2Match = (f.player2Name || '').toLowerCase().trim() === target;
+      return p1Match || p2Match;
+    })
+    .map(f => {
+      const isP1 = (f.player1Name || '').toLowerCase().trim() === target;
+      const won = f.winnerId
+        ? (isP1 ? f.winnerId === f.player1Id : f.winnerId === f.player2Id)
+        : false;
+      const opponent = isP1 ? f.player2Name : f.player1Name;
 
       return {
-        date:       m.event_date,
-        tournament: m.tournament_name,
-        round:      m.tournament_round || null,
-        result:     m.event_final_result,
-        p1Won,
-        scores:     m.scores || [],
-      };
-    });
-
-  return { player1Wins, player2Wins, meetings };
-}
-
-// ── Annotate recent results with correct won/lost from player's perspective ──
-
-function annotateResults(matches, playerKey) {
-  if (!Array.isArray(matches)) return [];
-  return matches
-    .filter(m => m.event_status === 'Finished' && !isExhibition(m))
-    .slice(0, 5)
-    .map(m => {
-      const isFirstPlayer = String(m.first_player_key) === String(playerKey);
-      const won = isFirstPlayer
-        ? m.event_winner === 'First Player'
-        : m.event_winner === 'Second Player';
-      const opponent = isFirstPlayer ? m.event_second_player : m.event_first_player;
-
-      return {
-        date:       m.event_date,
+        round: f.round,
         opponent,
-        result:     m.event_final_result,
+        score: f.score || null,
         won,
-        tournament: m.tournament_name,
-        round:      m.tournament_round || null,
-        scores:     m.scores || [],
+        status: f.status,
       };
+    })
+    // Sort by round progression
+    .sort((a, b) => {
+      const order = { R1: 0, R64: 1, R32: 2, R16: 3, QF: 4, SF: 5, F: 6 };
+      return (order[a.round] ?? 99) - (order[b.round] ?? 99);
     });
 }
 
@@ -261,7 +89,6 @@ function annotateResults(matches, playerKey) {
 
 matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
   const { player1Key: rawKey1, player2Key: rawKey2 } = req.params;
-  // Player names passed as query params when IDs are seed-draw format
   const name1 = req.query.name1;
   const name2 = req.query.name2;
 
@@ -269,62 +96,63 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
     return res.status(400).json({ error: 'Both player keys are required' });
   }
 
-  // Resolve seed-draw IDs to API-Tennis keys via name lookup
-  // If keys are already numeric (API-Tennis format), use directly
-  const [player1Key, player2Key] = await Promise.all([
-    /^\d+$/.test(rawKey1) ? rawKey1 : (name1 ? resolvePlayerKey(name1) : resolvePlayerKey(rawKey1)),
-    /^\d+$/.test(rawKey2) ? rawKey2 : (name2 ? resolvePlayerKey(name2) : resolvePlayerKey(rawKey2)),
-  ]);
-
-  // Cache key: use names for consistent caching when keys can't be resolved
-  const cacheId1 = player1Key || (name1 || rawKey1).toLowerCase();
-  const cacheId2 = player2Key || (name2 || rawKey2).toLowerCase();
-  const cacheKey = [cacheId1, cacheId2].sort().join('-');
+  // Cache check
+  const cacheKey = [rawKey1, rawKey2].sort().join('-');
   const cached = matchupCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return res.json(cached.data);
   }
 
   try {
-    // If we have API-Tennis keys, fetch full H2H and profiles
-    const hasKeys = player1Key && player2Key;
+    const tournamentId = TOURNAMENT.id;
 
-    const [h2hResult, profile1, profile2] = hasKeys
-      ? await Promise.all([
-          fetchH2H(player1Key, player2Key),
-          fetchPlayer(player1Key),
-          fetchPlayer(player2Key),
-        ])
-      : [null, player1Key ? await fetchPlayer(player1Key) : null, player2Key ? await fetchPlayer(player2Key) : null];
+    // Load seed draw for player info (instant — cached in memory)
+    let draw = null;
+    if (hasSeedDraw(tournamentId)) {
+      draw = loadSeedDraw(tournamentId);
+    }
 
-    const p1Stats = parsePlayerStats(profile1);
-    const p2Stats = parsePlayerStats(profile2);
+    // Look up both players in the draw
+    const p1Draw = findPlayerInDraw(draw, rawKey1, name1);
+    const p2Draw = findPlayerInDraw(draw, rawKey2, name2);
 
-    // Override names with what the frontend sent (more reliable than API lookup)
-    if (name1 && !p1Stats.name) p1Stats.name = name1;
-    if (name2 && !p2Stats.name) p2Stats.name = name2;
+    // Load Goalserve fixtures for tournament form
+    let fixtures = [];
+    try {
+      const result = await fetchGoalserveOnly();
+      fixtures = result.fixtures || [];
+    } catch {
+      // No fixtures available — tournament form will be empty
+    }
 
-    const h2h = h2hResult
-      ? parseH2HMeetings(h2hResult.H2H, player1Key, player2Key)
-      : { player1Wins: 0, player2Wins: 0, meetings: [] };
-
-    const p1Recent = h2hResult
-      ? annotateResults(h2hResult.firstPlayerResults, player1Key)
-      : [];
-    const p2Recent = h2hResult
-      ? annotateResults(h2hResult.secondPlayerResults, player2Key)
-      : [];
+    // Build player profiles from seed draw + tournament form from fixtures
+    const p1Name = p1Draw?.name || name1 || rawKey1;
+    const p2Name = p2Draw?.name || name2 || rawKey2;
 
     const response = {
-      player1: { key: player1Key || rawKey1, ...p1Stats, recent: p1Recent },
-      player2: { key: player2Key || rawKey2, ...p2Stats, recent: p2Recent },
-      h2h,
+      player1: {
+        key: rawKey1,
+        name: p1Name,
+        country: p1Draw?.country || null,
+        seed: p1Draw?.seed || null,
+        tournamentForm: buildTournamentForm(fixtures, p1Name),
+      },
+      player2: {
+        key: rawKey2,
+        name: p2Name,
+        country: p2Draw?.country || null,
+        seed: p2Draw?.seed || null,
+        tournamentForm: buildTournamentForm(fixtures, p2Name),
+      },
+      h2h: { available: false, player1Wins: 0, player2Wins: 0, meetings: [] },
+      tournament: TOURNAMENT.name || tournamentId,
+      surface: TOURNAMENT.surface || null,
     };
 
     matchupCache.set(cacheKey, { data: response, fetchedAt: Date.now() });
     res.json(response);
   } catch (err) {
-    console.error(`[matchup] Error fetching H2H for ${rawKey1} vs ${rawKey2}:`, err.message);
+    console.error(`[matchup] Error for ${rawKey1} vs ${rawKey2}:`, err.message);
     res.status(500).json({ error: 'Failed to fetch matchup data' });
   }
 });

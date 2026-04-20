@@ -1,0 +1,314 @@
+/* ── Matchup Modal ────────────────────────────────────────────────────────── */
+/* Player info modal for draw/bracket view. Uses design system tokens. */
+
+.mu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 16px;
+  animation: mu-fadeIn 0.15s ease-out;
+}
+
+@keyframes mu-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.mu-modal {
+  background: var(--ds-surface, #fff);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: mu-slideUp 0.2s ease-out;
+}
+
+@keyframes mu-slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+.mu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+}
+
+.mu-header h2 {
+  font-family: var(--ds-font-display, 'Fraunces', serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ds-text, #1a1a1a);
+  margin: 0;
+}
+
+.mu-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ds-text-muted, #888);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.mu-close:hover { background: var(--ds-bg-hover, #f0f0f0); }
+
+/* Loading */
+.mu-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 20px;
+  color: var(--ds-text-muted, #888);
+}
+
+.mu-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--ds-border, #e0e0e0);
+  border-top-color: var(--ds-primary, #0F4A23);
+  border-radius: 50%;
+  animation: mu-spin 0.7s linear infinite;
+}
+
+@keyframes mu-spin { to { transform: rotate(360deg); } }
+
+/* H2H / player cards bar */
+.mu-h2h-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 20px 16px;
+}
+
+.mu-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.mu-player-name {
+  font-family: var(--ds-font-sans, 'Outfit', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ds-text, #1a1a1a);
+  margin-top: 8px;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.mu-player-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--ds-text-muted, #888);
+  margin-top: 4px;
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  letter-spacing: 0.02em;
+}
+
+.mu-flag { font-size: 1rem; }
+
+.mu-seed {
+  color: var(--ds-primary, #0F4A23);
+  font-weight: 600;
+}
+
+/* VS divider */
+.mu-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+
+.mu-vs-label {
+  font-family: var(--ds-font-display, 'Fraunces', serif);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ds-text-muted, #888);
+  text-transform: lowercase;
+  font-style: italic;
+}
+
+.mu-surface {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.65rem;
+  color: var(--ds-text-muted, #888);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--ds-bg-subtle, #f5f3ee);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Sections */
+.mu-section {
+  padding: 0 20px 16px;
+}
+
+.mu-section-title {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ds-text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-border, #e8e4db);
+}
+
+/* Empty / notice states */
+.mu-empty {
+  text-align: center;
+  padding: 24px 20px;
+  color: var(--ds-text-muted, #888);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.mu-h2h-notice {
+  text-align: center;
+  padding: 12px 16px;
+  color: var(--ds-text-muted, #999);
+  font-size: 0.8rem;
+  font-style: italic;
+  background: var(--ds-bg-subtle, #f9f7f3);
+  border-radius: 8px;
+}
+
+/* Tournament form columns */
+.mu-form-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.mu-form-cols.mu-form-single {
+  grid-template-columns: 1fr;
+}
+
+.mu-form-header {
+  font-family: var(--ds-font-sans, 'Outfit', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ds-text, #1a1a1a);
+  margin-bottom: 8px;
+}
+
+.mu-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.8rem;
+}
+
+.mu-form-row + .mu-form-row {
+  border-top: 1px solid var(--ds-border-subtle, #f0ece4);
+}
+
+.mu-wl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+}
+
+.mu-w {
+  background: var(--ds-success-bg, #e6f4ea);
+  color: var(--ds-success, #0F4A23);
+}
+
+.mu-l {
+  background: var(--ds-danger-bg, #fde8e8);
+  color: var(--ds-danger, #b91c1c);
+}
+
+.mu-form-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.mu-form-opp {
+  font-weight: 500;
+  color: var(--ds-text, #1a1a1a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mu-form-event {
+  font-size: 0.7rem;
+  color: var(--ds-text-muted, #888);
+}
+
+.mu-form-score {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.72rem;
+  color: var(--ds-text-muted, #888);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Footer */
+.mu-footer {
+  text-align: center;
+  padding: 12px 20px 16px;
+  font-size: 0.7rem;
+  color: var(--ds-text-muted, #aaa);
+  font-style: italic;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .mu-modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    margin-top: auto;
+  }
+
+  .mu-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .mu-h2h-bar { gap: 10px; padding: 16px 16px 12px; }
+  .mu-section { padding: 0 16px 12px; }
+  .mu-player-name { font-size: 0.85rem; }
+
+  .mu-form-cols {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
