@@ -150,7 +150,7 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 picksRouter.get('/available', async (req, res) => {
   try {
     const { groupId, round } = req.query;
-  const userId = req.userId || req.query.userId;  // JWT or legacy
+  const userId = req.userId;
     if (!userId || !groupId) {
       return res.status(400).json({ error: 'userId and groupId required' });
     }

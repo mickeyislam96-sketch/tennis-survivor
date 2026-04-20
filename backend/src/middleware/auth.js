@@ -64,12 +64,8 @@ function extractToken(req) {
 
 /**
  * Required auth — rejects with 401 if no valid token.
- *
- * Also supports legacy x-user-id header during migration window.
- * TODO: remove legacy support after all clients have updated.
  */
 export function requireAuth(req, res, next) {
-  // 1. Try JWT token
   const token = extractToken(req);
   if (token) {
     const payload = verifyToken(token);
@@ -79,15 +75,6 @@ export function requireAuth(req, res, next) {
     }
     // Token was present but invalid/expired
     return res.status(401).json({ error: 'Token expired or invalid. Please log in again.', code: 'TOKEN_EXPIRED' });
-  }
-
-  // 2. Legacy fallback — accept x-user-id header or ?userId query param
-  //    This keeps the app working while the frontend migrates to JWT.
-  //    REMOVE THIS BLOCK once all clients send Bearer tokens.
-  const legacyId = req.headers['x-user-id'] || req.query.userId;
-  if (legacyId) {
-    req.userId = legacyId;
-    return next();
   }
 
   return res.status(401).json({ error: 'Authentication required.', code: 'NO_TOKEN' });
@@ -104,12 +91,6 @@ export function optionalAuth(req, _res, next) {
     if (payload && payload.sub) {
       req.userId = payload.sub;
     }
-  }
-
-  // Legacy fallback
-  if (!req.userId) {
-    const legacyId = req.headers['x-user-id'] || req.query.userId;
-    if (legacyId) req.userId = legacyId;
   }
 
   next();

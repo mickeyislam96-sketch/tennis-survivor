@@ -38,7 +38,7 @@ function rowToMember(m) {
 
 // GET /api/groups — groups the user belongs to
 groupsRouter.get('/', async (req, res) => {
-  const userId = req.userId || req.query.userId;  // JWT or legacy
+  const userId = req.userId;
   if (!userId) return res.json([]);
 
   if (isUUID(userId)) {
@@ -139,7 +139,7 @@ groupsRouter.get('/:id', async (req, res) => {
 // POST /api/groups — create a new group
 groupsRouter.post('/', async (req, res) => {
   const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
-  const adminId = adminUserId || req.headers['x-user-id'];
+  const adminId = adminUserId || req.userId;
   const groupName = (name || 'My Pool').trim();
   const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
   const tournament = tournamentId || 'indian-wells-2026';
