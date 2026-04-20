@@ -43,7 +43,7 @@
 - **Rate limiting**: auth (10 login/15min, 5 register/hr), admin/ops (20/min).
 - **Admin auth**: `Authorization: Bearer <ADMIN_SECRET>` header (no more query params).
 - **Frontend `authFetch()`**: in `AuthContext.jsx`, auto-attaches Authorization + X-CSRF-Token. All 9 pages use it.
-- **Legacy fallback**: `x-user-id` header and `?userId` param still accepted temporarily. Remove after Madrid.
+- **Legacy fallback removed** (20 Apr): `x-user-id` header and `?userId` param no longer accepted. All auth via JWT only. Mobile app updated to send Bearer tokens (commit `83c71d1` in mobile repo).
 - **Secrets**: `JWT_SECRET` and `ADMIN_SECRET` are separate env vars (both rotated 19 Apr). GitHub PAT rotated.
 
 ## Deployment gotchas
