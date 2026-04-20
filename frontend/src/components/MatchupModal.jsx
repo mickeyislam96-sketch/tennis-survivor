@@ -159,7 +159,18 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
             <h2>Matchup Info</h2>
             <button className="mu-close" onClick={onClose}>&times;</button>
           </div>
-          <div className="mu-empty">No head-to-head data available.</div>
+          <div className="mu-h2h-bar">
+            <div className="mu-player">
+              <PlayerAvatar playerName={player1Name} size={56} />
+              <div className="mu-player-name">{player1Name || 'TBD'}</div>
+            </div>
+            <div className="mu-vs"><div className="mu-vs-label">vs</div></div>
+            <div className="mu-player">
+              <PlayerAvatar playerName={player2Name} size={56} />
+              <div className="mu-player-name">{player2Name || 'TBD'}</div>
+            </div>
+          </div>
+          <div className="mu-empty">Head-to-head stats will be available once the tournament starts.</div>
         </div>
       </div>
     );

@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import { autoProcessResults } from './services/resultsProcessor.js';
 import { checkPickReminders } from './services/emailScheduler.js';
 import { runOpsChecks } from './services/opsMonitor.js';
+import { warmGoalserveCache } from './services/dataAdapter.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -46,6 +47,9 @@ app.get('/ping', (_req, res) => res.json({ ok: true }));
   } catch (err) {
     console.error('Schema init error:', err.message);
   }
+
+  // Pre-warm Goalserve cache so the first user request is fast
+  warmGoalserveCache();
 })();
 
 // ── Security headers ────────────────────────────────────────────────────────
@@ -128,6 +132,10 @@ cron.schedule('*/15 * * * *', async () => {
   // 4. Notify admin if there are emails waiting for approval
   try { await sendAdminDigest(); }
   catch (err) { console.error('[cron] Admin digest error:', err.message); }
+
+  // 5. Keep Goalserve cache warm so user requests are always fast (<1s)
+  try { await warmGoalserveCache(); }
+  catch (err) { console.error('[cron] Cache warm error:', err.message); }
 
   const elapsed = Date.now() - cronStart;
   if (elapsed > 30000) {

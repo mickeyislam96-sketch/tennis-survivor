@@ -386,7 +386,7 @@ export function DrawViewer() {
         showCourt
         eyebrow={data.tournament ? `DRAW · ${data.tournament.toUpperCase()}` : 'TOURNAMENT DRAW'}
         title={<>The <em>bracket</em>.</>}
-        lede="Live results, scores, and every matchup. Tap any fixture to compare the two players."
+        lede="Live results, scores, and every matchup in the draw."
       />
 
       <Section tone="canvas" size="md">
@@ -421,7 +421,7 @@ export function DrawViewer() {
               By round
             </button>
           </div>
-          <p className="dv-hint">Tap a matchup to compare players.</p>
+          <p className="dv-hint">Tap a matchup for player info.</p>
         </div>
 
         {view === 'bracket' ? (

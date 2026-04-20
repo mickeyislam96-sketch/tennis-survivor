@@ -2246,6 +2246,11 @@ input, select { font-family: var(--font); }
   opacity: 0.55;
 }
 
+.bc-clickable { cursor: pointer; }
+.bc-clickable:hover { border-color: var(--ds-primary, #0F4A23); box-shadow: 0 1px 4px rgba(15,74,35,0.12); }
+.lc-clickable { cursor: pointer; }
+.lc-clickable:hover { border-color: var(--ds-primary, #0F4A23); box-shadow: 0 1px 4px rgba(15,74,35,0.12); }
+
 .bc-live-dot {
   font-size: 0.6rem;
   font-weight: 800;

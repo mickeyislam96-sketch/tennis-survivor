@@ -81,7 +81,7 @@ import { TOURNAMENT } from '../config/activeTournament.js';
 
 const GOALSERVE_BASE = 'https://www.goalserve.com/getfeed';
 const GOALSERVE_TIMEOUT = 30000;
-const GOALSERVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const GOALSERVE_CACHE_TTL = 30 * 60 * 1000; // 30 minutes — stale data is acceptable, fast response is not
 
 // In-memory cache
 let goalserveCache = { fixtures: null, fetchedAt: 0 };
@@ -745,6 +745,21 @@ export function invalidateGoalserveCache() {
   goalserveCache = { fixtures: null, fetchedAt: 0 };
   goalserveInflight = null;
   console.log('[Goalserve] Cache invalidated');
+}
+
+/**
+ * Pre-warm the Goalserve cache. Called on server start and by the 15-min cron.
+ * Ensures user requests almost always hit a warm cache (<1s response).
+ */
+export async function warmGoalserveCache() {
+  try {
+    const result = await fetchGoalserve(TOURNAMENT);
+    if (result) {
+      console.log(`[Goalserve] Cache warmed: ${result.length} fixtures`);
+    }
+  } catch (err) {
+    console.warn(`[Goalserve] Cache warm failed: ${err.message}`);
+  }
 }
 
 async function fetchApiTennis(config) {
