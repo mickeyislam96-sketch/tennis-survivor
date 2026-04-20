@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { avatarColour, initials, getPlayerImageUrls } from '../utils/playerImage';
+import { avatarColour, initials, nameSlug } from '../utils/playerImage';
+import playerManifest from '../data/playerManifest.json';
 import './PlayerAvatar.css';
 
+const CELL = 80; // sprite cell size (px)
+
 /**
- * Player headshot with automatic fallback chain.
+ * Player headshot using a single CSS sprite sheet.
  *
- * Tries each candidate URL in order (Goalserve ID → name slug).
- * If all fail, renders a coloured circle with the player's initials.
+ * One 205 KB sprite replaces 170 individual HTTP requests (6.4 MB).
+ * If the player isn't in the sprite, renders a coloured initials circle.
  */
 export default function PlayerAvatar({ playerId, playerName, size = 32 }) {
-  const urls = getPlayerImageUrls(playerId, playerName);
-  const [urlIndex, setUrlIndex] = useState(0);
+  const slug = nameSlug(playerName);
+  const entry = slug ? playerManifest[slug] : null;
 
   const circleStyle = {
     width: size,
@@ -24,43 +26,45 @@ export default function PlayerAvatar({ playerId, playerName, size = 32 }) {
     overflow: 'hidden',
   };
 
-  const currentUrl = urls[urlIndex];
-
-  // Show initials fallback if we've exhausted all URLs
-  if (!currentUrl) {
-    const ini = initials(playerName);
-    const bg  = avatarColour(playerName);
-    const fontSize = Math.max(10, Math.round(size * 0.4));
-
+  // Sprite hit — show headshot via background-position
+  if (entry) {
+    const scale = size / CELL;
     return (
       <span
-        className="player-avatar player-avatar--initials"
+        className="player-avatar player-avatar--photo"
         style={{
           ...circleStyle,
-          background: bg,
-          color: '#fff',
-          fontSize,
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          lineHeight: 1,
+          backgroundImage: 'url(/player-sprite.webp)',
+          backgroundSize: `${1280 * scale}px ${880 * scale}px`,
+          backgroundPosition: `-${entry.x * scale}px -${entry.y * scale}px`,
+          backgroundRepeat: 'no-repeat',
         }}
-        aria-label={playerName || 'Unknown player'}
-      >
-        {ini}
-      </span>
+        role="img"
+        aria-label={playerName || 'Player'}
+      />
     );
   }
 
+  // Initials fallback
+  const ini = initials(playerName);
+  const bg  = avatarColour(playerName);
+  const fontSize = Math.max(10, Math.round(size * 0.4));
+
   return (
-    <img
-      className="player-avatar player-avatar--photo"
-      src={currentUrl}
-      alt={playerName || 'Player'}
-      width={size}
-      height={size}
-      style={circleStyle}
-      loading="lazy"
-      onError={() => setUrlIndex((i) => i + 1)}
-    />
+    <span
+      className="player-avatar player-avatar--initials"
+      style={{
+        ...circleStyle,
+        background: bg,
+        color: '#fff',
+        fontSize,
+        fontWeight: 700,
+        letterSpacing: '-0.02em',
+        lineHeight: 1,
+      }}
+      aria-label={playerName || 'Unknown player'}
+    >
+      {ini}
+    </span>
   );
 }

@@ -5,8 +5,7 @@
 }
 
 .player-avatar--photo {
-  object-fit: cover;
-  background: #f3f4f6;
+  background-color: #f3f4f6;
 }
 
 /* Subtle border so initials circles don't float on white backgrounds */
