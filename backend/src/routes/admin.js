@@ -729,10 +729,12 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
   try {
     const fixUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}?json=1`;
     const fixRes = await fetch(fixUrl, {
-      headers: { 'Accept': 'application/json' },
+      headers: { 'Accept': 'application/json', 'Accept-Encoding': 'identity' },
       signal: AbortSignal.timeout(30000),
     });
-    const fixData = await fixRes.json();
+    const fixText = await fixRes.text();
+    let fixData;
+    try { fixData = JSON.parse(fixText); } catch { results.fixturesRaw = fixText.slice(0, 500); return res.json(results); }
     // Return structure info + first few matches
     const tournament = fixData?.tournament || fixData;
     const weeks = tournament?.week
@@ -759,10 +761,12 @@ adminRouter.get('/goalserve-test/:id', async (req, res) => {
   try {
     const drawUrl = `https://www.goalserve.com/getfeed/${apiKey}/tennis_scores/${tournId}-draw?json=1`;
     const drawRes = await fetch(drawUrl, {
-      headers: { 'Accept': 'application/json' },
+      headers: { 'Accept': 'application/json', 'Accept-Encoding': 'identity' },
       signal: AbortSignal.timeout(30000),
     });
-    const drawData = await drawRes.json();
+    const drawText = await drawRes.text();
+    let drawData;
+    try { drawData = JSON.parse(drawText); } catch { results.drawRaw = drawText.slice(0, 500); return res.json(results); }
     const tournament = drawData?.tournament || drawData;
     const stages = tournament?.stage
       ? (Array.isArray(tournament.stage) ? tournament.stage : [tournament.stage])
