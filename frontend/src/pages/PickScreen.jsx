@@ -118,7 +118,7 @@ export function PickScreen() {
     const controller = new AbortController();
     authFetch(`${API}/picks/available?userId=${userId}&groupId=${groupId}&round=${currentRound}`, { signal: controller.signal })
       .then((r) => r.json())
-      .then(setAvailable)
+      .then((data) => setAvailable(Array.isArray(data) ? data : []))
       .catch((e) => { if (e.name !== 'AbortError') setAvailable([]); });
     return () => controller.abort();
   }, [groupId, userId, currentRound]);
