@@ -1,6 +1,6 @@
 ---
 name: API replacement for Madrid
-description: Goalserve for live data (130ms), Matchstat for intelligence (H2H, profiles, surface stats). Two-provider strategy. Free tier limited to 11 players.
+description: Goalserve for live data (130ms), Matchstat for intelligence (H2H, profiles, surface stats). Two-provider strategy. Free tier, top 200 players cached.
 type: project
 originSessionId: b42863f3-0280-4b74-8594-7beca144934c
 ---
@@ -37,9 +37,9 @@ originSessionId: b42863f3-0280-4b74-8594-7beca144934c
 
 **Why replaced API-Tennis:** Failed repeatedly during Monte Carlo 2026 — empty responses, no reliable withdrawal detection. Now fully retired from the matchup modal too.
 
-## Matchstat Tennis API — Intelligence Layer (NEW 21 Apr 2026)
+## Matchstat Tennis API — Intelligence Layer (LIVE 21 Apr 2026)
 
-**Status:** Deployed, dormant until `MATCHSTAT_API_KEY` is set in Railway.
+**Status (21 Apr 2026):** Fully deployed and active. `MATCHSTAT_API_KEY` set in Railway. Name cache covers top 200 ATP players.
 
 **Purpose:** Supplements Goalserve (live operational data) with historical/statistical intelligence: H2H records, player profiles, surface stats, recent form. Goalserve has no H2H endpoint, so Matchstat fills this gap.
 
@@ -47,9 +47,20 @@ originSessionId: b42863f3-0280-4b74-8594-7beca144934c
 
 **Key files:**
 - `backend/src/services/matchstatAdapter.js` — all API interactions, name→ID cache, parallel fetching
-- `backend/src/routes/matchup.js` — combines seed draw + Goalserve + Matchstat
+- `backend/src/routes/matchup.js` — combines seed draw + Goalserve + Matchstat into unified response
 - `frontend/src/components/MatchupModal.jsx` — tabbed UI (Form / H2H / Profile)
+- `frontend/src/components/MatchupModal.css` — full design system styling
 
-**Architecture:** Name→ID cache from rankings (24hr TTL), fuzzy surname fallback. `getMatchupIntelligence()` fires 8 parallel requests. 30-min data cache. Graceful degradation when key not set.
+**Architecture:**
+- Name→ID cache built from rankings endpoint (24hr TTL). Matchstat uses its own numeric IDs.
+- Pagination: `pageSize=100` across 2 pages to cover top 200 players (was default 10, returning only 11).
+- Fuzzy surname matching fallback when exact name not in cache.
+- `getMatchupIntelligence()` fires 8 parallel requests (H2H info, H2H matches, 2x profile, 2x form, 2x surface).
+- 30-min data cache for all Matchstat responses.
+- Graceful degradation: if key not set or any call fails, matchup modal shows seed draw + Goalserve data only.
 
-**Free tier limitation:** Rankings returns max 11 entries. Most matchups outside top 11 show "No H2H data". Pro tier ($10/mo) removes cap. Mickey wants trial before committing.
+**Free tier (current):** 500 req/month. Cache rebuild = 2 calls/day (~60/month). Remaining ~440 = ~55 unique matchup lookups. Sufficient for Madrid (~10 users). Quota resets monthly on RapidAPI billing cycle.
+
+**Upgrade plan:** Free tier for Madrid. If it works well, upgrade to Pro ($10/mo, 10K req/month) for Rome onwards.
+
+**Env var:** `MATCHSTAT_API_KEY` — RapidAPI key. Set in Railway 21 Apr.
