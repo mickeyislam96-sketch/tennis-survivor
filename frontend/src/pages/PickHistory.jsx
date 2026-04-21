@@ -140,7 +140,7 @@ export function PickHistory() {
                 >
                   <div className="ph-row-left">
                     <span className="ph-round-badge">{p.round}</span>
-                    <PlayerAvatar name={p.playerName} size={32} />
+                    <PlayerAvatar playerName={p.playerName} size={32} />
                     <span className="ph-player">{p.playerName}</span>
                   </div>
                   {state === 'pending' && (
