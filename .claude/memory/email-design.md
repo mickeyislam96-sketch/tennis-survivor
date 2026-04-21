@@ -26,5 +26,14 @@ All email templates in `backend/src/utils/email.js` (single file, ~990 lines). S
 ## Delivery flow
 - All user-facing emails go through `sendWithDedup()` which queues as `pending` in `emails_sent` table
 - Welcome email is the only one that sends directly via Brevo (not queued)
-- Admin approves via `POST /api/admin/approve-emails` with `confirm: true`
+- Admin digest includes a gold "Approve & Send" button linking to `GET /api/admin/approve-emails?secret=X&confirm=true` (renders HTML confirmation page). Also has a "Preview without sending" link. Added 21 Apr — previously was a raw curl command that Mickey couldn't use.
+- Programmatic approval also available via `POST /api/admin/approve-emails` with `{secret, confirm: true}`
 - Cron sends admin digest when new emails are queued, but never sends user emails
+
+## Domain authentication (verified 21 Apr 2026)
+- Domain: `finalserveivor.com` — fully authenticated in Brevo
+- DNS hosted on Namecheap, auto-configured via Brevo's Entri integration
+- DKIM uses CNAME records (not TXT): `brevo1._domainkey` and `brevo2._domainkey`
+- DMARC: `v=DMARC1; p=none` (reporting to Brevo)
+- SPF: NOT required for Brevo (they handle envelope sender)
+- Sender: `noreply@finalserveivor.com` (display name: "Final Serve-ivor")
