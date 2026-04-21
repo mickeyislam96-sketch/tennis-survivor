@@ -12,6 +12,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -143,5 +144,5 @@ export function csrfProtection(req, res, next) {
  * Generate a random CSRF token.
  */
 export function generateCsrfToken() {
-  return [...Array(32)].map(() => Math.random().toString(36)[2]).join('');
+  return crypto.randomBytes(32).toString('hex');
 }

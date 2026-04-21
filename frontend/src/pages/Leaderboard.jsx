@@ -9,6 +9,7 @@ import { Button } from '../ui/Button.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
 import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { avatarColour, initials } from '../utils/playerImage';
 import './Leaderboard.css';
 
 // ── Formatting helpers ────────────────────────────────────────
@@ -16,26 +17,6 @@ function fmtGBP(cents) {
   return '£' + (cents / 100).toLocaleString('en-GB', {
     minimumFractionDigits: 0, maximumFractionDigits: 0,
   });
-}
-
-function initials(name) {
-  return (name || '?')
-    .split(' ')
-    .map((w) => w[0] || '')
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-const AVATAR_COLOURS = [
-  '#0F4A23', '#1E7A3E', '#C1572E', '#A84620',
-  '#1F5580', '#7C3AED', '#B67300', '#0891B2',
-];
-
-function avatarColour(name) {
-  let hash = 0;
-  for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
-  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
 }
 
 // ── Pick History Modal ────────────────────────────────────────

@@ -9,6 +9,25 @@ import { issueToken, requireAuth, generateCsrfToken } from '../middleware/auth.j
 
 export const authRouter = Router();
 
+/**
+ * Validates email format — single @, non-empty local, domain with dot,
+ * no spaces, no double dots, no leading/trailing dots or hyphens.
+ */
+function isValidEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const e = email.trim();
+  if (e.includes(' ')) return false;
+  const parts = e.split('@');
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+  if (!domain.includes('.')) return false;
+  if (e.includes('..')) return false;
+  if (/^[.\-]|[.\-]$/.test(local)) return false;
+  if (/^[.\-]|[.\-]$/.test(domain)) return false;
+  return true;
+}
+
 // Rate limiters — prevent brute-force attacks on auth endpoints.
 // Uses in-memory store (fine for single-instance Railway deployment).
 const loginLimiter = rateLimit({
@@ -62,6 +81,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
   const { email, displayName, password } = req.body;
 
   if (!email?.trim())        return res.status(400).json({ error: 'Email is required.' });
+  if (!isValidEmail(email))  return res.status(400).json({ error: 'Please enter a valid email address.' });
   if (!displayName?.trim())  return res.status(400).json({ error: 'Display name is required.' });
   if (!password || password.length < 8)
     return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -296,8 +316,11 @@ authRouter.patch('/me', requireAuth, async (req, res) => {
       }
     }
 
-    // If changing email, check it is not already taken
+    // If changing email, validate format and check it is not already taken
     if (email && email.trim().toLowerCase() !== u.email) {
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ error: 'Please enter a valid email address.' });
+      }
       const normEmail = email.trim().toLowerCase();
       const existing = await pool.query(
         'SELECT id FROM users WHERE email = $1 AND id::text != $2',

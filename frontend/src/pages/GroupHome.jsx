@@ -9,6 +9,7 @@ import { Badge, Pill } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
 import { Stat } from '../ui/Stat.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
+import { avatarColour, initials } from '../utils/playerImage';
 import './GroupHome.css';
 
 // ── Date + formatting helpers ─────────────────────────────────
@@ -41,24 +42,6 @@ function isPreLaunch(tournament) {
   if (!tournament) return false;
   if (tournament.status === 'active') return false;
   return daysUntil(tournament.startDate) > 3;
-}
-
-// ── Avatar helpers ────────────────────────────────────────────
-const AVATAR_COLOURS = [
-  '#0F4A23', '#1E7A3E', '#C1572E', '#A84620',
-  '#1F5580', '#7C3AED', '#B67300', '#0891B2',
-];
-
-function avatarColour(name) {
-  let hash = 0;
-  for (const c of (name || '')) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
-  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
-}
-
-function initials(name) {
-  return (name || '?')
-    .split(' ').map((w) => w[0] || '').join('')
-    .toUpperCase().slice(0, 2);
 }
 
 // ── Icons ─────────────────────────────────────────────────────

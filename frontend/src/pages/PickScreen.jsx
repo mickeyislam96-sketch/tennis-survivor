@@ -75,7 +75,7 @@ export function PickScreen() {
   const [available, setAvailable]     = useState([]);
   const [rounds, setRounds]           = useState([]);
   const [currentRound, setCurrentRound] = useState('R1');
-  const [pickMatchDetail]             = useState(null);
+  const [pickMatchDetail]             = useState(null); // TODO: wire up match detail for locked pick card
   const [deadline, setDeadline]       = useState(null);
   const [opensAt, setOpensAt]         = useState(null);
   const [deadlines, setDeadlines]     = useState([]);
