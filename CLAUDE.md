@@ -390,8 +390,17 @@ Lock time overrides set for all rounds (R1 through F) in commit `69cddfd`.
 ### 9. ~~API-Tennis returning no fixture data~~ — FIXED (6 Apr 2026)
 Root cause: `tournament_season=2026` parameter. API-Tennis returns empty `{success: 1}` when this is included for Monte Carlo (tournament key 1970). Fix: set `apiSeason: null` in MC config and made the URL parameter conditional in `tennisData.js`, `health.js`, and `admin.js`. API now returns 50+ live fixtures correctly.
 
-### 10. ~~Transactional emails not deployed~~ — PARTIALLY FIXED (6 Apr 2026)
+### 10. ~~Transactional emails not deployed~~ — FIXED (21 Apr 2026)
 Email system now sends directly via Brevo (queue/approval removed 21 Apr). `emails_sent` table still used for dedup (UNIQUE constraint prevents duplicate sends). Cross-pool bug fixed: queries filter by `TOURNAMENT.id`.
+
+### 19. ~~TOURNAMENTS.find() stale status bug~~ — FIXED (21 Apr 2026)
+Four pages (PickScreen, DrawViewer, GroupHome, PickHistory) used `TOURNAMENTS.find()` which returns hardcoded `status: 'upcoming'` instead of `getTournament()` which computes status from dates. Caused PickHistory to show "No picks yet" even after picks were submitted, and would have broken other pages when Madrid went active. Fix: switched all four to `getTournament()` / `getAllTournaments()`. **Lesson:** never use raw `TOURNAMENTS` array for status checks — always use `getTournament()`.
+
+### 20. ~~Pick submission failing — userId missing~~ — FIXED (21 Apr 2026)
+POST `/api/picks` body didn't include userId. Frontend relied entirely on JWT via `authFetch`. After session 7 removed legacy `?userId` query param auth, the POST body was the only non-JWT fallback, but it was never updated to include userId. Fix: added `userId` to POST body in `PickScreen.jsx`.
+
+### 21. ~~Support route wrong table name~~ — FIXED (21 Apr 2026)
+`support.js` referenced non-existent `members` table (correct: `group_members`). Every support request from a logged-in user would crash with SQL error. Fix: corrected table name and cast `user_id::text`.
 
 ### 11. Cross-pool email scoping — FIXED (6 Apr 2026)
 `sendResultEmails()` and `sendRemindersForRound()` queries were not filtered by tournament. Emails were being queued for Miami practice pool alongside Monte Carlo. Fixed by joining `groups` table and filtering by `g.tournament_id = TOURNAMENT.id`.
@@ -422,7 +431,7 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 
 ---
 
-## Current tournament state (as of 19 April 2026)
+## Current tournament state (as of 21 April 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
@@ -432,16 +441,17 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
 - Lessons: see memory `project_monte_carlo_activation.md`
 
-### Madrid 2026 (NEXT — almost ready)
+### Madrid 2026 (ACTIVE — R1 pick window open)
 - Tournament: Mutua Madrid Open 2026
-- Status: `upcoming` — draw expected 19-20 Apr, tournament starts 22 Apr
+- Status: R1 pick window open, tournament starts 22 Apr
 - Entry: Free (second free tournament before Roland Garros paid launch)
-- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). Per-match lock code retained for future mobile app use.
-- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (4 entries as of 19 Apr)
-- Data source: Goalserve (`GOALSERVE_API_KEY` set in Railway, adapter implemented) with API-Tennis fallback
+- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). R1 lock at 2026-04-22T08:00Z.
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (5 entries as of 21 Apr)
+- Data source: Goalserve (`GOALSERVE_API_KEY` set) — currently returning 0 fixtures (draw not published in their system yet). Seed draw JSON used until live data available. **Check Goalserve data availability before 22 Apr 08:00 UTC.**
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
-- Pre-launch member view: leaderboard-style page with stats bar, member table, invite box (deployed 17 Apr)
-- Goalserve adapter: implemented in `dataAdapter.js` with 5-min cache, status mapping, round mapping, withdrawal detection. **Needs testing once draw drops.**
+- 56 R1 players available for picks. All lockTimeOverrides are null (using roundDateFallbacks).
+- `JWT_SECRET` confirmed set in Railway (separate from `ADMIN_SECRET`).
+- Full experience audit completed 21 Apr — 5 critical bugs fixed (see session 14).
 
 ### Email design system (aligned 19 Apr)
 All 7 transactional email templates + admin digest in `backend/src/utils/email.js`. Fully aligned to live site design:
@@ -465,23 +475,26 @@ Full-stack polish across 7 commits. **Key changes:**
 ### Outstanding actions (priority order)
 1. ~~Activate Goalserve trial~~ DONE 19 Apr
 2. ~~Implement Goalserve adapter~~ DONE 19 Apr
-3. ~~Test Goalserve against live data~~ DONE 20 Apr — API calls working, parallel fetch deployed, empty result caching fixed
+3. ~~Test Goalserve against live data~~ DONE 20 Apr
 4. **Set lock time overrides for R1+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour (now also auto-set by `autoSetLockTimes()` in opsMonitor.js)
 5. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
 6. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
-7. ~~Pre-Madrid: SPF/DKIM for Brevo~~ VERIFIED 21 Apr — all 4 DNS records (Brevo code, DKIM 1 CNAME, DKIM 2 CNAME, DMARC) confirmed authenticated in Brevo dashboard. Domain hosted on Namecheap.
+7. ~~Pre-Madrid: SPF/DKIM for Brevo~~ VERIFIED 21 Apr
 8. ~~Pre-Madrid: Mobile app sync~~ DONE 20 Apr
-9. ~~Set MATCHSTAT_API_KEY in Railway~~ DONE 21 Apr — key set, deploy confirmed healthy
-10. ~~Matchstat pagination fix~~ DONE 21 Apr — free tier covers top 200 players (was 11). Decided: free tier for Madrid, upgrade to Pro ($10/mo) after if it works well.
-11. **Post-Madrid: EAS Project ID** — set before App Store submission
-12. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+9. ~~Set MATCHSTAT_API_KEY in Railway~~ DONE 21 Apr
+10. ~~Matchstat pagination fix~~ DONE 21 Apr
 11. ~~Add `DATABASE_URL` GitHub secret~~ DONE 19 Apr
 12. ~~Build Phase 1 automation~~ DONE 19 Apr
-13. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work against live data
-14. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` scheduled task to pre-approve tool permissions
-15. **Build Phase 2 (Marketing)** — post-Madrid: brand voice doc, content calendar, weekly content scheduled task
-16. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 individual files, 6.4MB) superseded by `player-sprite.webp` (205KB). Low priority.
-17. ~~Add H2H data source~~ DONE 21 Apr — Matchstat Tennis API integrated. H2H, profiles, surface stats, recent form all live in matchup modal.
+13. ~~Add H2H data source~~ DONE 21 Apr
+14. ~~Full experience audit~~ DONE 21 Apr — 5 critical bugs fixed (pick submission, pick history, stale tournament status x3, support table)
+15. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
+16. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (payments dormant), fix before Rome.
+17. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work against live data
+18. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` scheduled task to pre-approve tool permissions
+19. **Post-Madrid: EAS Project ID** — set before App Store submission
+20. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+21. **Build Phase 2 (Marketing)** — post-Madrid: brand voice doc, content calendar, weekly content scheduled task
+22. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 individual files, 6.4MB) superseded by `player-sprite.webp` (205KB). Low priority.
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -538,6 +551,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 21 Apr 2026 (session 12) | **Matchstat activation + pagination fix.** (1) **Set `MATCHSTAT_API_KEY` in Railway** via dashboard — deploy confirmed healthy. Matchup modal now returns H2H/profiles/surface stats in production. (2) **Discovered 11-player limit was pagination, not tier restriction** — RapidAPI pricing research showed free/pro/ultra tiers differ only in request volume (500/10K/75K per month), not data access. Rankings endpoint has `pageSize` (default 10) and `pageNo` params. (3) **Fixed `buildNameCache()` in `matchstatAdapter.js`** — changed from single unpaginated call (11 results) to 2 pages of 100 (`pageSize=100&pageNo=1` + `pageNo=2`), covering top 200 ATP players. Also added defensive `entry.player \|\| entry` to handle both nested and flat response shapes. Commit `bc3fccd`. (4) **Free tier budget analysis:** 500 req/month. Cache rebuild = 2 calls/day (60/month). Remaining 440 = ~55 unique matchup lookups (8 calls each, 30-min cache absorbs repeat views). Sufficient for Madrid with ~10 users. (5) **Decision: free tier for Madrid, upgrade to Pro ($10/mo) after tournament if it works well.** Context/memory files updated (commit `ea47a9c`). |
 | 21 Apr 2026 (session 13) | **Email queue removal + direct send.** (1) **Diagnosed "invalid admin secret" error** — `ADMIN_SECRET` in Railway was changed during Vercel security breach response, but email digest URLs still had the old secret embedded. (2) **Removed email queue/approval system entirely** — `sendWithDedup()` in `email.js` now sends immediately via Brevo instead of inserting as `status='pending'`. Dedup INSERT still prevents duplicate sends. `sendAdminDigest()` converted to no-op. All 8 email types now send directly: welcome, tournament-join, password-reset, support, pick-reminder, round-result, withdrawal-alert, draw-released. Commit `539d8b9`. (3) **Flushed old queued emails** — one-time startup code sent all pending/skipped emails via Brevo, then cleaned up (commit `7d31b4c`, cleanup `3311239`). (4) **Decision:** no queue system for Madrid. Small group size is good for testing direct send. Can re-add approval queue later for larger paid pools if needed. |
 | 21 Apr 2026 (session 10) | **Email approval fix + Brevo domain verification.** (1) **Diagnosed email approval failure** — admin digest email only showed a raw `curl` command, unusable for non-technical admin. Root cause: no clickable button, no GET endpoint. (2) **Built one-click email approval** — added `GET /api/admin/approve-emails` endpoint that returns HTML pages (preview table or send confirmation). Updated `sendAdminDigest()` in `email.js` to include gold "Approve & Send" pill button and "Preview without sending" link, with admin secret embedded in URLs. Commit `6452fbe`. (3) **Verified Brevo SPF/DKIM** — all 4 DNS records confirmed authenticated: Brevo code (TXT), DKIM 1 (`brevo1._domainkey` CNAME → `b1.finalserveivor-com.dkim.brevo.com`), DKIM 2 (`brevo2._domainkey` CNAME → `b2.finalserveivor-com.dkim.brevo.com`), DMARC (TXT `p=none`). Domain hosted on Namecheap, auto-configured via Brevo's Entri integration. Initial DNS check missed DKIM because Brevo uses CNAME records, not TXT. (4) **GitHub token refresh** — old PAT expired, new one provided and used for push. Both Vercel (READY) and Railway (200 health) confirmed. |
+| 21 Apr 2026 (session 14) | **Full experience audit + 5 critical bug fixes.** (1) **Pick submission failing** — `POST /api/picks` body didn't include `userId`. After session 7 removed legacy `?userId` auth, frontend relied entirely on JWT, but if token was invalid the POST had no fallback. Fix: added `userId` to POST body in `PickScreen.jsx` (commit `a0cd1c7`). (2) **Pick history blank** — `PickHistory.jsx` used `TOURNAMENTS.find()` (stale hardcoded status `'upcoming'`) and returned early, hiding picks even after submission. Fix: switched to `getTournament()` and only show empty state when `picks.length === 0` (commit `766bf2f`). (3) **Same stale status bug in 3 more pages** — `PickScreen`, `DrawViewer`, `GroupHome` all used `TOURNAMENTS.find()` instead of `getTournament()`. Fix: switched all three (commit `1f90b66`). (4) **Support form crashes** — `support.js` referenced non-existent table `members` (correct: `group_members`). Fix: corrected table name and cast (commit `1f90b66`). (5) **Player avatar missing in pick history** — added `PlayerAvatar` component to pick history rows (commits `eb48fb3`, `60457d1`). (6) **Comprehensive 3-way parallel audit** — frontend (13 pages), backend (14 files), live API (10 endpoints). Found 15 total issues: 5 critical (all fixed), 3 high (CSRF migration mode, PaymentFlow raw fetch, useEffect deps), 4 medium, 3 low. Confirmed: 56 R1 players available, deadlines correct, Goalserve returning 0 fixtures (expected — draw not yet in their system), `JWT_SECRET` already set in Railway. |
 | 20 Apr 2026 (session 8) | **Bracket fix + image optimisation + API performance.** Three performance/display fixes. (1) **Bracket spacing drift fix** — `.bc-col-body` used `justify-content: space-around` which drifted when bye cards had different height from match cards. Replaced with `flex: 1` on `.bc-slot` so every slot gets equal fraction regardless of content (commit `56a1c17`). (2) **CSS sprite sheet for player headshots** — replaced 170 individual JPG HTTP requests (6.4 MB) with a single 205 KB WebP sprite (1280x880, 16×11 grid of 80px cells). `PlayerAvatar.jsx` rewritten to use `background-position`. New files: `frontend/src/data/playerManifest.json` (slug→x,y map, 8KB), `frontend/public/player-sprite.webp` (205KB). Zero HTTP overhead for missing players (manifest check is in-memory). Commit `a5ae16ea`. (3) **Parallelised Goalserve API calls** — the three Goalserve endpoints (fixtures, draw, livescore) were fetched sequentially (each 2-6s, total 6-18s). Now use `Promise.allSettled` to run in parallel (total = max single call ≈ 3-5s). Added promise-level deduplication so concurrent callers share one in-flight fetch. Result: cold miss 5s (was 10-17s), cached <1.2s. Commit `ec7bb58`. |
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
 
