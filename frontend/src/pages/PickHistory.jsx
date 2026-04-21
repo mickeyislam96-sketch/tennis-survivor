@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
+import { getTournament } from '../data/tournaments';
 import { Hero } from '../ui/Hero.jsx';
 import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
@@ -32,14 +32,15 @@ export function PickHistory() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
-        const t = g?.tournamentId ? TOURNAMENTS.find(t => t.id === g.tournamentId) : null;
+        const t = g?.tournamentId ? getTournament(g.tournamentId) : null;
         setTournamentStatus(t?.status || null);
       })
       .catch(() => setMember(null));
   }, [groupId, userId]);
 
-  // Upcoming tournament — no picks exist yet
-  if (tournamentStatus && tournamentStatus !== 'active' && tournamentStatus !== 'completed') {
+  // Upcoming tournament with no picks yet — show "coming soon" state
+  // But if picks exist (window is open before start date), show them
+  if (tournamentStatus && tournamentStatus !== 'active' && tournamentStatus !== 'completed' && picks.length === 0) {
     return (
       <div className="ph-page">
         <Hero
