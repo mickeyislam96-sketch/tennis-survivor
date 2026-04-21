@@ -260,6 +260,15 @@
   border-radius: var(--ds-radius-sm);
 }
 
+@media (max-width: 640px) {
+  .lb-picks-modal {
+    max-height: 85vh;
+  }
+  .lb-picks-table-wrap {
+    max-height: 50vh;
+  }
+}
+
 .lb-picks-table {
   width: 100%;
   border-collapse: collapse;

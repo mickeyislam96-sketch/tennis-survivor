@@ -14,8 +14,11 @@
 }
 
 @media (max-width: 640px) {
+  .support-page {
+    padding: 24px 12px 48px;
+  }
   .support-card {
-    padding: 24px 20px;
+    padding: 20px 16px;
   }
 }
 
@@ -77,6 +80,7 @@
   border: 1px solid var(--ds-border);
   border-radius: 8px;
   padding: 10px 14px;
+  min-height: 44px; /* Apple HIG touch target */
   transition: border-color 0.15s ease;
   width: 100%;
   box-sizing: border-box;

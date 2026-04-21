@@ -161,6 +161,8 @@
 .jg-input {
   width: 100%;
   padding: 12px 14px;
+  min-height: 44px; /* Apple HIG touch target */
+  box-sizing: border-box;
   font-family: var(--ds-font-sans);
   font-size: 15px;
   color: var(--ds-ink);

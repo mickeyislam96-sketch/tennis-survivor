@@ -73,6 +73,15 @@
 
 .ui-section-header--center .ui-section-header__kicker { margin-inline: auto; }
 
+@media (max-width: 640px) {
+  .ui-section__inner {
+    padding-inline: var(--ds-space-4);
+  }
+  .ui-section-header {
+    margin-bottom: var(--ds-space-6);
+  }
+}
+
 /* Standalone eyebrow element (for use outside section-header) */
 .ui-eyebrow {
   display: inline-block;

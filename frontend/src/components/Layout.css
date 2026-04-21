@@ -143,7 +143,14 @@
     grid-template-columns: auto auto;
     grid-template-rows: auto auto;
   }
+  /* Explicit row placement — prevents Grid auto-placement from
+     putting nav (with grid-column:1/-1) in row 1 and pushing
+     brand + actions to row 2. Without this, the user avatar
+     dropdown opens below the nav and gets clipped on portrait. */
+  .ds-brand          { grid-row: 1; grid-column: 1; }
+  .ds-header__actions { grid-row: 1; grid-column: 2; justify-self: end; }
   .ds-nav {
+    grid-row: 2;
     grid-column: 1 / -1;
     justify-content: flex-start;
     overflow-x: auto;
@@ -152,10 +159,44 @@
   }
   .ds-nav::-webkit-scrollbar { display: none; }
   .ds-nav-link { white-space: nowrap; font-size: var(--ds-text-sm); }
+
+  /* User menu dropdown — full-width bottom-anchored on mobile */
+  .user-menu-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-width: unset;
+    width: 100%;
+    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+    z-index: 200;
+    animation: ds-menu-slide-up var(--ds-dur-med) var(--ds-ease);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  @keyframes ds-menu-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  /* Semi-transparent backdrop behind bottom-sheet menu */
+  .user-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 20, 0.4);
+    z-index: 199;
+  }
 }
 
 /* ── USER MENU ───────────────────────────────────────────────────────── */
 .user-menu-wrap { position: relative; }
+
+.user-menu-backdrop {
+  display: none; /* only visible on mobile */
+}
 
 .user-avatar-btn {
   background: transparent;
@@ -466,6 +507,7 @@
 .ds-input {
   width: 100%;
   padding: 12px 14px;
+  min-height: 44px; /* Apple HIG touch target */
   font-family: var(--ds-font-sans);
   font-size: var(--ds-text-md);
   border: 1px solid var(--ds-border-strong);
@@ -473,6 +515,7 @@
   background: var(--ds-surface);
   color: var(--ds-ink);
   outline: none;
+  box-sizing: border-box;
   transition: border-color var(--ds-dur-fast) var(--ds-ease),
               box-shadow var(--ds-dur-fast) var(--ds-ease);
 }

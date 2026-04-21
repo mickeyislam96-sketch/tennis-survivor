@@ -95,3 +95,14 @@
 .ui-hero--compact .ui-hero__title {
   font-size: var(--ds-text-4xl);
 }
+
+@media (max-width: 640px) {
+  .ui-hero__inner {
+    padding-inline: var(--ds-space-4);
+  }
+  .ui-hero__meta {
+    gap: var(--ds-space-4);
+    margin-top: var(--ds-space-4);
+    padding-top: var(--ds-space-4);
+  }
+}

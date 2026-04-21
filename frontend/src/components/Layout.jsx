@@ -90,33 +90,36 @@ function UserMenu({ user }) {
       </button>
 
       {open && (
-        <div className="user-menu-dropdown" role="menu">
-          <div className="user-menu-identity">
-            <span className="user-avatar user-avatar-sm" style={{ background: colour }}>{ini}</span>
-            <div className="user-menu-id-text">
-              <p className="user-menu-name">{user.displayName || 'You'}</p>
-              <p className="user-menu-email">{user.email}</p>
+        <>
+          <div className="user-menu-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="user-menu-dropdown" role="menu">
+            <div className="user-menu-identity">
+              <span className="user-avatar user-avatar-sm" style={{ background: colour }}>{ini}</span>
+              <div className="user-menu-id-text">
+                <p className="user-menu-name">{user.displayName || 'You'}</p>
+                <p className="user-menu-email">{user.email}</p>
+              </div>
             </div>
+
+            <div className="user-menu-divider" />
+
+            <Link to="/profile" className="user-menu-item" onClick={() => setOpen(false)}>
+              Profile
+            </Link>
+            <Link to="/" className="user-menu-item" onClick={() => setOpen(false)}>
+              My pools
+            </Link>
+
+            <div className="user-menu-divider" />
+
+            <button
+              className="user-menu-signout"
+              onClick={() => { logout(); setOpen(false); }}
+            >
+              Sign out
+            </button>
           </div>
-
-          <div className="user-menu-divider" />
-
-          <Link to="/profile" className="user-menu-item" onClick={() => setOpen(false)}>
-            Profile
-          </Link>
-          <Link to="/" className="user-menu-item" onClick={() => setOpen(false)}>
-            My pools
-          </Link>
-
-          <div className="user-menu-divider" />
-
-          <button
-            className="user-menu-signout"
-            onClick={() => { logout(); setOpen(false); }}
-          >
-            Sign out
-          </button>
-        </div>
+        </>
       )}
     </div>
   );

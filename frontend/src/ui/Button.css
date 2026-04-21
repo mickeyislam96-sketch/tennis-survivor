@@ -37,9 +37,14 @@
 .ui-btn__icon  { display: inline-flex; align-items: center; }
 
 /* ── Sizes ─────────────────────────────────────────────────────────── */
-.ui-btn--sm { padding: 8px 14px;  font-size: var(--ds-text-sm); }
-.ui-btn--md { padding: 12px 22px; font-size: var(--ds-text-md); }
-.ui-btn--lg { padding: 16px 28px; font-size: var(--ds-text-lg); }
+.ui-btn--sm { padding: 8px 14px;  font-size: var(--ds-text-sm); min-height: 36px; }
+.ui-btn--md { padding: 12px 22px; font-size: var(--ds-text-md); min-height: 44px; }
+.ui-btn--lg { padding: 16px 28px; font-size: var(--ds-text-lg); min-height: 48px; }
+
+@media (max-width: 640px) {
+  /* All tappable buttons meet 44px Apple HIG minimum on mobile */
+  .ui-btn--sm { min-height: 44px; padding: 10px 14px; }
+}
 
 .ui-btn--block { display: flex; width: 100%; }
 

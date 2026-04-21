@@ -131,6 +131,8 @@
 .pr-input {
   width: 100%;
   padding: 10px 12px;
+  min-height: 44px; /* Apple HIG touch target */
+  box-sizing: border-box;
   font-family: var(--ds-font-sans);
   font-size: 14px;
   color: var(--ds-ink);
