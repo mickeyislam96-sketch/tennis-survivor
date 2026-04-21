@@ -8,7 +8,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'mickeyislam96@gmail.com';
 if (!EMAIL_CONFIGURED) {
   console.warn('⚠️  EMAIL NOT CONFIGURED: BREVO_API_KEY env var is missing.');
 } else {
-  console.log('✅ Email configured — Brevo HTTP API (approval mode: emails queue as pending)');
+  console.log('✅ Email configured — Brevo HTTP API (direct send mode)');
 }
 
 // Send via Brevo HTTP API (port 443 — works on Railway, no SMTP needed)
@@ -72,30 +72,50 @@ const FONT_MONO    = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
 const FONT_LINK    = '<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;1,400&family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dedup + approval wrapper — queues emails as 'pending', never sends directly.
+// Dedup + direct send — sends immediately via Brevo, uses DB for dedup only.
 //
 // Flow:
-//   1. INSERT into emails_sent with status='pending', ON CONFLICT DO NOTHING.
-//   2. If rowCount === 0, this email was already queued or sent. Stop.
-//   3. Email stays pending until admin approves via POST /api/admin/approve-emails.
+//   1. INSERT into emails_sent with status='sending', ON CONFLICT DO NOTHING.
+//   2. If rowCount === 0, this email was already sent. Stop (dedup).
+//   3. Send immediately via Brevo.
+//   4. Update status to 'sent' (or 'failed').
 //
-// The cron NEVER sends emails. Only the admin endpoint does.
+// No approval queue. No admin step. Emails go out as soon as triggered.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendWithDedup({ userId, groupId, round, emailType, to, subject, html }) {
-  // Attempt dedup insert — queued as 'pending', HTML stored for later send
+  // Attempt dedup insert — prevents sending the same email twice
   const { rowCount } = await pool.query(
     `INSERT INTO emails_sent (user_id, group_id, round, email_type, status, subject, recipient_email, recipient_name, metadata)
-     VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)
+     VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8)
      ON CONFLICT (user_id, group_id, round, email_type) DO NOTHING`,
     [userId, groupId, round, emailType, subject, to, null, JSON.stringify({ html })]
   );
 
   if (rowCount === 0) {
-    return { queued: false, reason: 'already_exists' };
+    return { sent: false, reason: 'already_exists' };
   }
 
-  console.log(`[email-queue] Queued "${emailType}" for ${to} | round=${round}`);
-  return { queued: true };
+  if (!EMAIL_CONFIGURED) {
+    console.warn(`[email] Would send "${emailType}" to ${to} but BREVO_API_KEY not set`);
+    return { sent: false, reason: 'not_configured' };
+  }
+
+  try {
+    await sendViaBrevo({ to, subject, html });
+    await pool.query(
+      `UPDATE emails_sent SET status = 'sent', sent_at = NOW() WHERE user_id = $1 AND group_id = $2 AND round = $3 AND email_type = $4`,
+      [userId, groupId, round, emailType]
+    );
+    console.log(`✅ [${emailType}] sent to ${to} | round=${round}`);
+    return { sent: true };
+  } catch (err) {
+    await pool.query(
+      `UPDATE emails_sent SET status = 'failed' WHERE user_id = $1 AND group_id = $2 AND round = $3 AND email_type = $4`,
+      [userId, groupId, round, emailType]
+    );
+    console.error(`❌ [${emailType}] failed for ${to}: ${err.message}`);
+    return { sent: false, reason: err.message };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,19 +192,19 @@ export async function getPendingEmailsSummary() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Admin: send a digest notification to the admin when NEW emails are queued.
-// Only sends when the pending count has increased since the last digest
-// (avoids spamming you every 15 minutes with the same list).
+// Admin digest — DISABLED (direct send mode, no queue to approve).
+// Kept as no-op so callers don't break.
 // ─────────────────────────────────────────────────────────────────────────────
-let _lastDigestPendingCount = 0;
-
 export async function sendAdminDigest() {
+  // No-op: emails now send directly, no approval queue.
+  return;
+
+  /* --- Original digest code (preserved for reference) ---
   if (!EMAIL_CONFIGURED) return;
 
   const pending = await getPendingEmailsSummary();
   if (pending.length === 0) { _lastDigestPendingCount = 0; return; }
 
-  // Only notify when new emails have been queued since the last digest
   if (pending.length <= _lastDigestPendingCount) return;
   _lastDigestPendingCount = pending.length;
 
@@ -256,6 +276,7 @@ export async function sendAdminDigest() {
   } catch (err) {
     console.error(`[admin-digest] Failed to send digest: ${err.message}`);
   }
+  --- end of preserved digest code --- */
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -796,7 +817,7 @@ const buildPasswordResetHTML = ({ email, displayName, resetUrl }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. PICK REMINDER — 24h before lock, user has no pick for the round
-//    Uses sendWithDedup — safe to call repeatedly from the cron.
+//    Uses sendWithDedup — dedup prevents duplicate sends.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendPickReminderEmail({ userId, groupId, round, email, displayName, groupName, lockAt }) {
@@ -835,7 +856,7 @@ export async function sendPickReminderEmail({ userId, groupId, round, email, dis
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. ROUND RESULT — sent after a user's pick is resolved (survived or eliminated)
-//    Uses sendWithDedup — safe to call repeatedly from the cron.
+//    Uses sendWithDedup — dedup prevents duplicate sends.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendRoundResultEmail({ userId, groupId, round, email, displayName, playerName, survived }) {
@@ -899,7 +920,7 @@ export async function sendRoundResultEmail({ userId, groupId, round, email, disp
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. WITHDRAWAL NOTIFICATION — sent when a picked player withdraws before match
-//    Uses sendWithDedup — safe to call repeatedly.
+//    Uses sendWithDedup — dedup prevents duplicate sends.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendWithdrawalEmail({ userId, groupId, round, email, displayName, withdrawnPlayer, replacementPlayer, groupName }) {
@@ -955,7 +976,7 @@ export async function sendWithdrawalEmail({ userId, groupId, round, email, displ
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 7. DRAW RELEASED — sent when tournament draw is published and picking opens
-//    Uses sendWithDedup — safe to call repeatedly.
+//    Uses sendWithDedup — dedup prevents duplicate sends.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendDrawReleasedEmail({ userId, groupId, email, displayName, tournamentName, groupName }) {

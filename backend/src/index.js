@@ -131,7 +131,7 @@ cron.schedule('*/15 * * * *', async () => {
   try { await runOpsChecks(); }
   catch (err) { console.error('[cron] Ops monitor error:', err.message); }
 
-  // 4. Notify admin if there are emails waiting for approval
+  // 4. Admin digest — no-op (emails now send directly, no queue)
   try { await sendAdminDigest(); }
   catch (err) { console.error('[cron] Admin digest error:', err.message); }
 
@@ -148,6 +148,18 @@ cron.schedule('*/15 * * * *', async () => {
 // Admin routes are now in routes/admin.js, mounted at /api/admin above.
 // process-results, approve-emails, and 15+ more endpoints are available there.
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Final Serve-ivor API running on 0.0.0.0:${PORT}`);
+
+  // One-time cleanup: mark old queued emails as 'skipped' (queue system removed 21 Apr 2026)
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE emails_sent SET status = 'skipped' WHERE status = 'pending'`
+    );
+    if (rowCount > 0) {
+      console.log(`[startup] Cleared ${rowCount} old pending emails from queue (queue system removed)`);
+    }
+  } catch (err) {
+    console.warn('[startup] Could not clear pending emails:', err.message);
+  }
 });
