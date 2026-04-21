@@ -585,6 +585,63 @@ adminRouter.post('/approve-emails', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/approve-emails ──────────────────────────────────────────
+// One-click approval from admin digest email.
+// GET ?secret=X&confirm=true → send all pending and show HTML result page
+// GET ?secret=X              → preview pending as HTML page
+adminRouter.get('/approve-emails', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { confirm } = req.query;
+  try {
+    if (confirm === 'true') {
+      const result = await sendPendingEmails();
+      const sent = result.sent || 0;
+      const failed = result.failed || 0;
+      res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+        <body style="margin:0;padding:40px 20px;background:#FAFAF7;font-family:system-ui,sans-serif;text-align:center;">
+          <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <h1 style="margin:0 0 12px;color:#0F4A23;font-size:24px;">${sent > 0 ? '✅' : '📭'} Emails ${sent > 0 ? 'Sent' : 'None to Send'}</h1>
+            <p style="margin:0 0 8px;color:#555;font-size:16px;">${sent} sent${failed > 0 ? `, ${failed} failed` : ''}</p>
+            <p style="margin:16px 0 0;color:#999;font-size:13px;">You can close this tab.</p>
+          </div>
+        </body></html>`);
+    } else {
+      const pending = await getPendingEmailsSummary();
+      let rows = '';
+      for (const e of pending) {
+        rows += `<tr>
+          <td style="padding:8px;border-bottom:1px solid #eee;font-size:14px;">${e.recipient_name || e.recipient_email}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;font-size:14px;">${e.email_type}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;font-size:14px;">${e.round || ''}</td>
+        </tr>`;
+      }
+      const secret = req.query.secret;
+      const approveUrl = `https://tennis-survivor-production.up.railway.app/api/admin/approve-emails?secret=${encodeURIComponent(secret)}&confirm=true`;
+      res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+        <body style="margin:0;padding:40px 20px;background:#FAFAF7;font-family:system-ui,sans-serif;">
+          <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <h1 style="margin:0 0 8px;color:#0F4A23;font-size:22px;">📧 ${pending.length} email${pending.length === 1 ? '' : 's'} queued</h1>
+            <p style="margin:0 0 20px;color:#777;font-size:14px;">Review below, then click approve to send.</p>
+            ${pending.length > 0 ? `<table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+              <thead><tr style="background:#f5f5f0;">
+                <th style="padding:8px;text-align:left;font-size:12px;color:#888;">Recipient</th>
+                <th style="padding:8px;text-align:left;font-size:12px;color:#888;">Type</th>
+                <th style="padding:8px;text-align:left;font-size:12px;color:#888;">Round</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>` : ''}
+            <a href="${approveUrl}" style="display:inline-block;background:#FFC933;color:#2B1F00;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:600;font-size:16px;">
+              ✅ Approve &amp; Send ${pending.length} Email${pending.length === 1 ? '' : 's'}
+            </a>
+          </div>
+        </body></html>`);
+    }
+  } catch (err) {
+    res.status(500).send(`<!DOCTYPE html><html><body style="padding:40px;font-family:system-ui;text-align:center;">
+      <h1 style="color:red;">Error</h1><p>${err.message}</p></body></html>`);
+  }
+});
+
 // ── POST /api/admin/send-draw-released ──────────────────────────────────────
 // Queue draw-released emails for all members of the current tournament's groups.
 // Body: { secret }

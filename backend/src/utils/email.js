@@ -208,9 +208,12 @@ export async function sendAdminDigest() {
     }
   }
 
-  const adminUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
+  const adminSecret = process.env.ADMIN_SECRET || '';
+  const baseUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
+  const previewUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}`;
+  const approveUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&confirm=true`;
 
-  // Admin digest stays functional/plain — not user-facing
+  // Admin digest — functional with one-click approve button
   const html = `
     <!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
     <body style="margin:0;padding:20px;background:${C.canvas};font-family:${FONT_STACK};">
@@ -230,11 +233,15 @@ export async function sendAdminDigest() {
           <tbody>${summaryRows}</tbody>
         </table>
 
-        <p style="margin:0 0 12px;font-size:13px;color:${C.inkMuted};">To approve and send, make a POST request:</p>
-        <code style="display:block;background:${C.surfaceMuted};padding:12px;border-radius:8px;font-size:12px;color:${C.ink};word-break:break-all;margin-bottom:16px;">
-          curl -X POST "${adminUrl}" -H "Content-Type: application/json" -d '{"secret":"YOUR_ADMIN_SECRET","confirm":true}'
-        </code>
-        <p style="margin:0;font-size:12px;color:${C.inkGhost};">To preview without sending, omit the confirm field.</p>
+        <div style="text-align:center;margin-bottom:16px;">
+          <a href="${approveUrl}" style="display:inline-block;background:${C.gold};color:#2B1F00;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:600;font-size:16px;">
+            ✅ Approve &amp; Send ${pending.length} Email${pending.length === 1 ? '' : 's'}
+          </a>
+        </div>
+
+        <p style="margin:0;text-align:center;font-size:12px;color:${C.inkGhost};">
+          <a href="${previewUrl}" style="color:${C.inkMuted};text-decoration:underline;">Preview without sending</a>
+        </p>
       </div>
     </body></html>
   `;
