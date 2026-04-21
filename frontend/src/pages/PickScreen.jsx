@@ -191,7 +191,7 @@ export function PickScreen() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        groupId, round: currentRound,
+        userId, groupId, round: currentRound,
         playerId: player.id, playerName: player.name,
       }),
     })
