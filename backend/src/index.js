@@ -151,15 +151,49 @@ cron.schedule('*/15 * * * *', async () => {
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Final Serve-ivor API running on 0.0.0.0:${PORT}`);
 
-  // One-time cleanup: mark old queued emails as 'skipped' (queue system removed 21 Apr 2026)
+  // One-time: send old queued emails that were stuck as 'pending' or 'skipped'
   try {
-    const { rowCount } = await pool.query(
-      `UPDATE emails_sent SET status = 'skipped' WHERE status = 'pending'`
+    const { rows } = await pool.query(
+      `SELECT id, recipient_email, subject, email_type, round, metadata
+         FROM emails_sent
+        WHERE status IN ('pending', 'skipped')
+        ORDER BY created_at ASC`
     );
-    if (rowCount > 0) {
-      console.log(`[startup] Cleared ${rowCount} old pending emails from queue (queue system removed)`);
+    if (rows.length > 0) {
+      const BREVO_KEY = process.env.BREVO_API_KEY;
+      let sent = 0, failed = 0;
+      for (const row of rows) {
+        try {
+          const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+          if (!meta.html || !BREVO_KEY) { failed++; continue; }
+          const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'api-key': BREVO_KEY, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sender: { name: 'Final Serve-ivor', email: 'noreply@finalserveivor.com' },
+              to: [{ email: row.recipient_email }],
+              subject: row.subject,
+              htmlContent: meta.html,
+            }),
+          });
+          if (res.ok) {
+            await pool.query(`UPDATE emails_sent SET status = 'sent', sent_at = NOW() WHERE id = $1`, [row.id]);
+            sent++;
+            console.log(`✅ [startup-flush] ${row.email_type} sent to ${row.recipient_email}`);
+          } else {
+            await pool.query(`UPDATE emails_sent SET status = 'failed' WHERE id = $1`, [row.id]);
+            failed++;
+            console.error(`❌ [startup-flush] ${row.email_type} failed for ${row.recipient_email}: ${await res.text()}`);
+          }
+        } catch (emailErr) {
+          await pool.query(`UPDATE emails_sent SET status = 'failed' WHERE id = $1`, [row.id]);
+          failed++;
+          console.error(`❌ [startup-flush] error: ${emailErr.message}`);
+        }
+      }
+      console.log(`[startup-flush] Done: ${sent} sent, ${failed} failed out of ${rows.length} queued emails`);
     }
   } catch (err) {
-    console.warn('[startup] Could not clear pending emails:', err.message);
+    console.warn('[startup] Could not flush queued emails:', err.message);
   }
 });
