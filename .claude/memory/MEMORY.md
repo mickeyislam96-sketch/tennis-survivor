@@ -15,7 +15,7 @@
 - [No push without mockup](feedback_no_push_without_mockup.md) — never push new features to prod without mocking up and verifying full user journey first
 - [Points game mode](project_points_game_mode.md) — SHELVED. Too niche for casual fans, dilutes survivor simplicity
 - [Payment infrastructure](project_payment_infrastructure.md) — Stripe deployed 14 Apr (test mode). Security hardened. Dormant until paid group created.
-- [API replacement for Madrid](project_api_replacement.md) — Goalserve top candidate ($100/mo, 30-day trial). API-Tennis too unreliable.
+- [API replacement for Madrid](api-replacement.md) — Goalserve for live data, Matchstat for H2H/profiles/surface stats. Two-provider strategy.
 - [R1 per-match lock feature](project_r1_per_match_lock.md) — R1 has no deadline; players removed when match starts. All M1000 + Grand Slams.
 - [Verify both deploys](feedback_verify_both_deploys.md) — Railway can fail silently while Vercel succeeds; always test backend separately
 - [Player avatar headshots](project_player_avatars.md) — 173 static headshots, PlayerAvatar component, ATP Tour CDN source, fallback to initials

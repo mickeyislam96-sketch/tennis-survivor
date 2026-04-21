@@ -1,6 +1,6 @@
 ---
 name: API replacement for Madrid
-description: Goalserve tennis API replaces API-Tennis for all data needs. 30-min Goalserve cache, draw-level cache, 130ms responses. API-Tennis fully retired from matchup modal.
+description: Goalserve for live data (130ms), Matchstat for intelligence (H2H, profiles, surface stats). Two-provider strategy. Free tier limited to 11 players.
 type: project
 originSessionId: b42863f3-0280-4b74-8594-7beca144934c
 ---
@@ -36,3 +36,20 @@ originSessionId: b42863f3-0280-4b74-8594-7beca144934c
 3. `/tennis_scores/home?cat={id}` — livescore
 
 **Why replaced API-Tennis:** Failed repeatedly during Monte Carlo 2026 — empty responses, no reliable withdrawal detection. Now fully retired from the matchup modal too.
+
+## Matchstat Tennis API — Intelligence Layer (NEW 21 Apr 2026)
+
+**Status:** Deployed, dormant until `MATCHSTAT_API_KEY` is set in Railway.
+
+**Purpose:** Supplements Goalserve (live operational data) with historical/statistical intelligence: H2H records, player profiles, surface stats, recent form. Goalserve has no H2H endpoint, so Matchstat fills this gap.
+
+**Provider:** Matchstat Tennis API on RapidAPI (`tennis-api-atp-wta-itf.p.rapidapi.com`).
+
+**Key files:**
+- `backend/src/services/matchstatAdapter.js` — all API interactions, name→ID cache, parallel fetching
+- `backend/src/routes/matchup.js` — combines seed draw + Goalserve + Matchstat
+- `frontend/src/components/MatchupModal.jsx` — tabbed UI (Form / H2H / Profile)
+
+**Architecture:** Name→ID cache from rankings (24hr TTL), fuzzy surname fallback. `getMatchupIntelligence()` fires 8 parallel requests. 30-min data cache. Graceful degradation when key not set.
+
+**Free tier limitation:** Rankings returns max 11 entries. Most matchups outside top 11 show "No H2H data". Pro tier ($10/mo) removes cap. Mickey wants trial before committing.
