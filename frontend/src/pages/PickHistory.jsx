@@ -8,6 +8,7 @@ import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Card } from '../ui/Card.jsx';
 import { Badge } from '../ui/Badge.jsx';
+import PlayerAvatar from '../ui/PlayerAvatar';
 import './PickHistory.css';
 
 export function PickHistory() {
@@ -139,6 +140,7 @@ export function PickHistory() {
                 >
                   <div className="ph-row-left">
                     <span className="ph-round-badge">{p.round}</span>
+                    <PlayerAvatar name={p.playerName} size={32} />
                     <span className="ph-player">{p.playerName}</span>
                   </div>
                   {state === 'pending' && (
