@@ -186,28 +186,49 @@ picksRouter.get('/available', async (req, res) => {
 
 // GET /api/picks/history?groupId=
 picksRouter.get('/history', async (req, res) => {
-  const userId = req.userId || req.query.userId;  // JWT or legacy query param
+  const requestingUserId = req.userId;  // from JWT (the person making the request)
+  const targetUserId = req.userId || req.query.userId;  // whose picks to fetch
   const { groupId } = req.query;
 
-  if (isUUID(userId) && isUUID(groupId)) {
+  // Determine which round is currently open (unlocked) so we can hide
+  // other users' picks for that round
+  let openRound = null;
+  const isOwnPicks = requestingUserId && requestingUserId === targetUserId;
+  if (!isOwnPicks) {
+    try {
+      const deadlines = await getDeadlines();
+      const currentlyOpen = deadlines.find((d) => d.isOpen);
+      if (currentlyOpen) openRound = currentlyOpen.round;
+    } catch (_) {}
+  }
+
+  if (isUUID(targetUserId) && isUUID(groupId)) {
     try {
       const result = await pool.query(
         `SELECT id::text, group_id::text, user_id::text, round, player_id, player_name, survived, created_at
          FROM picks
          WHERE user_id = $1 AND group_id = $2
          ORDER BY array_position(ARRAY['R1','R64','R32','R16','QF','SF','F']::text[], round)`,
-        [userId, groupId]
+        [targetUserId, groupId]
       );
-      return res.json(result.rows.map(rowToPick));
+      let picks = result.rows.map(rowToPick);
+      // Strip open-round picks when viewing someone else's history
+      if (openRound) {
+        picks = picks.filter(p => p.round !== openRound);
+      }
+      return res.json(picks);
     } catch (e) {
       console.error('DB picks history error:', e.message);
     }
   }
 
   // Mock fallback
-  const picks = MOCK_PICKS.filter(
-    p => p.userId === userId && p.groupId === groupId
+  let picks = MOCK_PICKS.filter(
+    p => p.userId === targetUserId && p.groupId === groupId
   ).sort((a, b) => ROUNDS.indexOf(a.round) - ROUNDS.indexOf(b.round));
+  if (openRound) {
+    picks = picks.filter(p => p.round !== openRound);
+  }
   res.json(picks);
 });
 

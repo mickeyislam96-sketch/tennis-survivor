@@ -39,7 +39,7 @@ function avatarColour(name) {
 }
 
 // ── Pick History Modal ────────────────────────────────────────
-function PickHistoryModal({ member, groupId, currentRound, onClose }) {
+function PickHistoryModal({ member, groupId, openRound, onClose }) {
   const [picks, setPicks] = useState(null);
   const [error, setError] = useState(false);
   const trapRef = useFocusTrap(true);
@@ -53,7 +53,8 @@ function PickHistoryModal({ member, groupId, currentRound, onClose }) {
 
   const colour = avatarColour(member.displayName);
   const ini    = initials(member.displayName);
-  const visiblePicks = (picks || []).filter(p => !currentRound || p.round !== currentRound);
+  // Hide picks for any round whose window is still open (not yet locked)
+  const visiblePicks = (picks || []).filter(p => !openRound || p.round !== openRound);
 
   const handleBackdropKeyDown = (e) => {
     if (e.key === 'Escape') {
@@ -157,6 +158,7 @@ export function Leaderboard() {
           aliveCount: json.aliveCount ?? 0,
           currentRound: json.currentRound ?? null,
           roundIsLocked: json.roundIsLocked ?? false,
+          openRound: json.openRound ?? null,
         });
       })
       .catch(() => setData({ group: null, leaderboard: [], aliveCount: 0, currentRound: null }));
@@ -170,7 +172,7 @@ export function Leaderboard() {
     );
   }
 
-  const { group, leaderboard, aliveCount, currentRound, roundIsLocked } = data;
+  const { group, leaderboard, aliveCount, currentRound, roundIsLocked, openRound } = data;
   const totalEntrants = leaderboard.length;
   const eliminated    = totalEntrants - aliveCount;
   const winners       = leaderboard.filter((m) => m.isWinner);
@@ -337,7 +339,7 @@ export function Leaderboard() {
         <PickHistoryModal
           member={selectedMember}
           groupId={groupId}
-          currentRound={currentRound}
+          openRound={openRound}
           onClose={() => setSelectedMember(null)}
         />
       )}
