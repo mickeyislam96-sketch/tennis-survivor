@@ -159,36 +159,6 @@
   }
   .ds-nav::-webkit-scrollbar { display: none; }
   .ds-nav-link { white-space: nowrap; font-size: var(--ds-text-sm); }
-
-  /* User menu dropdown — full-width bottom-anchored on mobile */
-  .user-menu-dropdown {
-    position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    min-width: unset;
-    width: 100%;
-    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
-    z-index: 200;
-    animation: ds-menu-slide-up var(--ds-dur-med) var(--ds-ease);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  @keyframes ds-menu-slide-up {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
-  }
-
-  /* Semi-transparent backdrop behind bottom-sheet menu */
-  .user-menu-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 20, 20, 0.4);
-    z-index: 199;
-  }
 }
 
 /* ── USER MENU ───────────────────────────────────────────────────────── */
@@ -295,6 +265,47 @@
   cursor: pointer;
 }
 .user-menu-signout:hover { background: var(--ds-danger-soft); }
+
+/* Mobile user-menu overrides — MUST come after base desktop definitions
+   above so that same-specificity selectors resolve in mobile's favour. */
+@media (max-width: 640px) {
+  .user-menu-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-width: unset;
+    width: 100%;
+    border: none;
+    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+    z-index: 200;
+    padding: var(--ds-space-3);
+    padding-bottom: calc(var(--ds-space-3) + env(safe-area-inset-bottom, 0px));
+    animation: ds-menu-slide-up var(--ds-dur-med) var(--ds-ease);
+  }
+
+  @keyframes ds-menu-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  .user-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 20, 0.4);
+    z-index: 199;
+  }
+
+  .user-menu-item,
+  .user-menu-signout {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
 
 /* ── MAIN ────────────────────────────────────────────────────────────── */
 .ds-main {
