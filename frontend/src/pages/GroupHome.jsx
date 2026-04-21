@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../App';
-import { getTournament, TOURNAMENTS } from '../data/tournaments';
+import { getTournament, getAllTournaments } from '../data/tournaments';
 import { Hero } from '../ui/Hero.jsx';
 import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
@@ -702,7 +702,7 @@ export function GroupHome() {
 
     // ── Completed tournament ────────────────────────────────
     if (isCompleted && tournament) {
-      const nextT = TOURNAMENTS.find(t => t.status === 'upcoming' && t.id !== tournament.id);
+      const nextT = getAllTournaments().find(t => t.status === 'upcoming' && t.id !== tournament.id);
 
       return (
         <div className="gh-page">

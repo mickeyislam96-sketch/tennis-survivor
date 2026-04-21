@@ -48,9 +48,9 @@ supportRouter.post('/', supportLimiter, async (req, res) => {
         // Get their group memberships
         const groupsResult = await pool.query(
           `SELECT g.name, g.tournament_id
-           FROM members m
+           FROM group_members m
            JOIN groups g ON g.id = m.group_id
-           WHERE m.user_id = $1`,
+           WHERE m.user_id::text = $1`,
           [u.id]
         );
         userContext = {

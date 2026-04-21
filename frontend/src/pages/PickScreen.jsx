@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth, API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
+import { getTournament } from '../data/tournaments';
 import { Hero } from '../ui/Hero.jsx';
 import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
@@ -171,7 +171,7 @@ export function PickScreen() {
       .then((g) => {
         const me = g?.members?.find((m) => m.userId === userId);
         setMember(me || null);
-        const tournament = TOURNAMENTS.find(t => t.id === g?.tournamentId);
+        const tournament = getTournament(g?.tournamentId);
         if (tournament?.drawAvailable === false) setDrawAvailable(false);
         if (tournament?.status === 'completed') {
           setTournamentCompleted(true);

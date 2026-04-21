@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect, forwardRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { API } from '../App';
-import { TOURNAMENTS } from '../data/tournaments';
+import { getTournament } from '../data/tournaments';
 import { MatchupModal } from '../components/MatchupModal';
 import { Hero } from '../ui/Hero.jsx';
 import { Section, SectionHeader } from '../ui/Section.jsx';
@@ -257,7 +257,7 @@ export function DrawViewer() {
         const tid = g.tournamentId;
         if (tid) setTournamentId(tid);
 
-        const tournament = TOURNAMENTS.find(t => t.id === tid);
+        const tournament = getTournament(tid);
         if (tournament?.drawAvailable === false && tournament?.status !== 'completed') {
           setDrawAvailable(false);
           return;
