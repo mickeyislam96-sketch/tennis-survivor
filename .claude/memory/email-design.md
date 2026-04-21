@@ -23,12 +23,12 @@ All email templates in `backend/src/utils/email.js` (single file, ~990 lines). S
 8. Draw released
 9. Admin digest (functional/plain, not user-facing)
 
-## Delivery flow
-- All user-facing emails go through `sendWithDedup()` which queues as `pending` in `emails_sent` table
-- Welcome email is the only one that sends directly via Brevo (not queued)
-- Admin digest includes a gold "Approve & Send" button linking to `GET /api/admin/approve-emails?secret=X&confirm=true` (renders HTML confirmation page). Also has a "Preview without sending" link. Added 21 Apr — previously was a raw curl command that Mickey couldn't use.
-- Programmatic approval also available via `POST /api/admin/approve-emails` with `{secret, confirm: true}`
-- Cron sends admin digest when new emails are queued, but never sends user emails
+## Delivery flow (updated 21 Apr 2026)
+- **Direct send mode** — all emails send immediately via Brevo. No queue, no admin approval.
+- Welcome, tournament-join, password-reset, support: call `sendViaBrevo()` directly.
+- Pick reminder, round result, withdrawal, draw released: call `sendWithDedup()` which sends via Brevo immediately, using `emails_sent` table only for dedup (UNIQUE constraint on `user_id, group_id, round, email_type` prevents duplicate sends).
+- Admin digest: disabled (no-op function). Old approve-emails endpoints still exist but are unused.
+- **Why removed:** ADMIN_SECRET changed during security breach, breaking approval links. Small Madrid pool is the right size to test direct send. Queue can be re-added for larger paid pools if needed.
 
 ## Domain authentication (verified 21 Apr 2026)
 - Domain: `finalserveivor.com` — fully authenticated in Brevo

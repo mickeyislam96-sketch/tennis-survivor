@@ -4,7 +4,7 @@
 - [Git workflow for tennis-survivor](feedback_git_workflow.md) — mnt path has index.lock, use plumbing or /tmp clone
 - [Mickey — user profile](user_mickey.md) — non-technical founder, Mac user, needs plain-language guidance
 - [Monte Carlo 2026 — complete](project_monte_carlo_activation.md) — Mark won from 11 entrants, lessons for Madrid
-- [No untested emails to prod](feedback_no_untested_email_to_prod.md) — must have dedup tracking table + dry-run before deploying email-sending code
+- [No untested emails to prod](feedback_no_untested_email_to_prod.md) — use sendWithDedup() for cron emails; direct send mode since 21 Apr, dedup via DB constraint
 - [Design decisions + design system](feedback_bracket_design.md) — Direction A "Clean Court" locked; always mockup first; reference file in CTO - TS
 - [Design system — Direction A](project_design_system.md) — tokens, typography, component styles, mobile fixes. 3 commits deployed 12 Apr
 - [Deployment discipline](feedback_deployment_discipline.md) — verify every push: trace code paths, check React rules, confirm deploy before moving on
