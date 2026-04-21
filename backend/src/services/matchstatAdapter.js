@@ -73,8 +73,9 @@ async function apiFetch(path) {
 }
 
 // ── Name → ID mapping ──────────────────────────────────────────────────────
-// Built from the rankings endpoint (returns ~11 per page on free tier).
-// We paginate to get top ~200 players which covers all M1000/GS draw players.
+// Built from the rankings endpoint with pagination (pageSize + pageNo).
+// Fetches top 200 ATP players which covers all M1000/GS draw players.
+// Costs 2 API calls per rebuild (every 24h) = ~60/month on free tier (500 quota).
 
 async function buildNameCache() {
   if (!isConfigured()) return;
@@ -82,15 +83,24 @@ async function buildNameCache() {
 
   console.log('[matchstat] Building player name → ID cache from rankings...');
   try {
-    const rankings = await apiFetch('/atp/ranking/singles');
-    if (Array.isArray(rankings)) {
-      for (const entry of rankings) {
-        const player = entry.player;
-        if (player?.id && player?.name) {
-          nameToIdCache.set(normaliseName(player.name), player.id);
+    // Fetch 2 pages of 100 to cover top 200 players
+    const pages = [1, 2];
+    const results = await Promise.all(
+      pages.map(pageNo => apiFetch(`/atp/ranking/singles?pageSize=100&pageNo=${pageNo}`))
+    );
+
+    for (const rankings of results) {
+      if (Array.isArray(rankings)) {
+        for (const entry of rankings) {
+          // Handle both { player: { id, name } } and flat { id, name } shapes
+          const player = entry.player || entry;
+          if (player?.id && player?.name) {
+            nameToIdCache.set(normaliseName(player.name), player.id);
+          }
         }
       }
     }
+
     nameToIdLastBuilt = Date.now();
     console.log(`[matchstat] Name cache built: ${nameToIdCache.size} players`);
   } catch (err) {
