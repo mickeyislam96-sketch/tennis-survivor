@@ -1,15 +1,18 @@
 /**
  * GET /api/matchup/:player1Key/:player2Key
  *
- * Returns player info and tournament form for two players.
- * Data sources: seed draw JSON (names, seeds, countries) + Goalserve fixtures
- * (tournament results). No external API calls — instant responses.
+ * Returns player info, tournament form, H2H record, and player profiles.
+ * Data sources:
+ *   - Seed draw JSON (names, seeds, countries)
+ *   - Goalserve fixtures (tournament results)
+ *   - Matchstat API (H2H, career form, profiles, surface stats)
  *
  * Response shape:
  *   {
  *     player1: { name, country, seed, tournamentForm: [...] },
  *     player2: { name, country, seed, tournamentForm: [...] },
- *     h2h: { available: false }
+ *     h2h: { available, player1Wins, player2Wins, bySurface, meetings },
+ *     intelligence: { player1Profile, player2Profile, player1Form, ... }
  *   }
  *
  * Caching: responses are cached for 5 minutes (tied to Goalserve cache TTL).
@@ -19,6 +22,7 @@ import { Router } from 'express';
 import { TOURNAMENT } from '../config/activeTournament.js';
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
 import { fetchGoalserveOnly } from '../services/dataAdapter.js';
+import { getMatchupIntelligence, isConfigured as isMatchstatConfigured } from '../services/matchstatAdapter.js';
 
 export const matchupRouter = Router();
 
@@ -129,6 +133,29 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
     const p1Name = p1Draw?.name || name1 || rawKey1;
     const p2Name = p2Draw?.name || name2 || rawKey2;
 
+    // Fetch Matchstat intelligence (H2H, profiles, form) in parallel with
+    // the response construction. Non-blocking — if it fails, we still return
+    // the seed draw + Goalserve data.
+    let intelligence = null;
+    if (isMatchstatConfigured() && p1Name && p2Name) {
+      try {
+        intelligence = await getMatchupIntelligence(p1Name, p2Name);
+      } catch (err) {
+        console.warn('[matchup] Matchstat fetch failed:', err.message);
+      }
+    }
+
+    // Build H2H from Matchstat data (or empty fallback)
+    const h2h = intelligence?.h2h
+      ? {
+          available: true,
+          player1Wins: intelligence.h2h.player1Wins,
+          player2Wins: intelligence.h2h.player2Wins,
+          bySurface: intelligence.h2h.bySurface || [],
+          meetings: (intelligence.h2hMatches || []).slice(0, 5),
+        }
+      : { available: false, player1Wins: 0, player2Wins: 0, bySurface: [], meetings: [] };
+
     const response = {
       player1: {
         key: rawKey1,
@@ -136,6 +163,9 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
         country: p1Draw?.country || null,
         seed: p1Draw?.seed || null,
         tournamentForm: buildTournamentForm(fixtures, p1Name),
+        profile: intelligence?.player1Profile || null,
+        recentForm: intelligence?.player1Form || [],
+        surfaceStats: intelligence?.player1Surface || [],
       },
       player2: {
         key: rawKey2,
@@ -143,8 +173,11 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
         country: p2Draw?.country || null,
         seed: p2Draw?.seed || null,
         tournamentForm: buildTournamentForm(fixtures, p2Name),
+        profile: intelligence?.player2Profile || null,
+        recentForm: intelligence?.player2Form || [],
+        surfaceStats: intelligence?.player2Surface || [],
       },
-      h2h: { available: false, player1Wins: 0, player2Wins: 0, meetings: [] },
+      h2h,
       tournament: TOURNAMENT.name || tournamentId,
       surface: TOURNAMENT.surface || null,
     };

@@ -279,6 +279,197 @@
   flex-shrink: 0;
 }
 
+/* ── Tabs ──────────────────────────────────────────────────────────────── */
+
+.mu-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--ds-border, #e8e4db);
+}
+
+.mu-tab {
+  flex: 1;
+  padding: 10px 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ds-text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.mu-tab:hover {
+  color: var(--ds-text, #1a1a1a);
+}
+
+.mu-tab-active {
+  color: var(--ds-primary, #0F4A23);
+  border-bottom-color: var(--ds-primary, #0F4A23);
+}
+
+/* ── Player rank badge ────────────────────────────────────────────────── */
+
+.mu-player-rank {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ds-gold, #FFC933);
+  background: var(--ds-primary, #0F4A23);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-top: 4px;
+}
+
+/* ── H2H score (replaces "vs" when available) ─────────────────────────── */
+
+.mu-h2h-score {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--ds-font-display, 'Fraunces', serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ds-text-muted, #888);
+}
+
+.mu-h2h-dash {
+  font-size: 0.9rem;
+  color: var(--ds-text-muted, #aaa);
+}
+
+.mu-h2h-lead {
+  color: var(--ds-primary, #0F4A23);
+}
+
+/* ── H2H surface breakdown bars ───────────────────────────────────────── */
+
+.mu-h2h-surfaces {
+  margin-bottom: 16px;
+}
+
+.mu-h2h-surface-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.mu-h2h-surface-row + .mu-h2h-surface-row {
+  border-top: 1px solid var(--ds-border-subtle, #f0ece4);
+}
+
+.mu-h2h-surface-name {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.7rem;
+  color: var(--ds-text-muted, #888);
+  width: 60px;
+  flex-shrink: 0;
+  text-transform: capitalize;
+}
+
+.mu-h2h-surface-bar {
+  display: flex;
+  flex: 1;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.mu-h2h-bar-fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  min-width: 0;
+  transition: flex 0.3s ease;
+}
+
+.mu-h2h-bar-p1 {
+  background: var(--ds-primary, #0F4A23);
+  border-radius: 4px 0 0 4px;
+}
+
+.mu-h2h-bar-p2 {
+  background: var(--ds-gold, #FFC933);
+  color: #2B1F00;
+  border-radius: 0 4px 4px 0;
+}
+
+/* ── H2H meetings ─────────────────────────────────────────────────────── */
+
+.mu-h2h-meetings {
+  margin-top: 4px;
+}
+
+.mu-h2h-date {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+  color: var(--ds-text-muted, #aaa);
+  flex-shrink: 0;
+  width: 78px;
+}
+
+/* ── Profile card ─────────────────────────────────────────────────────── */
+
+.mu-profile-card {
+  padding-top: 4px;
+}
+
+.mu-profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 0;
+  font-size: 0.8rem;
+}
+
+.mu-profile-row + .mu-profile-row {
+  border-top: 1px solid var(--ds-border-subtle, #f0ece4);
+}
+
+.mu-profile-label {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+  color: var(--ds-text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.mu-profile-value {
+  font-family: var(--ds-font-sans, 'Outfit', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ds-text, #1a1a1a);
+  text-align: right;
+}
+
+.mu-profile-surface {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ds-border, #e8e4db);
+}
+
+.mu-profile-surface-title {
+  font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--ds-text-muted, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
 /* Footer */
 .mu-footer {
   text-align: center;

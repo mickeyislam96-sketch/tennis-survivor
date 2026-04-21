@@ -27,12 +27,20 @@ function seedLabel(seed) {
   return `[${seed}]`;
 }
 
-// Country code → flag emoji
+// Country code to flag emoji
 function countryFlag(code) {
   if (!code || code.length < 2) return '';
   const cc = code.toUpperCase().slice(0, 2);
   return String.fromCodePoint(...[...cc].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
+
+// ── Tab definitions ────────────────────────────────────────────────────────
+
+const TABS = [
+  { key: 'form', label: 'Form' },
+  { key: 'h2h', label: 'H2H' },
+  { key: 'profile', label: 'Profile' },
+];
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -40,6 +48,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
+  const [activeTab, setActiveTab] = useState('form');
 
   const p1Unknown = isUnknownPlayer(player1Name);
   const p2Unknown = isUnknownPlayer(player2Name);
@@ -50,7 +59,6 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
     setLoading(true);
     setError(null);
 
-    // Need at least one real player
     if (p1Unknown && p2Unknown) {
       setLoading(false);
       setError('No player data available');
@@ -99,7 +107,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
           </div>
           <div className="mu-loading">
             <div className="mu-spinner" />
-            <p>Loading matchup data…</p>
+            <p>Loading matchup data...</p>
           </div>
         </div>
       </div>
@@ -146,7 +154,17 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
 
   const p1Form = p1.tournamentForm || [];
   const p2Form = p2.tournamentForm || [];
+  const p1RecentForm = p1.recentForm || [];
+  const p2RecentForm = p2.recentForm || [];
   const hasForm = p1Form.length > 0 || p2Form.length > 0;
+
+  // Determine which tabs have content
+  const tabsWithContent = TABS.filter(t => {
+    if (t.key === 'form') return true; // always show
+    if (t.key === 'h2h') return h2h.available || !hasOnlyOnePlayer;
+    if (t.key === 'profile') return p1.profile || p2.profile;
+    return true;
+  });
 
   return (
     <div className="mu-backdrop" onClick={handleBackdrop}>
@@ -172,11 +190,22 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                 </>
               )}
             </div>
+            {p1.profile?.rank && (
+              <div className="mu-player-rank">#{p1.profile.rank}</div>
+            )}
           </div>
 
           {!hasOnlyOnePlayer ? (
             <div className="mu-vs">
-              <div className="mu-vs-label">vs</div>
+              {h2h.available ? (
+                <div className="mu-h2h-score">
+                  <span className={h2h.player1Wins > h2h.player2Wins ? 'mu-h2h-lead' : ''}>{h2h.player1Wins}</span>
+                  <span className="mu-h2h-dash">-</span>
+                  <span className={h2h.player2Wins > h2h.player1Wins ? 'mu-h2h-lead' : ''}>{h2h.player2Wins}</span>
+                </div>
+              ) : (
+                <div className="mu-vs-label">vs</div>
+              )}
               {data.surface && <div className="mu-surface">{data.surface}</div>}
             </div>
           ) : (
@@ -197,70 +226,240 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                 </>
               )}
             </div>
+            {p2.profile?.rank && (
+              <div className="mu-player-rank">#{p2.profile.rank}</div>
+            )}
           </div>
         </div>
 
-        {/* Tournament form */}
-        {hasForm && (
+        {/* Tab bar */}
+        {tabsWithContent.length > 1 && (
+          <div className="mu-tabs">
+            {tabsWithContent.map(t => (
+              <button
+                key={t.key}
+                className={`mu-tab ${activeTab === t.key ? 'mu-tab-active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Form tab ───────────────────────────────────────────────────── */}
+        {activeTab === 'form' && (
+          <>
+            {/* Tournament form */}
+            {hasForm && (
+              <div className="mu-section">
+                <div className="mu-section-title">{data.tournament || 'Tournament'} Form</div>
+                <div className={`mu-form-cols${hasOnlyOnePlayer ? ' mu-form-single' : ''}`}>
+                  {!p1Unknown && p1Form.length > 0 && (
+                    <div>
+                      <div className="mu-form-header">{surname(p1Name)}</div>
+                      {p1Form.map((r, i) => (
+                        <div key={i} className="mu-form-row">
+                          <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                          <div className="mu-form-detail">
+                            <div className="mu-form-opp">vs {r.opponent}</div>
+                            <div className="mu-form-event">{ROUND_SHORT[r.round] || r.round}{r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}</div>
+                          </div>
+                          {r.score && <div className="mu-form-score">{r.score}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!p2Unknown && p2Form.length > 0 && (
+                    <div>
+                      <div className="mu-form-header">{surname(p2Name)}</div>
+                      {p2Form.map((r, i) => (
+                        <div key={i} className="mu-form-row">
+                          <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                          <div className="mu-form-detail">
+                            <div className="mu-form-opp">vs {r.opponent}</div>
+                            <div className="mu-form-event">{ROUND_SHORT[r.round] || r.round}{r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}</div>
+                          </div>
+                          {r.score && <div className="mu-form-score">{r.score}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Recent form (from Matchstat) when no tournament form yet */}
+            {!hasForm && (p1RecentForm.length > 0 || p2RecentForm.length > 0) && (
+              <div className="mu-section">
+                <div className="mu-section-title">Recent Form</div>
+                <div className={`mu-form-cols${hasOnlyOnePlayer ? ' mu-form-single' : ''}`}>
+                  {!p1Unknown && p1RecentForm.length > 0 && (
+                    <div>
+                      <div className="mu-form-header">{surname(p1Name)}</div>
+                      {p1RecentForm.map((r, i) => (
+                        <div key={i} className="mu-form-row">
+                          <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                          <div className="mu-form-detail">
+                            <div className="mu-form-opp">vs {r.opponent}</div>
+                            {r.date && <div className="mu-form-event">{r.date}</div>}
+                          </div>
+                          {r.score && <div className="mu-form-score">{r.score}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!p2Unknown && p2RecentForm.length > 0 && (
+                    <div>
+                      <div className="mu-form-header">{surname(p2Name)}</div>
+                      {p2RecentForm.map((r, i) => (
+                        <div key={i} className="mu-form-row">
+                          <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
+                          <div className="mu-form-detail">
+                            <div className="mu-form-opp">vs {r.opponent}</div>
+                            {r.date && <div className="mu-form-event">{r.date}</div>}
+                          </div>
+                          {r.score && <div className="mu-form-score">{r.score}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* No form at all */}
+            {!hasForm && p1RecentForm.length === 0 && p2RecentForm.length === 0 && (
+              <div className="mu-section">
+                <div className="mu-empty">
+                  No match results yet. Form will appear here as matches are played.
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── H2H tab ────────────────────────────────────────────────────── */}
+        {activeTab === 'h2h' && (
           <div className="mu-section">
-            <div className="mu-section-title">{data.tournament || 'Tournament'} Form</div>
+            {h2h.available ? (
+              <>
+                {/* Surface breakdown */}
+                {h2h.bySurface && h2h.bySurface.length > 0 && (
+                  <div className="mu-h2h-surfaces">
+                    <div className="mu-section-title">H2H by Surface</div>
+                    {h2h.bySurface.map((s, i) => (
+                      <div key={i} className="mu-h2h-surface-row">
+                        <span className="mu-h2h-surface-name">{s.surface}</span>
+                        <div className="mu-h2h-surface-bar">
+                          <div
+                            className="mu-h2h-bar-fill mu-h2h-bar-p1"
+                            style={{ flex: s.player1Wins || 0 }}
+                          >
+                            {s.player1Wins > 0 && s.player1Wins}
+                          </div>
+                          <div
+                            className="mu-h2h-bar-fill mu-h2h-bar-p2"
+                            style={{ flex: s.player2Wins || 0 }}
+                          >
+                            {s.player2Wins > 0 && s.player2Wins}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recent meetings */}
+                {h2h.meetings && h2h.meetings.length > 0 && (
+                  <div className="mu-h2h-meetings">
+                    <div className="mu-section-title">Recent Meetings</div>
+                    {h2h.meetings.map((m, i) => (
+                      <div key={i} className="mu-form-row">
+                        <span className="mu-h2h-date">{m.date || '?'}</span>
+                        <div className="mu-form-detail">
+                          <div className="mu-form-opp">
+                            <strong>{m.winnerName || '?'}</strong> d. {m.winnerName === m.player1 ? m.player2 : m.player1}
+                          </div>
+                        </div>
+                        {m.score && <div className="mu-form-score">{m.score}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mu-empty">
+                No head-to-head record available for these players.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Profile tab ────────────────────────────────────────────────── */}
+        {activeTab === 'profile' && (
+          <div className="mu-section">
             <div className={`mu-form-cols${hasOnlyOnePlayer ? ' mu-form-single' : ''}`}>
-              {!p1Unknown && p1Form.length > 0 && (
-                <div>
-                  <div className="mu-form-header">{surname(p1Name)}</div>
-                  {p1Form.map((r, i) => (
-                    <div key={i} className="mu-form-row">
-                      <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
-                      <div className="mu-form-detail">
-                        <div className="mu-form-opp">vs {r.opponent}</div>
-                        <div className="mu-form-event">{ROUND_SHORT[r.round] || r.round}{r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}</div>
-                      </div>
-                      {r.score && <div className="mu-form-score">{r.score}</div>}
-                    </div>
-                  ))}
-                </div>
+              {!p1Unknown && p1.profile && (
+                <ProfileCard player={p1} name={p1Name} surfaceStats={p1.surfaceStats} />
               )}
-              {!p2Unknown && p2Form.length > 0 && (
-                <div>
-                  <div className="mu-form-header">{surname(p2Name)}</div>
-                  {p2Form.map((r, i) => (
-                    <div key={i} className="mu-form-row">
-                      <span className={`mu-wl ${r.won ? 'mu-w' : 'mu-l'}`}>{r.won ? 'W' : 'L'}</span>
-                      <div className="mu-form-detail">
-                        <div className="mu-form-opp">vs {r.opponent}</div>
-                        <div className="mu-form-event">{ROUND_SHORT[r.round] || r.round}{r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}</div>
-                      </div>
-                      {r.score && <div className="mu-form-score">{r.score}</div>}
-                    </div>
-                  ))}
-                </div>
+              {!p2Unknown && p2.profile && (
+                <ProfileCard player={p2} name={p2Name} surfaceStats={p2.surfaceStats} />
               )}
             </div>
-          </div>
-        )}
-
-        {/* No form yet — pre-tournament */}
-        {!hasForm && (
-          <div className="mu-section">
-            <div className="mu-empty">
-              No match results yet. Tournament form will appear here as matches are played.
-            </div>
-          </div>
-        )}
-
-        {/* H2H placeholder */}
-        {!hasOnlyOnePlayer && (
-          <div className="mu-section">
-            <div className="mu-h2h-notice">
-              Head-to-head record and career stats coming soon.
-            </div>
+            {!p1.profile && !p2.profile && (
+              <div className="mu-empty">Player profiles not available.</div>
+            )}
           </div>
         )}
 
         <div className="mu-footer">
           Data from {data.tournament || 'tournament draw'}
+          {h2h.available && ' & Matchstat'}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Profile card sub-component ──────────────────────────────────────────────
+
+function ProfileCard({ player, name, surfaceStats }) {
+  const prof = player.profile;
+  if (!prof) return null;
+
+  const details = [
+    prof.rank && { label: 'Rank', value: `#${prof.rank}` },
+    prof.height && { label: 'Height', value: prof.height },
+    prof.plays && { label: 'Plays', value: prof.plays },
+    prof.coach && { label: 'Coach', value: prof.coach },
+    prof.turnedPro && { label: 'Turned Pro', value: prof.turnedPro },
+    prof.birthplace && { label: 'From', value: prof.birthplace },
+  ].filter(Boolean);
+
+  // Current year surface stats
+  const currentYearSurface = surfaceStats?.[0]?.surfaces || [];
+
+  return (
+    <div className="mu-profile-card">
+      <div className="mu-form-header">{surname(name)}</div>
+      {details.map((d, i) => (
+        <div key={i} className="mu-profile-row">
+          <span className="mu-profile-label">{d.label}</span>
+          <span className="mu-profile-value">{d.value}</span>
+        </div>
+      ))}
+      {currentYearSurface.length > 0 && (
+        <div className="mu-profile-surface">
+          <div className="mu-profile-surface-title">{surfaceStats[0].year} by Surface</div>
+          {currentYearSurface.map((s, i) => (
+            <div key={i} className="mu-profile-row">
+              <span className="mu-profile-label">{s.surface}</span>
+              <span className="mu-profile-value">{s.wins}W-{s.losses}L</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
