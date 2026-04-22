@@ -30,9 +30,11 @@ Session 22 focused on visual audit and design consolidation of three critical pa
 **New component: Survivometer**
 - Positioned between hint text and card list
 - Progress bar showing elimination percentage (0-100%)
+- Uses **(n-1) denominator** so lone survivor = 100% (max possible eliminations, not total entrants)
 - Gradient fill: green (#4ade80) to red (#DC2626)
 - Large percentage number (32pt bold)
 - Subtext: "X still standing"
+- Hidden when totalEntrants < 2 (meaningless with one player)
 
 **Removed:**
 - `<Badge>` component import — no longer used on this page
