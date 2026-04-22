@@ -223,6 +223,32 @@ export function Leaderboard() {
 
         <p className="lb-click-hint">Tap any player to see their pick history.</p>
 
+        {/* Survivometer */}
+        {totalEntrants > 0 && (
+          <div className="lb-survivometer">
+            <div className="lb-survivometer-header">
+              <span className="lb-survivometer-label">Survivometer</span>
+              <span className="lb-survivometer-stat">
+                {eliminated} / {totalEntrants} eliminated
+              </span>
+            </div>
+            <div className="lb-survivometer-track">
+              <div
+                className="lb-survivometer-fill"
+                style={{ width: `${Math.round((eliminated / totalEntrants) * 100)}%` }}
+              />
+            </div>
+            <div className="lb-survivometer-footer">
+              <span className="lb-survivometer-pct">
+                {Math.round((eliminated / totalEntrants) * 100)}%
+              </span>
+              <span className="lb-survivometer-alive">
+                {aliveCount} still standing
+              </span>
+            </div>
+          </div>
+        )}
+
         {leaderboard.length === 0 ? (
           <div className="lb-empty-card">
             No entries yet — be the first to join!

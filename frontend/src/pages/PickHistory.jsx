@@ -7,8 +7,9 @@ import { Hero } from '../ui/Hero.jsx';
 import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Card } from '../ui/Card.jsx';
-import { Badge } from '../ui/Badge.jsx';
+import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import PlayerAvatar from '../ui/PlayerAvatar';
+import { avatarColour, initials } from '../utils/playerImage';
 import './PickHistory.css';
 
 export function PickHistory() {
@@ -39,8 +40,7 @@ export function PickHistory() {
       .catch(() => setMember(null));
   }, [groupId, userId]);
 
-  // Upcoming tournament with no picks yet — show "coming soon" state
-  // But if picks exist (window is open before start date), show them
+  // Upcoming tournament with no picks yet
   if (tournamentStatus && tournamentStatus !== 'active' && tournamentStatus !== 'completed' && picks.length === 0) {
     return (
       <div className="ph-page">
@@ -71,6 +71,8 @@ export function PickHistory() {
   }
 
   const survived = picks.filter((p) => p.survived === true).length;
+  const lost = picks.filter((p) => p.survived === false).length;
+  const pending = picks.filter((p) => p.survived === null).length;
   const isAlive = member ? member.isAlive : null;
   const eliminatedRound = member ? member.eliminatedRound : null;
 
@@ -98,21 +100,37 @@ export function PickHistory() {
 
         {/* Status card */}
         {isAlive !== null && (
-          <Card
-            tone={isAlive ? 'success' : 'muted'}
-            padding="md"
-            className={`ph-status-card${isAlive ? ' ph-status--alive' : ' ph-status--out'}`}
-          >
-            <span className="ph-status-icon" aria-hidden="true">{isAlive ? '✅' : '❌'}</span>
-            <div className="ph-status-text">
-              <span className="ph-status-headline">
-                {isAlive ? 'Still in — keep going.' : `Eliminated in ${eliminatedRound}`}
+          <div className={`ph-status-card${isAlive ? ' ph-status--alive' : ' ph-status--out'}`}>
+            <div className="ph-status-left">
+              <span className="ph-status-dot-wrap">
+                <span className={`ph-status-dot ${isAlive ? 'ph-status-dot--alive' : 'ph-status-dot--out'}`} />
               </span>
-              <span className="ph-status-sub">
-                {survived} round{survived !== 1 ? 's' : ''} survived
-              </span>
+              <div className="ph-status-text">
+                <span className="ph-status-headline">
+                  {isAlive ? 'Still in the game' : `Eliminated in ${ROUND_LABELS[eliminatedRound] || eliminatedRound || '—'}`}
+                </span>
+                <span className="ph-status-sub">
+                  {survived} round{survived !== 1 ? 's' : ''} survived
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="ph-status-stats">
+              <div className="ph-status-stat">
+                <span className="ph-status-stat-value ph-status-stat--won">{survived}</span>
+                <span className="ph-status-stat-label">Won</span>
+              </div>
+              <div className="ph-status-stat">
+                <span className="ph-status-stat-value ph-status-stat--lost">{lost}</span>
+                <span className="ph-status-stat-label">Lost</span>
+              </div>
+              {pending > 0 && (
+                <div className="ph-status-stat">
+                  <span className="ph-status-stat-value ph-status-stat--pending">{pending}</span>
+                  <span className="ph-status-stat-label">Pending</span>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {!userId ? (
@@ -128,31 +146,46 @@ export function PickHistory() {
             </p>
           </Card>
         ) : (
-          <div className="ph-list">
-            {picks.map((p) => {
+          <div className="ph-card-list">
+            {picks.map((p, idx) => {
               const state = p.survived === null ? 'pending' : p.survived ? 'won' : 'lost';
+              const cardClass = [
+                'ph-card',
+                `ph-card--${state}`,
+              ].join(' ');
+
               return (
-                <Card
-                  key={p.id}
-                  tone="surface"
-                  padding="sm"
-                  className={`ph-row ph-row--${state}`}
-                >
-                  <div className="ph-row-left">
-                    <span className="ph-round-badge">{p.round}</span>
-                    <PlayerAvatar playerName={p.playerName} size={32} />
-                    <span className="ph-player">{p.playerName}</span>
+                <div key={p.id} className={cardClass}>
+                  <span className="ph-card-round">{p.round}</span>
+                  <PlayerAvatar playerName={p.playerName} size={40} />
+                  <div className="ph-card-info">
+                    <div className="ph-card-name">
+                      <span className={`ph-card-name-text${state === 'lost' ? ' ph-card-name--lost' : ''}`}>
+                        {p.playerName}
+                      </span>
+                    </div>
+                    <div className="ph-card-meta">
+                      {ROUND_LABELS[p.round] || p.round}
+                    </div>
                   </div>
-                  {state === 'pending' && (
-                    <Badge tone="neutral" size="sm">Result pending</Badge>
-                  )}
-                  {state === 'won' && (
-                    <Badge tone="success" size="sm">Advanced ✓</Badge>
-                  )}
-                  {state === 'lost' && (
-                    <Badge tone="danger" size="sm">Eliminated ✗</Badge>
-                  )}
-                </Card>
+                  <div className="ph-card-right">
+                    <span className={`ph-card-result ph-card-result--${state}`}>
+                      {state === 'won' && (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          {' '}Advanced
+                        </>
+                      )}
+                      {state === 'lost' && (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          {' '}Eliminated
+                        </>
+                      )}
+                      {state === 'pending' && 'Pending'}
+                    </span>
+                  </div>
+                </div>
               );
             })}
           </div>
