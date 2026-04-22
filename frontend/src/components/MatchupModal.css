@@ -28,7 +28,7 @@
   background: var(--ds-surface, #fff);
   border-radius: var(--ds-radius-lg, 16px);
   width: 100%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 32px 80px rgba(0,0,0,0.18), 0 12px 24px rgba(0,0,0,0.12);
@@ -362,9 +362,9 @@
 .mu2-form-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 5px 0;
-  font-size: 13px;
+  font-size: 12px;
 }
 .mu2-form-row + .mu2-form-row {
   border-top: 1px solid var(--ds-border-subtle, #f0ece4);
@@ -374,9 +374,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px; height: 22px;
-  border-radius: 6px;
-  font-size: 10px;
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  font-size: 9px;
   font-weight: 800;
   flex-shrink: 0;
   font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
@@ -397,6 +397,7 @@
 
 .mu2-form-opp {
   font-weight: 500;
+  font-size: 12px;
   color: var(--ds-ink, #1a1a1a);
   white-space: nowrap;
   overflow: hidden;
@@ -404,13 +405,16 @@
 }
 
 .mu2-form-event {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ds-ink-muted, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mu2-form-score {
   font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--ds-ink-muted, #888);
   white-space: nowrap;
@@ -576,4 +580,8 @@
     grid-template-columns: 1fr;
     gap: 8px;
   }
+
+  .mu2-form-opp { font-size: 11px; }
+  .mu2-form-score { font-size: 10px; }
+  .mu2-section { padding: 14px 16px; }
 }
