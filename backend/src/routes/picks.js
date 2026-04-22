@@ -110,8 +110,29 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
     const r1PlayerIds = new Set(
       r1Matches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
+    // Build opponent + start time map from R1 matches
+    const opponentMap = {};
+    for (const m of r1Matches) {
+      if (m.player1Id) {
+        opponentMap[m.player1Id] = {
+          opponentId: m.player2Id,
+          opponentName: m.player2Name || 'TBD',
+          matchStartTime: m.startTime || null,
+          matchStatus: m.status || 'scheduled',
+        };
+      }
+      if (m.player2Id) {
+        opponentMap[m.player2Id] = {
+          opponentId: m.player1Id,
+          opponentName: m.player1Name || 'TBD',
+          matchStartTime: m.startTime || null,
+          matchStatus: m.status || 'scheduled',
+        };
+      }
+    }
     return (draw.players || [])
-      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id) && !isQualifierPlaceholder(p));
+      .filter(p => !p.roundEliminated && r1PlayerIds.has(p.id) && !isQualifierPlaceholder(p))
+      .map(p => ({ ...p, ...(opponentMap[p.id] || {}) }));
   }
 
   // ── R2+ standard path (existing logic) ─────────────────────────────────
