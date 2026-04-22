@@ -38,10 +38,8 @@ Add a new entry in the `TOURNAMENTS` object:
     SF:  '2026-05-17T09:00:00Z',
     F:   '2026-05-18T13:00:00Z',
   },
-  goalserveTournamentId: null,  // Set after discovering from Goalserve API
   apiTennisTournamentKey: null,
   apiSeason: null,
-  roundNameOverrides: {},
 },
 ```
 
@@ -79,9 +77,9 @@ ACTIVE_TOURNAMENT=rome-2026
 
 Then restart the Railway service (env var changes require restart).
 
-### 6. Find Goalserve tournament ID
+### 6. Update FlashScore scraper name mapping
 
-Use the Goalserve leagues endpoint or livescore home to discover the numeric tournament ID. Set it in `activeTournament.js` as `goalserveTournamentId`. This was `21256` for Madrid.
+Update the `flashscore-scraper` Cowork scheduled task with name mappings for all players in the new draw. FlashScore uses abbreviated names ("Z. Bergs") which must be mapped to full seed draw names ("Zizou Bergs"). Start with R1 players, then extend to seeds when they enter at R64.
 
 ---
 
@@ -165,19 +163,19 @@ lockTimeOverrides: {
 
 This is the most operationally critical step — if lock times are wrong, users can change picks after matches start.
 
-### 12. Verify Goalserve data is flowing
+### 12. Verify scraper data is flowing
 
 ```bash
 curl -s "https://tennis-survivor-production.up.railway.app/api/health" | python3 -m json.tool
 ```
 
-Look for `data_adapter.provider: "goalserve"` and `fixtures_total > 0`. If Goalserve returns no data, the system falls back to the static seed draw (picks work but no live results).
+Look for `data_adapter.provider: "scraper"` and `fixtures_total > 0`. If the scraper hasn't posted yet, the system falls back to the static seed draw (picks work but no live results). Run the `flashscore-scraper` scheduled task manually to seed initial data.
 
 ### 13. Monitor the first few rounds
 
 Watch for:
 - Withdrawals: use `POST /api/admin/withdrawal` to handle mid-tournament withdrawals
-- Round name mismatches: check Railway logs for `[Goalserve] Unknown round label` warnings — add to `roundNameOverrides` if needed
+- Round name mismatches: check if FlashScore round labels are being mapped correctly in the scraper task
 - Lock time accuracy: verify picks are locked before first match of each round
 
 ---
@@ -217,7 +215,7 @@ Everything else (routes, components, data adapter, overlay) is reusable and does
 
 1. **Lock times not set**: If `lockTimeOverrides` are all null, the system uses `roundDateFallbacks` which are estimates. Users could pick after matches start. Always set real lock times once the order of play is out.
 
-2. **Goalserve tournament ID wrong**: If the ID doesn't match, you get 0 fixtures. Check Railway logs for `[Goalserve fixtures] Tournament:` to see what ID is being used. Use the leagues endpoint to discover the correct one.
+2. **Scraper name mapping incomplete**: If players are appearing in FlashScore but not overlaying onto the seed draw, the name mapping in the scraper task is missing entries. Check Railway logs for unmatched player names and add to the mapping.
 
 3. **Stale ACTIVE_TOURNAMENT**: Railway caches env vars. After changing, trigger a manual restart.
 
@@ -225,4 +223,4 @@ Everything else (routes, components, data adapter, overlay) is reusable and does
 
 5. **Draw size mismatch**: A 96-draw Masters has 128 draw positions (64 pairs, 32 of which are byes). A 128-draw Grand Slam has 128 draw positions with 0 byes. Make sure `drawSize`, `seedsWithByes`, and `drawPositions` array length are consistent.
 
-6. **Round name mapping**: Goalserve uses different labels per tournament ("ATP Rome - First Round" vs "First Round"). If the draw shows 0 matches for a round, check if `normalizeGoalserveRound()` in `dataAdapter.js` handles the label. Add to `roundNameOverrides` in the tournament config if needed.
+6. **Round name mapping**: FlashScore uses labels like "1/64-finals", "1/32-finals" etc. If the draw shows 0 matches for a round, check the scraper task's round mapping is correct for the tournament format.
