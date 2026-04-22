@@ -240,6 +240,61 @@ export function overlayGoalserve(seedDraw, goalserveFixtures) {
     console.log(`[seedDrawOverlay] Successfully matched ${matched} fixtures from Goalserve`);
   }
 
+  // ── Propagate winners into subsequent round slots ────────────────────────
+  // After overlaying results, winners of completed (or bye) matches should
+  // fill the appropriate player slot in the next round's match.
+  // Match IDs follow `m-{round}-{index}`.  Feeder pairing:
+  //   prevRound[i*2] + prevRound[i*2+1]  →  nextRound[i]
+  //   prevRound[i*2] winner  →  nextRound[i].player1
+  //   prevRound[i*2+1] winner →  nextRound[i].player2
+
+  const rounds = seedDraw.rounds || [];
+  if (rounds.length > 1) {
+    // Group matches by round, preserving matchOrder within each round
+    const matchesByRound = {};
+    for (const m of updatedMatches) {
+      if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
+      matchesByRound[m.round].push(m);
+    }
+    // Sort each round's matches by matchOrder so feeder indexing works
+    for (const round of rounds) {
+      if (matchesByRound[round]) {
+        matchesByRound[round].sort((a, b) => a.matchOrder - b.matchOrder);
+      }
+    }
+
+    let propagated = 0;
+    for (let ri = 0; ri < rounds.length - 1; ri++) {
+      const currentRound = rounds[ri];
+      const nextRound = rounds[ri + 1];
+      const currentMatches = matchesByRound[currentRound] || [];
+      const nextMatches = matchesByRound[nextRound] || [];
+
+      for (let i = 0; i < nextMatches.length; i++) {
+        const feeder1 = currentMatches[i * 2];
+        const feeder2 = currentMatches[i * 2 + 1];
+        const nextMatch = nextMatches[i];
+
+        // Feeder 1 winner → nextMatch.player1
+        if (feeder1?.winnerId && !nextMatch.player1Id) {
+          nextMatch.player1Id = feeder1.winnerId;
+          nextMatch.player1Name = feeder1.winnerName;
+          propagated++;
+        }
+        // Feeder 2 winner → nextMatch.player2
+        if (feeder2?.winnerId && !nextMatch.player2Id) {
+          nextMatch.player2Id = feeder2.winnerId;
+          nextMatch.player2Name = feeder2.winnerName;
+          propagated++;
+        }
+      }
+    }
+
+    if (propagated > 0) {
+      console.log(`[seedDrawOverlay] Propagated ${propagated} winner(s) into subsequent round slots`);
+    }
+  }
+
   // Update player elimination status from live results
   const updatedPlayers = seedDraw.players.map(p => ({ ...p }));
   const eliminatedIds = new Set();

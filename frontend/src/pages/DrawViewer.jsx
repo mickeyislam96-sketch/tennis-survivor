@@ -155,9 +155,7 @@ function BracketCard({ match, onMatchClick }) {
         <span className="bc-name">{match.player2Name || 'TBD'}</span>
         {p2w && <span className="bc-tick">✓</span>}
       </div>
-      {done && match.score && (
-        <div className="bc-score">{match.score}</div>
-      )}
+      {/* Score intentionally hidden from bracket — shown in round-by-round list view only */}
     </div>
   );
 }
