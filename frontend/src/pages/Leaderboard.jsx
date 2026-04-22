@@ -74,7 +74,7 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
           <p className="ph-tl-subtitle">
             {member.isAlive
               ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
-              : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`}
+              : `Out in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'} — unlucky!`}
           </p>
           <div className="ph-tl-stat-row">
             {member.isAlive ? (
@@ -282,8 +282,8 @@ export function Leaderboard() {
               } else {
                 const outLabel = ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—';
                 metaText = survived > 0
-                  ? `${survived} round${survived !== 1 ? 's' : ''} · Out in ${outLabel}`
-                  : `Out in ${outLabel}`;
+                  ? `${survived} round${survived !== 1 ? 's' : ''} · Knocked out in ${outLabel}`
+                  : `Knocked out in ${outLabel}`;
               }
 
               return (

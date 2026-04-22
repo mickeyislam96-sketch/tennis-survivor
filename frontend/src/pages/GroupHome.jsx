@@ -455,6 +455,7 @@ export function GroupHome() {
   // ── Group dashboard ────────────────────────────────────────
   if (groupId && group) {
     const isMember = group.members?.some((m) => m.userId === userId);
+    const myMember = group.members?.find((m) => m.userId === userId) || null;
     const totalMembers = group.members?.length ?? 0;
     const aliveMembers = group.members?.filter((m) => m.isAlive).length ?? 0;
     const inviteUrl = `${window.location.origin}/join/${group.inviteCode}`;
@@ -871,8 +872,30 @@ export function GroupHome() {
             </div>
           ) : (
             <>
+              {myMember && !myMember.isAlive ? (
+                <Card tone="default" padding="md" className="gh-eliminated-card">
+                  <span className="gh-eliminated-icon" aria-hidden="true">😔</span>
+                  <div className="gh-eliminated-body">
+                    <span className="gh-eliminated-headline">Unlucky! You're out this time.</span>
+                    <span className="gh-eliminated-sub">
+                      Follow the rest of the action on the leaderboard and bracket. See you next tournament!
+                    </span>
+                  </div>
+                </Card>
+              ) : null}
               <div className="gh-pick-cta">
-                {myCurrentPick ? (
+                {myMember && !myMember.isAlive ? (
+                  <div className="gh-nav-grid">
+                    <Link to={`/group/${groupId}/leaderboard`} className="gh-nav-card">
+                      <span className="gh-nav-title">Leaderboard</span>
+                      <span className="gh-nav-desc">See who's still in</span>
+                    </Link>
+                    <Link to={`/group/${groupId}/draw`} className="gh-nav-card">
+                      <span className="gh-nav-title">Draw</span>
+                      <span className="gh-nav-desc">Follow the bracket</span>
+                    </Link>
+                  </div>
+                ) : myCurrentPick ? (
                   <Card tone="primary" padding="md" className="gh-pick-done">
                     <span className="gh-pick-done-icon" aria-hidden="true">✓</span>
                     <div className="gh-pick-done-body">

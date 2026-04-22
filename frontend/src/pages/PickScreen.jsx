@@ -344,7 +344,7 @@ export function PickScreen() {
                 </Badge>
               ) : (
                 <Badge tone="danger" size="md" dot>
-                  Eliminated in {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound}
+                  Out in {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound} — unlucky!
                 </Badge>
               )}
             </div>
@@ -450,7 +450,7 @@ export function PickScreen() {
           const s = (md?.status || '').toLowerCase();
           const isLiveNow = s === 'in_progress' || s === '1' || s === '2' || s === '3' || s.startsWith('set');
           const statusText = survived === true ? 'Advanced ✓'
-            : survived === false ? 'Eliminated ✗'
+            : survived === false ? 'Unlucky — out ✗'
             : isLiveNow ? '● Live now'
             : s === 'completed' ? 'Match complete'
             : md?.startTime ? `Scheduled ${new Date(md.startTime).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}`
@@ -502,16 +502,17 @@ export function PickScreen() {
         {/* Eliminated */}
         {isOpen && userId && member && !member.isAlive && (
           <Card tone="default" padding="lg" className="ps-eliminated-card">
-            <div className="ps-eliminated-icon" aria-hidden="true">🎾</div>
-            <h2 className="ps-eliminated-title">You're out of this one</h2>
+            <div className="ps-eliminated-icon" aria-hidden="true">😔</div>
+            <h2 className="ps-eliminated-title">Unlucky! You're out this time.</h2>
             <p className="ps-eliminated-sub">
-              Your pick in {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || 'a previous round'} didn't make it through, so you're eliminated from this pool.
+              Your {ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || ''} pick didn't make it through. It happens to the best of us.
             </p>
             <p className="ps-eliminated-cta">
-              You can still follow the action on the{' '}
+              Follow the rest of the action on the{' '}
               <Link to={`/group/${groupId}`} className="ps-inline-link">pool page</Link>{' '}
               and the{' '}
               <Link to={`/group/${groupId}/draw`} className="ps-inline-link">bracket</Link>.
+              See you next tournament!
             </p>
           </Card>
         )}
