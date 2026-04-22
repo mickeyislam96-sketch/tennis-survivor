@@ -374,7 +374,9 @@ export function Layout({ children }) {
           </Link>
 
           <nav className="ds-nav" aria-label="Primary">
-            {groupId && groupNav.map(({ to, label }) => (
+            {groupId && groupNav
+              .filter(({ to }) => user || (to !== 'pick' && to !== 'history'))
+              .map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={`${base}/${to}`}

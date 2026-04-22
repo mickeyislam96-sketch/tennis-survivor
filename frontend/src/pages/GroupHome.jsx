@@ -1118,7 +1118,7 @@ function LobbyPoolCard({ pool }) {
           <span className="gh-pool-card-stat gh-pool-card-tbc">Draw TBC</span>
         )}
         <span className="gh-pool-card-cta">
-          {isCompleted ? 'View results →' : pool.isMember ? 'Open pool →' : isFree ? 'Enter free →' : 'Enter →'}
+          {isCompleted ? 'View results →' : pool.isMember ? 'Open pool →' : t?.status === 'active' ? 'View pool →' : isFree ? 'Enter free →' : 'Enter →'}
         </span>
       </div>
     </Link>
