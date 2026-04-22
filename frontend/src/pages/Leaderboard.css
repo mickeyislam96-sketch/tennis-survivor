@@ -294,6 +294,15 @@
 
 /* Mobile ------------------------------------------------------- */
 @media (max-width: 640px) {
+  .lb-survivometer {
+    padding: 12px 14px;
+  }
+  .lb-survivometer-header {
+    margin-bottom: 8px;
+  }
+  .lb-survivometer-pct {
+    font-size: var(--ds-text-md);
+  }
   .lb-card {
     gap: 10px;
     padding: 12px;
@@ -314,11 +323,14 @@
     gap: 3px;
   }
   .lb-card-status {
-    font-size: 9px;
+    font-size: 10px;
     padding: 3px 8px;
   }
   .lb-card-pick {
     font-size: 10px;
+  }
+  .lb-picks-modal {
+    width: 92vw;
   }
 }
 

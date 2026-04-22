@@ -550,7 +550,7 @@ export function PickScreen() {
               Tap a matchup in the bracket to compare players before you pick →
             </Link>
 
-            <ul className="ps-player-list">
+            <div className="ps-player-cards">
               {filtered.slice(0, 80).map((player) => {
                 const name = (player.name || '').toLowerCase().trim();
                 const lastName = name.split(' ').pop();
@@ -559,61 +559,60 @@ export function PickScreen() {
                   (usedIds.has(player.id) || (lastName && usedLastNames.has(lastName)));
                 const isTopSeed = player.seed && player.seed <= 8;
 
-                const rowClass = [
-                  'ps-player-row',
-                  usedInOtherRound ? 'ps-player-row--used' : '',
-                  isTopSeed ? 'ps-player-row--top-seed' : '',
-                  isCurrentPick ? 'ps-player-row--current' : '',
+                const cardClass = [
+                  'ps-pcard',
+                  usedInOtherRound ? 'ps-pcard--used' : '',
+                  isTopSeed ? 'ps-pcard--top-seed' : '',
+                  isCurrentPick ? 'ps-pcard--current' : '',
                 ].filter(Boolean).join(' ');
 
                 return (
-                  <li key={player.id} className={rowClass}>
+                  <div key={player.id} className={cardClass}>
                     {player.seed ? (
-                      <span className="ps-player-seed">#{player.seed}</span>
+                      <span className="ps-pcard-seed">#{player.seed}</span>
                     ) : (
-                      <span className="ps-player-seed-placeholder" aria-hidden="true" />
+                      <span className="ps-pcard-seed-empty" aria-hidden="true" />
                     )}
-                    <PlayerAvatar playerId={player.id} playerName={player.name} size={32} />
-                    <span className="ps-player-name">
-                      <span className="ps-player-name-text">{player.name}</span>
+                    <PlayerAvatar playerId={player.id} playerName={player.name} size={36} />
+                    <div className="ps-pcard-info">
+                      <div className="ps-pcard-name">
+                        <span className="ps-pcard-name-text">{player.name}</span>
+                        {usedInOtherRound && (
+                          <span className="ps-pcard-tag ps-pcard-tag--used">Already used</span>
+                        )}
+                        {isCurrentPick && (
+                          <span className="ps-pcard-tag ps-pcard-tag--pick"><span className="ps-pcard-tag-dot" /> Your pick</span>
+                        )}
+                        {!usedInOtherRound && player.pendingPrevRound && (
+                          <span
+                            className="ps-pcard-tag ps-pcard-tag--pending"
+                            title={`Still in ${prevRound} — pick counts only if they advance`}
+                          >
+                            ⚠ {prevRound} pending
+                          </span>
+                        )}
+                      </div>
                       {player.opponentName && (
-                        <span className="ps-player-opponent">vs {player.opponentName}</span>
+                        <div className="ps-pcard-opponent">vs {player.opponentName}</div>
                       )}
                       {isPerMatchLock && player.matchStartTime && (
-                        <span className="ps-player-match-time">
+                        <div className="ps-pcard-match-time">
                           {formatMatchTime(player.matchStartTime)}
                           {(() => {
                             const hint = getMatchStartHint(player.matchStartTime);
                             if (hint === 'urgent') {
-                              return <span className="ps-match-soon ps-match-soon--urgent">Starts soon</span>;
+                              return <span className="ps-pcard-soon ps-pcard-soon--urgent">Starts soon</span>;
                             }
                             if (hint === 'today') {
-                              return <span className="ps-match-soon ps-match-soon--today">Today</span>;
+                              return <span className="ps-pcard-soon ps-pcard-soon--today">Today</span>;
                             }
                             return null;
                           })()}
-                        </span>
+                        </div>
                       )}
-                      <span className="ps-player-tags">
-                        {usedInOtherRound && (
-                          <Badge tone="neutral" size="sm">Already used</Badge>
-                        )}
-                        {isCurrentPick && (
-                          <Badge tone="primary" size="sm" dot>Your pick</Badge>
-                        )}
-                        {!usedInOtherRound && player.pendingPrevRound && (
-                          <Badge
-                            tone="warning"
-                            size="sm"
-                            title={`Still in ${prevRound} — pick counts only if they advance`}
-                          >
-                            ⚠ {prevRound} pending
-                          </Badge>
-                        )}
-                      </span>
-                    </span>
+                    </div>
                     {rowError.id === player.id && (
-                      <span className="ps-player-error">{rowError.msg}</span>
+                      <span className="ps-pcard-error">{rowError.msg}</span>
                     )}
                     {!usedInOtherRound && !isCurrentPick && rowError.id !== player.id && (
                       <Button
@@ -625,10 +624,10 @@ export function PickScreen() {
                         {myPickThisRound ? 'Switch' : 'Pick'}
                       </Button>
                     )}
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
 
             {filtered.length > 80 && (
               <p className="ps-overflow-hint">Showing first 80 — use search to find others.</p>
