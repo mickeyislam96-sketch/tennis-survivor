@@ -21,7 +21,7 @@
  */
 
 import { pool } from '../db/pool.js';
-import { fetchFixtures, invalidateGoalserveCache } from './dataAdapter.js';
+import { fetchFixtures } from './dataAdapter.js';
 import { TOURNAMENT } from '../config/activeTournament.js';
 import { getDeadlines } from './tennisData.js';
 import {

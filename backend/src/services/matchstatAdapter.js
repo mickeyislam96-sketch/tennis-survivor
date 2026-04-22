@@ -4,8 +4,8 @@
  * Provides H2H records, player profiles, surface stats, and recent form
  * via the Matchstat Tennis API on RapidAPI.
  *
- * Used by the matchup modal to show rich player intelligence that Goalserve
- * (our live data provider) does not offer.
+ * Used by the matchup modal to show rich player intelligence that the
+ * FlashScore scraper (our live data provider) does not offer.
  *
  * Endpoint reference: https://tennisapidoc.matchstat.com/
  *

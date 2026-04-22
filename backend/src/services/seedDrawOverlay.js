@@ -1,11 +1,11 @@
 /**
- * Seed Draw Overlay — merges Goalserve live data onto seed draw structure.
+ * Seed Draw Overlay — merges live fixture data onto seed draw structure.
  *
  * The seed draw defines WHO plays WHO (bracket structure).
- * Goalserve defines WHAT HAPPENED (scores, statuses, start times).
+ * Live data (from FlashScore scraper) defines WHAT HAPPENED (scores, statuses, start times).
  *
- * This module matches players by normalised name (3-pass: API key → exact → fuzzy)
- * and overlays Goalserve fixture data onto the seed draw matches.
+ * This module matches players by normalised name (2-pass: exact + fuzzy)
+ * and overlays fixture data onto the seed draw matches.
  *
  * The result is the internal fixture format used by picks.js and the bracket viewer.
  */
@@ -60,14 +60,14 @@ function levenshteinSimilarity(a, b) {
 // ── Fixture matching ────────────────────────────────────────────────────────
 
 /**
- * Build a lookup from normalised name → Goalserve fixture(s) for a player.
+ * Build a lookup from normalised name → fixture(s) for a player.
  * Pre-computing this avoids O(n²) matching.
  */
-function buildGoalserveLookup(goalserveFixtures) {
+function buildFixtureLookup(fixtures) {
   const byNorm = {};   // normalised name → [{ fixture, side: 'p1'|'p2' }]
-  const byId = {};     // goalserve player ID → [{ fixture, side }]
+  const byId = {};     // player ID → [{ fixture, side }]
 
-  for (const fix of goalserveFixtures) {
+  for (const fix of fixtures) {
     const p1Norm = normaliseName(fix.player1Name);
     const p2Norm = normaliseName(fix.player2Name);
 
@@ -97,18 +97,17 @@ function buildGoalserveLookup(goalserveFixtures) {
 }
 
 /**
- * Find the Goalserve fixture that matches a seed draw match.
- * Uses the seed draw's player names/apiKeys to find the corresponding Goalserve fixture.
+ * Find the fixture that matches a seed draw match.
+ * Uses the seed draw's player names to find the corresponding fixture.
  *
- * 3-pass matching:
- *   1. API key match (most reliable — if seed draw has apiKeys populated)
- *   2. Exact normalised name match (handles name order, accents)
- *   3. Fuzzy match (Levenshtein > 0.85, for minor spelling differences)
+ * 2-pass matching:
+ *   1. Exact normalised name match (handles name order, accents)
+ *   2. Fuzzy match (Levenshtein > 0.85, for minor spelling differences)
  */
-function findGoalserveMatch(seedMatch, lookup, goalserveFixtures) {
+function findFixtureMatch(seedMatch, lookup, fixtures) {
   const { byNorm, byId } = lookup;
 
-  // We need BOTH players to match the same Goalserve fixture
+  // We need BOTH players to match the same fixture
   const p1Norm = normaliseName(seedMatch.player1Name);
   const p2Norm = normaliseName(seedMatch.player2Name);
 
@@ -128,7 +127,7 @@ function findGoalserveMatch(seedMatch, lookup, goalserveFixtures) {
 
   // Pass 2: fuzzy match — try to match at least one player, then verify the other
   if (p1Norm || p2Norm) {
-    for (const fix of goalserveFixtures) {
+    for (const fix of fixtures) {
       const fp1 = normaliseName(fix.player1Name);
       const fp2 = normaliseName(fix.player2Name);
 
@@ -159,16 +158,16 @@ function findGoalserveMatch(seedMatch, lookup, goalserveFixtures) {
 // ── Main overlay function ───────────────────────────────────────────────────
 
 /**
- * Overlay Goalserve live data onto a seed draw.
+ * Overlay live fixture data onto a seed draw.
  *
  * @param {object} seedDraw — output from loadSeedDraw() (players + matches)
- * @param {object[]} goalserveFixtures — internal fixture format from fetchGoalserve()
+ * @param {object[]} fixtures — internal fixture format (from FlashScore scraper or any provider)
  * @returns {object} — updated seed draw with live statuses, scores, and start times
  */
-export function overlayGoalserve(seedDraw, goalserveFixtures) {
-  if (!goalserveFixtures?.length) return seedDraw;
+export function overlayFixtures(seedDraw, fixtures) {
+  if (!fixtures?.length) return seedDraw;
 
-  const lookup = buildGoalserveLookup(goalserveFixtures);
+  const lookup = buildFixtureLookup(fixtures);
   let matched = 0;
   let unmatched = 0;
   const unmatchedMatches = [];
@@ -180,17 +179,17 @@ export function overlayGoalserve(seedDraw, goalserveFixtures) {
     if (match.bye) continue;
     if (!match.player1Name || !match.player2Name) continue; // TBD future rounds
 
-    const gsFixture = findGoalserveMatch(match, lookup, goalserveFixtures);
+    const gsFixture = findFixtureMatch(match, lookup, fixtures);
 
     if (gsFixture) {
       matched++;
 
-      // Overlay live data from Goalserve
+      // Overlay live data
       if (gsFixture.status && gsFixture.status !== 'scheduled') {
         match.status = gsFixture.status;
       }
       if (gsFixture.winnerId || gsFixture.winnerName) {
-        // Match the Goalserve/scraper winner to our seed draw player IDs
+        // Match the scraper winner to our seed draw player IDs
         const winnerNorm = normaliseName(gsFixture.winnerName);
         const p1Norm = normaliseName(match.player1Name);
         const p2Norm = normaliseName(match.player2Name);
@@ -237,7 +236,7 @@ export function overlayGoalserve(seedDraw, goalserveFixtures) {
     console.warn(`[seedDrawOverlay] ${matched} matched, ${unmatched} unmatched R1 fixtures:`,
       unmatchedMatches.slice(0, 5).join(', '));
   } else if (matched > 0) {
-    console.log(`[seedDrawOverlay] Successfully matched ${matched} fixtures from Goalserve`);
+    console.log(`[seedDrawOverlay] Successfully matched ${matched} fixtures`);
   }
 
   // ── Propagate winners into subsequent round slots ────────────────────────
@@ -322,7 +321,7 @@ export function overlayGoalserve(seedDraw, goalserveFixtures) {
     ...seedDraw,
     players: updatedPlayers,
     matches: updatedMatches,
-    dataSource: `seed_draw+goalserve(${matched})`,
+    dataSource: `seed_draw+scraper(${matched})`,
   };
 }
 

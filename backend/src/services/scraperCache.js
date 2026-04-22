@@ -118,18 +118,19 @@ export async function setScrapedResults(fixtures, scrapedAt) {
  * @returns {Array|null} Array of internal fixture format objects, or null
  */
 export async function getScrapedResults() {
-  // 1. Check in-memory cache
+  // 1. Check in-memory cache — always return if data exists
+  // IMPORTANT: Match results don't un-happen. Stale data is still valid.
+  // A match completed 2 hours ago is still completed. The TTL only controls
+  // freshness logging — it never causes data to be discarded.
   if (scraperCache.fixtures && scraperCache.fixtures.length > 0) {
     const age = Date.now() - scraperCache.fetchedAt;
-    if (age < CACHE_TTL) {
-      console.log(`[scraperCache] Serving from memory: ${scraperCache.fixtures.length} fixtures, ` +
-        `age: ${Math.round(age / 1000)}s`);
-      return scraperCache.fixtures;
-    }
-    console.log(`[scraperCache] Memory cache stale (${Math.round(age / 1000)}s old), checking DB`);
+    const fresh = age < CACHE_TTL;
+    console.log(`[scraperCache] Serving from memory: ${scraperCache.fixtures.length} fixtures, ` +
+      `age: ${Math.round(age / 1000)}s${fresh ? '' : ' (stale but valid)'}`);
+    return scraperCache.fixtures;
   }
 
-  // 2. Try loading from database
+  // 2. Try loading from database — always return if rows exist
   try {
     const result = await pool.query(
       `SELECT match_id, round, player1_id, player1_name, player2_id, player2_name,
@@ -144,15 +145,8 @@ export async function getScrapedResults() {
       return null;
     }
 
-    // Check staleness — if scraped_at is older than CACHE_TTL, data is stale
     const latestScrapedAt = result.rows[0].scraped_at;
-    if (latestScrapedAt) {
-      const scrapedAge = Date.now() - new Date(latestScrapedAt).getTime();
-      if (scrapedAge > CACHE_TTL) {
-        console.log(`[scraperCache] DB data stale (scraped ${Math.round(scrapedAge / 1000)}s ago)`);
-        return null;
-      }
-    }
+    const scrapedAge = latestScrapedAt ? Date.now() - new Date(latestScrapedAt).getTime() : 0;
 
     // Convert DB rows to internal fixture format
     const fixtures = result.rows.map(row => ({
@@ -178,7 +172,8 @@ export async function getScrapedResults() {
       scrapedAt: latestScrapedAt,
     };
 
-    console.log(`[scraperCache] Loaded from DB: ${fixtures.length} fixtures`);
+    console.log(`[scraperCache] Loaded from DB: ${fixtures.length} fixtures` +
+      (scrapedAge > CACHE_TTL ? ` (scraped ${Math.round(scrapedAge / 1000)}s ago, stale but valid)` : ''));
     return fixtures;
   } catch (err) {
     console.error('[scraperCache] DB read failed:', err.message);

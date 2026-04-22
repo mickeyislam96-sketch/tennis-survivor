@@ -5,7 +5,7 @@
  *
  * Checks:
  *   1. Required env vars (data provider keys + active tournament)
- *   2. Data adapter live call (Goalserve / API-Tennis / fallback)
+ *   2. Data adapter live call (scraper / API-Tennis / fallback)
  *   3. Active data source
  *   4. PostgreSQL connectivity
  */
@@ -13,7 +13,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { TOURNAMENT } from '../config/activeTournament.js';
-import { fetchFixtures, getGoalserveDiscoveryLog } from '../services/dataAdapter.js';
+import { fetchFixtures } from '../services/dataAdapter.js';
+import { getScraperCacheStatus } from '../services/scraperCache.js';
 
 export const healthRouter = Router();
 
@@ -24,14 +25,13 @@ healthRouter.get('/', async (_req, res) => {
   let allOk    = true;
 
   // ── 1. Env vars ─────────────────────────────────────────────────────────────
-  const goalserveKey  = process.env.GOALSERVE_API_KEY;
   const apiTennisKey  = process.env.TENNIS_API_KEY;
   const dataProvider  = process.env.TENNIS_DATA_PROVIDER || 'auto';
 
   // Only expose whether data config is present — not which specific keys are set.
   // Detailed env status available via authenticated /api/admin/status endpoint.
   checks.env = {
-    data_configured: !!(goalserveKey || apiTennisKey),
+    data_configured: true, // FlashScore scraper is always available
     tournament:      TOURNAMENT.id,
   };
 
@@ -57,9 +57,7 @@ healthRouter.get('/', async (_req, res) => {
         status:      'no_data',
         provider:    provider,
         data_source: 'mock_data',
-        detail:      goalserveKey
-          ? 'Goalserve key is set but returned no fixtures — tournament may not have started yet'
-          : 'No data provider configured — set GOALSERVE_API_KEY on Railway',
+        detail:      'No data provider returned fixtures — scraper may not have posted yet',
       };
     } else {
       // Summarise what we got
@@ -91,11 +89,8 @@ healthRouter.get('/', async (_req, res) => {
   // ── 3. Active data source summary ───────────────────────────────────────────
   checks.data_source = checks.data_adapter?.data_source ?? 'unknown';
 
-  // ── 3b. Goalserve discovery log (helps diagnose tournament ID issues) ──────
-  const discoveryLog = getGoalserveDiscoveryLog();
-  if (discoveryLog) {
-    checks.goalserve_discovery = discoveryLog;
-  }
+  // ── 3b. Scraper cache status ───────────────────────────────────────────────
+  checks.scraper_cache = getScraperCacheStatus();
 
   // ── 4. Database ──────────────────────────────────────────────────────────────
   try {

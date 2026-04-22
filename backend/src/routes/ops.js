@@ -172,7 +172,7 @@ opsRouter.get('/health-deep', async (req, res) => {
     id: TOURNAMENT.id,
     name: TOURNAMENT.name,
     r1PerMatchLock: TOURNAMENT.r1PerMatchLock,
-    goalserveKeySet: !!process.env.GOALSERVE_API_KEY,
+    scraperActive: true, // FlashScore scraper is primary data source
   };
 
   // 5. Email service

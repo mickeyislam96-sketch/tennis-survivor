@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import { autoProcessResults } from './services/resultsProcessor.js';
 import { checkPickReminders } from './services/emailScheduler.js';
 import { runOpsChecks } from './services/opsMonitor.js';
-import { warmGoalserveCache } from './services/dataAdapter.js';
+
 
 import express from 'express';
 import cors from 'cors';
@@ -49,8 +49,7 @@ app.get('/ping', (_req, res) => res.json({ ok: true }));
     console.error('Schema init error:', err.message);
   }
 
-  // Pre-warm Goalserve cache so the first user request is fast
-  warmGoalserveCache();
+  // Scraper cache warms automatically on first read from DB
 })();
 
 // ── Security headers ────────────────────────────────────────────────────────
@@ -71,7 +70,7 @@ app.use(helmet({
 
 // ── Startup env-var validation ──────────────────────────────────────────────
 const REQUIRED_ENV = ['DATABASE_URL', 'ADMIN_SECRET'];
-const WARN_ENV     = ['BREVO_API_KEY', 'GOALSERVE_API_KEY'];
+const WARN_ENV     = ['BREVO_API_KEY'];
 
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
@@ -134,10 +133,6 @@ cron.schedule('*/15 * * * *', async () => {
   // 4. Admin digest — no-op (emails now send directly, no queue)
   try { await sendAdminDigest(); }
   catch (err) { console.error('[cron] Admin digest error:', err.message); }
-
-  // 5. Keep Goalserve cache warm so user requests are always fast (<1s)
-  try { await warmGoalserveCache(); }
-  catch (err) { console.error('[cron] Cache warm error:', err.message); }
 
   const elapsed = Date.now() - cronStart;
   if (elapsed > 30000) {

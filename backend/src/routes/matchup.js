@@ -4,7 +4,7 @@
  * Returns player info, tournament form, H2H record, and player profiles.
  * Data sources:
  *   - Seed draw JSON (names, seeds, countries)
- *   - Goalserve fixtures (tournament results)
+ *   - Scraper fixtures (tournament results)
  *   - Matchstat API (H2H, career form, profiles, surface stats)
  *
  * Response shape:
@@ -15,18 +15,18 @@
  *     intelligence: { player1Profile, player2Profile, player1Form, ... }
  *   }
  *
- * Caching: responses are cached for 5 minutes (tied to Goalserve cache TTL).
+ * Caching: responses are cached for 5 minutes.
  */
 
 import { Router } from 'express';
 import { TOURNAMENT } from '../config/activeTournament.js';
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
-import { fetchGoalserveOnly } from '../services/dataAdapter.js';
+import { getScrapedResults } from '../services/scraperCache.js';
 import { getMatchupIntelligence, isConfigured as isMatchstatConfigured } from '../services/matchstatAdapter.js';
 
 export const matchupRouter = Router();
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min (matches Goalserve cache)
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 const matchupCache = new Map();
 
 // ── Lookup player info from seed draw ──────────────────────────────────────
@@ -52,7 +52,7 @@ function findPlayerInDraw(draw, playerKey, playerName) {
   return null;
 }
 
-// ── Build tournament form from Goalserve fixtures ──────────────────────────
+// ── Build tournament form from scraper fixtures ────────────────────────────
 // Shows how each player has performed in THIS tournament so far.
 
 function buildTournamentForm(fixtures, playerName) {
@@ -120,11 +120,11 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
     const p1Draw = findPlayerInDraw(draw, rawKey1, name1);
     const p2Draw = findPlayerInDraw(draw, rawKey2, name2);
 
-    // Load Goalserve fixtures for tournament form
+    // Load scraper fixtures for tournament form
     let fixtures = [];
     try {
-      const result = await fetchGoalserveOnly();
-      fixtures = result.fixtures || [];
+      const scraperData = await getScrapedResults();
+      fixtures = scraperData || [];
     } catch {
       // No fixtures available — tournament form will be empty
     }
@@ -135,7 +135,7 @@ matchupRouter.get('/:player1Key/:player2Key', async (req, res) => {
 
     // Fetch Matchstat intelligence (H2H, profiles, form) in parallel with
     // the response construction. Non-blocking — if it fails, we still return
-    // the seed draw + Goalserve data.
+    // the seed draw + scraper data.
     let intelligence = null;
     if (isMatchstatConfigured() && p1Name && p2Name) {
       try {

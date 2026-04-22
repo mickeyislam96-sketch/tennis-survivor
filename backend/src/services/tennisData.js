@@ -12,17 +12,17 @@ import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 
 // Eager imports for seed draw pipeline — avoids 3 dynamic imports on every request
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
-import { fetchFixtures, fetchGoalserveOnly, getGoalserveCacheFetchedAt } from './dataAdapter.js';
-import { overlayGoalserve } from './seedDrawOverlay.js';
+import { fetchFixtures } from './dataAdapter.js';
+import { overlayFixtures } from './seedDrawOverlay.js';
 import { getScrapedResults } from './scraperCache.js';
 
 // ACTIVE_TOURNAMENT is imported statically at line 8 above (no dynamic import needed)
 
 // ── Draw result cache ───────────────────────────────────────────────────────
-// Caches the fully merged draw (seed draw + Goalserve/scraper overlay) so we don't
-// re-run Levenshtein matching on every request. Invalidated when the data source
-// fetches fresh data (checked via fetchedAt timestamp or scraper cache TTL).
-let drawCache = { result: null, goalserveFetchedAt: 0, scraperFetchedAt: 0 };
+// Caches the fully merged draw (seed draw + scraper overlay) so we don't
+// re-run Levenshtein matching on every request. Invalidated when the scraper
+// fetches fresh data (checked via scraperFetchedAt timestamp).
+let drawCache = { result: null, scraperFetchedAt: 0 };
 
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
@@ -281,7 +281,7 @@ function buildDrawFromFixtures(fixtures) {
  * Get draw with results.
  *
  * Priority:
- *   1. Seed draw + Goalserve overlay (Madrid 2026+ — reusable system)
+ *   1. Seed draw + scraper overlay (Madrid 2026+ — reusable system)
  *   2. API-Tennis live fixtures → buildDrawFromFixtures (legacy)
  *   3. Sofascore live fixtures → buildDrawFromFixtures (legacy)
  *   4. Mock draw fallback (seed draw JSON or hardcoded mock)
@@ -291,57 +291,31 @@ export async function getDraw(roundFilter = null) {
 
   // ── Path 1: Seed draw + live data overlay (cached) ────────────────────
   // If a seed draw JSON exists for this tournament, use it as the structural
-  // base and overlay live fixture data on top. Tries scraper first (FlashScore),
-  // then Goalserve. The merged result is cached until the data source refreshes.
+  // base and overlay live scraper data on top. The merged result is cached
+  // until the scraper posts fresh data.
   try {
     if (hasSeedDraw(tournamentId)) {
       const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
 
-      // Check if we can serve from draw cache (same data = same overlay result)
-      const currentGoalserveFetchedAt = getGoalserveCacheFetchedAt();
+      // Check if we can serve from draw cache (same scraper data = same overlay result)
       const scraperData = await getScrapedResults();
-      const scraperFetchedAt = scraperData?.length > 0 ? scraperData[0]?.scrapedAt || Date.now() : 0;
+      const scraperFetchedAt = scraperData?.length > 0 ? Date.now() : 0;
 
-      if (drawCache.result
-        && drawCache.goalserveFetchedAt === currentGoalserveFetchedAt
-        && drawCache.scraperFetchedAt === scraperFetchedAt) {
+      if (drawCache.result && drawCache.scraperFetchedAt === scraperFetchedAt) {
         return { ...drawCache.result, currentRound };
       }
 
       const seedDraw = loadSeedDraw(tournamentId, roundFilter);
 
-      // Try scraper data first (FlashScore local scraper), then Goalserve
-      let fixturesForOverlay = null;
-      let dataSource = 'none';
-
-      // Scraper: highest priority (free, local, freshest data)
       if (scraperData && scraperData.length > 0) {
-        fixturesForOverlay = scraperData;
-        dataSource = 'scraper';
-        console.log(`[tennisData] Using scraper data for overlay: ${scraperData.length} fixtures`);
-      }
-
-      // Goalserve: fallback if no scraper data
-      if (!fixturesForOverlay) {
-        try {
-          const { fixtures } = await fetchGoalserveOnly();
-          if (fixtures && fixtures.length > 0) {
-            fixturesForOverlay = fixtures;
-            dataSource = 'goalserve';
-          }
-        } catch (gsErr) {
-          console.warn(`[tennisData] Goalserve fetch failed:`, gsErr.message);
-        }
-      }
-
-      if (fixturesForOverlay && fixturesForOverlay.length > 0) {
-        const merged = overlayGoalserve(seedDraw, fixturesForOverlay);
-        drawCache = { result: merged, goalserveFetchedAt: currentGoalserveFetchedAt, scraperFetchedAt };
-        console.log(`[tennisData] Draw overlay complete (source: ${dataSource}, ${fixturesForOverlay.length} fixtures)`);
+        const merged = overlayFixtures(seedDraw, scraperData);
+        drawCache = { result: merged, scraperFetchedAt };
+        console.log(`[tennisData] Draw overlay complete (scraper, ${scraperData.length} fixtures)`);
         return { ...merged, currentRound };
       }
 
-      // No live data available — return seed draw structure as-is
+      // No scraper data available — return seed draw structure as-is
+      console.log('[tennisData] No scraper data available, returning raw seed draw');
       return { ...seedDraw, currentRound };
     }
   } catch (seedErr) {

@@ -6,7 +6,7 @@
  * the bracket viewer expect.
  *
  * The seed draw JSON is the "source of truth" for WHO plays WHO.
- * Goalserve (via seedDrawOverlay) is the source of truth for WHAT HAPPENED.
+ * Live data (via seedDrawOverlay) is the source of truth for WHAT HAPPENED.
  *
  * Supports: 96-draw (Masters 1000), 128-draw (Grand Slams), 56-draw (ATP 500).
  *
@@ -228,7 +228,7 @@ export function loadSeedDraw(tournamentId, currentRound = null) {
 
   // NOTE: No fake round statuses are applied here.  The seed draw is
   // structural data only — who plays whom and bye advancement.  Real match
-  // results come exclusively from the Goalserve overlay (seedDrawOverlay.js).
+  // results come exclusively from the scraper overlay (seedDrawOverlay.js).
   // All non-bye matches remain status: 'scheduled' until live data arrives.
 
   return {

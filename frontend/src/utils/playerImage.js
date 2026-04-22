@@ -70,7 +70,7 @@ function isMockId(id) {
  * Returns an ordered list of image URLs to try for a player.
  *
  * Resolution order:
- * 1. Goalserve player ID  → /players/{id}.jpg  (skipped for mock IDs)
+ * 1. Player ID  → /players/{id}.jpg  (skipped for mock IDs)
  * 2. Name slug fallback   → /players/{slug}.jpg
  *
  * PlayerAvatar walks this list: try the first URL, on 404 try the next,
