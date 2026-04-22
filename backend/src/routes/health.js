@@ -13,7 +13,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { TOURNAMENT } from '../config/activeTournament.js';
-import { fetchFixtures } from '../services/dataAdapter.js';
+import { fetchFixtures, getGoalserveDiscoveryLog } from '../services/dataAdapter.js';
 
 export const healthRouter = Router();
 
@@ -90,6 +90,12 @@ healthRouter.get('/', async (_req, res) => {
 
   // ── 3. Active data source summary ───────────────────────────────────────────
   checks.data_source = checks.data_adapter?.data_source ?? 'unknown';
+
+  // ── 3b. Goalserve discovery log (helps diagnose tournament ID issues) ──────
+  const discoveryLog = getGoalserveDiscoveryLog();
+  if (discoveryLog) {
+    checks.goalserve_discovery = discoveryLog;
+  }
 
   // ── 4. Database ──────────────────────────────────────────────────────────────
   try {

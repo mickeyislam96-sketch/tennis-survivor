@@ -540,21 +540,56 @@ async function goalserveRequest(apiKey, path, queryParams) {
 // so we don't hammer the slow/flaky leagues endpoint repeatedly.
 let cachedTournamentId = null;
 
+// Discovery diagnostic log — exposed via health endpoint to diagnose without admin secret
+let discoveryLog = null;
+
+/** Get the last discovery attempt log (for health endpoint). */
+export function getGoalserveDiscoveryLog() {
+  return discoveryLog;
+}
+
 async function discoverTournamentId(apiKey, config) {
   // Return cached ID if we already found it
   if (cachedTournamentId) return cachedTournamentId;
 
   const targetName = (config?.shortName || config?.name || 'Madrid').toLowerCase();
+  discoveryLog = { targetName, timestamp: new Date().toISOString(), cachedId: cachedTournamentId };
 
   // Strategy 1: Leagues list (comprehensive but slow/flaky)
   try {
     const data = await goalserveRequest(apiKey, 'tennis_scores/leagues');
     const leagues = toArray(data?.league || data?.leagues?.league);
 
-    // Filter to ATP Singles only
-    const atpLeagues = leagues.filter(l =>
-      (l.country || '').toLowerCase() === 'atp-singles'
-    );
+    // Log raw league count for debugging
+    console.log(`[Goalserve] Leagues endpoint returned ${leagues.length} leagues total`);
+    discoveryLog.leaguesTotal = leagues.length;
+    discoveryLog.rawResponseKeys = data ? Object.keys(data).slice(0, 10) : [];
+    // Capture sample of leagues for diagnostics (names, countries, IDs)
+    discoveryLog.leaguesSample = leagues.slice(0, 15).map(l => ({
+      id: l.id, name: l.name, country: l.country,
+    }));
+
+    // First: search ALL leagues for target name (most reliable)
+    const allNameMatch = leagues.find(l => {
+      const name = (l.name || '').toLowerCase();
+      return name.includes(targetName) || name.includes('madrid') || name.includes('mutua');
+    });
+
+    if (allNameMatch) {
+      cachedTournamentId = String(allNameMatch.id);
+      discoveryLog.discoveredId = cachedTournamentId;
+      discoveryLog.discoveredFrom = 'all-leagues-name-search';
+      discoveryLog.matchedLeague = { id: allNameMatch.id, name: allNameMatch.name, country: allNameMatch.country };
+      console.log(`[Goalserve] Discovered tournament ID from all-leagues name search: ${cachedTournamentId} ("${allNameMatch.name}", country: "${allNameMatch.country}", season: ${allNameMatch.season})`);
+      return cachedTournamentId;
+    }
+
+    // Second: filter to ATP-like leagues with permissive matching
+    const atpLeagues = leagues.filter(l => {
+      const country = (l.country || '').toLowerCase();
+      const name = (l.name || '').toLowerCase();
+      return country.includes('atp') || name.includes('atp');
+    });
 
     const match = atpLeagues.find(l =>
       (l.name || '').toLowerCase().includes(targetName) ||
@@ -563,14 +598,21 @@ async function discoverTournamentId(apiKey, config) {
 
     if (match) {
       cachedTournamentId = String(match.id);
-      console.log(`[Goalserve] Discovered tournament ID from leagues: ${cachedTournamentId} ("${match.name}", season: ${match.season})`);
+      discoveryLog.discoveredId = cachedTournamentId;
+      discoveryLog.discoveredFrom = 'atp-leagues-filter';
+      discoveryLog.matchedLeague = { id: match.id, name: match.name, country: match.country };
+      console.log(`[Goalserve] Discovered tournament ID from ATP leagues: ${cachedTournamentId} ("${match.name}", season: ${match.season})`);
       return cachedTournamentId;
     }
 
-    // Log what we found for debugging
-    console.warn(`[Goalserve] Could not find "${targetName}" in leagues list. ATP tournaments found:`,
-      atpLeagues.slice(0, 20).map(l => `${l.name} (${l.id})`).join(', '));
+    // Log what we found for debugging — show a broader sample
+    discoveryLog.atpLeagueCount = atpLeagues.length;
+    discoveryLog.atpLeaguesSample = atpLeagues.slice(0, 10).map(l => ({ id: l.id, name: l.name, country: l.country }));
+    discoveryLog.noMatchFound = true;
+    const sampleLeagues = leagues.slice(0, 30).map(l => `${l.name} (id:${l.id}, country:${l.country})`).join(', ');
+    console.warn(`[Goalserve] Could not find "${targetName}" in ${leagues.length} leagues. ATP count: ${atpLeagues.length}. Sample: ${sampleLeagues}`);
   } catch (err) {
+    discoveryLog.leaguesError = err.message;
     console.warn(`[Goalserve] Leagues discovery failed: ${err.message}`);
   }
 
@@ -580,9 +622,14 @@ async function discoverTournamentId(apiKey, config) {
     console.log(`[Goalserve] Trying home livescore scan for "${targetName}"...`);
     const data = await goalserveRequest(apiKey, 'tennis_scores/home');
     const categories = toArray(data?.scores?.category);
+
+    // Log all categories for debugging
+    console.log(`[Goalserve] Livescore has ${categories.length} categories:`,
+      categories.map(c => `${c?.['@name'] || c?.name || c?.league || '?'} (id:${c?.['@id'] || c?.id || '?'})`).join(', '));
+
     const catMatch = categories.find(c => {
-      const catName = (c?.['@name'] || c?.name || '').toLowerCase();
-      return catName.includes(targetName) || catName.includes('madrid');
+      const catName = (c?.['@name'] || c?.name || c?.league || '').toLowerCase();
+      return catName.includes(targetName) || catName.includes('madrid') || catName.includes('mutua');
     });
 
     if (catMatch) {
