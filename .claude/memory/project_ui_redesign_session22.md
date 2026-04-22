@@ -6,7 +6,7 @@ sessionId: 22-Apr-2026-session-22
 ---
 
 ## Summary
-Session 22 focused on visual audit and design consolidation of three critical pages. All changes are design/CSS focused — no code pushed in this session. Updates documented for implementation in next session.
+Session 22 focused on visual audit and design consolidation of three critical pages, followed by a continuation session that implemented the name format change ("Surname, F.") across the bracket and matchup modal, fixed modal overflow, and pushed all changes.
 
 ## Changes by Page
 
@@ -160,28 +160,48 @@ Session 22 focused on visual audit and design consolidation of three critical pa
 
 ---
 
-## Files modified (design audit only — no code pushed)
+## Name format change: "Surname, F."
+
+**Decision:** All player names across bracket and modal display as "Surname, F." (e.g. "Alcaraz, C.") rather than "Firstname Lastname". Players are more recognisable by surname, and this format ensures the surname is always visible even when truncated.
+
+**Utility:** `shortName()` in `frontend/src/utils/playerImage.js`
+```javascript
+export function shortName(name) {
+  if (!name) return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  const first = parts[0];
+  const surname = parts.slice(1).join(' ');
+  return `${surname}, ${first[0]}.`;
+}
+```
+
+**Applied in:**
+- `DrawViewer.jsx` — bracket card names (player1, player2, bye rows) and list card names
+- `MatchupModal.jsx` — player header names (loading + loaded states), form column headers, form opponent names ("vs Alcaraz, C."), stat comparison labels. Replaced and removed old `surname()` helper.
+
+**Not applied to** (intentional):
+- Leaderboard cards — show full display name (these are pool member names, not player names)
+- PickScreen cards — show full player name for pick selection clarity
+- PickHistory cards — show full player name
+
+**MatchupModal overflow fix:**
+- Added `overflow-x: hidden` to `.mu-modal` in `MatchupModal.css`
+- Added `overflow: hidden` to `.mu2-form-row` to contain long form text
+
+---
+
+## Files modified (all pushed)
 - `frontend/src/pages/Leaderboard.jsx` + `Leaderboard.css` — card layout, Survivometer, status badges
 - `frontend/src/pages/PickHistory.jsx` + `PickHistory.css` — card layout, status cards, result pills
 - `frontend/src/pages/PickScreen.jsx` + `PickScreen.css` — card layout, tag system, seed badges
+- `frontend/src/pages/DrawViewer.jsx` — shortName() applied to bracket + list card names
+- `frontend/src/components/MatchupModal.jsx` — shortName() replaces surname(), import added
+- `frontend/src/components/MatchupModal.css` — overflow-x fix
+- `frontend/src/utils/playerImage.js` — added shortName() utility
 - `frontend/src/data/roundLabels.js` — imported in PickHistory
-- `frontend/src/utils/playerImage.js` — imported in PickHistory
 
 ---
 
-## Next steps
-1. Implement card layouts in Leaderboard.jsx (replace table + add Survivometer)
-2. Implement status cards and result pills in PickHistory.jsx
-3. Implement player cards and tag system in PickScreen.jsx
-4. Update CSS files with all mobile improvements
-5. Test all three pages on desktop and mobile (640px breakpoint)
-6. Push changes to GitHub in a single commit
-7. Verify both Vercel and Railway deploys succeed
-8. Test feature flow end-to-end on production
-
----
-
-## Session evidence
-- All changes documented in CLAUDE.md session history (entry: 22 Apr session 22)
-- Design system updated with page-specific UI patterns
-- Memory index updated with new project_ui_redesign_session22.md entry
+## Status
+All changes implemented, committed, and pushed. Card-based redesign + name format change are live on finalserveivor.com.

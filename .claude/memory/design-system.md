@@ -112,6 +112,11 @@ Google Fonts link tag loading Fraunces (ital 0,700 and 1,400), JetBrains Mono (6
 - Top seed cards — gold-tinted background with gold seed badge
 - Standard cards — white background with silver seed badge
 
+**Player name format:**
+- Bracket and modal: "Surname, F." via `shortName()` from `playerImage.js` (e.g. "Alcaraz, C.")
+- Leaderboard, pick screen, pick history: Full name for clarity
+- Rationale: players are more recognisable by surname; short format prevents truncation in tight layouts
+
 **Mobile responsiveness:**
 - Leaderboard: 10px gap, 12px padding, 36px avatars
 - Pick history: 12px padding, 10px badge/result text, 92vw modal width

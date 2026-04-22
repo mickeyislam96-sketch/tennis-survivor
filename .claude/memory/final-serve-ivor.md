@@ -10,7 +10,8 @@ originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 - Frontend: React + Vite → Vercel (auto-deploys from GitHub main)
 - Backend: Node.js / Express → Railway (auto-deploys from GitHub main)
 - GitHub repo: `mickeyislam96-sketch/tennis-survivor`
-- Primary data: Goalserve ($100/mo, 30-day trial activated 19 Apr)
+- Primary data: FlashScore scraper (free, browser-based via Chrome MCP, 20-min scheduled task)
+- Fallback data: Goalserve ($100/mo trial) — returned 0 fixtures on Madrid day 1, demoted to fallback
 - Legacy data: API-Tennis — fully retired from matchup modal 20 Apr, kept only as automatic fallback in dataAdapter provider chain
 - Database: PostgreSQL on Railway volume (picks, groups, members)
 - Email: Brevo transactional (custom HTML templates in email.js, direct send with dedup)
@@ -27,7 +28,7 @@ originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 - Vercel Project: `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf`
 - Vercel Team: `team_ekuiNPY7cIyY2ieq41oWMYvO`
 
-**Design system:** Direction A "Clean Court" — Outfit + Fraunces + JetBrains Mono, semantic colour tokens, 640px mobile breakpoint. Session 22 redesign implemented card-based layouts for Leaderboard, Pick History, and Make a Pick pages. Player avatars: 169-player CSS sprite sheet (205KB WebP), fallback to coloured initials circle. Brand dark green (#0F4A23) is the standard colour for alive/active status badges across all pages.
+**Design system:** Direction A "Clean Court" — Outfit + Fraunces + JetBrains Mono, semantic colour tokens, 640px mobile breakpoint. Session 22 redesign implemented card-based layouts for Leaderboard, Pick History, and Make a Pick pages. Player avatars: 169-player CSS sprite sheet (205KB WebP), fallback to coloured initials circle. Brand dark green (#0F4A23) is the standard colour for alive/active status badges across all pages. Player names on bracket and matchup modal use "Surname, F." format via `shortName()` utility.
 
 **Seed draw system (20 Apr 2026):** Reusable two-phase architecture. Phase 1: static JSON from ATP draw PDF (seedDrawLoader.js). Phase 2: Goalserve live overlay (seedDrawOverlay.js). New tournament = add one JSON file. Template: `CTO - TS/New Tournament Setup Template.md`.
 
