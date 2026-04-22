@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { Section, SectionHeader } from '../ui/Section.jsx';
 import { Hero } from '../ui/Hero.jsx';
-import { Badge } from '../ui/Badge.jsx';
 import { Stat } from '../ui/Stat.jsx';
 import { Button } from '../ui/Button.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
@@ -222,120 +221,98 @@ export function Leaderboard() {
           </Button>
         </div>
 
-        <p className="lb-click-hint">Click any player to see their pick history.</p>
+        <p className="lb-click-hint">Tap any player to see their pick history.</p>
 
-        <div className="lb-table-wrap">
-          <table className="lb-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th className="lb-th-status">Status</th>
-                <th className="lb-th-progress">Progress</th>
-                {currentRound && <th className="lb-th-pick">{currentRound} pick</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.length === 0 && (
-                <tr>
-                  <td colSpan={currentRound ? 4 : 3} className="lb-empty-row">
-                    No entries yet — be the first to join!
-                  </td>
-                </tr>
-              )}
-              {leaderboard.map((m) => {
-                const isYou    = m.userId === userId;
-                const survived = m.survivedRounds ?? 0;
-                const rowClass = [
-                  'lb-row',
-                  isYou ? 'lb-row--you' : '',
-                  m.isWinner ? 'lb-row--winner' : m.isAlive ? 'lb-row--alive' : 'lb-row--out',
-                ].filter(Boolean).join(' ');
+        {leaderboard.length === 0 ? (
+          <div className="lb-empty-card">
+            No entries yet — be the first to join!
+          </div>
+        ) : (
+          <div className="lb-card-list">
+            {leaderboard.map((m, idx) => {
+              const isYou    = m.userId === userId;
+              const survived = m.survivedRounds ?? 0;
+              const cardClass = [
+                'lb-card',
+                isYou ? 'lb-card--you' : '',
+                m.isWinner ? 'lb-card--winner' : !m.isAlive ? 'lb-card--out' : '',
+              ].filter(Boolean).join(' ');
 
-                const handleRowKeyDown = (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedMember(m);
-                  }
-                };
+              const handleCardKeyDown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedMember(m);
+                }
+              };
 
-                return (
-                  <tr
-                    key={m.id}
-                    className={rowClass}
-                    onClick={() => setSelectedMember(m)}
-                    onKeyDown={handleRowKeyDown}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`View pick history for ${m.displayName}`}
-                    title="Click to view picks"
+              // Meta line
+              let metaText;
+              if (m.isWinner) {
+                metaText = `${survived} round${survived !== 1 ? 's' : ''} survived`;
+              } else if (m.isAlive) {
+                metaText = survived === 0
+                  ? 'No results yet'
+                  : `${survived} round${survived !== 1 ? 's' : ''} survived`;
+              } else {
+                const outLabel = ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—';
+                metaText = survived > 0
+                  ? `${survived} round${survived !== 1 ? 's' : ''} · Out in ${outLabel}`
+                  : `Out in ${outLabel}`;
+              }
+
+              return (
+                <div
+                  key={m.id}
+                  className={cardClass}
+                  onClick={() => setSelectedMember(m)}
+                  onKeyDown={handleCardKeyDown}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`View pick history for ${m.displayName}`}
+                >
+                  <span className="lb-card-rank">{idx + 1}</span>
+                  <span
+                    className="lb-card-avatar"
+                    style={{ background: avatarColour(m.displayName) }}
                   >
-                    <td className="lb-td-player">
-                      <span
-                        className="lb-avatar"
-                        style={{ background: avatarColour(m.displayName) }}
-                      >
-                        {initials(m.displayName)}
+                    {initials(m.displayName)}
+                  </span>
+                  <div className="lb-card-info">
+                    <div className="lb-card-name">
+                      <span className="lb-card-name-text">{m.displayName}</span>
+                      {isYou && <span className="lb-card-you-tag">You</span>}
+                      {m.isWinner && <span className="lb-card-winner-tag" aria-hidden="true">🏆</span>}
+                    </div>
+                    <div className="lb-card-meta">
+                      <span className="rounds-survived">{metaText}</span>
+                    </div>
+                  </div>
+                  <div className="lb-card-right">
+                    {m.isWinner ? (
+                      <span className="lb-card-status lb-card-status--winner">Winner</span>
+                    ) : m.isAlive ? (
+                      <span className="lb-card-status lb-card-status--alive">
+                        <span className="status-dot" /> Alive
                       </span>
-                      <span className="lb-display-name">
-                        {m.displayName}
-                      </span>
-                      {isYou && <Badge tone="primary" size="sm">You</Badge>}
-                      {m.isWinner && <span className="lb-winner-tag" aria-hidden="true">🏆</span>}
-                    </td>
-                    <td className="lb-td-status">
-                      {m.isWinner ? (
-                        <Badge tone="gold" size="sm" dot>Winner</Badge>
-                      ) : m.isAlive ? (
-                        <Badge tone="success" size="sm" dot>Alive</Badge>
-                      ) : (
-                        <Badge tone="danger" size="sm">Eliminated</Badge>
-                      )}
-                    </td>
-                    <td className="lb-td-progress">
-                      {m.isWinner ? (
-                        <span className="lb-progress-value">
-                          {survived} {survived === 1 ? 'round' : 'rounds'} survived
-                        </span>
-                      ) : m.isAlive ? (
-                        survived === 0 ? (
-                          <span className="lb-progress-muted">No results yet</span>
-                        ) : (
-                          <span className="lb-progress-value">
-                            {survived} {survived === 1 ? 'round' : 'rounds'} survived
-                          </span>
-                        )
-                      ) : (
-                        <span className="lb-progress-out">
-                          Out in {ROUND_LABELS[m.eliminatedRound] || m.eliminatedRound || '—'}
-                          {survived > 0 && (
-                            <span className="lb-progress-sub"> · {survived} {survived === 1 ? 'round' : 'rounds'}</span>
-                          )}
-                        </span>
-                      )}
-                    </td>
-                    {currentRound && (
-                      <td className="lb-td-pick">
-                        {roundIsLocked ? (
-                          m.currentRoundPick ? (
-                            <span className={m.isAlive ? 'lb-pick-live' : 'lb-pick-dead'}>
-                              {m.currentRoundPick}
-                            </span>
-                          ) : (
-                            <span className="lb-pick-none">—</span>
-                          )
-                        ) : (
-                          <span className="lb-pick-hidden">
-                            <span aria-hidden="true">🔒</span> Hidden
-                          </span>
-                        )}
-                      </td>
+                    ) : (
+                      <span className="lb-card-status lb-card-status--out">Eliminated</span>
                     )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    {currentRound && roundIsLocked && m.currentRoundPick && (
+                      <span className={`lb-card-pick${!m.isAlive ? ' lb-card-pick--dead' : ''}`}>
+                        {currentRound}: <strong>{m.currentRoundPick}</strong>
+                      </span>
+                    )}
+                    {currentRound && !roundIsLocked && (
+                      <span className="lb-card-pick lb-card-pick--hidden">
+                        🔒 Hidden
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Section>
 
       {selectedMember && (
