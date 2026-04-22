@@ -35,5 +35,11 @@ All email templates in `backend/src/utils/email.js` (single file, ~990 lines). S
 - DNS hosted on Namecheap, auto-configured via Brevo's Entri integration
 - DKIM uses CNAME records (not TXT): `brevo1._domainkey` and `brevo2._domainkey`
 - DMARC: `v=DMARC1; p=none` (reporting to Brevo)
-- SPF: NOT required for Brevo (they handle envelope sender)
+- SPF: Current record is `v=spf1 ~all` (missing Brevo include). **Fix needed:** change to `v=spf1 include:spf.sendinblue.com ~all` in Namecheap. While DKIM alone passes DMARC, missing SPF adds negative signal for new domains.
 - Sender: `noreply@finalserveivor.com` (display name: "Final Serve-ivor")
+
+## Deliverability (22 Apr 2026)
+- First round result email (Madrid R1) landed in user's spam folder
+- Root cause: primarily domain reputation (new domain, near-zero sending history)
+- SPF fix above will help but won't fully solve — reputation builds over time with consistent sends
+- Ask early users to mark emails as "not spam" to train filters
