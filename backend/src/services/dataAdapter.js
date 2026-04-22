@@ -15,6 +15,7 @@
  */
 
 import { TOURNAMENT } from '../config/activeTournament.js';
+import { getScrapedResults } from './scraperCache.js';
 
 // ── Internal fixture format ──────────────────────────────────────────────────
 // Every adapter converts its raw API response into an array of these objects.
@@ -937,9 +938,30 @@ function normalizeApiTennisRound(raw) {
   return API_TENNIS_ROUND_MAP[str] || null;
 }
 
+// ── Scraper adapter ─────────────────────────────────────────────────────────
+// Reads from the scraperCache module, which is populated by the local
+// FlashScore scraper POSTing to /api/admin/scrape-results.
+// No HTTP calls needed — data is already in our internal fixture format.
+
+async function fetchScraper(_config) {
+  try {
+    const fixtures = await getScrapedResults();
+    if (!fixtures || fixtures.length === 0) {
+      console.log('[dataAdapter] Scraper: no data available');
+      return null;
+    }
+    console.log(`[dataAdapter] Scraper: ${fixtures.length} fixtures from cache`);
+    return fixtures;
+  } catch (e) {
+    console.warn('[dataAdapter] Scraper adapter failed:', e.message);
+    return null;
+  }
+}
+
 // ── Main fetch function ──────────────────────────────────────────────────────
 // Tries providers in priority order. Returns internal fixture array or empty.
 const PROVIDER_CHAIN = [
+  { name: 'scraper',    fn: fetchScraper },
   { name: 'goalserve',  fn: fetchGoalserve },
   { name: 'api-tennis', fn: fetchApiTennis },
   { name: 'sofascore',  fn: fetchSofascore },

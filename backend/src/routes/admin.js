@@ -17,6 +17,7 @@ import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRunt
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
 import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
+import { setScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
 
 export const adminRouter = Router();
 
@@ -908,4 +909,64 @@ adminRouter.get('/goalserve-leagues', async (req, res) => {
 adminRouter.post('/send-new-tournament', async (req, res) => {
   if (!checkSecret(req, res)) return;
   res.status(501).json({ error: 'New tournament email template not yet implemented' });
+});
+
+// ── POST /api/admin/scrape-results ──────────────────────────────────────────
+// Receive scraped match results from the local FlashScore scraper.
+// Body: { secret, fixtures: [...], scrapedAt: "ISO string" }
+// The fixtures array must use the internal fixture format (see dataAdapter.js).
+adminRouter.post('/scrape-results', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { fixtures, scrapedAt } = req.body;
+
+  if (!Array.isArray(fixtures)) {
+    return res.status(400).json({ error: 'fixtures must be an array' });
+  }
+  if (fixtures.length === 0) {
+    return res.status(400).json({ error: 'fixtures array is empty — nothing to store' });
+  }
+
+  // Basic validation: each fixture needs at least matchId and round
+  const invalid = fixtures.filter(f => !f.matchId || !f.round);
+  if (invalid.length > 0) {
+    return res.status(400).json({
+      error: `${invalid.length} fixture(s) missing matchId or round`,
+      sample: invalid.slice(0, 3),
+    });
+  }
+
+  try {
+    const result = await setScrapedResults(fixtures, scrapedAt);
+
+    // Log summary
+    const roundCounts = {};
+    for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
+    const completed = fixtures.filter(f => f.status === 'completed').length;
+    const live = fixtures.filter(f => f.status === 'live').length;
+    const withTimes = fixtures.filter(f => f.startTime).length;
+
+    console.log(`[admin] scrape-results: ${fixtures.length} fixtures received. ` +
+      `Rounds: ${JSON.stringify(roundCounts)}. ` +
+      `Completed: ${completed}, Live: ${live}, With start times: ${withTimes}`);
+
+    res.json({
+      ok: true,
+      stored: result.stored,
+      rounds: roundCounts,
+      completed,
+      live,
+      withStartTimes: withTimes,
+      scrapedAt: scrapedAt || new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[admin] scrape-results error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/admin/scraper-status ────────────────────────────────────────────
+// Check the scraper cache status (is data flowing? how old is it?).
+adminRouter.get('/scraper-status', (req, res) => {
+  if (!checkSecret(req, res)) return;
+  res.json({ ok: true, ...getScraperCacheStatus() });
 });

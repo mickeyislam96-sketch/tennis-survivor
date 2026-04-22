@@ -185,3 +185,26 @@ CREATE INDEX IF NOT EXISTS idx_ops_log_tournament_time
   ON ops_log(tournament_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ops_log_category
   ON ops_log(category, created_at DESC);
+
+-- Scraped results: persisted cache for FlashScore-scraped match data.
+-- Replaced in bulk each time the scraper runs. Survives Railway restarts.
+CREATE TABLE IF NOT EXISTS scraped_results (
+  match_id TEXT NOT NULL,
+  round TEXT,
+  player1_id TEXT,
+  player1_name TEXT,
+  player2_id TEXT,
+  player2_name TEXT,
+  winner_id TEXT,
+  winner_name TEXT,
+  status TEXT DEFAULT 'scheduled',
+  start_time TIMESTAMPTZ,
+  score TEXT,
+  is_withdrawal BOOLEAN DEFAULT false,
+  withdrawn_player_id TEXT,
+  scraped_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (match_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraped_results_round
+  ON scraped_results(round);

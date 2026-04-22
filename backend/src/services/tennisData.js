@@ -5,6 +5,7 @@
  */
 
 import { ROUNDS, MATCHES_PER_ROUND } from '../config/tournament.js';
+import { TOURNAMENT as ACTIVE_TOURNAMENT } from '../config/activeTournament.js';
 import { getMiamiMockDraw } from '../data/miamiDraw.js';
 import nodeFetch from 'node-fetch';
 import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
@@ -13,23 +14,16 @@ import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
 import { fetchFixtures, fetchGoalserveOnly, getGoalserveCacheFetchedAt } from './dataAdapter.js';
 import { overlayGoalserve } from './seedDrawOverlay.js';
+import { getScrapedResults } from './scraperCache.js';
 
-// Import active tournament config for R1 per-match lock feature
-let ACTIVE_TOURNAMENT = null;
-try {
-  const mod = await import('../config/activeTournament.js');
-  ACTIVE_TOURNAMENT = mod.TOURNAMENT;
-} catch (e) {
-  // activeTournament.js may not exist in older deployments — graceful fallback
-}
+// ACTIVE_TOURNAMENT is imported statically at line 8 above (no dynamic import needed)
 
 // ── Draw result cache ───────────────────────────────────────────────────────
-// Caches the fully merged draw (seed draw + Goalserve overlay) so we don't
-// re-run Levenshtein matching on every request. Invalidated when Goalserve
-// fetches fresh data (checked via fetchedAt timestamp).
-// The roundFilter (currentRound label) is NOT part of the cache key because
-// the underlying draw data is identical regardless of which round is "current".
-let drawCache = { result: null, goalserveFetchedAt: 0 };
+// Caches the fully merged draw (seed draw + Goalserve/scraper overlay) so we don't
+// re-run Levenshtein matching on every request. Invalidated when the data source
+// fetches fresh data (checked via fetchedAt timestamp or scraper cache TTL).
+let drawCache = { result: null, goalserveFetchedAt: 0, scraperFetchedAt: 0 };
+
 
 const API_BASE = 'https://api.api-tennis.com/tennis';
 
@@ -295,36 +289,56 @@ function buildDrawFromFixtures(fixtures) {
 export async function getDraw(roundFilter = null) {
   const tournamentId = ACTIVE_TOURNAMENT?.id || 'unknown';
 
-  // ── Path 1: Seed draw + Goalserve overlay (cached) ────────────────────
+  // ── Path 1: Seed draw + live data overlay (cached) ────────────────────
   // If a seed draw JSON exists for this tournament, use it as the structural
-  // base and overlay Goalserve live data on top. The merged result is cached
-  // until Goalserve fetches fresh data, avoiding expensive Levenshtein
-  // matching on every request.
+  // base and overlay live fixture data on top. Tries scraper first (FlashScore),
+  // then Goalserve. The merged result is cached until the data source refreshes.
   try {
     if (hasSeedDraw(tournamentId)) {
       const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
 
-      // Check if we can serve from draw cache (same Goalserve data = same overlay result)
-      const currentFetchedAt = getGoalserveCacheFetchedAt();
-      if (drawCache.result && drawCache.goalserveFetchedAt === currentFetchedAt) {
+      // Check if we can serve from draw cache (same data = same overlay result)
+      const currentGoalserveFetchedAt = getGoalserveCacheFetchedAt();
+      const scraperData = await getScrapedResults();
+      const scraperFetchedAt = scraperData?.length > 0 ? scraperData[0]?.scrapedAt || Date.now() : 0;
+
+      if (drawCache.result
+        && drawCache.goalserveFetchedAt === currentGoalserveFetchedAt
+        && drawCache.scraperFetchedAt === scraperFetchedAt) {
         return { ...drawCache.result, currentRound };
       }
 
       const seedDraw = loadSeedDraw(tournamentId, roundFilter);
 
-      // Try to overlay Goalserve live data (Goalserve only — no fallback chain.
-      // If Goalserve returns empty, tournament hasn't started; use seed draw alone.)
-      try {
-        const { fixtures } = await fetchGoalserveOnly();
+      // Try scraper data first (FlashScore local scraper), then Goalserve
+      let fixturesForOverlay = null;
+      let dataSource = 'none';
 
-        if (fixtures && fixtures.length > 0) {
-          const merged = overlayGoalserve(seedDraw, fixtures);
-          // Cache the merged result (without currentRound — applied per-call)
-          drawCache = { result: merged, goalserveFetchedAt: currentFetchedAt };
-          return { ...merged, currentRound };
+      // Scraper: highest priority (free, local, freshest data)
+      if (scraperData && scraperData.length > 0) {
+        fixturesForOverlay = scraperData;
+        dataSource = 'scraper';
+        console.log(`[tennisData] Using scraper data for overlay: ${scraperData.length} fixtures`);
+      }
+
+      // Goalserve: fallback if no scraper data
+      if (!fixturesForOverlay) {
+        try {
+          const { fixtures } = await fetchGoalserveOnly();
+          if (fixtures && fixtures.length > 0) {
+            fixturesForOverlay = fixtures;
+            dataSource = 'goalserve';
+          }
+        } catch (gsErr) {
+          console.warn(`[tennisData] Goalserve fetch failed:`, gsErr.message);
         }
-      } catch (overlayErr) {
-        console.warn(`[tennisData] Goalserve overlay failed, using seed draw alone:`, overlayErr.message);
+      }
+
+      if (fixturesForOverlay && fixturesForOverlay.length > 0) {
+        const merged = overlayGoalserve(seedDraw, fixturesForOverlay);
+        drawCache = { result: merged, goalserveFetchedAt: currentGoalserveFetchedAt, scraperFetchedAt };
+        console.log(`[tennisData] Draw overlay complete (source: ${dataSource}, ${fixturesForOverlay.length} fixtures)`);
+        return { ...merged, currentRound };
       }
 
       // No live data available — return seed draw structure as-is
@@ -429,7 +443,16 @@ export function getRuntimeLockOverrides() {
 }
 
 export async function getDeadlines() {
-  const fixtures = await fetchApiDraw();
+  // Try scraped data first (same chain as getDraw)
+  let fixtures = null;
+  try {
+    fixtures = await getScrapedResults();
+  } catch (_) {}
+
+  if (!fixtures || fixtures.length === 0) {
+    fixtures = await fetchApiDraw();
+  }
+
   if (!fixtures || fixtures.length === 0) {
     // No live data — fall back to static schedule from activeTournament.js.
     // If no active tournament config, use sensible defaults for Madrid 2026.

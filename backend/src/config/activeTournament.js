@@ -55,7 +55,7 @@ const TOURNAMENTS = {
     // Fallback round dates (used when live API has no start times yet)
     // Men's main draw starts Wed 22 Apr. Final Sun 3 May.
     roundDateFallbacks: {
-      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr — Day 1 men's main draw
+      R1:  '2026-04-22T10:00:00Z',  // Wed 22 Apr — Day 1 (extended 1h for testing)
       R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr — estimated
       R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr — estimated
       R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr — estimated
