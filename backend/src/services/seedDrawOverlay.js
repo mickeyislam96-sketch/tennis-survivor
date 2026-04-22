@@ -189,8 +189,8 @@ export function overlayGoalserve(seedDraw, goalserveFixtures) {
       if (gsFixture.status && gsFixture.status !== 'scheduled') {
         match.status = gsFixture.status;
       }
-      if (gsFixture.winnerId) {
-        // Match the Goalserve winner to our seed draw player IDs
+      if (gsFixture.winnerId || gsFixture.winnerName) {
+        // Match the Goalserve/scraper winner to our seed draw player IDs
         const winnerNorm = normaliseName(gsFixture.winnerName);
         const p1Norm = normaliseName(match.player1Name);
         const p2Norm = normaliseName(match.player2Name);
