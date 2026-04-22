@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge.jsx';
 import { Card } from '../ui/Card.jsx';
 import { ROUND_SHORT as ROUND_LABELS, ROUND_FULL } from '../data/roundLabels';
 import PlayerAvatar from '../ui/PlayerAvatar';
+import { shortName } from '../utils/playerImage';
 import './DrawViewer.css';
 
 const MATCH_COUNTS_FALLBACK = { R1: 64, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
@@ -124,7 +125,7 @@ function BracketCard({ match, onMatchClick }) {
       <div className="bc-card bc-card--bye">
         <div className="bc-row bc-won">
           {seedName && <PlayerAvatar playerId={seedId} playerName={seedName} size={20} />}
-          <span className="bc-name">{seedName || 'TBD'}</span>
+          <span className="bc-name">{seedName ? shortName(seedName) : 'TBD'}</span>
         </div>
         <div className="bc-divider" />
         <div className="bc-row bc-row--tbd"><span className="bc-name bc-bye-label">BYE</span></div>
@@ -146,13 +147,13 @@ function BracketCard({ match, onMatchClick }) {
       {live && <span className="bc-live-pip" />}
       <div className={`bc-row${p1w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
         {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={20} />}
-        <span className="bc-name">{match.player1Name || 'TBD'}</span>
+        <span className="bc-name">{match.player1Name ? shortName(match.player1Name) : 'TBD'}</span>
         {p1w && <span className="bc-tick">✓</span>}
       </div>
       <div className="bc-divider" />
       <div className={`bc-row${p2w ? ' bc-won' : done ? ' bc-lost' : ''}`}>
         {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={20} />}
-        <span className="bc-name">{match.player2Name || 'TBD'}</span>
+        <span className="bc-name">{match.player2Name ? shortName(match.player2Name) : 'TBD'}</span>
         {p2w && <span className="bc-tick">✓</span>}
       </div>
       {/* Score intentionally hidden from bracket — shown in round-by-round list view only */}
@@ -198,13 +199,13 @@ function ListCard({ match, onMatchClick }) {
         <div className="lc-players">
           <div className={`lc-row${p1w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
             {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={24} />}
-            <span className="lc-name">{match.player1Name || 'TBD'}</span>
+            <span className="lc-name">{match.player1Name ? shortName(match.player1Name) : 'TBD'}</span>
             {p1w && <span className="lc-win-dot" />}
           </div>
           <div className="lc-sep" />
           <div className={`lc-row${p2w ? ' lc-won' : done ? ' lc-lost' : ''}`}>
             {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={24} />}
-            <span className="lc-name">{match.player2Name || 'TBD'}</span>
+            <span className="lc-name">{match.player2Name ? shortName(match.player2Name) : 'TBD'}</span>
             {p2w && <span className="lc-win-dot" />}
           </div>
         </div>

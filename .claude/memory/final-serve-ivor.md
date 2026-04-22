@@ -27,7 +27,7 @@ originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 - Vercel Project: `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf`
 - Vercel Team: `team_ekuiNPY7cIyY2ieq41oWMYvO`
 
-**Design system:** Direction A "Clean Court" — Outfit + Fraunces + JetBrains Mono, semantic colour tokens, 640px mobile breakpoint. Reference file: `CTO - TS/fsv-final-mockups.html`. Player avatars: 169-player CSS sprite sheet (205KB WebP), fallback to coloured initials circle.
+**Design system:** Direction A "Clean Court" — Outfit + Fraunces + JetBrains Mono, semantic colour tokens, 640px mobile breakpoint. Session 22 redesign implemented card-based layouts for Leaderboard, Pick History, and Make a Pick pages. Player avatars: 169-player CSS sprite sheet (205KB WebP), fallback to coloured initials circle. Brand dark green (#0F4A23) is the standard colour for alive/active status badges across all pages.
 
 **Seed draw system (20 Apr 2026):** Reusable two-phase architecture. Phase 1: static JSON from ATP draw PDF (seedDrawLoader.js). Phase 2: Goalserve live overlay (seedDrawOverlay.js). New tournament = add one JSON file. Template: `CTO - TS/New Tournament Setup Template.md`.
 

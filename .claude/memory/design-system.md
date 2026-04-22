@@ -40,3 +40,80 @@
 
 ## Email font loading
 Google Fonts link tag loading Fraunces (ital 0,700 and 1,400), JetBrains Mono (600, 700), and Outfit (400, 600, 700).
+
+---
+
+## Page-specific UI patterns (session 22 redesign)
+
+### Leaderboard page (Leaderboard.jsx)
+**Layout:** Card-based `.lb-card` divs replacing HTML table (one card per player).
+**Card structure:**
+- Rank number (left, large)
+- Avatar initials circle (40px)
+- Display name (bold, Outfit)
+- Meta line (seed + rounds survived, muted ink)
+- Status badge (right side)
+- Current round pick (shows player name after lock, "🔒 Hidden" during open window)
+
+**Status badges (brand dark green #0F4A23 background):**
+- "Alive" — solid #0F4A23 background, white text, bright green #4ade80 dot
+- "Eliminated" — 0.6 opacity card, name struck through in red, red "Eliminated" badge
+- "Winner" — gold background card, gold status badge
+
+**Survivometer (new):**
+- Progress bar between hint text and card list
+- Shows elimination percentage (0-100%)
+- Green-to-red gradient fill
+- Large percentage number (32pt)
+- "X still standing" text below
+
+### Pick History / My Picks page (PickHistory.jsx)
+**Layout:** Card-based `.ph-card` divs (one card per pick).
+**Card structure:**
+- Round badge (top-left, pill shape with round label)
+- PlayerAvatar (40px)
+- Player name (bold)
+- Round label ("R32", "R16", etc.)
+- Result pill (right side — "Advanced", "Eliminated", "Pending")
+
+**Status card (new):**
+- Alive/eliminated dot indicator
+- Headline text ("1 win, 0 losses" or "Eliminated in R64")
+- Rounds survived count
+- Stat counters on right: won/lost/pending counts
+
+**Result pills:**
+- "Advanced" — dark green #0F4A23 background, white text, checkmark SVG
+- "Eliminated" — light red background
+- "Pending" — grey background with border
+
+**Card background tinting:**
+- Won cards — subtle green tint
+- Lost cards — 0.65 opacity with struck-through name
+
+### Make a Pick page (PickScreen.jsx)
+**Layout:** Card-based `.ps-pcard` divs (one card per player).
+**Card structure:**
+- Seed badge (top-left, pill shape — gold for top seeds)
+- PlayerAvatar (40px)
+- Info block:
+  - Player name (bold, Outfit)
+  - Opponent (italic secondary text, shows "vs [opponent]" or "vs Qualifier")
+  - Match start time (small muted text)
+- Tags row (custom pills)
+- Pick button (gold CTA, right-aligned)
+
+**Tag system (replaces Badge components):**
+- "Your pick" — dark green #0F4A23 background, white text, glowing green #4ade80 dot
+- "Already used" — grey background
+- "Pending" — orange background (indicates waiting on prev round result)
+
+**Card styling:**
+- Top seed cards — gold-tinted background with gold seed badge
+- Standard cards — white background with silver seed badge
+
+**Mobile responsiveness:**
+- Leaderboard: 10px gap, 12px padding, 36px avatars
+- Pick history: 12px padding, 10px badge/result text, 92vw modal width
+- Pick screen: 10px gap, 12px padding, 32px seed badges, 8px tag text
+- All pages: 640px breakpoint, 44px minimum touch targets

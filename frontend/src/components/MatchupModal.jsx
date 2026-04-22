@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API } from '../App';
 import PlayerAvatar from '../ui/PlayerAvatar';
+import { shortName } from '../utils/playerImage';
 import { ROUND_SHORT } from '../data/roundLabels';
 import './MatchupModal.css';
 
@@ -9,11 +10,6 @@ import './MatchupModal.css';
 function isUnknownPlayer(name) {
   if (!name) return true;
   return ['Qualifier', 'TBD', 'BYE'].includes(name);
-}
-
-function surname(name) {
-  if (!name) return '';
-  return name.split(' ').pop();
 }
 
 function seedLabel(seed) {
@@ -161,14 +157,14 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                 <div className="mu2-avatar-wrap">
                   <PlayerAvatar playerId={player1Id} playerName={player1Name} size={64} />
                 </div>
-                <div className="mu2-player-name">{player1Name || 'TBD'}</div>
+                <div className="mu2-player-name">{player1Name ? shortName(player1Name) : 'TBD'}</div>
               </div>
               <div className="mu2-vs-divider"><div className="mu2-vs-circle">vs</div></div>
               <div className="mu2-player-side">
                 <div className="mu2-avatar-wrap">
                   <PlayerAvatar playerId={player2Id} playerName={player2Name} size={64} />
                 </div>
-                <div className="mu2-player-name">{player2Name || 'TBD'}</div>
+                <div className="mu2-player-name">{player2Name ? shortName(player2Name) : 'TBD'}</div>
               </div>
             </div>
           </div>
@@ -237,7 +233,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
               <div className="mu2-avatar-wrap">
                 <PlayerAvatar playerId={player1Id} playerName={p1Name} size={64} />
               </div>
-              <div className="mu2-player-name">{p1Unknown ? 'TBD' : (surname(p1Name) || p1Name)}</div>
+              <div className="mu2-player-name">{p1Unknown ? 'TBD' : shortName(p1Name)}</div>
               <div className="mu2-player-flag">
                 {!p1Unknown && p1Flag && <>{p1Flag} {p1Country}</>}
                 {p1Seed && <> {p1Seed}</>}
@@ -272,7 +268,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
               <div className="mu2-avatar-wrap">
                 <PlayerAvatar playerId={player2Id} playerName={p2Name} size={64} />
               </div>
-              <div className="mu2-player-name">{p2Unknown ? 'TBD' : (surname(p2Name) || p2Name)}</div>
+              <div className="mu2-player-name">{p2Unknown ? 'TBD' : shortName(p2Name)}</div>
               <div className="mu2-player-flag">
                 {!p2Unknown && p2Flag && <>{p2Flag} {p2Country}</>}
                 {p2Seed && <> {p2Seed}</>}
@@ -307,7 +303,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
             <div className="mu2-form-blocks">
               {!p1Unknown && p1DisplayForm.length > 0 && (
                 <div>
-                  <div className="mu2-form-label">{surname(p1Name)}</div>
+                  <div className="mu2-form-label">{shortName(p1Name)}</div>
                   <div className="mu2-form-dots">
                     {p1DisplayForm.slice(0, 5).map((r, i) => (
                       <span key={i} className={`mu2-dot ${r.won ? 'mu2-dot-w' : 'mu2-dot-l'}`}>
@@ -324,7 +320,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
               )}
               {!p2Unknown && p2DisplayForm.length > 0 && (
                 <div>
-                  <div className="mu2-form-label">{surname(p2Name)}</div>
+                  <div className="mu2-form-label">{shortName(p2Name)}</div>
                   <div className="mu2-form-dots">
                     {p2DisplayForm.slice(0, 5).map((r, i) => (
                       <span key={i} className={`mu2-dot ${r.won ? 'mu2-dot-w' : 'mu2-dot-l'}`}>
@@ -351,7 +347,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
               {!p1Unknown && p1DisplayForm.length > 0 && (
                 <div>
                   <div className="mu2-form-col-header">
-                    {surname(p1Name)}
+                    {shortName(p1Name)}
                     {p1Streak && (
                       <span className={`mu2-streak ${p1Streak.type === 'W' ? 'mu2-streak--hot' : 'mu2-streak--cold'}`}>
                         {p1Streak.type}{p1Streak.count}
@@ -362,7 +358,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                     <div key={i} className="mu2-form-row">
                       <span className={`mu2-wl ${r.won ? 'mu2-wl-w' : 'mu2-wl-l'}`}>{r.won ? 'W' : 'L'}</span>
                       <div className="mu2-form-detail">
-                        <span className="mu2-form-opp">vs {r.opponent}</span>
+                        <span className="mu2-form-opp">vs {shortName(r.opponent)}</span>
                         <span className="mu2-form-event">
                           {ROUND_SHORT[r.round] || r.round || r.date || ''}
                           {r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}
@@ -376,7 +372,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
               {!p2Unknown && p2DisplayForm.length > 0 && (
                 <div>
                   <div className="mu2-form-col-header">
-                    {surname(p2Name)}
+                    {shortName(p2Name)}
                     {p2Streak && (
                       <span className={`mu2-streak ${p2Streak.type === 'W' ? 'mu2-streak--hot' : 'mu2-streak--cold'}`}>
                         {p2Streak.type}{p2Streak.count}
@@ -387,7 +383,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                     <div key={i} className="mu2-form-row">
                       <span className={`mu2-wl ${r.won ? 'mu2-wl-w' : 'mu2-wl-l'}`}>{r.won ? 'W' : 'L'}</span>
                       <div className="mu2-form-detail">
-                        <span className="mu2-form-opp">vs {r.opponent}</span>
+                        <span className="mu2-form-opp">vs {shortName(r.opponent)}</span>
                         <span className="mu2-form-event">
                           {ROUND_SHORT[r.round] || r.round || r.date || ''}
                           {r.status === 'retired' ? ' (ret.)' : r.status === 'walkover' ? ' (w/o)' : ''}
@@ -422,11 +418,11 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                   <div className="mu2-stat-values">
                     <div>
                       <div className="mu2-stat-val">{p1SurfaceWL || '—'}</div>
-                      <div className="mu2-stat-who">{surname(p1Name)}</div>
+                      <div className="mu2-stat-who">{shortName(p1Name)}</div>
                     </div>
                     <div style={{textAlign: 'right'}}>
                       <div className="mu2-stat-val">{p2SurfaceWL || '—'}</div>
-                      <div className="mu2-stat-who">{surname(p2Name)}</div>
+                      <div className="mu2-stat-who">{shortName(p2Name)}</div>
                     </div>
                   </div>
                 </div>
@@ -437,11 +433,11 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
                   <div className="mu2-stat-values">
                     <div>
                       <div className="mu2-stat-val">{p1.profile?.rank ? `#${p1.profile.rank}` : '—'}</div>
-                      <div className="mu2-stat-who">{surname(p1Name)}</div>
+                      <div className="mu2-stat-who">{shortName(p1Name)}</div>
                     </div>
                     <div style={{textAlign: 'right'}}>
                       <div className="mu2-stat-val">{p2.profile?.rank ? `#${p2.profile.rank}` : '—'}</div>
-                      <div className="mu2-stat-who">{surname(p2Name)}</div>
+                      <div className="mu2-stat-who">{shortName(p2Name)}</div>
                     </div>
                   </div>
                 </div>

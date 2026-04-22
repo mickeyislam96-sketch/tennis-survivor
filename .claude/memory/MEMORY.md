@@ -22,3 +22,4 @@
 - [AI agent automation — Phase 1](project_ai_agent_automation.md) — Tournament ops automated 19 Apr. Cron: results/withdrawals/draw/locks. Daily brief at 8am.
 - [Security hardening — JWT, CSRF, helmet](project_security_hardening.md) — Full audit + hardening 19 Apr. JWT auth, CSRF cookies, helmet headers, admin Bearer tokens, rate limiting.
 - [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments. In repo + CTO - TS folder.
+- [UI redesign — session 22](project_ui_redesign_session22.md) — Card-based layouts for leaderboard/pick-history/pick-screen. Dark green status badges, Survivometer, result pills. Mobile responsive at 640px breakpoint.

@@ -31,6 +31,20 @@ export function initials(name) {
 }
 
 /**
+ * Convert "Firstname Lastname" → "Lastname, F."
+ * Handles multi-part surnames: "Carlos Alcaraz Garfia" → "Alcaraz Garfia, C."
+ * Single names pass through unchanged: "TBD" → "TBD"
+ */
+export function shortName(name) {
+  if (!name) return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  const first = parts[0];
+  const surname = parts.slice(1).join(' ');
+  return `${surname}, ${first[0]}.`;
+}
+
+/**
  * Build a slug from a player name for image filename lookup.
  * "Carlos Alcaraz" → "carlos-alcaraz"
  * Strips accents so "Holger Rune" and accented variants both resolve.
