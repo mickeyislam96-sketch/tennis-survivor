@@ -9,6 +9,7 @@ import { Button } from '../ui/Button.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
 import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import PlayerAvatar from '../ui/PlayerAvatar';
 import { avatarColour, initials } from '../utils/playerImage';
 import './Leaderboard.css';
 
@@ -19,7 +20,7 @@ function fmtGBP(cents) {
   });
 }
 
-// ── Pick History Modal ────────────────────────────────────────
+// ── Pick History Modal (Timeline design) ─────────────────────
 function PickHistoryModal({ member, groupId, openRound, onClose }) {
   const [picks, setPicks] = useState(null);
   const [error, setError] = useState(false);
@@ -34,6 +35,7 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
 
   const colour = avatarColour(member.displayName);
   const ini    = initials(member.displayName);
+  const survived = (picks || []).filter(p => p.survived === true).length;
   // Hide picks for any round whose window is still open (not yet locked)
   const visiblePicks = (picks || []).filter(p => !openRound || p.round !== openRound);
 
@@ -58,28 +60,35 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
         aria-labelledby="pick-history-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="ds-modal-header lb-picks-modal-header">
-          <div className="lb-picks-modal-identity">
+        {/* Green gradient header */}
+        <header className="ph-tl-header">
+          <div className="ph-tl-header-top">
             <span
               className="lb-avatar lb-avatar--lg"
-              style={{ background: colour }}
+              style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.25)' }}
             >
               {ini}
             </span>
-            <div>
-              <span className="ds-modal-eyebrow">PICK HISTORY</span>
-              <h3 id="pick-history-modal-title" className="ds-modal-title">{member.displayName}</h3>
-              <p className="lb-picks-modal-sub">
-                {member.isAlive
-                  ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
-                  : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`}
-              </p>
-            </div>
+            <button className="ph-tl-close" onClick={onClose} aria-label="Close">✕</button>
           </div>
-          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <h3 id="pick-history-modal-title" className="ph-tl-name">{member.displayName}</h3>
+          <p className="ph-tl-subtitle">
+            {member.isAlive
+              ? `Still in · ${member.survivedRounds ?? 0} round${(member.survivedRounds ?? 0) === 1 ? '' : 's'} survived`
+              : `Eliminated in ${ROUND_LABELS[member.eliminatedRound] || member.eliminatedRound || '—'}`}
+          </p>
+          <div className="ph-tl-stat-row">
+            {member.isAlive ? (
+              <span className="ph-tl-pill"><span className="ph-tl-dot ph-tl-dot--alive" /> Still in</span>
+            ) : (
+              <span className="ph-tl-pill"><span className="ph-tl-dot ph-tl-dot--out" /> Eliminated</span>
+            )}
+            <span className="ph-tl-pill">{survived} round{survived !== 1 ? 's' : ''} survived</span>
+          </div>
         </header>
 
-        <div className="ds-modal-body">
+        {/* Timeline body */}
+        <div className="ph-tl-body">
           {picks === null && <p className="lb-picks-loading">Loading picks…</p>}
           {error && <p className="ds-form-error">Could not load picks.</p>}
           {picks !== null && !error && visiblePicks.length === 0 && (
@@ -87,29 +96,42 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
           )}
 
           {visiblePicks.length > 0 && (
-            <div className="lb-picks-table-wrap">
-              <table className="lb-picks-table">
-                <thead>
-                  <tr>
-                    <th>Round</th>
-                    <th>Player picked</th>
-                    <th className="lb-picks-table__result">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiblePicks.map((p) => (
-                    <tr key={p.id || p.round} className={p.survived === false ? 'lb-pick-row-out' : ''}>
-                      <td className="lb-pick-round">{ROUND_LABELS[p.round] || p.round}</td>
-                      <td className="lb-pick-player">{p.playerName || '—'}</td>
-                      <td className="lb-pick-result">
-                        {p.survived === true  && <Badge tone="success" size="sm" dot>Advanced</Badge>}
-                        {p.survived === false && <Badge tone="danger" size="sm" dot>Eliminated</Badge>}
-                        {p.survived == null   && <Badge tone="neutral" size="sm">Result pending</Badge>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="ph-tl-timeline">
+              {visiblePicks.map((p, idx) => {
+                const state = p.survived === null ? 'pending' : p.survived ? 'survived' : 'eliminated';
+                const isLast = idx === visiblePicks.length - 1;
+                return (
+                  <div key={p.id || p.round} className={`ph-tl-step${isLast ? ' ph-tl-step--last' : ''}`}>
+                    {/* Marker */}
+                    <div className={`ph-tl-marker ph-tl-marker--${state}`}>
+                      {state === 'survived' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      )}
+                      {state === 'eliminated' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      )}
+                      {state === 'pending' && <span className="ph-tl-marker-q">?</span>}
+                    </div>
+                    {/* Content */}
+                    <div className="ph-tl-content">
+                      <div className="ph-tl-round-label">{ROUND_LABELS[p.round] || p.round}</div>
+                      <div className={`ph-tl-card ph-tl-card--${state}`}>
+                        <div className="ph-tl-card-left">
+                          <PlayerAvatar playerName={p.playerName} size={36} />
+                          <div className="ph-tl-card-info">
+                            <span className="ph-tl-player-name">{p.playerName || '—'}</span>
+                          </div>
+                        </div>
+                        <span className={`ph-tl-tag ph-tl-tag--${state}`}>
+                          {state === 'survived' && 'Survived'}
+                          {state === 'eliminated' && 'Eliminated'}
+                          {state === 'pending' && 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
