@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 22 April 2026 (session 22 — UI redesign). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 22 April 2026 (session 23 — Goalserve removal + cache fix). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -33,8 +33,7 @@
 | Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
 | Primary data | **FlashScore scraper** (free) — Cowork scheduled task scrapes Chrome every 20min, POSTs to backend |
 | Scraper cache | `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL `scraped_results` table) |
-| Fallback data | Goalserve ($100/mo trial) — adapter implemented, unreliable at tournament start |
-| Legacy data | API-Tennis (paid) — unreliable, kept as fallback only |
+| Legacy data | API-Tennis (paid) — unreliable, kept as automatic fallback only |
 | Intelligence data | Matchstat Tennis API (RapidAPI) — H2H, player profiles, surface stats, recent form. Free tier (11 players). |
 | Secondary data | Sofascore (free) — 403-blocked on cloud IPs |
 | Data adapter | `backend/src/services/dataAdapter.js` — unified interface, swappable providers |
@@ -75,8 +74,7 @@
 
 | Variable | Purpose |
 |---|---|
-| `GOALSERVE_API_KEY` | Goalserve API key — **set on 17 Apr when trial activates** |
-| `TENNIS_DATA_PROVIDER` | Active data provider: `goalserve`, `api-tennis`, `sofascore`, or `mock` |
+| `TENNIS_DATA_PROVIDER` | Active data provider: `api-tennis`, `sofascore`, or `mock`. Scraper is always first when data exists. |
 | `ACTIVE_TOURNAMENT` | Active tournament ID (e.g. `madrid-2026`) — used by `activeTournament.js` |
 | `JWT_SECRET` | JWT signing key for user authentication (set 19 Apr) |
 | `ADMIN_SECRET` | Admin endpoint auth + JWT fallback (rotated 19 Apr) |
@@ -162,7 +160,7 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 **File:** `backend/src/services/dataAdapter.js`
 
-Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: **Scraper (primary)** → Goalserve → API-Tennis → Sofascore → mock.
+Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: **Scraper (primary)** → API-Tennis → Sofascore → mock. Goalserve fully removed from codebase 22 Apr 2026.
 
 **Internal fixture format:**
 ```js
@@ -180,23 +178,23 @@ Unified interface for tennis data. All providers output the same internal fixtur
 ### FlashScore scraper pipeline (NEW — 22 Apr 2026)
 
 **How it works:**
-1. Cowork scheduled task (`flashscore-scraper`) runs every 20 minutes
+1. Cowork scheduled task (`flashscore-scraper`) runs every hour (with jitter)
 2. Navigates to FlashScore Madrid page via Chrome MCP
 3. Injects JavaScript to extract all match data from the DOM
-4. Maps FlashScore abbreviated names ("Z. Bergs") to full seed draw names ("Zizou Bergs") using a hardcoded 66-name mapping
+4. Maps FlashScore abbreviated names ("Z. Bergs") to full seed draw names ("Zizou Bergs") using a hardcoded 97-name mapping
 5. POSTs fixtures array to `POST /api/admin/scrape-results` (auth: Bearer ADMIN_SECRET)
-6. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (30-min TTL)
-7. `getDraw()` in tennisData.js reads scraper data first for overlay onto seed draw
+6. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (stale data always served — match results don't un-happen)
+7. `getDraw()` in tennisData.js reads scraper data via `overlayFixtures()` in seedDrawOverlay.js for overlay onto seed draw
 
 **Key files:**
-- `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL), 30-min TTL
+- `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL). Critical: never discards stale data.
 - `backend/src/routes/admin.js` — `POST /api/admin/scrape-results` and `GET /api/admin/scraper-status`
 - `backend/src/db/schema.sql` — `scraped_results` table definition
 - Scheduled task: `flashscore-scraper` in Cowork (on Mickey's Mac)
 
-**Name mapping is critical:** The seed draw overlay uses `normaliseName()` which sorts name parts alphabetically. FlashScore abbreviated names ("Z. Bergs") don't match full names ("Zizou Bergs") under this normaliser. The scheduled task has a hardcoded mapping of all 66 player names. When new players enter the draw in later rounds, the mapping must be updated in the scheduled task prompt.
+**Name mapping is critical:** The seed draw overlay uses `normaliseName()` which sorts name parts alphabetically. FlashScore abbreviated names ("Z. Bergs") don't match full names ("Zizou Bergs") under this normaliser. The scheduled task has a hardcoded mapping of all 97 player names (66 R1 + 31 seeds). When new players enter the draw in later rounds, the mapping must be updated in the scheduled task prompt.
 
-**Why not Goalserve/API-Tennis:** Both APIs failed to deliver reliable data at tournament start. Goalserve returned 0 fixtures for Madrid on day 1. API-Tennis has been unreliable since Monte Carlo. FlashScore is free, always has data, and the browser scraping approach bypasses cloud IP blocks.
+**Why FlashScore:** API-Tennis has been unreliable since Monte Carlo. FlashScore is free, always has data, and the browser scraping approach bypasses cloud IP blocks.
 
 ---
 
@@ -226,8 +224,10 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | File | What it does |
 |---|---|
 | `backend/src/middleware/auth.js` | **NEW** — JWT authentication middleware. `issueToken()`, `requireAuth`, `optionalAuth`, `csrfProtection`, `generateCsrfToken()`. Legacy userId fallback for migration. |
-| `backend/src/services/dataAdapter.js` | **NEW** — Unified data interface. Provider chain (Goalserve/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. |
-| `backend/src/config/activeTournament.js` | **NEW** — Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks, Goalserve tournament ID. |
+| `backend/src/services/dataAdapter.js` | Unified data interface. Provider chain (Scraper/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. Goalserve removed 22 Apr. |
+| `backend/src/services/scraperCache.js` | Two-tier scraper cache (in-memory + PostgreSQL). Stale data always served. |
+| `backend/src/services/seedDrawOverlay.js` | `overlayFixtures()` — matches scraper names to seed draw via normaliseName() (2-pass: exact + fuzzy Levenshtein). |
+| `backend/src/config/activeTournament.js` | Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks. |
 | `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()` (now returns `perMatchLock` flag for R1) |
 | `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — R1 branch uses per-match lock; R2+ uses round-level lock |
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
@@ -237,7 +237,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `backend/src/services/opsMonitor.js` | **NEW** — Tournament ops automation brain. Withdrawal detection, draw release detection, lock time auto-setting, ops logging, tournament setup. Called every 15 min by cron. |
 | `backend/src/routes/ops.js` | **NEW** — Operations API endpoints (summary, log, setup-tournament, health-deep). All behind ADMIN_SECRET auth. |
 | `backend/src/services/matchstatAdapter.js` | **NEW** — Matchstat Tennis API integration. H2H, profiles, surface stats, recent form. Name→ID cache from rankings. `getMatchupIntelligence()` fires 8 parallel requests. |
-| `backend/src/routes/matchup.js` | Matchup route — combines seed draw, Goalserve fixtures, and Matchstat intelligence. 5-min cache. |
+| `backend/src/routes/matchup.js` | Matchup route — combines seed draw, scraper fixtures, and Matchstat intelligence. 5-min cache. |
 | `backend/src/services/sofascoreAdapter.js` | Sofascore fetch — reads `SOFASCORE_BASE_URL` env var |
 | `backend/src/config/tournament.js` | Round structure constants (ROUNDS, MATCHES_PER_ROUND) |
 | `backend/src/data/tournaments.js` | Tournament registry — all events, statuses, `r1PerMatchLock` flag |
@@ -263,7 +263,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
 | `frontend/src/data/roundLabels.js` | Shared round label constants (ROUND_SHORT for tabs, ROUND_FULL for prose) |
-| `frontend/src/components/MatchupModal.jsx` | Matchup modal — tabbed UI (Form / H2H / Profile). Combines Goalserve tournament form, Matchstat H2H + profiles + surface stats. Player names use `shortName()` format ("Surname, F."). |
+| `frontend/src/components/MatchupModal.jsx` | Matchup modal — tabbed UI (Form / H2H / Profile). Combines scraper tournament form, Matchstat H2H + profiles + surface stats. Player names use `shortName()` format ("Surname, F."). |
 | `frontend/src/components/MatchupModal.css` | Matchup modal styles — tabs, H2H bars, profile card, rank badges, mobile bottom-sheet |
 | `frontend/src/hooks/useFocusTrap.js` | Focus trap hook for modals (Tab cycling, auto-focus, Escape passthrough) |
 | `frontend/src/components/ErrorBoundary.jsx` | React error boundary wrapping entire app (crash recovery) |
@@ -465,9 +465,9 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Entry: Free (second free tournament before Roland Garros paid launch)
 - R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). R1 lock at `2026-04-22T09:00:00Z`.
 - Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
-- Data source: **FlashScore scraper** (primary). Cowork scheduled task `flashscore-scraper` runs every 20 min via Chrome MCP. Goalserve returned 0 fixtures on day 1, so scraper was built as replacement.
+- Data source: **FlashScore scraper** (sole live provider). Cowork scheduled task `flashscore-scraper` runs every hour via Chrome MCP. Goalserve fully removed from codebase 22 Apr.
 - Seed draw: `backend/src/data/seedDraws/madrid-2026.json` — all 13 qualifier slots filled with actual players (Trungelliti, Lajovic, Basilashvili, Faria, Kypson, Bonzi, Droguet, Gaubas, Budkov Kjaer, Vallejo, Damm, Moller, Merida Aguilar). Collignon replaced by Prizmic (LL).
-- Overlay: `seed_draw+goalserve(32)` — all 32 non-bye R1 matches fully overlaid with start times, scores, statuses.
+- Overlay: `seed_draw+scraper(32)` — all 32 non-bye R1 matches fully overlaid with start times, scores, statuses.
 - 64 R1 players available for picks with opponent names and match start times.
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
 - `JWT_SECRET` confirmed set in Railway (separate from `ADMIN_SECRET`).
@@ -493,10 +493,11 @@ Full-stack polish across 7 commits. **Key changes:**
 6. Accessibility: useFocusTrap hook, modal focus traps, keyboard-navigable leaderboard rows
 
 ### Outstanding actions (priority order)
-1. ~~Activate Goalserve trial~~ DONE 19 Apr
-2. ~~Implement Goalserve adapter~~ DONE 19 Apr
-3. ~~Test Goalserve against live data~~ DONE 20 Apr — Goalserve returned 0 fixtures on day 1; replaced by FlashScore scraper
+1. ~~Activate Goalserve trial~~ DONE 19 Apr — then fully removed from codebase 22 Apr (unreliable)
+2. ~~Implement Goalserve adapter~~ DONE 19 Apr — removed 22 Apr
+3. ~~Test Goalserve against live data~~ DONE 20 Apr — returned 0 fixtures; replaced by FlashScore scraper
 4. ~~Set lock time overrides for R1~~ DONE 22 Apr — R1 set to 09:00 UTC in activeTournament.js
+24. ~~Remove Goalserve from codebase~~ DONE 22 Apr — all 14 files cleaned, zero references remain
 5. **Set lock time overrides for R64+** — update `activeTournament.js` with actual first match times minus 1 hour as rounds progress
 6. ~~Update scraper name mapping for R64~~ DONE 22 Apr — 97 total mappings (66 R1 + 31 seeds). Round detection added ("1/64-finals" → "R64"). Verify seed abbreviations once first seed R64 matches appear on FlashScore.
 7. **Monitor scraper reliability** — check that the 20-min scheduled task is running and posting successfully. Pre-approve Chrome MCP tools by running the task once manually.
@@ -575,6 +576,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 22 Apr 2026 (session 22) | **UI redesign — leaderboard, pick history, make a pick pages.** Card-based layout overhaul across three pages. (1) **Leaderboard page** — replaced HTML table with `.lb-card` div-based layout (rank number, avatar initials circle, display name, meta line, status badge, current round pick). Added Survivometer progress bar (0-100% elimination, green→red gradient, "X still standing" text). Status badges: "Alive" uses brand dark green (#0F4A23) background + white text + bright green dot; eliminated cards get 0.6 opacity + red struck-through name + red badge; winner state gets gold background. Removed `<Badge>` component import — all styling via custom CSS classes. (2) **Pick History / My Picks page** — replaced Card+Badge rows with `.ph-card` layout (round badge, PlayerAvatar, player name, round label, result pill). New status card design shows alive/eliminated dot, headline, rounds survived count, and won/lost/pending counters on the right. Result pills: "Advanced" uses dark green + checkmark SVG; "Eliminated" uses light red; "Pending" uses grey with border. Won cards get subtle green tint background; lost cards get 0.65 opacity + struck-through name. Added imports for `ROUND_FULL` from roundLabels, `avatarColour` and `initials` from playerImage. (3) **Make a Pick page** — replaced `<ul>/<li>` list with `.ps-pcard` card layout (seed badge, PlayerAvatar, info block with name/opponent/match time, tags, pick button). New tag system: `.ps-pcard-tag` pills replace Badge components: "Your pick" uses dark green + glowing green dot (matching leaderboard alive badge); "Already used" uses grey; "Pending" uses orange. Top seed cards get gold-tinted background with gold seed badge. Removed Badge import from pick screen — no longer used there. (4) **Mobile responsiveness** — Survivometer reduced padding to 12px 14px, smaller percentage text; leaderboard cards 10px gap + 12px padding + 36px avatars; pick history modal 92vw width on mobile; pick history cards 12px padding + 10px badge/result text; pick screen cards 10px gap + 12px padding + 32px seed badges + 8px tag text; round tabs reduced padding + 11px font on mobile; search row tightened gap for 320px overflow prevention; button touch targets maintained 44px minimum. (5) **Key design decisions:** Brand dark green (#0F4A23) is THE status colour for alive/active states; card-based layouts with 6px gap are standard for all list views; no more HTML tables in UI; Badge component phased out in favour of custom styled pills for tighter control; all pages use consistent 640px mobile breakpoint. No code pushed — session focused on design audit and memory updates. |
 | 22 Apr 2026 (session 22b) | **Name format change: "Surname, F." across bracket and modal.** (1) Created `shortName()` utility in `playerImage.js` — converts "Carlos Alcaraz" to "Alcaraz, C.", handles multi-part surnames. (2) Applied to `DrawViewer.jsx` — all bracket card names (player1, player2, bye rows) and list card names now use shortName(). (3) Applied to `MatchupModal.jsx` — player header names (loading + loaded states), form column headers, form opponent names ("vs Alcaraz, C."), stat comparison labels. Removed old `surname()` helper, replaced with imported `shortName()`. (4) Fixed matchup modal overflow — added `overflow-x: hidden` to `.mu-modal` and `overflow: hidden` to `.mu2-form-row` in `MatchupModal.css`. (5) Committed and pushed (commit `4c61d97`). **Key decision:** surname-first format applied to bracket and modal only (where space is tight and player recognition matters); leaderboard, pick screen, and pick history retain full names for clarity. |
 | 20 Apr 2026 (session 8) | **Bracket fix + image optimisation + API performance.** Three performance/display fixes. (1) **Bracket spacing drift fix** — `.bc-col-body` used `justify-content: space-around` which drifted when bye cards had different height from match cards. Replaced with `flex: 1` on `.bc-slot` so every slot gets equal fraction regardless of content (commit `56a1c17`). (2) **CSS sprite sheet for player headshots** — replaced 170 individual JPG HTTP requests (6.4 MB) with a single 205 KB WebP sprite (1280x880, 16×11 grid of 80px cells). `PlayerAvatar.jsx` rewritten to use `background-position`. New files: `frontend/src/data/playerManifest.json` (slug→x,y map, 8KB), `frontend/public/player-sprite.webp` (205KB). Zero HTTP overhead for missing players (manifest check is in-memory). Commit `a5ae16ea`. (3) **Parallelised Goalserve API calls** — the three Goalserve endpoints (fixtures, draw, livescore) were fetched sequentially (each 2-6s, total 6-18s). Now use `Promise.allSettled` to run in parallel (total = max single call ≈ 3-5s). Added promise-level deduplication so concurrent callers share one in-flight fetch. Result: cold miss 5s (was 10-17s), cached <1.2s. Commit `ec7bb58`. |
+| 22 Apr 2026 (session 23) | **Goalserve removal + scraper cache fix.** (1) **Critical bug fix: scraper cache returning null** — `getScrapedResults()` in `scraperCache.js` returned null when in-memory cache exceeded 30-min TTL and DB data was also stale. Since scraper runs hourly with jitter, gaps could exceed TTL. Draw data disappeared, falling through to mock. Fix: stale data always served (match results don't un-happen). Only returns null when genuinely no data anywhere. Both memory and DB paths updated. (2) **Complete Goalserve removal** — deleted all Goalserve code from 14 files: `dataAdapter.js` (removed ~700 lines: adapter, cache, cron warming, config constants), `seedDrawOverlay.js` (renamed exports: `overlayGoalserve`→`overlayFixtures`, `buildGoalserveLookup`→`buildFixtureLookup`, `findGoalserveMatch`→`findFixtureMatch`), `tennisData.js` (simplified draw pipeline to scraper-only), `index.js` (removed Goalserve startup/cron warming), `activeTournament.js` (removed `goalserveTournamentId`, `roundNameOverrides`), `admin.js` (deleted ~200 lines: 3 Goalserve admin endpoints), `health.js` (replaced Goalserve diagnostics with scraper cache status), `matchup.js` (switched from Goalserve to scraper for tournament form), `opsMonitor.js` (removed unused import), `ops.js` (config field rename), `matchstatAdapter.js`, `seedDrawLoader.js`, `playerImage.js` (comment updates). Provider chain now: Scraper → API-Tennis → Sofascore → mock. (3) **Verified deployment** — both Vercel and Railway deployed successfully. Health endpoint confirms 45 fixtures active (31 R1 + 14 R64), 2 completed, provider=scraper. `GOALSERVE_API_KEY` env var can be deleted from Railway. |
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
 
 ---

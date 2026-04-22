@@ -1,25 +1,16 @@
 # Memory Index
 
-- [Final Serve-ivor project context](project_tennis_survivor.md) — full stack, infrastructure IDs, key files, design system, live URLs
-- [Git workflow for tennis-survivor](feedback_git_workflow.md) — mnt path has index.lock, use plumbing or /tmp clone
-- [Mickey — user profile](user_mickey.md) — non-technical founder, Mac user, needs plain-language guidance
-- [Monte Carlo 2026 — complete](project_monte_carlo_activation.md) — Mark won from 11 entrants, lessons for Madrid
-- [No untested emails to prod](feedback_no_untested_email_to_prod.md) — use sendWithDedup() for cron emails; direct send mode since 21 Apr, dedup via DB constraint
-- [Design decisions + design system](feedback_bracket_design.md) — Direction A "Clean Court" locked; always mockup first; reference file in CTO - TS
-- [Design system — Direction A](project_design_system.md) — tokens, typography, component styles, mobile fixes. 3 commits deployed 12 Apr
-- [Deployment discipline](feedback_deployment_discipline.md) — verify every push: trace code paths, check React rules, confirm deploy before moving on
-- [Risk timing](feedback_risk_timing.md) — don't ship risky refactors during live tournament windows; stability over polish
-- [Pick pool architecture](feedback_pick_pool_architecture.md) — decouple pick pool from bracket propagation; use simple elimination filter
-- [Paid launch decisions](project_paid_launch_decisions.md) — Madrid free, Rome free, RG first paid £10. Stripe deployed. Go-live handoff in CLAUDE.md
-- [Mobile app audit](project_mobile_app_audit.md) — 9 Apr: 9 gaps fixed, zero TS errors, ready for App Store
-- [No push without mockup](feedback_no_push_without_mockup.md) — never push new features to prod without mocking up and verifying full user journey first
-- [Points game mode](project_points_game_mode.md) — SHELVED. Too niche for casual fans, dilutes survivor simplicity
-- [Payment infrastructure](project_payment_infrastructure.md) — Stripe deployed 14 Apr (test mode). Security hardened. Dormant until paid group created.
-- [API replacement for Madrid](api-replacement.md) — Goalserve for live data, Matchstat for H2H/profiles/surface stats. Two-provider strategy.
-- [R1 per-match lock feature](project_r1_per_match_lock.md) — R1 has no deadline; players removed when match starts. All M1000 + Grand Slams.
-- [Verify both deploys](feedback_verify_both_deploys.md) — Railway can fail silently while Vercel succeeds; always test backend separately
-- [Player avatar headshots](project_player_avatars.md) — 173 static headshots, PlayerAvatar component, ATP Tour CDN source, fallback to initials
-- [AI agent automation — Phase 1](project_ai_agent_automation.md) — Tournament ops automated 19 Apr. Cron: results/withdrawals/draw/locks. Daily brief at 8am.
-- [Security hardening — JWT, CSRF, helmet](project_security_hardening.md) — Full audit + hardening 19 Apr. JWT auth, CSRF cookies, helmet headers, admin Bearer tokens, rate limiting.
-- [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments. In repo + CTO - TS folder.
-- [UI redesign — session 22](project_ui_redesign_session22.md) — Card-based layouts for leaderboard/pick-history/pick-screen. Dark green status badges, Survivometer, result pills. Mobile responsive at 640px breakpoint.
+## User
+- [Mickey — profile & preferences](mickey.md) — CTO, non-technical, UK English, values directness
+
+## Projects
+- [Final Serve-ivor — tennis survivor pool](final-serve-ivor.md) — main product, web app + backend
+- [Final Serve-ivor — design system](design-system.md) — fonts, colours, tokens, email styling
+- [Final Serve-ivor — infrastructure](infrastructure.md) — GitHub, Vercel, Railway, Brevo, FlashScore scraper
+
+## Strategy & Planning
+- [Roadmap & launch strategy](roadmap.md) — three-phase plan (Madrid/Rome/Roland Garros), payment processing, payout system, AI agent operations model
+- [Design audit summary](design-audits.md) — UI recommendations, player images plan, what's actioned vs pending
+
+## Decisions & Context
+- [Email design decisions](email-design.md) — template architecture, brand alignment, court background

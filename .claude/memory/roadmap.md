@@ -34,6 +34,6 @@ Mickey plans to scale FSV using AI agents as his entire team. Three-phase rollou
 - Premature elimination bug (results processor during open windows)
 - Pick visibility leak in leaderboard modal
 - Round detection defaulting to R1 before deadlines loaded
-- API-Tennis fixture gaps (round: null, missing qualifiers) — now mitigated by Goalserve switch
+- API-Tennis fixture gaps (round: null, missing qualifiers) — now mitigated by FlashScore scraper
 - Manual result overrides needed for players with no API key
 - Bracket connector crash (hooks after early return — caused 3 white-screen incidents)
