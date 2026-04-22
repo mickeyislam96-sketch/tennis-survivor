@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 21 April 2026 (session 13). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 22 April 2026 (session 14). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -31,7 +31,9 @@
 | Backend | Node.js / Express, deployed on Railway (auto-deploys from GitHub `main`) |
 | Source control (web) | GitHub — `mickeyislam96-sketch/tennis-survivor` |
 | Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
-| Primary data | Goalserve (planned, $100/mo) — replacing API-Tennis for Madrid 2026+ |
+| Primary data | **FlashScore scraper** (free) — Cowork scheduled task scrapes Chrome every 20min, POSTs to backend |
+| Scraper cache | `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL `scraped_results` table) |
+| Fallback data | Goalserve ($100/mo trial) — adapter implemented, unreliable at tournament start |
 | Legacy data | API-Tennis (paid) — unreliable, kept as fallback only |
 | Intelligence data | Matchstat Tennis API (RapidAPI) — H2H, player profiles, surface stats, recent form. Free tier (11 players). |
 | Secondary data | Sofascore (free) — 403-blocked on cloud IPs |
@@ -156,11 +158,11 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 ---
 
-## Data adapter layer (NEW — 13 Apr 2026)
+## Data adapter layer (updated 22 Apr 2026)
 
 **File:** `backend/src/services/dataAdapter.js`
 
-Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: Goalserve (preferred) → API-Tennis (legacy) → Sofascore (free) → mock.
+Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: **Scraper (primary)** → Goalserve → API-Tennis → Sofascore → mock.
 
 **Internal fixture format:**
 ```js
@@ -173,15 +175,28 @@ Unified interface for tennis data. All providers output the same internal fixtur
 
 **Status values:** `scheduled`, `live`, `completed`, `walkover`, `retired`, `cancelled`
 
-**Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain.
+**Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain. Scraper is always first in chain when data exists.
 
-**Goalserve integration (TODO — 17 Apr):**
-1. Activate Goalserve 30-day free trial
-2. Set `GOALSERVE_API_KEY` env var
-3. Find Madrid tournament ID in their system
-4. Implement `fetchGoalserve()` in dataAdapter.js
-5. Verify withdrawal/walkover status detection
-6. Set `TENNIS_DATA_PROVIDER=goalserve` in Railway
+### FlashScore scraper pipeline (NEW — 22 Apr 2026)
+
+**How it works:**
+1. Cowork scheduled task (`flashscore-scraper`) runs every 20 minutes
+2. Navigates to FlashScore Madrid page via Chrome MCP
+3. Injects JavaScript to extract all match data from the DOM
+4. Maps FlashScore abbreviated names ("Z. Bergs") to full seed draw names ("Zizou Bergs") using a hardcoded 66-name mapping
+5. POSTs fixtures array to `POST /api/admin/scrape-results` (auth: Bearer ADMIN_SECRET)
+6. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (30-min TTL)
+7. `getDraw()` in tennisData.js reads scraper data first for overlay onto seed draw
+
+**Key files:**
+- `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL), 30-min TTL
+- `backend/src/routes/admin.js` — `POST /api/admin/scrape-results` and `GET /api/admin/scraper-status`
+- `backend/src/db/schema.sql` — `scraped_results` table definition
+- Scheduled task: `flashscore-scraper` in Cowork (on Mickey's Mac)
+
+**Name mapping is critical:** The seed draw overlay uses `normaliseName()` which sorts name parts alphabetically. FlashScore abbreviated names ("Z. Bergs") don't match full names ("Zizou Bergs") under this normaliser. The scheduled task has a hardcoded mapping of all 66 player names. When new players enter the draw in later rounds, the mapping must be updated in the scheduled task prompt.
+
+**Why not Goalserve/API-Tennis:** Both APIs failed to deliver reliable data at tournament start. Goalserve returned 0 fixtures for Madrid on day 1. API-Tennis has been unreliable since Monte Carlo. FlashScore is free, always has data, and the browser scraping approach bypasses cloud IP blocks.
 
 ---
 
@@ -444,15 +459,17 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
 - Lessons: see memory `project_monte_carlo_activation.md`
 
-### Madrid 2026 (ACTIVE — R1 pick window open)
+### Madrid 2026 (ACTIVE — R1 in progress)
 - Tournament: Mutua Madrid Open 2026
-- Status: R1 pick window open, tournament starts 22 Apr
+- Status: R1 matches in progress. R1 pick window locked at 09:00 UTC (10am UK) on 22 Apr.
 - Entry: Free (second free tournament before Roland Garros paid launch)
-- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). R1 lock at 2026-04-22T08:00Z.
-- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (5 entries as of 21 Apr)
-- Data source: Goalserve (`GOALSERVE_API_KEY` set) — currently returning 0 fixtures (draw not published in their system yet). Seed draw JSON used until live data available. **Check Goalserve data availability before 22 Apr 08:00 UTC.**
+- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). R1 lock at `2026-04-22T09:00:00Z`.
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
+- Data source: **FlashScore scraper** (primary). Cowork scheduled task `flashscore-scraper` runs every 20 min via Chrome MCP. Goalserve returned 0 fixtures on day 1, so scraper was built as replacement.
+- Seed draw: `backend/src/data/seedDraws/madrid-2026.json` — all 13 qualifier slots filled with actual players (Trungelliti, Lajovic, Basilashvili, Faria, Kypson, Bonzi, Droguet, Gaubas, Budkov Kjaer, Vallejo, Damm, Moller, Merida Aguilar). Collignon replaced by Prizmic (LL).
+- Overlay: `seed_draw+goalserve(32)` — all 32 non-bye R1 matches fully overlaid with start times, scores, statuses.
+- 64 R1 players available for picks with opponent names and match start times.
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
-- 56 R1 players available for picks. All lockTimeOverrides are null (using roundDateFallbacks).
 - `JWT_SECRET` confirmed set in Railway (separate from `ADMIN_SECRET`).
 - Full experience audit completed 21 Apr — 5 critical bugs fixed (see session 14).
 
@@ -478,20 +495,17 @@ Full-stack polish across 7 commits. **Key changes:**
 ### Outstanding actions (priority order)
 1. ~~Activate Goalserve trial~~ DONE 19 Apr
 2. ~~Implement Goalserve adapter~~ DONE 19 Apr
-3. ~~Test Goalserve against live data~~ DONE 20 Apr
-4. **Set lock time overrides for R1+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour (now also auto-set by `autoSetLockTimes()` in opsMonitor.js)
-5. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
-6. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
-7. ~~Pre-Madrid: SPF/DKIM for Brevo~~ VERIFIED 21 Apr
-8. ~~Pre-Madrid: Mobile app sync~~ DONE 20 Apr
-9. ~~Set MATCHSTAT_API_KEY in Railway~~ DONE 21 Apr
-10. ~~Matchstat pagination fix~~ DONE 21 Apr
-11. ~~Add `DATABASE_URL` GitHub secret~~ DONE 19 Apr
-12. ~~Build Phase 1 automation~~ DONE 19 Apr
-13. ~~Add H2H data source~~ DONE 21 Apr
-14. ~~Full experience audit~~ DONE 21 Apr — 5 critical bugs fixed (session 14) + pick leak fix + hardening (session 15, 65 issues triaged)
-15. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
-16. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (payments dormant), fix before Rome.
+3. ~~Test Goalserve against live data~~ DONE 20 Apr — Goalserve returned 0 fixtures on day 1; replaced by FlashScore scraper
+4. ~~Set lock time overrides for R1~~ DONE 22 Apr — R1 set to 09:00 UTC in activeTournament.js
+5. **Set lock time overrides for R64+** — update `activeTournament.js` with actual first match times minus 1 hour as rounds progress
+6. **Update scraper name mapping for later rounds** — when R64+ appears on FlashScore, new players (seeds) will need adding to the scheduled task's name map
+7. **Monitor scraper reliability** — check that the 20-min scheduled task is running and posting successfully. Pre-approve Chrome MCP tools by running the task once manually.
+8. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
+9. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx`
+10. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
+11. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (payments dormant), fix before Rome.
+12. **Post-Madrid: EAS Project ID** — set before App Store submission
+13. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
 23. **Audit deferred items** — from session 15 three-way audit: useEffect dependency warnings in PickScreen/GroupHome/DrawViewer (missing deps, not causing bugs but should clean up); AbortController cleanup pattern inconsistent across pages; mobile deep link for password reset not configured; PickScreen `pickMatchDetail` state unused (always null, remove or wire up).
 17. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work against live data
 18. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` scheduled task to pre-approve tool permissions
@@ -557,6 +571,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 21 Apr 2026 (session 10) | **Email approval fix + Brevo domain verification.** (1) **Diagnosed email approval failure** — admin digest email only showed a raw `curl` command, unusable for non-technical admin. Root cause: no clickable button, no GET endpoint. (2) **Built one-click email approval** — added `GET /api/admin/approve-emails` endpoint that returns HTML pages (preview table or send confirmation). Updated `sendAdminDigest()` in `email.js` to include gold "Approve & Send" pill button and "Preview without sending" link, with admin secret embedded in URLs. Commit `6452fbe`. (3) **Verified Brevo SPF/DKIM** — all 4 DNS records confirmed authenticated: Brevo code (TXT), DKIM 1 (`brevo1._domainkey` CNAME → `b1.finalserveivor-com.dkim.brevo.com`), DKIM 2 (`brevo2._domainkey` CNAME → `b2.finalserveivor-com.dkim.brevo.com`), DMARC (TXT `p=none`). Domain hosted on Namecheap, auto-configured via Brevo's Entri integration. Initial DNS check missed DKIM because Brevo uses CNAME records, not TXT. (4) **GitHub token refresh** — old PAT expired, new one provided and used for push. Both Vercel (READY) and Railway (200 health) confirmed. |
 | 21 Apr 2026 (session 15) | **Pick history modal leak fix + comprehensive 3-way audit + hardening.** (1) **Pick history modal leaking open-round picks** — clicking a leaderboard row opened a modal showing the player's R1 pick before the deadline locked. Root cause: modal filtered on `currentRound` (null when no rounds locked yet), so filter was `!null = true` and showed everything. Two-layer fix: frontend `Leaderboard.jsx` now passes `openRound` to modal, which filters `visiblePicks` on it; backend `picks.js` `/history` endpoint now strips open-round picks when the requesting user is not the pick owner (uses `optionalAuth` + JWT comparison). Commit `526f2ed`. (2) **Full 3-way parallel audit** — launched web, backend, and mobile audit agents. Web found 26 issues, backend 29, mobile 10 — 65 total across severity levels. Manually verified critical findings against actual code, catching several false positives. (3) **Audit fixes committed** — `isValidEmail()` was noted as "fixed" in known issues but was actually missing from `auth.js`; added function + wired into register and PATCH /me. CSRF `generateCsrfToken()` replaced `Math.random()` with `crypto.randomBytes(32)`. Deduplicated `avatarColour()` and `initials()` functions from Leaderboard.jsx and GroupHome.jsx (now import from `utils/playerImage.js`). Commit `7b22bb2`. (4) Vite build verified clean (91 modules). |
 | 21 Apr 2026 (session 14) | **Full experience audit + 5 critical bug fixes.** (1) **Pick submission failing** — `POST /api/picks` body didn't include `userId`. After session 7 removed legacy `?userId` auth, frontend relied entirely on JWT, but if token was invalid the POST had no fallback. Fix: added `userId` to POST body in `PickScreen.jsx` (commit `a0cd1c7`). (2) **Pick history blank** — `PickHistory.jsx` used `TOURNAMENTS.find()` (stale hardcoded status `'upcoming'`) and returned early, hiding picks even after submission. Fix: switched to `getTournament()` and only show empty state when `picks.length === 0` (commit `766bf2f`). (3) **Same stale status bug in 3 more pages** — `PickScreen`, `DrawViewer`, `GroupHome` all used `TOURNAMENTS.find()` instead of `getTournament()`. Fix: switched all three (commit `1f90b66`). (4) **Support form crashes** — `support.js` referenced non-existent table `members` (correct: `group_members`). Fix: corrected table name and cast (commit `1f90b66`). (5) **Player avatar missing in pick history** — added `PlayerAvatar` component to pick history rows (commits `eb48fb3`, `60457d1`). (6) **Comprehensive 3-way parallel audit** — frontend (13 pages), backend (14 files), live API (10 endpoints). Found 15 total issues: 5 critical (all fixed), 3 high (CSRF migration mode, PaymentFlow raw fetch, useEffect deps), 4 medium, 3 low. Confirmed: 56 R1 players available, deadlines correct, Goalserve returning 0 fixtures (expected — draw not yet in their system), `JWT_SECRET` already set in Railway. |
+| 22 Apr 2026 | **FlashScore scraper pipeline + Madrid R1 launch.** (1) **Built FlashScore scraper infrastructure** — `scraperCache.js` (two-tier cache: in-memory + PostgreSQL `scraped_results` table, 30-min TTL), `POST /api/admin/scrape-results` endpoint in admin.js, `fetchScraper()` added as first provider in dataAdapter.js chain, `getDraw()` in tennisData.js updated to try scraper data before Goalserve for overlay. (2) **Scraped FlashScore via Chrome MCP** — navigated to flashscore.co.uk/tennis/atp-singles/madrid, injected JavaScript to extract match data from DOM. Built 66-name mapping (FlashScore abbreviated "Z. Bergs" to full "Zizou Bergs"). (3) **Updated Madrid seed draw** — replaced all 13 qualifier placeholders with actual players from FlashScore (Trungelliti, Lajovic, Basilashvili, Faria, Kypson, Bonzi, Droguet, Gaubas, Budkov Kjaer, Vallejo, Damm, Moller, Merida Aguilar). Replaced Collignon (withdrawn) with Prizmic (LL) at pos 35. (4) **Fixed R1 pick screen opponent enrichment** — non-per-match-lock R1 code path returned bare player objects without opponent names or start times. Added `opponentMap` construction from R1 draw matches. (5) **Set R1 lock time** — `2026-04-22T09:00:00Z` (10am UK) in `lockTimeOverrides` config (persists across redeploys). Runtime overrides are in-memory only and lost on Railway restart. (6) **Set up recurring scraper** — Cowork scheduled task `flashscore-scraper` runs every 20 min, scrapes Chrome, maps names, POSTs to backend. (7) **Result:** all 32 R1 matches overlaid (`seed_draw+goalserve(32)`), 64 players with opponent info, 3 live matches showing correctly. 5 commits pushed. **Key decision:** Goalserve abandoned as primary data source — returned 0 fixtures on tournament day 1. FlashScore via browser scraping is now the sole live data provider. |
 | 20 Apr 2026 (session 8) | **Bracket fix + image optimisation + API performance.** Three performance/display fixes. (1) **Bracket spacing drift fix** — `.bc-col-body` used `justify-content: space-around` which drifted when bye cards had different height from match cards. Replaced with `flex: 1` on `.bc-slot` so every slot gets equal fraction regardless of content (commit `56a1c17`). (2) **CSS sprite sheet for player headshots** — replaced 170 individual JPG HTTP requests (6.4 MB) with a single 205 KB WebP sprite (1280x880, 16×11 grid of 80px cells). `PlayerAvatar.jsx` rewritten to use `background-position`. New files: `frontend/src/data/playerManifest.json` (slug→x,y map, 8KB), `frontend/public/player-sprite.webp` (205KB). Zero HTTP overhead for missing players (manifest check is in-memory). Commit `a5ae16ea`. (3) **Parallelised Goalserve API calls** — the three Goalserve endpoints (fixtures, draw, livescore) were fetched sequentially (each 2-6s, total 6-18s). Now use `Promise.allSettled` to run in parallel (total = max single call ≈ 3-5s). Added promise-level deduplication so concurrent callers share one in-flight fetch. Result: cold miss 5s (was 10-17s), cached <1.2s. Commit `ec7bb58`. |
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
 
