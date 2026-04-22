@@ -223,24 +223,24 @@ export function Leaderboard() {
 
         <p className="lb-click-hint">Tap any player to see their pick history.</p>
 
-        {/* Survivometer */}
-        {totalEntrants > 0 && (
+        {/* Survivometer — uses (n-1) denominator so lone survivor = 100% */}
+        {totalEntrants > 1 && (
           <div className="lb-survivometer">
             <div className="lb-survivometer-header">
               <span className="lb-survivometer-label">Survivometer</span>
               <span className="lb-survivometer-stat">
-                {eliminated} / {totalEntrants} eliminated
+                {eliminated} / {totalEntrants - 1} eliminated
               </span>
             </div>
             <div className="lb-survivometer-track">
               <div
                 className="lb-survivometer-fill"
-                style={{ width: `${Math.round((eliminated / totalEntrants) * 100)}%` }}
+                style={{ width: `${Math.round((eliminated / (totalEntrants - 1)) * 100)}%` }}
               />
             </div>
             <div className="lb-survivometer-footer">
               <span className="lb-survivometer-pct">
-                {Math.round((eliminated / totalEntrants) * 100)}%
+                {Math.round((eliminated / (totalEntrants - 1)) * 100)}%
               </span>
               <span className="lb-survivometer-alive">
                 {aliveCount} still standing
