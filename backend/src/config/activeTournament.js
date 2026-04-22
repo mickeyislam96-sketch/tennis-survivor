@@ -37,7 +37,7 @@ const TOURNAMENTS = {
     // Lock time overrides (set 1h before first match of each round).
     // UPDATE THESE once the order of play is announced for each round.
     lockTimeOverrides: {
-      R1:  null,  // TBD — set once R1 schedule is announced (1h before first match)
+      R1:  '2026-04-22T11:00:00Z',  // Extended for launch testing — first R1 match 08:05 UTC
       R64: null,  // TBD — set once R64 schedule is announced
       R32: null,  // TBD
       R16: null,  // TBD
