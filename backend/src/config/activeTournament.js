@@ -49,7 +49,7 @@ const TOURNAMENTS = {
     // Window open overrides (when pick window opens for each round)
     windowOpensOverrides: {
       // R1 opens immediately when draw is released
-      // R64: delay if R1 results still coming in
+      R64: '2026-04-23T13:00:00Z', // Open R64 picks from 2PM UK (23 Apr)
     },
 
     // Fallback round dates (used when live API has no start times yet)
