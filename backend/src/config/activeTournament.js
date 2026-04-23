@@ -34,34 +34,46 @@ const TOURNAMENTS = {
     // Per-match lock may be revisited when mobile app has push notifications.
     r1PerMatchLock: false,
 
-    // Lock time overrides (set 1h before first match of each round).
-    // UPDATE THESE once the order of play is announced for each round.
+    // Lock time overrides (1h before first match of each round).
+    // These are PLACEHOLDER estimates from the official tournament schedule.
+    // The scraper should flag when actual order-of-play times differ, but
+    // must NOT auto-override these without admin confirmation.
+    // Madrid matches typically start at 11:00 local (09:00 UTC).
     lockTimeOverrides: {
-      R1:  '2026-04-22T09:00:00Z',  // 10am UK time — R1 window closed
-      R64: null,  // TBD — set once R64 schedule is announced
-      R32: null,  // TBD
-      R16: null,  // TBD
-      QF:  null,  // TBD
-      SF:  null,  // TBD
-      F:   null,  // TBD
+      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr 10am UK — LOCKED (R1 complete)
+      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr 10am UK — 1h before first R64 match
+      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr 10am UK — 1h before first R32 match
+      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr 10am UK
+      QF:  '2026-04-29T09:00:00Z',  // Wed 29 Apr 10am UK
+      SF:  '2026-05-01T09:00:00Z',  // Fri 1 May 10am UK
+      F:   '2026-05-03T15:00:00Z',  // Sun 3 May 4pm UK (final not before 5pm local)
     },
 
-    // Window open overrides (when pick window opens for each round)
+    // Window open overrides — when the pick window opens for each round.
+    // Default logic: 12h after first match of previous round. But that's
+    // often too late (e.g. R1 finishes in one day, R64 should open same evening).
+    // These overrides ensure windows open at sensible times.
+    // Rule: open the evening the previous round's last matches are played.
     windowOpensOverrides: {
-      // R1 opens immediately when draw is released
-      R64: '2026-04-23T13:00:00Z', // Open R64 picks from 2PM UK (23 Apr)
+      // R1: opens immediately when draw is released (no override needed)
+      R64: '2026-04-23T13:00:00Z',  // Wed 23 Apr 2pm UK — R1 day 2, most R1 done
+      R32: '2026-04-25T17:00:00Z',  // Fri 25 Apr 6pm UK — R64 day 2 evening
+      R16: '2026-04-27T17:00:00Z',  // Sun 27 Apr 6pm UK — R32 day 2 evening
+      QF:  '2026-04-28T17:00:00Z',  // Mon 28 Apr 6pm UK — R16 evening
+      SF:  '2026-04-30T17:00:00Z',  // Wed 30 Apr 6pm UK — QF day 2 evening
+      F:   '2026-05-01T17:00:00Z',  // Thu 1 May 6pm UK — SF evening
     },
 
-    // Fallback round dates (used when live API has no start times yet)
-    // Men's main draw starts Wed 22 Apr. Final Sun 3 May.
+    // Fallback round dates (used when live API has no start times).
+    // Source: official Madrid Open 2026 schedule (tenngrand.com, atptour.com).
     roundDateFallbacks: {
-      R1:  '2026-04-22T10:00:00Z',  // Wed 22 Apr — Day 1 (extended 1h for testing)
-      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr — estimated
-      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr — estimated
-      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr — estimated
-      QF:  '2026-04-30T09:00:00Z',  // Thu 30 Apr — estimated
-      SF:  '2026-05-02T09:00:00Z',  // Sat 2 May — estimated
-      F:   '2026-05-03T13:00:00Z',  // Sun 3 May — men's final
+      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr + Thu 23 Apr
+      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr + Sat 25 Apr
+      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr + Mon 27 Apr
+      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr
+      QF:  '2026-04-29T09:00:00Z',  // Wed 29 Apr + Thu 30 Apr
+      SF:  '2026-05-01T09:00:00Z',  // Fri 1 May
+      F:   '2026-05-03T15:00:00Z',  // Sun 3 May (not before 5pm local = 3pm UTC)
     },
 
     // API provider config
