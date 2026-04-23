@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 23 April 2026 (session 26 — Cloud scraper deployment + infrastructure documentation). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 23 April 2026 (session 26b — Name-matching fix for cloud scraper pipeline). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -33,7 +33,7 @@
 | Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
 | Primary data | **FlashScore scraper** (free) — Railway cron service (Playwright/Chromium hourly 10-21 UTC), POSTs to backend. Replaces local Mac-based launchd scraper. |
 | Scraper cache | `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL `scraped_results` table) |
-| Legacy data | API-Tennis (paid) — unreliable, kept as automatic fallback only |
+| Legacy data | API-Tennis (paid) — unreliable, kept as last-resort fallback. Goalserve fully removed. |
 | Intelligence data | Matchstat Tennis API (RapidAPI) — H2H, player profiles, surface stats, recent form. Free tier (11 players). |
 | Secondary data | Sofascore (free) — 403-blocked on cloud IPs |
 | Data adapter | `backend/src/services/dataAdapter.js` — unified interface, swappable providers |
@@ -175,26 +175,48 @@ Unified interface for tennis data. All providers output the same internal fixtur
 
 **Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain. Scraper is always first in chain when data exists.
 
-### FlashScore scraper pipeline (NEW — 22 Apr 2026)
+### FlashScore scraper pipeline (updated 23 Apr 2026)
+
+**Architecture:** Standalone Railway cron service (Playwright/Chromium in Docker), NOT a Cowork task or Claude Routine. Runs autonomously — no laptop, no AI session needed.
 
 **How it works:**
-1. Cowork scheduled task (`flashscore-scraper`) runs every hour (with jitter)
-2. Navigates to FlashScore Madrid page via Chrome MCP
-3. Injects JavaScript to extract all match data from the DOM
-4. Maps FlashScore abbreviated names ("Z. Bergs") to full seed draw names ("Zizou Bergs") using a hardcoded 97-name mapping
-5. POSTs fixtures array to `POST /api/admin/scrape-results` (auth: Bearer ADMIN_SECRET)
-6. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (stale data always served — match results don't un-happen)
-7. `getDraw()` in tennisData.js reads scraper data via `overlayFixtures()` in seedDrawOverlay.js for overlay onto seed draw
+1. Railway cron triggers `scraper/` container hourly (10:00-21:00 UTC = 11AM-10PM UK)
+2. Playwright launches headless Chromium, navigates to FlashScore live + results pages
+3. Extracts match data from DOM (`event__match`, `event__homeParticipant`, `event__awayParticipant`)
+4. Strips country suffixes from names: `"Sinner J. (Ita)"` → `"Sinner J."`
+5. Filters out qualification rounds (detects main-draw boundary, skips qualifying SF/F)
+6. POSTs fixtures array to `POST /api/admin/scrape-results` (auth: Bearer ADMIN_SECRET)
+7. Triggers `POST /api/admin/process-results` to grade picks, eliminate losers, send emails
+8. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (stale data always served)
+9. `getDraw()` in tennisData.js reads scraper data via `overlayFixtures()` in seedDrawOverlay.js
 
 **Key files:**
+- `scraper/src/scrape.mjs` — Playwright scraper (headless Chromium, DOM extraction, score parsing)
+- `scraper/src/config.mjs` — tournament-specific config (FlashScore URLs, round mapping, timezone offset)
+- `scraper/Dockerfile` — based on `mcr.microsoft.com/playwright:v1.52.0-noble`
+- `scraper/railway.toml` — cron schedule (`0 10-21 * * *`)
 - `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL). Critical: never discards stale data.
+- `backend/src/services/seedDrawOverlay.js` — 3-pass name matching (exact, fuzzy Levenshtein, surname subset)
 - `backend/src/routes/admin.js` — `POST /api/admin/scrape-results` and `GET /api/admin/scraper-status`
-- `backend/src/db/schema.sql` — `scraped_results` table definition
-- Scheduled task: `flashscore-scraper` in Cowork (on Mickey's Mac)
 
-**Name mapping is critical:** The seed draw overlay uses `normaliseName()` which sorts name parts alphabetically. FlashScore abbreviated names ("Z. Bergs") don't match full names ("Zizou Bergs") under this normaliser. The scheduled task has a hardcoded mapping of all 97 player names (66 R1 + 31 seeds). When new players enter the draw in later rounds, the mapping must be updated in the scheduled task prompt.
+**Railway service:** `valiant-forgiveness` in project `successful-embrace`. Root directory `/scraper`, auto-deploys from `main`. Env vars: `ADMIN_SECRET`, `BACKEND_URL`, `DEFAULT_ROUND`.
 
-**Why FlashScore:** API-Tennis has been unreliable since Monte Carlo. FlashScore is free, always has data, and the browser scraping approach bypasses cloud IP blocks.
+**Name matching (critical — fixed 23 Apr):** FlashScore sends abbreviated names (`"Sinner J."`) while the seed draw uses full names (`"Jannik Sinner"`). The overlay uses 3-pass matching in `seedDrawOverlay.js`: (1) exact normalised match, (2) fuzzy Levenshtein > 0.85, (3) **surname subset match** — extracts parts with 3+ chars, checks if shorter set is a subset of the longer. This handles abbreviated first names, compound surnames (Carreno-Busta, Van De Zandschulp), and double initials (Etcheverry T. M.). The same 3-strategy approach is used for fixture matching, winner identification, AND withdrawal mapping. **No hardcoded name mapping table needed.**
+
+**FlashScore round mapping (96-draw Masters):**
+| FlashScore label | Internal round | Notes |
+|---|---|---|
+| (no header) | R1 | Uses `DEFAULT_ROUND` env var |
+| 1/64-finals | R64 | Seeds enter |
+| 1/32-finals | R32 | |
+| 1/16-finals | R16 | |
+| 1/8-finals / Quarter-finals | QF | |
+| Semi-finals | SF | |
+| Final | F | |
+
+**Per-tournament changes:** Update `scraper/src/config.mjs` (URLs, round map, timezone), Railway env `DEFAULT_ROUND`, and cron schedule (change to `*/15 10-21 * * *` for 15-min from Rome onwards).
+
+**Why Railway cron, not Claude Routines:** Scraper is deterministic (no AI reasoning needed). Claude Routines are research preview with daily run caps. Railway gives full control: Docker, logs, no usage limits. Routines should be considered for future tasks that need AI reasoning during execution.
 
 ---
 
@@ -591,7 +613,8 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 22 Apr 2026 (session 24) | **Scraper pipeline fixes + elimination UX overhaul.** (1) **Tiebreak score filtering bug** — scraper's game-score filter (`if h >= 40 or a >= 40`) incorrectly stripped tiebreak encodings like 63-77. Fixed to check `if h in {15, 30, 40} or a in {15, 30, 40}`. Muller vs Struff score corrected from "0-6" to "6-7 0-6". (2) **Cancelled fixture collision bug** — Collignon withdrew, replaced by Prizmic. FlashScore showed both a cancelled Collignon match and a completed Prizmic match. Name mapping mapped both to "Dino Prizmic", creating two fixtures with identical names. `findFixtureMatch()` in seedDrawOverlay matched the cancelled one first, so Berrettini's completed win was never applied. Fix: filter all cancelled fixtures before POSTing to backend. (3) **Results processing pipeline gap** — scraper POSTed fixtures but never triggered `autoProcessResults()`. Picks stayed `survived: null`, members stayed `is_alive: true`, no emails sent. Added `POST /api/admin/process-results` as Step 9 in the scheduled task. Verified: Servena's pick now `survived: false`, Rafa's pick `survived: true`. (4) **Friendly elimination UX** — replaced clinical "Eliminated" copy with casual tone across all surfaces: PickScreen card ("Unlucky! You're out this time"), hero badge ("Out in R1 — unlucky!"), locked pick ("Unlucky — out ✗"); PickHistory status ("Unlucky! Out in R1"), per-pick result ("Didn't advance"); Leaderboard meta ("Knocked out in R1"), modal ("Out in R1 — unlucky!"); GroupHome new eliminated card with nav to leaderboard/draw. (5) **Updated scheduled task** with all 3 bug fixes (cancelled filter, tiebreak fix, process-results trigger). Commit `85258e1`. |
 | 22 Apr 2026 (session 25) | **Day 1 extended scraper run + email deliverability investigation.** (1) **Scraper run** — executed FlashScore scraper via Chrome MCP scheduled task. Final state: 31 main draw fixtures (12 completed, 2 live, 17 scheduled). 2 cancelled excluded, 12 qualification finals excluded, 1 unmapped name (Garin C.) excluded. Completed: Cilic d. Bergs, Nava d. Brooksby, Kopriva d. Zhang, Buse d. Mannarino, Prizmic d. Berrettini, Baez d. Rinderknech, Fucsovics d. Kotov, Norrie d. Coric, Giron d. Safiullin, Darderi d. Monfils, Passaro d. Vukic, Muller d. Navone. Results processor triggered: 1 pick updated (Buse survivor confirmed). (2) **Email delivery investigation** — user reported Hurkacz pick result email not received. Traced full pipeline: `processRoundResults` -> `sendResultEmails` -> `sendRoundResultEmail` -> `sendWithDedup` -> `sendViaBrevo`. Discovered email queue system was removed 21 Apr (session 13): `sendWithDedup` now sends directly via Brevo, no admin approval step. Email was sent successfully but landed in user's spam folder. (3) **DNS/deliverability audit** — initially misdiagnosed DKIM as missing (checked wrong selectors: `mail._domainkey` instead of Brevo's actual `brevo1._domainkey` / `brevo2._domainkey`). Corrected: all 4 Brevo DNS records verified. Identified SPF fix needed: current SPF is `v=spf1 ~all` (no Brevo include); should be `v=spf1 include:spf.sendinblue.com ~all`. Primary spam cause is domain reputation (new domain, near-zero sending history). (4) **Unmapped player: Garin C.** — Cristian Garin not in 97-player name mapping. Match Garin vs Blockx excluded. Must add to mapping for future runs. (5) **No code pushed this session** — scraper execution + investigation only. |
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
-| 23 Apr 2026 (session 26) | **Cloud scraper pipeline: Railway cron service + documentation.** (1) **Architecture decision:** replaced local Mac-based launchd scraper (required Mickey's laptop open) with production-grade Railway cron service. Scraper is deterministic (no AI needed), so implemented as independent scheduled container, not Claude Routines (research preview, daily caps, no backup). (2) **New scraper service:** `scraper/` directory with 6 files: `package.json` (Playwright ESM), `src/config.mjs` (tournament URLs, round mapping, timezone), `src/scrape.mjs` (Playwright/Chromium, live+results pages, name mapping, qualification filter, POST to backend), `Dockerfile` (mcr.microsoft.com/playwright:v1.52.0-noble), `railway.toml` (hourly cron 10-21 UTC), `.dockerignore`. Playwright chosen over Puppeteer for better Docker support and Firefox fallback. (3) **FlashScore round mapping discovery:** FlashScore uses "1/X-finals" where X = players remaining (1/64→R64, 1/32→R32, 1/16→R16, 1/8→QF). R1 matches have no round header (handled via DEFAULT_ROUND env). Original scraper had "1/32-finals"→R1, which was WRONG. (4) **Qualification filtering:** scraper detects main-draw vs qualifying by tracking first main-draw-specific round label, then filters out subsequent qualifying rounds. (5) **Railway deployment:** service "valiant-forgiveness" (project "successful-embrace"), root `/scraper`, auto-deploys on main push, cron `0 10-21 * * *` (11am-10pm UK), env vars ADMIN_SECRET/BACKEND_URL/DEFAULT_ROUND=R1. For future tournaments: change cron to `*/15 10-21 * * *` for 15-min runs. (6) **Key data architectural decision:** FlashScore is ONLY automated source (Goalserve fully removed 22 Apr). If scraper fails, Mickey manually uploads results. (7) **Backend existed:** `POST /api/admin/scrape-results` receives fixtures, two-tier cache (memory + PostgreSQL), scraper listed in provider chain. Dockerfile choice: single-stage, base image handles all dependencies, no complex build stages. (8) **Documentation:** updated CLAUDE.md with scraper architecture, round mapping, qualification filter logic, Railway deployment IDs, env var setup, and per-tournament config changes. All development notes captured in this session log. |
+| 23 Apr 2026 (session 26) | **Cloud scraper pipeline: Railway cron service.** (1) Replaced local Mac-based launchd scraper with production Railway cron service (Playwright/Chromium Docker). New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (1/32→R32, not R1). R1 has no header — uses `DEFAULT_ROUND` env. (3) Qualification filtering: detects main-draw boundary, skips qualifying SF/F. (4) Railway deployed: service "valiant-forgiveness", cron `0 10-21 * * *`, env ADMIN_SECRET/BACKEND_URL/DEFAULT_ROUND=R1. (5) Decision: Railway cron over Claude Routines — scraper is deterministic, Routines are preview with caps. Routines for future tasks needing AI reasoning. Commits `d4e3503`, `fc50563`. |
+| 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** First scraper run delivered 50 fixtures but 0 picks graded — two name-matching failures. (1) **Country suffix stripping:** FlashScore sends `"Sinner J. (Ita)"` — the `(Ita)` polluted normalisation. Scraper now strips country codes before sending. (2) **Surname subset matching (3-pass):** FlashScore abbreviated names (`"Sinner J."`) couldn't match seed draw full names (`"Jannik Sinner"`) — Levenshtein scores 0.47-0.76, threshold 0.85. Added Pass 3 to `seedDrawOverlay.js`: extracts parts ≥3 chars, checks subset containment. `["sinner"]` ⊂ `["jannik","sinner"]` → match. Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (3) **Winner matching fix:** overlay found fixtures (status=completed) but winner was None — winner identification code also used old normalisation. Fixed all three name-matching contexts (fixture finding, winner ID, withdrawal mapping) to use same 3-strategy approach. **Eliminates the hardcoded 97-name mapping table entirely.** (4) Verified full pipeline: 18 R64 winners matched, bracket progression working (Atmane→R32 slot), picks graded correctly, emails pipeline ready. Commits `fc50563`, `5629b44`. |
 
 ---
 
