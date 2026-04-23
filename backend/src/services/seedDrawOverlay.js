@@ -247,15 +247,26 @@ export function overlayFixtures(seedDraw, fixtures) {
         match.status = gsFixture.status;
       }
       if (gsFixture.winnerId || gsFixture.winnerName) {
-        // Match the scraper winner to our seed draw player IDs
+        // Match the scraper winner to our seed draw player IDs.
+        // 3 strategies: exact normalised, fuzzy Levenshtein, surname subset.
         const winnerNorm = normaliseName(gsFixture.winnerName);
         const p1Norm = normaliseName(match.player1Name);
         const p2Norm = normaliseName(match.player2Name);
+        const winnerSP = surnameParts(gsFixture.winnerName);
+        const p1SP = surnameParts(match.player1Name);
+        const p2SP = surnameParts(match.player2Name);
 
-        if (winnerNorm === p1Norm || levenshteinSimilarity(winnerNorm, p1Norm) > 0.85) {
+        const p1Match = winnerNorm === p1Norm
+          || levenshteinSimilarity(winnerNorm, p1Norm) > 0.85
+          || surnameSubsetMatch(winnerSP, p1SP);
+        const p2Match = winnerNorm === p2Norm
+          || levenshteinSimilarity(winnerNorm, p2Norm) > 0.85
+          || surnameSubsetMatch(winnerSP, p2SP);
+
+        if (p1Match && !p2Match) {
           match.winnerId = match.player1Id;
           match.winnerName = match.player1Name;
-        } else if (winnerNorm === p2Norm || levenshteinSimilarity(winnerNorm, p2Norm) > 0.85) {
+        } else if (p2Match && !p1Match) {
           match.winnerId = match.player2Id;
           match.winnerName = match.player2Name;
         }
@@ -269,17 +280,17 @@ export function overlayFixtures(seedDraw, fixtures) {
       if (gsFixture.isWithdrawal) {
         match.isWithdrawal = true;
         // Map withdrawn player ID to seed draw ID
-        const withdrawnNorm = normaliseName(
-          gsFixture.withdrawnPlayerId === gsFixture.player1Id
-            ? gsFixture.player1Name
-            : gsFixture.player2Name
-        );
+        const withdrawnName = gsFixture.withdrawnPlayerId === gsFixture.player1Id
+          ? gsFixture.player1Name
+          : gsFixture.player2Name;
+        const withdrawnNorm = normaliseName(withdrawnName);
+        const withdrawnSP = surnameParts(withdrawnName);
         const p1Norm = normaliseName(match.player1Name);
-        if (withdrawnNorm === p1Norm || levenshteinSimilarity(withdrawnNorm, p1Norm) > 0.85) {
-          match.withdrawnPlayerId = match.player1Id;
-        } else {
-          match.withdrawnPlayerId = match.player2Id;
-        }
+        const p1SP = surnameParts(match.player1Name);
+        const isP1 = withdrawnNorm === p1Norm
+          || levenshteinSimilarity(withdrawnNorm, p1Norm) > 0.85
+          || surnameSubsetMatch(withdrawnSP, p1SP);
+        match.withdrawnPlayerId = isP1 ? match.player1Id : match.player2Id;
       }
     } else {
       // Only count as unmatched if it's a real R1 match (not a future-round TBD)
