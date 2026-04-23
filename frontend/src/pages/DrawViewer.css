@@ -347,9 +347,10 @@
    List card (.lc-*)
    ============================================================ */
 
+/* ── Match card grid ────────────────────────────────── */
 .lc-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
 }
 
@@ -360,118 +361,143 @@
   border-radius: 12px;
   overflow: hidden;
   font-family: var(--ds-font-sans);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
 .lc--done {
   background: var(--ds-surface-sunken, #F7F4EC);
 }
-
 .lc--live {
   border-color: var(--ds-accent, #C1572E);
   box-shadow: 0 0 0 2px rgba(193, 87, 46, 0.10);
 }
-
-.lc--upcoming {
-  /* default */
-}
-
 .lc-clickable {
   cursor: pointer;
 }
 .lc-clickable:hover {
-  border-color: var(--ds-ink-muted);
-  box-shadow: 0 6px 14px rgba(26, 26, 23, 0.08);
-  transform: translateY(-1px);
+  border-color: #C8C3B5;
+  box-shadow: 0 4px 12px rgba(26, 26, 23, 0.06);
 }
 
+/* ── Live bar ──────────────────────────────────────── */
 .lc-live-bar {
   background: var(--ds-accent, #C1572E);
-  color: var(--ds-canvas, #FAFAF7);
+  color: #FFFFFF;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 12px;
+  padding: 3px 12px;
   text-align: center;
 }
 
+/* ── Card body ─────────────────────────────────────── */
 .lc-body {
-  padding: 14px 16px 6px;
+  padding: 10px 14px 8px;
 }
 
-.lc-players {
-  display: flex;
-  flex-direction: column;
-}
-
+/* ── Player row (scoreboard style) ─────────────────── */
 .lc-row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 0;
-  min-height: 28px;
-  font-size: 14px;
-  color: var(--ds-ink);
+  font-size: 13px;
+  color: var(--ds-ink, #1A1A17);
 }
-
-.lc-row.lc-won {
-  font-weight: 700;
+.lc-row.won {
+  font-weight: 600;
   color: var(--ds-primary, #0F4A23);
 }
-
-.lc-row.lc-lost {
-  color: var(--ds-ink-muted);
+.lc-row.lost {
+  color: var(--ds-ink-muted, #888880);
   opacity: 0.55;
-  text-decoration: line-through;
 }
 
+/* ── Player name ───────────────────────────────────── */
 .lc-name {
   flex: 1 1 auto;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 }
 
-.lc-win-tick {
-  color: var(--ds-primary, #0F4A23);
-  font-size: 16px;
-  font-weight: 700;
-  flex: 0 0 auto;
-  margin-left: 4px;
-}
-
-.lc-sep {
-  height: 1px;
-  background: var(--ds-border, #E4DFD1);
-}
-
-.lc-score {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--ds-border, #E4DFD1);
+/* ── Per-set scores (inline right) ─────────────────── */
+.lc-sets {
+  display: flex;
+  gap: 4px;
   font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
-  font-size: 12px;
-  color: var(--ds-ink-muted);
-  text-align: right;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.lc-set {
+  min-width: 18px;
+  text-align: center;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+.lc-set.set-won {
+  font-weight: 700;
+}
+.lc-set.set-lost {
+  color: var(--ds-ink-muted, #888880);
+}
+.lc-set .tb {
+  font-size: 9px;
+  vertical-align: super;
+  opacity: 0.6;
 }
 
+/* ── Winner tick ───────────────────────────────────── */
+.lc-tick {
+  color: var(--ds-primary, #0F4A23);
+  font-size: 14px;
+  font-weight: 700;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Separator between players ─────────────────────── */
+.lc-sep {
+  height: 0.5px;
+  background: var(--ds-border-light, #F0EDE4);
+  margin: 0 36px;
+}
+
+/* ── Footer meta ───────────────────────────────────── */
 .lc-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 16px 12px;
-  border-top: 1px solid var(--ds-border, #E4DFD1);
+  padding: 6px 14px 8px;
+  border-top: 1px solid var(--ds-border-light, #F0EDE4);
   background: var(--ds-canvas, #FAFAF7);
 }
-
 .lc-date {
-  font-size: 12px;
-  color: var(--ds-ink-muted);
   font-family: var(--ds-font-mono, 'JetBrains Mono', monospace);
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  color: var(--ds-ink-faded, #B0AFA8);
+}
+
+/* ── Status badges ─────────────────────────────────── */
+.lc-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 99px;
+}
+.lc-badge--finished {
+  color: var(--ds-primary, #0F4A23);
+  background: #E1F5EE;
+}
+.lc-badge--live {
+  color: #FFFFFF;
+  background: var(--ds-accent, #C1572E);
+}
+.lc-badge--scheduled {
+  color: var(--ds-ink-muted, #888880);
+  background: var(--ds-surface-sunken, #F7F4EC);
+  border: 1px solid var(--ds-border, #E4DFD1);
 }
 
 /* ── Mobile tweaks ───────────────────────────────────── */
@@ -493,5 +519,16 @@
   }
   .lc-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .lc-row {
+    font-size: 13px;
+  }
+  .lc-sets {
+    font-size: 12px;
+  }
+  .lc-tick {
+    font-size: 13px;
+    width: 16px;
   }
 }

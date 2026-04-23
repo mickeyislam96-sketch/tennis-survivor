@@ -16,55 +16,43 @@ import './DrawViewer.css';
 const MATCH_COUNTS_FALLBACK = { R1: 64, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 };
 
 /**
- * Format a raw score string from the scraper into display format.
- * Input:  "2-0, 6-4, 77-64"  (sets-won prefix + FlashScore tiebreak encoding)
- * Output: "6-4  7-6(4)"
+ * Parse a raw score string into structured per-set data for scoreboard display.
+ * Input:  "2-1, 3-6, 77-63, 6-3"  (sets-won prefix + FlashScore tiebreak encoding)
+ * Output: [{ p1: 3, p2: 6, tb: null, p1won: false }, { p1: 7, p2: 6, tb: 3, p1won: true }, ...]
  *
- * FlashScore tiebreak encoding: 77-64 means 7-6 with tiebreak score 4.
- * The first digit pair > 7 encodes the tiebreak: 77-63 = 7-6(3), 64-77 = 6-7(4).
+ * FlashScore tiebreak encoding: 77-63 means 7-6 with tiebreak score 3.
  */
-function formatScore(raw) {
+function parseSetScores(raw) {
   if (!raw) return null;
-  const sets = raw.split(',').map(s => s.trim());
+  const parts = raw.split(',').map(s => s.trim());
 
-  // Strip the sets-won prefix — it's the first element if it looks like "2-0", "2-1", "0-2", "1-2"
-  if (sets.length >= 2) {
-    const first = sets[0];
-    const firstParts = first.match(/^(\d)-(\d)$/);
-    if (firstParts) {
-      const a = parseInt(firstParts[1], 10);
-      const b = parseInt(firstParts[2], 10);
-      // If it's a valid sets-won count (both <= 3, sum <= 5), strip it
-      if (a <= 3 && b <= 3 && a + b <= 5) {
-        sets.shift();
-      }
+  // Strip the sets-won prefix (e.g. "2-1") if present
+  if (parts.length >= 2) {
+    const first = parts[0].match(/^(\d)-(\d)$/);
+    if (first) {
+      const a = parseInt(first[1], 10);
+      const b = parseInt(first[2], 10);
+      if (a <= 3 && b <= 3 && a + b <= 5) parts.shift();
     }
   }
 
-  // Decode each set score
-  const formatted = sets.map(set => {
-    const parts = set.match(/(\d+)-(\d+)/);
-    if (!parts) return set;
+  return parts.map(set => {
+    const m = set.match(/(\d+)-(\d+)/);
+    if (!m) return null;
+    let s1 = parseInt(m[1], 10);
+    let s2 = parseInt(m[2], 10);
+    let tb = null;
 
-    let s1 = parseInt(parts[1], 10);
-    let s2 = parseInt(parts[2], 10);
-
-    // Detect tiebreak encoding: any score with a digit > 7 in a 2+ digit number
-    // 77-64 → 7-6(4), 63-77 → 6-7(3), 711-69 → 7-6(9)
+    // Decode tiebreak: 77-63 → 7-6(3), 64-77 → 6-7(4)
     if (s1 > 9 || s2 > 9) {
-      // Extract the real game scores and tiebreak
-      const str1 = String(s1);
-      const str2 = String(s2);
-      const game1 = parseInt(str1[0], 10);
-      const game2 = parseInt(str2[0], 10);
-      const tb = (game1 > game2) ? parseInt(str2.slice(1), 10) : parseInt(str1.slice(1), 10);
-      return `${game1}-${game2}(${tb})`;
+      const str1 = String(s1), str2 = String(s2);
+      s1 = parseInt(str1[0], 10);
+      s2 = parseInt(str2[0], 10);
+      tb = s1 > s2 ? parseInt(str2.slice(1), 10) : parseInt(str1.slice(1), 10);
     }
 
-    return `${s1}-${s2}`;
-  });
-
-  return formatted.join('  ');
+    return { p1: s1, p2: s2, tb, p1won: s1 > s2 };
+  }).filter(Boolean);
 }
 
 // ── Bracket ordering ──────────────────────────────────────────
@@ -231,6 +219,24 @@ const BracketCol = forwardRef(function BracketCol({ round, matches, totalHeight,
 });
 
 // ── List card ─────────────────────────────────────────────────
+function SetScores({ sets, isPlayer1, isWinner }) {
+  if (!sets || sets.length === 0) return <div className="lc-sets" />;
+  return (
+    <div className="lc-sets">
+      {sets.map((s, i) => {
+        const myScore = isPlayer1 ? s.p1 : s.p2;
+        const wonSet = isPlayer1 ? s.p1won : !s.p1won;
+        const showTb = s.tb != null && !wonSet;
+        return (
+          <span key={i} className={`lc-set ${wonSet ? 'set-won' : 'set-lost'}`}>
+            {myScore}{showTb && <span className="tb">({s.tb})</span>}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ListCard({ match, onMatchClick }) {
   const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
@@ -240,40 +246,40 @@ function ListCard({ match, onMatchClick }) {
   const date = match.startTime
     ? new Date(match.startTime).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
     : null;
-  const displayScore = formatScore(match.score);
+  const time = match.startTime && !done
+    ? new Date(match.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const sets = parseSetScores(match.score);
 
   return (
     <div
-      className={`lc${done ? ' lc--done' : live ? ' lc--live' : ' lc--upcoming'}${clickable ? ' lc-clickable' : ''}`}
+      className={`lc${done ? ' lc--done' : live ? ' lc--live' : ''}${clickable ? ' lc-clickable' : ''}`}
       onClick={clickable ? () => onMatchClick(match) : undefined}
     >
       {live && <div className="lc-live-bar">LIVE</div>}
       <div className="lc-body">
-        <div className="lc-players">
-          <div className={`lc-row${p1w ? ' lc-won' : (done && p2w) ? ' lc-lost' : ''}`}>
-            {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={28} />}
-            <span className="lc-name">{match.player1Name ? shortName(match.player1Name) : 'TBD'}</span>
-            {p1w && <span className="lc-win-tick">&#10003;</span>}
-          </div>
-          <div className="lc-sep" />
-          <div className={`lc-row${p2w ? ' lc-won' : (done && p1w) ? ' lc-lost' : ''}`}>
-            {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={28} />}
-            <span className="lc-name">{match.player2Name ? shortName(match.player2Name) : 'TBD'}</span>
-            {p2w && <span className="lc-win-tick">&#10003;</span>}
-          </div>
+        <div className={`lc-row${p1w ? ' won' : (done && p2w) ? ' lost' : ''}`}>
+          {match.player1Name && <PlayerAvatar playerId={match.player1Id} playerName={match.player1Name} size={28} />}
+          <span className="lc-name">{match.player1Name ? shortName(match.player1Name) : 'TBD'}</span>
+          <SetScores sets={sets} isPlayer1={true} isWinner={p1w} />
+          <span className="lc-tick">{p1w ? '\u2713' : ''}</span>
         </div>
-        {done && displayScore && (
-          <div className="lc-score">{displayScore}</div>
-        )}
+        <div className="lc-sep" />
+        <div className={`lc-row${p2w ? ' won' : (done && p1w) ? ' lost' : ''}`}>
+          {match.player2Name && <PlayerAvatar playerId={match.player2Id} playerName={match.player2Name} size={28} />}
+          <span className="lc-name">{match.player2Name ? shortName(match.player2Name) : 'TBD'}</span>
+          <SetScores sets={sets} isPlayer1={false} isWinner={p2w} />
+          <span className="lc-tick">{p2w ? '\u2713' : ''}</span>
+        </div>
       </div>
       <div className="lc-meta">
-        {date && <span className="lc-date">{date}</span>}
+        <span className="lc-date">{date}{time ? ` \u00b7 ${time}` : ''}</span>
         {live ? (
-          <Badge tone="danger" size="sm" dot>Live</Badge>
+          <span className="lc-badge lc-badge--live">Live</span>
         ) : done ? (
-          <Badge tone="success" size="sm">Finished</Badge>
+          <span className="lc-badge lc-badge--finished">Finished</span>
         ) : (
-          <Badge tone="neutral" size="sm">Scheduled</Badge>
+          <span className="lc-badge lc-badge--scheduled">Scheduled</span>
         )}
       </div>
     </div>
