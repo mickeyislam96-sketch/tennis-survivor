@@ -1,12 +1,12 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 23 April 2026 (session 26d — Tournament schedule fix + avatar centering). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 23 April 2026 (session 27 — Rome pool + pick card contrast fix). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
 ## What the product is
 
-**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 22 Apr, free entry, draw 19 Apr).
+**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 complete (Mark won). **Madrid 2026** active (started 22 Apr, free). **Rome 2026** upcoming (5-17 May, free, open for entries).
 
 ---
 
@@ -480,7 +480,7 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 
 ---
 
-## Current tournament state (as of 22 April 2026)
+## Current tournament state (as of 23 April 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
@@ -503,6 +503,19 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
 - `JWT_SECRET` confirmed set in Railway (separate from `ADMIN_SECRET`).
 - Full experience audit completed 21 Apr — 5 critical bugs fixed (see session 14).
+
+### Rome 2026 (UPCOMING — open for entries)
+- Tournament: Internazionali BNL d'Italia (ATP Masters 1000)
+- Dates: 5-17 May 2026, Clay (outdoor), Rome, Italy
+- Status: `upcoming` — draw expected 3 May
+- Entry: Free (third free tournament before Roland Garros paid launch)
+- R1 model: Per-match lock (`r1PerMatchLock: true` in both FE+BE tournament registries)
+- Real DB group: `de81ed56-6c30-483a-9d38-3c48201ab42e` (0 entries as of 23 Apr)
+- Pool URL: `finalserveivor.com/group/de81ed56-6c30-483a-9d38-3c48201ab42e`
+- Homepage: appears below Madrid in "Open Now" grid with "Free entry — sign up now" footer
+- Entry gate: uses `entryOpen: true` flag (not r1LockAt from active tournament's deadlines)
+- Post-join: redirects to leaderboard page (pre-launch member view)
+- Seed draw: not yet created (will need `backend/src/data/seedDraws/rome-2026.json` once draw drops)
 
 ### Email design system (aligned 19 Apr)
 All 7 transactional email templates + admin digest in `backend/src/utils/email.js`. Fully aligned to live site design:
@@ -558,9 +571,17 @@ Full-stack polish across 7 commits. **Key changes:**
 22. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work end-to-end
 23. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` Cowork task to pre-approve tool permissions
 
+**Rome 2026 Prep**
+24. **Create Rome seed draw JSON** — once draw drops (~3 May), create `backend/src/data/seedDraws/rome-2026.json` from ATP draw PDF
+25. **Set Rome lock time overrides** — all rounds in `activeTournament.js` from official schedule
+26. **Switch `ACTIVE_TOURNAMENT` to `rome-2026`** — in Railway env vars when Madrid completes
+27. **Update scraper for Rome** — verify FlashScore URL, round mapping, name matching for Rome draw
+28. **Create Rome invite code** — generate and share for user acquisition
+29. **Encourage eliminated Madrid users to join Rome** — copy/email nudge
+
 **Post-Madrid**
-24. **Build Phase 2 (Marketing)** — brand voice doc, content calendar, weekly content scheduled task
-25. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 files, 6.4MB) superseded by sprite (205KB). Low priority.
+30. **Build Phase 2 (Marketing)** — brand voice doc, content calendar, weekly content scheduled task
+31. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 files, 6.4MB) superseded by sprite (205KB). Low priority.
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -632,6 +653,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 23 Apr 2026 (session 26a) | **Cloud scraper pipeline: Railway cron service.** Replaced local Mac-based launchd scraper with production Railway service. Deployed 23 Apr. (1) New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (e.g., 1/64=64 players). R1 has no header — uses `DEFAULT_ROUND` env var. Qualification detection: looks for "Qualification" in `.event__header`, sets `isMainDraw` flag. (3) **Railway service:** `valiant-forgerness` in project `successful-embrace`, cron `0 10-21 * * *` (hourly 11AM-10PM UK), env vars: ADMIN_SECRET, BACKEND_URL, DEFAULT_ROUND. (4) **Architecture decision:** Railway cron over Claude Routines because scraper is deterministic (no AI needed), Routines are preview with daily caps and agentic overhead. Routines reserved for tasks needing AI reasoning during execution. (5) **Commits:** `d4e3503` (Cloud scraper infra), `fc50563` (Initial scraper code). |
 | 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** (1) **Issue:** First scraper run posted 50 fixtures but 0 picks graded. Root cause: FlashScore sends abbreviated names (`"Sinner J. (Ita)"`) but seed draw has full names (`"Jannik Sinner"`). Country suffix and name mismatch blocked matching. (2) **Country suffix stripping:** Scraper now strips `(Ita)` before POSTing. (3) **3-pass name matching in `seedDrawOverlay.js`:** (a) Exact normalised match (stripped accents, lowercase, token comparison), (b) Fuzzy Levenshtein > 0.85, (c) Surname subset matching — extract parts ≥3 chars, check if shorter set is subset of longer (`["sinner"]` ⊂ `["jannik","sinner"]` → match). Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (4) **Applied to 3 contexts:** Fixture matching, winner identification, withdrawal mapping. **Eliminates hardcoded 97-name mapping table entirely.** (5) **Verified:** 18 R64 winners matched, bracket progression works (Atmane→R32), picks grade correctly, emails pipeline ready. (6) **Commits:** `fc50563` (Name fix), `5629b44` (Winner matching fix). |
 | 23 Apr 2026 (session 26c) | **Auto-withdrawal detection + By Round redesign.** (1) **Auto-withdrawal/lucky loser replacement:** Van De Zandschulp withdrew, Garin entered as LL. Scraper posted both cancelled and new fixtures, but Garin wasn't in seed draw. Built automated detection in `seedDrawOverlay.js`: pre-pass scans for unknown players at draw positions, cross-references cancelled fixtures with original player, auto-swaps seed draw player in memory with LL marker. No manual edits needed for future withdrawals. (2) **By Round view complete redesign** — scoreboard-style match cards (Option B from design mockup). New components: `parseSetScores()` parses raw score string into structured per-set data; `SetScores` renders per-player inline scores (won sets bold, lost muted, tiebreaks as superscript `7(3)`). Winner row: bold dark green (#0F4A23) with tick mark (✓). Loser row: 55% opacity. Custom status badges: "Finished" (green pill), "Live" (accent), "Scheduled" (neutral). Sort: live first → finished → scheduled. Card layout: min-width 340px (2-3 per row desktop, 1 mobile). (3) **Files changed:** `DrawViewer.jsx`, `DrawViewer.css`. (4) **Key decisions:** Scoreboard style chosen for information density. Sets-won prefix stripped (metadata). Tiebreaks fully decoded. (5) **Full pipeline verified end-to-end:** Scraper → POSTs to `/api/admin/scrape-results` ✓ → Overlay matches names ✓ → Winners identified ✓ → Bracket progresses ✓ → Picks grade ✓ → Auto-withdrawal detected ✓ → Result emails ready ✓. (6) **Commits:** `022830c` (Auto-withdrawal), `054f21c` (By Round redesign), `e3cbf31` (Scoreboard layout), `3876edb` (Mobile fix), `3c35edd` (Sort order). |
+| 23 Apr 2026 (session 27) | **Rome 2026 pool + pick card contrast fix.** (1) **Pick card text contrast** — current pick card (`.ps-picked-card--changeable`) had dark text on dark green background. Added CSS overrides to use white text (`--ds-primary-ink`) on primary background. Commit `decc514`. (2) **Rome 2026 pool setup** — added Rome to both FE+BE tournament registries (ATP M1000, 5-17 May, clay, `r1PerMatchLock: true`). Created real DB group `de81ed56-6c30-483a-9d38-3c48201ab42e` via `POST /api/groups` with Mickey's UUID as admin. Homepage sorts active pools before upcoming so Madrid stays featured. Upcoming free pools show "Free entry — sign up now" footer. Commit `960a558`. (3) **Entry gate fix** — Rome pool page showed "hasn't launched yet" because `isEntryClosed` used Madrid's R1 lock time from global `/api/draw/deadlines`. Fixed: only apply `r1LockAt` as entry deadline when `tournament?.status === 'active'`. Upcoming pools rely on `entryOpen` flag. (4) **Post-join redirect** — after joining a pre-launch pool, user is now navigated to leaderboard page instead of staying on group home. Commit `6c7059f`. (5) **GitHub PAT refresh** — old token expired, new one provided. Both Vercel and Railway deploys confirmed. |
 | 23 Apr 2026 (session 26d) | **Tournament schedule fix + avatar centering.** (1) **R64 pick window was closed** — `autoSetLockTimes` in opsMonitor set R64 lock from scraped start times because config had `null`. Window-open was calculated too late (12h after R1 start = 8PM UK). **Fix:** set ALL round lock times and window-open overrides in `activeTournament.js` from official Madrid schedule (tenngrand.com, atptour.com). `autoSetLockTimes` now skips all rounds. **Critical rule: scraper must NOT auto-change lock times.** Full schedule: R64 opens 23 Apr 2pm UK locks 24 Apr 10am, R32 opens 25 Apr 6pm locks 26 Apr 10am, R16 opens 27 Apr 6pm locks 28 Apr 10am, QF opens 28 Apr 6pm locks 29 Apr 10am, SF opens 30 Apr 6pm locks 1 May 10am, F opens 1 May 6pm locks 3 May 4pm. Commit `5e3c990`. (2) **PlayerAvatar face centering** — sprite headshots top-aligned (forehead showing, chin cut), added 10% vertical offset to centre face in circle crop. Commit `1e02fd5`. (3) **Key lesson for future tournaments:** always set all lock times and window-open overrides from official schedule BEFORE tournament starts. Never rely on auto-set. |
 
 ---
