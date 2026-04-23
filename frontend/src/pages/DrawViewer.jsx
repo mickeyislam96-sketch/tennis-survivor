@@ -514,7 +514,17 @@ export function DrawViewer() {
             </div>
 
             {(() => {
-              const listMatches = (matchesByRound[listRound] || []).filter(m => !m.bye);
+              const listMatches = (matchesByRound[listRound] || []).filter(m => !m.bye)
+                .sort((a, b) => {
+                  // Sort order: live first, then completed, then scheduled
+                  const statusOrder = (m) => {
+                    if (isLive(m.status)) return 0;
+                    const s = (m.status || '').toLowerCase();
+                    if (s === 'completed' || s === 'walkover' || s === 'retired') return 1;
+                    return 2; // scheduled, cancelled, unknown
+                  };
+                  return statusOrder(a) - statusOrder(b);
+                });
               return (
                 <>
                   <div className="dv-round-header">
