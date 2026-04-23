@@ -350,7 +350,7 @@
 .lc-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
 }
 
 .lc {
@@ -416,11 +416,14 @@
 }
 
 .lc-row.lc-won {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ds-primary, #0F4A23);
 }
 
 .lc-row.lc-lost {
   color: var(--ds-ink-muted);
+  opacity: 0.55;
+  text-decoration: line-through;
 }
 
 .lc-name {
@@ -428,14 +431,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.lc-win-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ds-primary, #0F4A23);
+.lc-win-tick {
+  color: var(--ds-primary, #0F4A23);
+  font-size: 16px;
+  font-weight: 700;
   flex: 0 0 auto;
+  margin-left: 4px;
 }
 
 .lc-sep {
