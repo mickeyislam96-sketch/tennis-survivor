@@ -239,6 +239,14 @@
   font-weight: var(--ds-weight-semi);
 }
 
+/* When card has primary (dark green) background, override dark-on-dark text */
+.ps-picked-card--changeable .ps-picked-label {
+  color: color-mix(in srgb, var(--ds-primary-ink) 75%, transparent);
+}
+.ps-picked-card--changeable .ps-picked-player {
+  color: var(--ds-primary-ink);
+}
+
 .ps-picked-card--eliminated .ps-picked-player {
   text-decoration: line-through;
   text-decoration-color: var(--ds-danger);
