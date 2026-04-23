@@ -108,3 +108,4 @@ export const TOURNAMENT = TOURNAMENTS[ACTIVE_TOURNAMENT_ID] || TOURNAMENTS['madr
 export function getTournamentConfig(id) {
   return TOURNAMENTS[id] || null;
 }
+
