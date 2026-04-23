@@ -1,0 +1,10 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Cron: every hour at minute 0, between 10:00 and 21:00 UTC
+# (= 11:00-22:00 UK time during BST, April-October)
+#
+# For future tournaments, change to "*/15 10-21 * * *" for every 15 minutes.
+cronSchedule = "0 10-21 * * *"

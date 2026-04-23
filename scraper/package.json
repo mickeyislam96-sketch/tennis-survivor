@@ -1,0 +1,16 @@
+{
+  "name": "tennis-survivor-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "FlashScore headless scraper for Final Serve-ivor — runs on Railway as a cron service",
+  "scripts": {
+    "scrape": "node src/scrape.mjs",
+    "test": "node src/scrape.mjs --dry-run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  }
+}
