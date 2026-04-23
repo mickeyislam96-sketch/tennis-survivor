@@ -225,13 +225,140 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
 export function overlayFixtures(seedDraw, fixtures) {
   if (!fixtures?.length) return seedDraw;
 
+  // ── Pre-pass: Detect withdrawal replacements (lucky losers) ──────────
+  // When a player withdraws before their match, FlashScore shows:
+  //   1. A "cancelled" fixture with the original player
+  //   2. A new fixture with the replacement player (lucky loser)
+  //
+  // We detect this by finding fixtures where one player matches the seed
+  // draw but the other doesn't. If the non-matching player has a cancelled
+  // fixture at the same draw slot, it's a withdrawal replacement.
+  //
+  // We update the seed draw in-memory so the main overlay loop can match
+  // the replacement fixture normally.
+
+  const updatedPlayers = seedDraw.players.map(p => ({ ...p }));
+  const updatedDrawPositions = seedDraw.drawPositions
+    ? seedDraw.drawPositions.map(dp => ({ ...dp }))
+    : null;
+
+  // Build a set of cancelled fixtures for quick lookup
+  const cancelledFixtures = fixtures.filter(f => f.status === 'cancelled');
+
+  // Build a set of all known seed draw player surnames for matching
+  const sdPlayersBySurname = {};
+  for (const p of updatedPlayers) {
+    for (const sp of surnameParts(p.name)) {
+      if (!sdPlayersBySurname[sp]) sdPlayersBySurname[sp] = [];
+      sdPlayersBySurname[sp].push(p);
+    }
+  }
+
+  // Find non-cancelled fixtures with a player not in the seed draw
+  const activeFixtures = fixtures.filter(f => f.status !== 'cancelled');
+  const replacements = [];
+
+  for (const fix of activeFixtures) {
+    const p1Parts = surnameParts(fix.player1Name);
+    const p2Parts = surnameParts(fix.player2Name);
+
+    // Check if player 1 is known in seed draw
+    const p1Known = updatedPlayers.some(p => {
+      const pParts = surnameParts(p.name);
+      return surnameSubsetMatch(p1Parts, pParts);
+    });
+    // Check if player 2 is known in seed draw
+    const p2Known = updatedPlayers.some(p => {
+      const pParts = surnameParts(p.name);
+      return surnameSubsetMatch(p2Parts, pParts);
+    });
+
+    // If one player is known and one isn't, the unknown one might be a replacement
+    if (p1Known && !p2Known) {
+      // p2 is unknown — is there a cancelled fixture involving p1's opponent in the seed draw?
+      const knownPlayer = updatedPlayers.find(p => surnameSubsetMatch(p1Parts, surnameParts(p.name)));
+      if (knownPlayer) {
+        replacements.push({
+          knownPlayerId: knownPlayer.id,
+          knownPlayerName: knownPlayer.name,
+          unknownPlayerName: fix.player2Name,
+          fixture: fix,
+          side: 'p2',
+        });
+      }
+    } else if (p2Known && !p1Known) {
+      const knownPlayer = updatedPlayers.find(p => surnameSubsetMatch(p2Parts, surnameParts(p.name)));
+      if (knownPlayer) {
+        replacements.push({
+          knownPlayerId: knownPlayer.id,
+          knownPlayerName: knownPlayer.name,
+          unknownPlayerName: fix.player1Name,
+          fixture: fix,
+          side: 'p1',
+        });
+      }
+    }
+  }
+
+  // Process detected replacements
+  for (const rep of replacements) {
+    // Find the seed draw match containing the known player in R1
+    // The opponent in the seed draw is the withdrawn player
+    const seedMatch = seedDraw.matches.find(m =>
+      m.round === seedDraw.rounds[0] && !m.bye &&
+      (m.player1Id === rep.knownPlayerId || m.player2Id === rep.knownPlayerId)
+    );
+    if (!seedMatch) continue;
+
+    // The withdrawn player is the OTHER player in this seed draw match
+    const withdrawnId = seedMatch.player1Id === rep.knownPlayerId
+      ? seedMatch.player2Id
+      : seedMatch.player1Id;
+    const withdrawnPlayer = updatedPlayers.find(p => p.id === withdrawnId);
+    if (!withdrawnPlayer) continue;
+
+    // Verify there's a cancelled fixture for the original matchup
+    const hasCancelled = cancelledFixtures.some(cf => {
+      const cf1Parts = surnameParts(cf.player1Name);
+      const cf2Parts = surnameParts(cf.player2Name);
+      const matchesWithdrawn = surnameSubsetMatch(surnameParts(withdrawnPlayer.name), cf1Parts)
+        || surnameSubsetMatch(surnameParts(withdrawnPlayer.name), cf2Parts);
+      return matchesWithdrawn;
+    });
+
+    if (!hasCancelled) continue; // No cancelled fixture = not a withdrawal replacement
+
+    // Perform the swap: replace withdrawn player with the replacement
+    const replacementName = rep.unknownPlayerName;
+    const oldName = withdrawnPlayer.name;
+    withdrawnPlayer.name = replacementName;
+    withdrawnPlayer.seed = 'LL'; // Mark as Lucky Loser
+
+    console.log(`[seedDrawOverlay] Auto-replacement: "${oldName}" → "${replacementName}" (LL) at ID ${withdrawnPlayer.id}`);
+  }
+
+  // Rebuild the seed draw with updated players
+  const patchedSeedDraw = {
+    ...seedDraw,
+    players: updatedPlayers,
+  };
+  // Update player names in seed draw matches too
+  const playerNameById = {};
+  for (const p of updatedPlayers) playerNameById[p.id] = p.name;
+  patchedSeedDraw.matches = seedDraw.matches.map(m => {
+    const patched = { ...m };
+    if (m.player1Id && playerNameById[m.player1Id]) patched.player1Name = playerNameById[m.player1Id];
+    if (m.player2Id && playerNameById[m.player2Id]) patched.player2Name = playerNameById[m.player2Id];
+    return patched;
+  });
+
   const lookup = buildFixtureLookup(fixtures);
   let matched = 0;
   let unmatched = 0;
   const unmatchedMatches = [];
 
   // Clone matches to avoid mutating the cached seed draw
-  const updatedMatches = seedDraw.matches.map(m => ({ ...m }));
+  const updatedMatches = patchedSeedDraw.matches.map(m => ({ ...m }));
 
   for (const match of updatedMatches) {
     if (match.bye) continue;
@@ -294,7 +421,7 @@ export function overlayFixtures(seedDraw, fixtures) {
       }
     } else {
       // Only count as unmatched if it's a real R1 match (not a future-round TBD)
-      if (match.round === seedDraw.rounds[0] && match.player1Name && match.player2Name) {
+      if (match.round === patchedSeedDraw.rounds[0] && match.player1Name && match.player2Name) {
         unmatched++;
         unmatchedMatches.push(`${match.player1Name} vs ${match.player2Name} (${match.round})`);
       }
@@ -316,7 +443,7 @@ export function overlayFixtures(seedDraw, fixtures) {
   //   prevRound[i*2] winner  →  nextRound[i].player1
   //   prevRound[i*2+1] winner →  nextRound[i].player2
 
-  const rounds = seedDraw.rounds || [];
+  const rounds = patchedSeedDraw.rounds || [];
   if (rounds.length > 1) {
     // Group matches by round, preserving matchOrder within each round
     const matchesByRound = {};
@@ -364,7 +491,7 @@ export function overlayFixtures(seedDraw, fixtures) {
   }
 
   // Update player elimination status from live results
-  const updatedPlayers = seedDraw.players.map(p => ({ ...p }));
+  const finalPlayers = patchedSeedDraw.players.map(p => ({ ...p }));
   const eliminatedIds = new Set();
 
   for (const m of updatedMatches) {
@@ -374,7 +501,7 @@ export function overlayFixtures(seedDraw, fixtures) {
     }
   }
 
-  for (const p of updatedPlayers) {
+  for (const p of finalPlayers) {
     if (eliminatedIds.has(p.id)) {
       // Find which round they were eliminated in
       const losingMatch = updatedMatches.find(m =>
@@ -387,10 +514,13 @@ export function overlayFixtures(seedDraw, fixtures) {
   }
 
   return {
-    ...seedDraw,
-    players: updatedPlayers,
+    ...patchedSeedDraw,
+    players: finalPlayers,
     matches: updatedMatches,
     dataSource: `seed_draw+scraper(${matched})`,
+    replacements: replacements.length > 0
+      ? replacements.map(r => ({ replacement: r.unknownPlayerName, opposedBy: r.knownPlayerName }))
+      : undefined,
   };
 }
 
