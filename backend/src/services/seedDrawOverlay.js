@@ -97,12 +97,45 @@ function buildFixtureLookup(fixtures) {
 }
 
 /**
+ * Extract "surname parts" from a name — parts with 3+ characters, lowercased, deaccented.
+ * Strips initials and short particles so "Atmane T." → ["atmane"]
+ * and "Terence Atmane" → ["terence", "atmane"].
+ *
+ * Used by Pass 3 (surname matching) for FlashScore abbreviated names.
+ */
+function surnameParts(name) {
+  if (!name) return [];
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[\s,.\-']+/)
+    .filter(p => p.length >= 3);
+}
+
+/**
+ * Check if all parts of `shorter` appear in `longer`.
+ * "Atmane" ⊂ ["terence", "atmane"] → true
+ * Used for matching abbreviated FlashScore names to full seed draw names.
+ */
+function surnameSubsetMatch(partsA, partsB) {
+  if (partsA.length === 0 || partsB.length === 0) return false;
+  const shorter = partsA.length <= partsB.length ? partsA : partsB;
+  const longer = partsA.length <= partsB.length ? partsB : partsA;
+  const longerSet = new Set(longer);
+  return shorter.every(p => longerSet.has(p));
+}
+
+/**
  * Find the fixture that matches a seed draw match.
  * Uses the seed draw's player names to find the corresponding fixture.
  *
- * 2-pass matching:
+ * 3-pass matching:
  *   1. Exact normalised name match (handles name order, accents)
  *   2. Fuzzy match (Levenshtein > 0.85, for minor spelling differences)
+ *   3. Surname subset match (handles FlashScore abbreviated names like "Sinner J."
+ *      matching seed draw "Jannik Sinner" — checks if surname parts from one side
+ *      are a subset of the other)
  */
 function findFixtureMatch(seedMatch, lookup, fixtures) {
   const { byNorm, byId } = lookup;
@@ -149,6 +182,31 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
       if (p1Side && p2Side && p1Side !== p2Side) {
         return fix;
       }
+    }
+  }
+
+  // Pass 3: Surname subset match — handles FlashScore abbreviated names.
+  // FlashScore sends "Sinner J." while seed draw has "Jannik Sinner".
+  // After stripping initials (parts < 3 chars), we check if the remaining
+  // surname parts from one name are a subset of the other.
+  // Both seed draw players must match different sides of the same fixture.
+  const sdP1Parts = surnameParts(seedMatch.player1Name);
+  const sdP2Parts = surnameParts(seedMatch.player2Name);
+
+  if (sdP1Parts.length > 0 && sdP2Parts.length > 0) {
+    for (const fix of fixtures) {
+      const fxP1Parts = surnameParts(fix.player1Name);
+      const fxP2Parts = surnameParts(fix.player2Name);
+
+      // Try: seed p1 → fixture p1, seed p2 → fixture p2
+      const p1to1 = surnameSubsetMatch(sdP1Parts, fxP1Parts);
+      const p2to2 = surnameSubsetMatch(sdP2Parts, fxP2Parts);
+      if (p1to1 && p2to2) return fix;
+
+      // Try: seed p1 → fixture p2, seed p2 → fixture p1
+      const p1to2 = surnameSubsetMatch(sdP1Parts, fxP2Parts);
+      const p2to1 = surnameSubsetMatch(sdP2Parts, fxP1Parts);
+      if (p1to2 && p2to1) return fix;
     }
   }
 

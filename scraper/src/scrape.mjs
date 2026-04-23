@@ -220,8 +220,14 @@ async function extractMatches(page, defaultRound = null) {
           const p2El = el.querySelector(
             '.event__awayParticipant, .event__participant--away, [class*="awayParticipant"]'
           );
-          const p1Name = p1El ? p1El.textContent.trim() : null;
-          const p2Name = p2El ? p2El.textContent.trim() : null;
+          let p1Name = p1El ? p1El.textContent.trim() : null;
+          let p2Name = p2El ? p2El.textContent.trim() : null;
+
+          // Strip country suffix: "Atmane T. (Fra)" → "Atmane T."
+          // FlashScore appends "(Xxx)" country codes to all player names.
+          // These must be removed for name matching against the seed draw.
+          if (p1Name) p1Name = p1Name.replace(/\s*\([A-Za-z]{2,4}\)\s*$/, '').trim();
+          if (p2Name) p2Name = p2Name.replace(/\s*\([A-Za-z]{2,4}\)\s*$/, '').trim();
 
           if (!p1Name || !p2Name) continue;
 
