@@ -524,29 +524,43 @@ Full-stack polish across 7 commits. **Key changes:**
 6. Accessibility: useFocusTrap hook, modal focus traps, keyboard-navigable leaderboard rows
 
 ### Outstanding actions (priority order)
-1. ~~Activate Goalserve trial~~ DONE 19 Apr — then fully removed from codebase 22 Apr (unreliable)
-2. ~~Implement Goalserve adapter~~ DONE 19 Apr — removed 22 Apr
-3. ~~Test Goalserve against live data~~ DONE 20 Apr — returned 0 fixtures; replaced by FlashScore scraper
-4. ~~Set lock time overrides for R1~~ DONE 22 Apr — R1 set to 09:00 UTC in activeTournament.js
-24. ~~Remove Goalserve from codebase~~ DONE 22 Apr — all 14 files cleaned, zero references remain
-5. **Set lock time overrides for R64+** — update `activeTournament.js` with actual first match times minus 1 hour as rounds progress
-6. ~~Update scraper name mapping for R64~~ DONE 22 Apr — 97 total mappings (66 R1 + 31 seeds). Round detection added ("1/64-finals" → "R64"). Verify seed abbreviations once first seed R64 matches appear on FlashScore.
-25. **Add "Garin C." to scraper name mapping** — Cristian Garin unmapped, match vs Blockx excluded from Day 1 results. Add to scheduled task's NAME_MAP.
-26. **Fix SPF record for email deliverability** — current SPF is `v=spf1 ~all`; needs `v=spf1 include:spf.sendinblue.com ~all`. Mickey must update in Namecheap Advanced DNS manually.
-7. **Monitor scraper reliability** — check that the 20-min scheduled task is running and posting successfully. Pre-approve Chrome MCP tools by running the task once manually.
-8. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
-9. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx`
-10. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
-11. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (payments dormant), fix before Rome.
-12. **Post-Madrid: EAS Project ID** — set before App Store submission
-13. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
-23. **Audit deferred items** — from session 15 three-way audit: useEffect dependency warnings in PickScreen/GroupHome/DrawViewer (missing deps, not causing bugs but should clean up); AbortController cleanup pattern inconsistent across pages; mobile deep link for password reset not configured; PickScreen `pickMatchDetail` state unused (always null, remove or wire up).
-17. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work against live data
-18. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` scheduled task to pre-approve tool permissions
-19. **Post-Madrid: EAS Project ID** — set before App Store submission
-20. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
-21. **Build Phase 2 (Marketing)** — post-Madrid: brand voice doc, content calendar, weekly content scheduled task
-22. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 individual files, 6.4MB) superseded by `player-sprite.webp` (205KB). Low priority.
+
+**Infrastructure & Scraper**
+1. ~~Activate Goalserve trial~~ DONE 19 Apr
+2. ~~Implement Goalserve adapter~~ DONE 19 Apr
+3. ~~Test Goalserve against live data~~ DONE 20 Apr
+4. ~~Set lock time overrides for R1~~ DONE 22 Apr
+5. ~~Remove Goalserve from codebase~~ DONE 22 Apr
+6. ~~Update scraper name mapping for R64~~ DONE 23 Apr (3-pass matching, no hardcoded table needed)
+7. ~~Deploy scraper as Railway cron service~~ DONE 23 Apr
+8. ~~Auto-detect withdrawal/lucky loser replacements~~ DONE 23 Apr
+9. **Set lock time overrides for R64+** — update `activeTournament.js` with actual first match times as rounds progress
+10. **Change Railway cron to 15-min runs** — for Rome 2026 onwards (currently hourly for Madrid). Update `railway.toml` in `scraper/` directory.
+11. **Monitor scraper for FlashScore HTML changes** — if FlashScore redesigns live/results pages, DOM selectors may break. Check first run of next tournament.
+12. **Fix SPF record for email deliverability** — current SPF is `v=spf1 ~all`; needs `v=spf1 include:spf.sendinblue.com ~all`. Mickey must update in Namecheap Advanced DNS. DKIM verified.
+
+**Frontend & UI**
+13. ~~Verify micro-interactions on live site~~ — 8 CSS improvements deployed, visual check needed
+14. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS class toggle in `Layout.jsx`
+15. **Verify By Round scoreboard design** — live on finalserveivor.com, check score decoding and winner highlighting work correctly
+
+**Mobile App**
+16. ~~Feature parity audit (9 Apr)~~ DONE
+17. **Post-Madrid: Set EAS Project ID** — required before App Store submission
+18. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+
+**Security & Code Quality**
+19. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
+20. **Audit deferred items** — from session 15: useEffect dependency warnings in PickScreen/GroupHome/DrawViewer (not causing bugs but should clean up); AbortController cleanup pattern inconsistent; mobile password reset deep link not configured; PickScreen `pickMatchDetail` unused.
+21. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (dormant), fix before Rome.
+
+**Operations & Testing**
+22. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work end-to-end
+23. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` Cowork task to pre-approve tool permissions
+
+**Post-Madrid**
+24. **Build Phase 2 (Marketing)** — brand voice doc, content calendar, weekly content scheduled task
+25. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 files, 6.4MB) superseded by sprite (205KB). Low priority.
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -615,7 +629,9 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
 | 23 Apr 2026 (session 26) | **Cloud scraper pipeline: Railway cron service.** (1) Replaced local Mac-based launchd scraper with production Railway cron service (Playwright/Chromium Docker). New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (1/32→R32, not R1). R1 has no header — uses `DEFAULT_ROUND` env. (3) Qualification filtering: detects main-draw boundary, skips qualifying SF/F. (4) Railway deployed: service "valiant-forgiveness", cron `0 10-21 * * *`, env ADMIN_SECRET/BACKEND_URL/DEFAULT_ROUND=R1. (5) Decision: Railway cron over Claude Routines — scraper is deterministic, Routines are preview with caps. Routines for future tasks needing AI reasoning. Commits `d4e3503`, `fc50563`. |
 | 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** First scraper run delivered 50 fixtures but 0 picks graded — two name-matching failures. (1) **Country suffix stripping:** FlashScore sends `"Sinner J. (Ita)"` — the `(Ita)` polluted normalisation. Scraper now strips country codes before sending. (2) **Surname subset matching (3-pass):** FlashScore abbreviated names (`"Sinner J."`) couldn't match seed draw full names (`"Jannik Sinner"`) — Levenshtein scores 0.47-0.76, threshold 0.85. Added Pass 3 to `seedDrawOverlay.js`: extracts parts ≥3 chars, checks subset containment. `["sinner"]` ⊂ `["jannik","sinner"]` → match. Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (3) **Winner matching fix:** overlay found fixtures (status=completed) but winner was None — winner identification code also used old normalisation. Fixed all three name-matching contexts (fixture finding, winner ID, withdrawal mapping) to use same 3-strategy approach. **Eliminates the hardcoded 97-name mapping table entirely.** (4) Verified full pipeline: 18 R64 winners matched, bracket progression working (Atmane→R32 slot), picks graded correctly, emails pipeline ready. Commits `fc50563`, `5629b44`. |
-| 23 Apr 2026 (session 26c) | **Auto-withdrawal detection + By Round redesign.** (1) **Auto-withdrawal/lucky loser replacement:** Van De Zandschulp withdrew, Garin entered as LL. Scraper detected both the cancelled VDZ fixture and the new Garin fixture but backend couldn't match Garin to the seed draw. Built automated detection in `seedDrawOverlay.js`: pre-pass scans for unknown players, cross-references cancelled fixtures, auto-swaps the seed draw player in memory. No manual edits needed for future withdrawals. Commit `022830c`. (2) **By Round view complete redesign** — scoreboard-style match cards matching approved mockup. `parseSetScores()` returns structured per-set data; `SetScores` component renders per-player inline scores with won sets bolded and tiebreaks as superscript `7(3)`. Loser rows faded 55%, winner rows bold green with tick. Custom status badges (Finished/Live/Scheduled). Sort order: live first, then finished, then scheduled. Card min-width 340px (2-3 per row desktop, 1 on mobile). Commits `054f21c`, `e3cbf31`, `3876edb`, `3c35edd`. (3) **Key design decisions:** scoreboard style (Option B) chosen over score-below (A) or full-width rows (C) for information density. Sets-won prefix stripped from display (it's metadata). Tiebreak encoding fully decoded. Mobile uses single-column stack. |
+| 23 Apr 2026 (session 26a) | **Cloud scraper pipeline: Railway cron service.** Replaced local Mac-based launchd scraper with production Railway service. Deployed 23 Apr. (1) New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (e.g., 1/64=64 players). R1 has no header — uses `DEFAULT_ROUND` env var. Qualification detection: looks for "Qualification" in `.event__header`, sets `isMainDraw` flag. (3) **Railway service:** `valiant-forgerness` in project `successful-embrace`, cron `0 10-21 * * *` (hourly 11AM-10PM UK), env vars: ADMIN_SECRET, BACKEND_URL, DEFAULT_ROUND. (4) **Architecture decision:** Railway cron over Claude Routines because scraper is deterministic (no AI needed), Routines are preview with daily caps and agentic overhead. Routines reserved for tasks needing AI reasoning during execution. (5) **Commits:** `d4e3503` (Cloud scraper infra), `fc50563` (Initial scraper code). |
+| 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** (1) **Issue:** First scraper run posted 50 fixtures but 0 picks graded. Root cause: FlashScore sends abbreviated names (`"Sinner J. (Ita)"`) but seed draw has full names (`"Jannik Sinner"`). Country suffix and name mismatch blocked matching. (2) **Country suffix stripping:** Scraper now strips `(Ita)` before POSTing. (3) **3-pass name matching in `seedDrawOverlay.js`:** (a) Exact normalised match (stripped accents, lowercase, token comparison), (b) Fuzzy Levenshtein > 0.85, (c) Surname subset matching — extract parts ≥3 chars, check if shorter set is subset of longer (`["sinner"]` ⊂ `["jannik","sinner"]` → match). Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (4) **Applied to 3 contexts:** Fixture matching, winner identification, withdrawal mapping. **Eliminates hardcoded 97-name mapping table entirely.** (5) **Verified:** 18 R64 winners matched, bracket progression works (Atmane→R32), picks grade correctly, emails pipeline ready. (6) **Commits:** `fc50563` (Name fix), `5629b44` (Winner matching fix). |
+| 23 Apr 2026 (session 26c) | **Auto-withdrawal detection + By Round redesign.** (1) **Auto-withdrawal/lucky loser replacement:** Van De Zandschulp withdrew, Garin entered as LL. Scraper posted both cancelled and new fixtures, but Garin wasn't in seed draw. Built automated detection in `seedDrawOverlay.js`: pre-pass scans for unknown players at draw positions, cross-references cancelled fixtures with original player, auto-swaps seed draw player in memory with LL marker. No manual edits needed for future withdrawals. (2) **By Round view complete redesign** — scoreboard-style match cards (Option B from design mockup). New components: `parseSetScores()` parses raw score string into structured per-set data; `SetScores` renders per-player inline scores (won sets bold, lost muted, tiebreaks as superscript `7(3)`). Winner row: bold dark green (#0F4A23) with tick mark (✓). Loser row: 55% opacity. Custom status badges: "Finished" (green pill), "Live" (accent), "Scheduled" (neutral). Sort: live first → finished → scheduled. Card layout: min-width 340px (2-3 per row desktop, 1 mobile). (3) **Files changed:** `DrawViewer.jsx`, `DrawViewer.css`. (4) **Key decisions:** Scoreboard style chosen for information density. Sets-won prefix stripped (metadata). Tiebreaks fully decoded. (5) **Full pipeline verified end-to-end:** Scraper → POSTs to `/api/admin/scrape-results` ✓ → Overlay matches names ✓ → Winners identified ✓ → Bracket progresses ✓ → Picks grade ✓ → Auto-withdrawal detected ✓ → Result emails ready ✓. (6) **Commits:** `022830c` (Auto-withdrawal), `054f21c` (By Round redesign), `e3cbf31` (Scoreboard layout), `3876edb` (Mobile fix), `3c35edd` (Sort order). |
 
 ---
 
