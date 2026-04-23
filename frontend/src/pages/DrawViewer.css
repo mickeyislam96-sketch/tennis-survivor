@@ -391,6 +391,8 @@
 
 /* ── Card body ─────────────────────────────────────── */
 .lc-body {
+  display: flex;
+  flex-direction: column;
   padding: 10px 14px 8px;
 }
 
