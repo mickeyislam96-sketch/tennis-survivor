@@ -108,6 +108,8 @@ function PoolsGrid({ pools, emptyMsg, showDescription = true }) {
                   <span>Winner: <strong style={{ color: 'var(--ds-gold-deep)' }}>{pool.winnerName}</strong></span>
                 ) : isActive && pool.aliveCount === 1 ? (
                   <span>One survivor left</span>
+                ) : !isActive && !isCompleted && pool.entryFeeCents === 0 ? (
+                  <span>Free entry — sign up now</span>
                 ) : (
                   <span>{pool.memberCount || 0} entries</span>
                 )
@@ -150,7 +152,16 @@ export function Homepage() {
       .finally(() => setLoading(false));
   }, [userId]);
 
-  const openPools = allPools.filter((p) => ['upcoming', 'active'].includes(p.tournament?.status));
+  const openPools = allPools
+    .filter((p) => ['upcoming', 'active'].includes(p.tournament?.status))
+    .sort((a, b) => {
+      // Active tournaments first, then upcoming (sorted by start date)
+      const statusOrder = { active: 0, upcoming: 1 };
+      const aOrder = statusOrder[a.tournament?.status] ?? 2;
+      const bOrder = statusOrder[b.tournament?.status] ?? 2;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return new Date(a.tournament?.startDate || 0) - new Date(b.tournament?.startDate || 0);
+    });
   const completedPools = allPools.filter((p) => p.tournament?.status === 'completed');
   const featured = openPools[0];
 
