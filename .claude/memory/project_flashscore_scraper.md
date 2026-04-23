@@ -6,11 +6,11 @@ originSessionId: 81530973-b319-4515-9fa5-b300d1ff6264
 ---
 ## FlashScore Scraper System
 
-**Built:** 22 Apr 2026. Primary data source for Madrid 2026. Goalserve fully removed from codebase 22 Apr.
+**Built:** 22 Apr 2026. **Migrated to Railway cron service:** 23 Apr 2026. Primary data source for Madrid 2026. Goalserve fully removed from codebase 22 Apr.
 
 ### Architecture
-- **Trigger:** Cowork scheduled task `flashscore-scraper` (cron: every hour, with jitter)
-- **Scraping:** Chrome MCP navigates to FlashScore Summary page, injects JavaScript to extract match data from DOM
+- **Trigger:** Railway cron service (Playwright/Chromium, hourly 10-21 UTC). Replaced Cowork Chrome MCP scheduled task 23 Apr 2026 to enable service even when Mickey's laptop is offline.
+- **Scraping:** Playwright navigates to FlashScore live page + results page, extracts match data from DOM via JavaScript
 - **Page:** Summary page (default landing) — NOT Results tab. Summary has live stage data ("set 1", "finished", "cancelled").
 - **Qualification filter:** `.event__header` elements with "Qualification" in text trigger `isMainDraw = false`, skipping all qualification matches below that header.
 - **DOM selectors:** `.event__round`, `.event__match`, `.event__header`, `.event__homeParticipant span[class*="wcl-name"]`, `[class*="stage"]`, `.event__part--home/away`
@@ -30,10 +30,19 @@ originSessionId: 81530973-b319-4515-9fa5-b300d1ff6264
 7. **Cancelled fixture collision** — When a player withdraws and is replaced (e.g. Collignon→Prizmic), FlashScore shows both cancelled and completed matches. Name mapping can map both to the same seed draw player, causing `findFixtureMatch()` to match the cancelled one first, blocking the real result. Fix: filter all cancelled fixtures before POSTing to backend.
 8. **Results processor trigger** — Scraper POSTs fixtures to `scraperCache` but `autoProcessResults()` must be called separately to update `picks.survived`, `group_members.is_alive`, and send emails. Added `POST /api/admin/process-results` as Step 9 in the scheduled task. **CRITICAL: the leaderboard computes elimination on-the-fly (appears correct) but DB-level settlement requires this separate call.**
 
-### Scheduled Task Details
-- Task ID: `flashscore-scraper`
-- Location: Mickey's Mac (`/Users/mikaeelislam/Documents/Claude/Scheduled/flashscore-scraper/SKILL.md`)
-- **Requires manual Chrome MCP permission approval** — user must click "Run now" once to pre-approve tool permissions
+### Railway Service Details (23 Apr 2026 — current)
+- **Service name:** `valiant-forgiveness` (in Railway UI, but project name is `successful-embrace`)
+- **Root directory:** `/scraper`
+- **Branch:** `main` (auto-deploys on push)
+- **Cron schedule:** `0 10-21 * * *` (every hour from 11am-10pm UK/BST)
+- **Env vars:** ADMIN_SECRET, BACKEND_URL, DEFAULT_ROUND (DEFAULT_ROUND=R1 for Madrid)
+- **Region:** europe-west4
+- **Files:** `scraper/package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`
+- **Future tournaments:** change cron to `*/15 10-21 * * *` for 15-minute runs if needed
+
+### Cowork Scheduled Task (deprecated 23 Apr 2026)
+- Task ID: `flashscore-scraper` (archived, no longer used)
+- Used Chrome MCP; required manual permission approval
 
 ### Key Limitations
 - Chrome MCP JavaScript tool output truncates — must retrieve data in batches of 8 matches
