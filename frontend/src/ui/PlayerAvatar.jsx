@@ -27,8 +27,12 @@ export default function PlayerAvatar({ playerId, playerName, size = 32 }) {
   };
 
   // Sprite hit — show headshot via background-position
+  // The sprite cells are top-aligned headshots (hair → chin). To centre
+  // on the face in a circle crop, we shift up by ~10% of cell height so
+  // the eyes/nose sit in the middle of the circle, not the forehead.
   if (entry) {
     const scale = size / CELL;
+    const faceOffset = Math.round(CELL * 0.10 * scale); // 10% downward shift
     return (
       <span
         className="player-avatar player-avatar--photo"
@@ -36,7 +40,7 @@ export default function PlayerAvatar({ playerId, playerName, size = 32 }) {
           ...circleStyle,
           backgroundImage: 'url(/player-sprite.webp)',
           backgroundSize: `${1280 * scale}px ${880 * scale}px`,
-          backgroundPosition: `-${entry.x * scale}px -${entry.y * scale}px`,
+          backgroundPosition: `-${entry.x * scale}px -${entry.y * scale + faceOffset}px`,
           backgroundRepeat: 'no-repeat',
         }}
         role="img"
