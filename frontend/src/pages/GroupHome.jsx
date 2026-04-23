@@ -430,6 +430,11 @@ export function GroupHome() {
       }
       const updated = await fetch(`${API}/groups/${group.id}`).then(r => r.json());
       setGroup(updated);
+      // For pre-launch pools, navigate to leaderboard after joining
+      const t = getTournament(group.tournamentId);
+      if (isPreLaunch(t)) {
+        navigate(`/group/${group.id}/leaderboard`);
+      }
     } catch (e) {
       setJoinError(e.message || 'Something went wrong while joining. Please try again in a moment.');
     } finally {
@@ -470,7 +475,10 @@ export function GroupHome() {
     const tournament  = getTournament(group.tournamentId);
     const preLaunch   = isPreLaunch(tournament);
     const isCompleted = tournament?.status === 'completed';
-    const entryDeadline = r1LockAt
+    // Only use R1 lock as entry deadline for the active tournament —
+    // the /draw/deadlines endpoint returns the active tournament's schedule,
+    // not this pool's tournament. For upcoming pools, rely on entryOpen flag.
+    const entryDeadline = r1LockAt && tournament?.status === 'active'
       ? new Date(new Date(r1LockAt).getTime() - 60 * 60 * 1000)
       : null;
     const isEntryClosed = isCompleted || tournament?.entryOpen === false
