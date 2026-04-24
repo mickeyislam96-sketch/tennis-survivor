@@ -43,7 +43,7 @@ function getAdminSecret() {
  * Check admin secret from (in priority order):
  *   1. Authorization: Bearer <secret>   (preferred — not logged in URLs)
  *   2. req.body.secret                  (legacy — POST body only)
- * Query-param ?secret= is NO LONGER accepted (leaked in logs/history).
+ *   3. req.query.secret                 (for GET one-click links, e.g. email approval)
  */
 function checkSecret(req, res) {
   let secret = null;
@@ -57,6 +57,11 @@ function checkSecret(req, res) {
   // 2. POST body fallback
   if (!secret && req.body?.secret) {
     secret = req.body.secret;
+  }
+
+  // 3. Query param fallback (needed for one-click approval links in emails)
+  if (!secret && req.query?.secret) {
+    secret = req.query.secret;
   }
 
   if (!secret || secret !== getAdminSecret()) {
