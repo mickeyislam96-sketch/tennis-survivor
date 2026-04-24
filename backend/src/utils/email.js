@@ -5,6 +5,8 @@ import { TOURNAMENT } from '../config/tournament.js';
 const EMAIL_CONFIGURED = !!process.env.BREVO_API_KEY;
 // ADMIN_EMAIL receives digest notifications when emails are queued
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'mickeyislam96@gmail.com';
+// Track pending count across cron cycles so we only re-send digest when new emails are queued
+let _lastDigestPendingCount = 0;
 
 if (!EMAIL_CONFIGURED) {
   console.warn('⚠️  EMAIL NOT CONFIGURED: BREVO_API_KEY env var is missing.');
@@ -222,10 +224,13 @@ export async function rejectPendingEmailById(emailId) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getPendingEmailsSummary() {
   const { rows } = await pool.query(
-    `SELECT id, email_type, round, recipient_email, recipient_name, subject, created_at
-       FROM emails_sent
-      WHERE status = 'pending'
-      ORDER BY created_at ASC`
+    `SELECT e.id, e.email_type, e.round, e.recipient_email, e.recipient_name, e.subject, e.created_at
+       FROM emails_sent e
+       JOIN groups g ON g.id = e.group_id
+      WHERE e.status = 'pending'
+        AND g.tournament_id = $1
+      ORDER BY e.created_at ASC`,
+    [TOURNAMENT.id]
   );
   return rows;
 }
