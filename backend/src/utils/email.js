@@ -166,11 +166,63 @@ export async function sendPendingEmails() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Admin: send a single pending email by ID
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendPendingEmailById(emailId) {
+  if (!EMAIL_CONFIGURED) {
+    return { error: 'BREVO_API_KEY not configured', sent: false };
+  }
+
+  const { rows } = await pool.query(
+    `SELECT e.id, e.email_type, e.subject, e.recipient_email, e.round, e.metadata
+       FROM emails_sent e
+       JOIN groups g ON g.id = e.group_id
+      WHERE e.id = $1 AND e.status = 'pending' AND g.tournament_id = $2`,
+    [emailId, TOURNAMENT.id]
+  );
+
+  if (rows.length === 0) {
+    return { sent: false, reason: 'not_found_or_already_processed' };
+  }
+
+  const row = rows[0];
+  const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+  const html = meta.html;
+  if (!html) {
+    return { sent: false, reason: 'no_html_stored' };
+  }
+
+  try {
+    await sendViaBrevo({ to: row.recipient_email, subject: row.subject, html });
+    await pool.query(`UPDATE emails_sent SET status = 'sent', sent_at = NOW() WHERE id = $1`, [emailId]);
+    console.log(`✅ [${row.email_type}] sent to ${row.recipient_email} (round=${row.round}) [individual approval]`);
+    return { sent: true, to: row.recipient_email, type: row.email_type };
+  } catch (err) {
+    await pool.query(`UPDATE emails_sent SET status = 'failed' WHERE id = $1`, [emailId]);
+    console.error(`❌ [${row.email_type}] failed for ${row.recipient_email}: ${err.message}`);
+    return { sent: false, reason: err.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin: reject (discard) a single pending email by ID
+// ─────────────────────────────────────────────────────────────────────────────
+export async function rejectPendingEmailById(emailId) {
+  const { rowCount } = await pool.query(
+    `UPDATE emails_sent SET status = 'rejected' WHERE id = $1 AND status = 'pending'`,
+    [emailId]
+  );
+  if (rowCount === 0) return { rejected: false, reason: 'not_found_or_already_processed' };
+  console.log(`🚫 [email] Rejected email ${emailId}`);
+  return { rejected: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Admin: get a preview of all pending emails (for the approval endpoint)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getPendingEmailsSummary() {
   const { rows } = await pool.query(
-    `SELECT email_type, round, recipient_email, recipient_name, subject, created_at
+    `SELECT id, email_type, round, recipient_email, recipient_name, subject, created_at
        FROM emails_sent
       WHERE status = 'pending'
       ORDER BY created_at ASC`
@@ -179,8 +231,7 @@ export async function getPendingEmailsSummary() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Admin digest — DISABLED (direct send mode, no queue to approve).
-// Kept as no-op so callers don't break.
+// Admin digest — notifies admin when new emails are queued for approval.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendAdminDigest() {
   if (!EMAIL_CONFIGURED) return;
@@ -198,23 +249,28 @@ export async function sendAdminDigest() {
     byType[row.email_type].push(row);
   }
 
+  const adminSecret = process.env.ADMIN_SECRET || '';
+  const baseUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
+  const previewUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}`;
+  const approveAllUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&confirm=true`;
+
   let summaryRows = '';
   for (const [type, emails] of Object.entries(byType)) {
     for (const e of emails) {
+      const approveOne = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&approve=${e.id}`;
+      const rejectOne = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&reject=${e.id}`;
       summaryRows += `
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid ${C.border};font-size:13px;color:${C.inkMuted};">${e.recipient_name || e.recipient_email}</td>
           <td style="padding:8px 12px;border-bottom:1px solid ${C.border};font-size:13px;color:${C.inkMuted};">${type}</td>
           <td style="padding:8px 12px;border-bottom:1px solid ${C.border};font-size:13px;color:${C.inkMuted};">${e.round}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid ${C.border};font-size:13px;color:${C.inkSoft};">${e.subject || ''}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid ${C.border};font-size:13px;white-space:nowrap;">
+            <a href="${approveOne}" style="display:inline-block;padding:4px 10px;background:${C.success};color:#fff;border-radius:4px;text-decoration:none;font-size:11px;font-weight:600;">Send</a>
+            <a href="${rejectOne}" style="display:inline-block;padding:4px 10px;background:${C.danger};color:#fff;border-radius:4px;text-decoration:none;font-size:11px;font-weight:600;margin-left:4px;">Reject</a>
+          </td>
         </tr>`;
     }
   }
-
-  const adminSecret = process.env.ADMIN_SECRET || '';
-  const baseUrl = 'https://tennis-survivor-production.up.railway.app/api/admin/approve-emails';
-  const previewUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}`;
-  const approveUrl = `${baseUrl}?secret=${encodeURIComponent(adminSecret)}&confirm=true`;
 
   // Admin digest — functional with one-click approve button
   const html = `
@@ -230,15 +286,15 @@ export async function sendAdminDigest() {
               <th style="padding:8px 12px;text-align:left;font-size:12px;color:${C.inkSoft};font-weight:600;">Recipient</th>
               <th style="padding:8px 12px;text-align:left;font-size:12px;color:${C.inkSoft};font-weight:600;">Type</th>
               <th style="padding:8px 12px;text-align:left;font-size:12px;color:${C.inkSoft};font-weight:600;">Round</th>
-              <th style="padding:8px 12px;text-align:left;font-size:12px;color:${C.inkSoft};font-weight:600;">Subject</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px;color:${C.inkSoft};font-weight:600;">Action</th>
             </tr>
           </thead>
           <tbody>${summaryRows}</tbody>
         </table>
 
         <div style="text-align:center;margin-bottom:16px;">
-          <a href="${approveUrl}" style="display:inline-block;background:${C.gold};color:#2B1F00;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:600;font-size:16px;">
-            ✅ Approve &amp; Send ${pending.length} Email${pending.length === 1 ? '' : 's'}
+          <a href="${approveAllUrl}" style="display:inline-block;background:${C.gold};color:#2B1F00;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:600;font-size:16px;">
+            ✅ Approve &amp; Send All ${pending.length}
           </a>
         </div>
 

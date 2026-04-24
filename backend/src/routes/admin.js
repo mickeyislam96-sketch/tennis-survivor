@@ -16,7 +16,7 @@ import { autoProcessResults, processRoundResults, eliminateNonPickers } from '..
 import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRuntimeLockOverrides } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
-import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
+import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendPendingEmailById, rejectPendingEmailById, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
 import { setScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
 
 export const adminRouter = Router();
