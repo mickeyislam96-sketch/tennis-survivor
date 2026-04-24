@@ -5,7 +5,7 @@
  */
 import { pool } from '../db/pool.js';
 import { getDraw, getDeadlines } from './tennisData.js';
-import { ROUNDS } from '../config/tournament.js';
+import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { sendRoundResultEmail } from '../utils/email.js';
 import { logOps } from './opsMonitor.js';
 
@@ -136,14 +136,17 @@ export async function eliminateNonPickers(round) {
   const result = await pool.query(
     `UPDATE group_members gm
         SET is_alive = false, eliminated_round = $1
-      WHERE gm.is_alive = true
+       FROM groups g
+      WHERE g.id = gm.group_id
+        AND g.tournament_id = $2
+        AND gm.is_alive = true
         AND NOT EXISTS (
           SELECT 1 FROM picks p
            WHERE p.group_id = gm.group_id
              AND p.user_id  = gm.user_id
              AND p.round    = $1
         )`,
-    [round]
+    [round, TOURNAMENT.id]
   );
   console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
   return result.rowCount;
@@ -160,10 +163,12 @@ async function sendResultEmails(round) {
               u.email, u.display_name
          FROM picks p
          JOIN users u ON u.id = p.user_id
+         JOIN groups g ON g.id = p.group_id
         WHERE p.round = $1
           AND p.survived IS NOT NULL
-          AND u.email IS NOT NULL`,
-      [round]
+          AND u.email IS NOT NULL
+          AND g.tournament_id = $2`,
+      [round, TOURNAMENT.id]
     );
 
     let sent = 0;

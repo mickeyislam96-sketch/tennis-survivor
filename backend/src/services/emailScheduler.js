@@ -8,6 +8,7 @@
 import { pool } from '../db/pool.js';
 import { getDeadlines } from './tennisData.js';
 import { sendPickReminderEmail } from '../utils/email.js';
+import { TOURNAMENT } from '../config/tournament.js';
 
 const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -51,13 +52,14 @@ async function sendRemindersForRound(round, lockAt) {
        JOIN groups g ON g.id = gm.group_id
       WHERE gm.is_alive = true
         AND u.email IS NOT NULL
+        AND g.tournament_id = $2
         AND NOT EXISTS (
           SELECT 1 FROM picks p
            WHERE p.user_id = gm.user_id
              AND p.group_id = gm.group_id
              AND p.round = $1
         )`,
-    [round]
+    [round, TOURNAMENT.id]
   );
 
   if (rows.length === 0) return;

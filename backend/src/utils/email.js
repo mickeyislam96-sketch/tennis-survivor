@@ -1,4 +1,5 @@
 import { pool } from '../db/pool.js';
+import { TOURNAMENT } from '../config/tournament.js';
 
 // ── Startup check ────────────────────────────────────────────────────────────
 const EMAIL_CONFIGURED = !!process.env.BREVO_API_KEY;
@@ -127,11 +128,15 @@ export async function sendPendingEmails() {
     return { error: 'BREVO_API_KEY not configured', sent: 0, failed: 0 };
   }
 
+  // Only send emails for groups in the current tournament
   const { rows } = await pool.query(
-    `SELECT id, user_id, group_id, round, email_type, subject, recipient_email, metadata
-       FROM emails_sent
-      WHERE status = 'pending'
-      ORDER BY created_at ASC`
+    `SELECT e.id, e.user_id, e.group_id, e.round, e.email_type, e.subject, e.recipient_email, e.metadata
+       FROM emails_sent e
+       JOIN groups g ON g.id = e.group_id
+      WHERE e.status = 'pending'
+        AND g.tournament_id = $1
+      ORDER BY e.created_at ASC`,
+    [TOURNAMENT.id]
   );
 
   if (rows.length === 0) {
