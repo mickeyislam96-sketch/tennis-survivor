@@ -742,13 +742,14 @@ adminRouter.post('/scrape-results', async (req, res) => {
     // Log summary
     const roundCounts = {};
     for (const f of fixtures) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
+    const decided = fixtures.filter(f => ['completed', 'retired', 'walkover'].includes(f.status) && f.winnerId).length;
     const completed = fixtures.filter(f => f.status === 'completed').length;
     const live = fixtures.filter(f => f.status === 'live').length;
     const withTimes = fixtures.filter(f => f.startTime).length;
 
     console.log(`[admin] scrape-results: ${fixtures.length} fixtures received. ` +
       `Rounds: ${JSON.stringify(roundCounts)}. ` +
-      `Completed: ${completed}, Live: ${live}, With start times: ${withTimes}`);
+      `Decided: ${decided} (completed: ${completed}), Live: ${live}, With start times: ${withTimes}`);
 
     res.json({
       ok: true,

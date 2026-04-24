@@ -8,6 +8,16 @@ import { getDraw, getDeadlines } from './tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { sendRoundResultEmail } from '../utils/email.js';
 import { logOps } from './opsMonitor.js';
+/**
+ * A match is "decided" if it has a winner, regardless of how it ended.
+ * Covers: completed (normal win), retired (opponent retired mid-match),
+ * walkover (opponent withdrew before/during match).
+ */
+const DECIDED_STATUSES = new Set(['completed', 'retired', 'walkover']);
+function isMatchDecided(m) {
+  return DECIDED_STATUSES.has(m.status) && m.winnerId;
+}
+
 
 /**
  * Process results for a single round.
@@ -17,11 +27,11 @@ export async function processRoundResults(round) {
   console.log(`[results] Processing ${round}...`);
   const draw = await getDraw(round);
   const completed = (draw.matches || []).filter(
-    (m) => m.round === round && m.status === 'completed' && m.winnerId
+    (m) => m.round === round && isMatchDecided(m)
   );
 
   if (completed.length === 0) {
-    console.log(`[results] No completed matches for ${round}`);
+    console.log(`[results] No decided matches for ${round}`);
     return { round, processed: 0, picksUpdated: 0, eliminated: 0 };
   }
 
@@ -96,7 +106,7 @@ export async function autoProcessResults() {
 
   for (const round of ROUNDS) {
     const completed = (draw.matches || []).filter(
-      (m) => m.round === round && m.status === 'completed' && m.winnerId
+      (m) => m.round === round && isMatchDecided(m)
     );
     if (completed.length === 0) continue;
 

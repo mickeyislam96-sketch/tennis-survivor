@@ -5,6 +5,9 @@ import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
 
 const ROUNDS = getRounds();
 
+// Statuses that indicate a match has a winner (normal completion, retirement, walkover)
+const DECIDED_STATUSES = new Set(['completed', 'retired', 'walkover']);
+
 export const leaderboardRouter = Router();
 
 function isUUID(str) {
@@ -31,7 +34,7 @@ function buildGrader(draw) {
   const lostRoundsByName = {};
 
   for (const match of (draw.matches || [])) {
-    if (match.status !== 'completed' || !match.winnerId) continue;
+    if (!DECIDED_STATUSES.has(match.status) || !match.winnerId) continue;
     const loserId   = match.winnerId === match.player1Id ? match.player2Id   : match.player1Id;
     const loserName = (match.winnerId === match.player1Id ? match.player2Name : match.player1Name || '').toLowerCase().trim();
     const winnerName = (match.winnerName || '').toLowerCase().trim();
@@ -133,7 +136,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   let grade = () => null; // default: all pending
   try {
     const draw = await getDraw('F');
-    const completedMatches = (draw.matches || []).filter(m => m.status === 'completed').length;
+    const completedMatches = (draw.matches || []).filter(m => DECIDED_STATUSES.has(m.status) && m.winnerId).length;
     console.log(`[leaderboard] draw source: ${draw.dataSource || 'unknown'}, completed matches: ${completedMatches}`);
     grade = buildGrader(draw);
   } catch (e) {

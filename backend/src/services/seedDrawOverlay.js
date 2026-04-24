@@ -18,6 +18,8 @@
  * "Jannik Sinner"  → "janniksinner"
  * Handles accents, hyphens, and reversed name orders.
  */
+// Statuses that indicate a match has a winner (normal completion, retirement, walkover)
+const DECIDED_STATUSES = new Set(['completed', 'retired', 'walkover']);
 function normaliseName(name) {
   if (!name) return '';
   return name
@@ -501,7 +503,7 @@ export function overlayFixtures(seedDraw, fixtures) {
   const eliminatedIds = new Set();
 
   for (const m of updatedMatches) {
-    if (m.status === 'completed' && m.winnerId) {
+    if (DECIDED_STATUSES.has(m.status) && m.winnerId) {
       const loserId = m.winnerId === m.player1Id ? m.player2Id : m.player1Id;
       if (loserId) eliminatedIds.add(loserId);
     }
@@ -511,7 +513,7 @@ export function overlayFixtures(seedDraw, fixtures) {
     if (eliminatedIds.has(p.id)) {
       // Find which round they were eliminated in
       const losingMatch = updatedMatches.find(m =>
-        m.status === 'completed' && m.winnerId &&
+        DECIDED_STATUSES.has(m.status) && m.winnerId &&
         (m.player1Id === p.id || m.player2Id === p.id) &&
         m.winnerId !== p.id
       );
