@@ -9,7 +9,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'mickeyislam96@gmail.com';
 if (!EMAIL_CONFIGURED) {
   console.warn('⚠️  EMAIL NOT CONFIGURED: BREVO_API_KEY env var is missing.');
 } else {
-  console.log('✅ Email configured — Brevo HTTP API (direct send mode)');
+  console.log('✅ Email configured — Brevo HTTP API (approval mode: user-facing emails queue as pending)');
 }
 
 // Send via Brevo HTTP API (port 443 — works on Railway, no SMTP needed)
@@ -73,50 +73,32 @@ const FONT_MONO    = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
 const FONT_LINK    = '<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;1,400&family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dedup + direct send — sends immediately via Brevo, uses DB for dedup only.
+// Dedup + approval queue — queues emails as 'pending', never sends directly.
 //
 // Flow:
-//   1. INSERT into emails_sent with status='sending', ON CONFLICT DO NOTHING.
-//   2. If rowCount === 0, this email was already sent. Stop (dedup).
-//   3. Send immediately via Brevo.
-//   4. Update status to 'sent' (or 'failed').
+//   1. INSERT into emails_sent with status='pending', ON CONFLICT DO NOTHING.
+//   2. If rowCount === 0, this email was already queued or sent. Stop (dedup).
+//   3. Admin receives digest notification (via cron).
+//   4. Admin approves via POST /api/admin/approve-emails → sendPendingEmails().
 //
-// No approval queue. No admin step. Emails go out as soon as triggered.
+// EXEMPT from this queue: welcome email, password reset, support email.
+// Those send directly via sendViaBrevo and never touch this function.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendWithDedup({ userId, groupId, round, emailType, to, subject, html }) {
-  // Attempt dedup insert — prevents sending the same email twice
+  // Attempt dedup insert — queued as 'pending', HTML stored for admin review + later send
   const { rowCount } = await pool.query(
     `INSERT INTO emails_sent (user_id, group_id, round, email_type, status, subject, recipient_email, recipient_name, metadata, tournament_id)
-     VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8, $9)
+     VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9)
      ON CONFLICT (user_id, group_id, round, email_type) DO NOTHING`,
     [userId, groupId, round, emailType, subject, to, null, JSON.stringify({ html }), TOURNAMENT.id]
   );
 
   if (rowCount === 0) {
-    return { sent: false, reason: 'already_exists' };
+    return { queued: false, reason: 'already_exists' };
   }
 
-  if (!EMAIL_CONFIGURED) {
-    console.warn(`[email] Would send "${emailType}" to ${to} but BREVO_API_KEY not set`);
-    return { sent: false, reason: 'not_configured' };
-  }
-
-  try {
-    await sendViaBrevo({ to, subject, html });
-    await pool.query(
-      `UPDATE emails_sent SET status = 'sent', sent_at = NOW() WHERE user_id = $1 AND group_id = $2 AND round = $3 AND email_type = $4`,
-      [userId, groupId, round, emailType]
-    );
-    console.log(`✅ [${emailType}] sent to ${to} | round=${round}`);
-    return { sent: true };
-  } catch (err) {
-    await pool.query(
-      `UPDATE emails_sent SET status = 'failed' WHERE user_id = $1 AND group_id = $2 AND round = $3 AND email_type = $4`,
-      [userId, groupId, round, emailType]
-    );
-    console.error(`❌ [${emailType}] failed for ${to}: ${err.message}`);
-    return { sent: false, reason: err.message };
-  }
+  console.log(`[email-queue] Queued "${emailType}" for ${to} | round=${round}`);
+  return { queued: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,10 +183,6 @@ export async function getPendingEmailsSummary() {
 // Kept as no-op so callers don't break.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendAdminDigest() {
-  // No-op: emails now send directly, no approval queue.
-  return;
-
-  /* --- Original digest code (preserved for reference) ---
   if (!EMAIL_CONFIGURED) return;
 
   const pending = await getPendingEmailsSummary();
@@ -281,7 +259,6 @@ export async function sendAdminDigest() {
   } catch (err) {
     console.error(`[admin-digest] Failed to send digest: ${err.message}`);
   }
-  --- end of preserved digest code --- */
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

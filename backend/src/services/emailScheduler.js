@@ -76,10 +76,10 @@ async function sendRemindersForRound(round, lockAt) {
         groupName: row.group_name,
         lockAt,
       });
-      if (result.sent || result.reason === 'dry_run') sent++;
+      if (result.sent || result.queued) sent++;
     } catch (err) {
       console.error(`[pick-reminder] Failed for ${row.email}: ${err.message}`);
     }
   }
-  console.log(`[pick-reminder] ${round}: ${sent} reminders processed (${rows.length} unpicked members)`);
+  console.log(`[pick-reminder] ${round}: ${sent} reminders queued (${rows.length} unpicked members)`);
 }

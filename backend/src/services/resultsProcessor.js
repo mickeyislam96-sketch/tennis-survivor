@@ -185,13 +185,13 @@ async function sendResultEmails(round) {
           playerName: row.player_name,
           survived: row.survived,
         });
-        if (result.sent || result.reason === 'dry_run') sent++;
+        if (result.sent || result.queued) sent++;
       } catch (err) {
         // Non-fatal — log and continue to next user
         console.error(`[results-email] Failed for ${row.email}: ${err.message}`);
       }
     }
-    console.log(`[results-email] ${round}: ${sent} result emails processed (${rows.length} total picks)`);
+    console.log(`[results-email] ${round}: ${sent} result emails queued (${rows.length} total picks)`);
   } catch (err) {
     // Non-fatal — don't let email failures break results processing
     console.error(`[results-email] Error querying picks for ${round}: ${err.message}`);
