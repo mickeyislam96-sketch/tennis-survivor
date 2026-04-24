@@ -197,6 +197,13 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
           isAlive: picks.length > 0 ? isAlive : m.isAlive,
           // Expose the pick only when the round is fully locked
           currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
+          // For eliminated members: show which pick got them knocked out
+          eliminatingPick: (() => {
+            const elimRound = eliminatedRound || m.eliminatedRound;
+            if (!elimRound) return null;
+            const elimPick = picks.find(p => p.round === elimRound);
+            return elimPick ? elimPick.playerName : null;
+          })(),
         };
       });
 

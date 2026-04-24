@@ -328,7 +328,12 @@ export function Leaderboard() {
                         {currentRound}: <strong>{m.currentRoundPick}</strong>
                       </span>
                     )}
-                    {currentRound && !roundIsLocked && (
+                    {!m.isAlive && !m.currentRoundPick && m.eliminatingPick && m.eliminatedRound && (
+                      <span className="lb-card-pick lb-card-pick--dead">
+                        {m.eliminatedRound}: <strong>{m.eliminatingPick}</strong>
+                      </span>
+                    )}
+                    {currentRound && !roundIsLocked && m.isAlive && (
                       <span className="lb-card-pick lb-card-pick--hidden">
                         🔒 Hidden
                       </span>
