@@ -1,12 +1,12 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 24 April 2026 (session 30 — retired/walkover fix + eliminating pick). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 19 April 2026. See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
 ## What the product is
 
-**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 complete (Mark won). **Madrid 2026** active (started 22 Apr, free). **Rome 2026** upcoming (5-17 May, free, open for entries).
+**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 22 Apr, free entry, draw 19 Apr).
 
 ---
 
@@ -31,10 +31,8 @@
 | Backend | Node.js / Express, deployed on Railway (auto-deploys from GitHub `main`) |
 | Source control (web) | GitHub — `mickeyislam96-sketch/tennis-survivor` |
 | Source control (mobile) | GitHub — `mickeyislam96-sketch/tennis-survivor-mobile` |
-| Primary data | **FlashScore scraper** (free) — Railway cron service (Playwright/Chromium hourly 10-21 UTC), POSTs to backend. Replaces local Mac-based launchd scraper. |
-| Scraper cache | `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL `scraped_results` table) |
-| Legacy data | API-Tennis (paid) — unreliable, kept as last-resort fallback. Goalserve fully removed. |
-| Intelligence data | Matchstat Tennis API (RapidAPI) — H2H, player profiles, surface stats, recent form. Free tier (11 players). |
+| Primary data | Goalserve (planned, $100/mo) — replacing API-Tennis for Madrid 2026+ |
+| Legacy data | API-Tennis (paid) — unreliable, kept as fallback only |
 | Secondary data | Sofascore (free) — 403-blocked on cloud IPs |
 | Data adapter | `backend/src/services/dataAdapter.js` — unified interface, swappable providers |
 | Proxy | Cloudflare Workers (deployed but inactive) |
@@ -52,8 +50,6 @@
 | Deploy region | europe-west4 (Netherlands) |
 | Vercel Project ID | `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf` |
 | Vercel Team ID | `team_ekuiNPY7cIyY2ieq41oWMYvO` |
-| DB backup | GitHub Actions daily cron (03:00 UTC), 30-day artifact retention |
-| Branch protection | `main` — force pushes and branch deletion blocked |
 
 ### Mobile app reference
 
@@ -74,13 +70,11 @@
 
 | Variable | Purpose |
 |---|---|
-| `TENNIS_DATA_PROVIDER` | Active data provider: `api-tennis`, `sofascore`, or `mock`. Scraper is always first when data exists. |
+| `GOALSERVE_API_KEY` | Goalserve API key — **set on 17 Apr when trial activates** |
+| `TENNIS_DATA_PROVIDER` | Active data provider: `goalserve`, `api-tennis`, `sofascore`, or `mock` |
 | `ACTIVE_TOURNAMENT` | Active tournament ID (e.g. `madrid-2026`) — used by `activeTournament.js` |
-| `JWT_SECRET` | JWT signing key for user authentication (set 19 Apr) |
-| `ADMIN_SECRET` | Admin endpoint auth + JWT fallback (rotated 19 Apr) |
 | `TENNIS_API_KEY` | API-Tennis auth key — **legacy fallback, keep for now** |
 | `MIAMI_TOURNAMENT_KEY` | Tournament identifier for Miami Open (legacy) |
-| `MATCHSTAT_API_KEY` | RapidAPI key for Matchstat Tennis API — H2H, profiles, surface stats. **Set 21 Apr.** |
 | `SOFASCORE_BASE_URL` | Cloudflare proxy URL — `https://sofascore-proxy.finalservivor.workers.dev` |
 | `NODE_ENV` | Runtime environment |
 
@@ -136,31 +130,40 @@ The mnt path is fine for reading files. The GitHub token is embedded in the remo
 
 ---
 
-## R1 Lock Mode (updated 19 Apr 2026)
+## R1 Per-Match Lock (NEW — 13 Apr 2026)
 
-**Current mode:** Standard fixed deadline (`r1PerMatchLock: false` in `activeTournament.js`). R1 uses the same deadline system as all other rounds: 1 hour before the first R1 match.
+**Applies to:** All Masters 1000 and Grand Slam R1 rounds. Controlled by `TOURNAMENT.r1PerMatchLock` in `activeTournament.js`.
 
-**Per-match lock code is retained but inactive.** Set `r1PerMatchLock: true` to re-enable. Intended for future use when the mobile app has push notifications and Grand Slam R1 spans multiple days.
+**How it works:**
+- R1 has NO fixed closing deadline
+- Players are removed from the available pick pool as their match starts (both players in the match)
+- Users can pick/switch freely among remaining players whose matches haven't started
+- A user's pick is locked the moment their selected player's match begins
+- R1 window closes organically when the last R1 match starts (pool becomes empty)
 
-**Withdrawal handling (all rounds):**
-- **Before deadline, time to re-pick:** User's pick is deleted, they re-pick from available players. Automated detection via `opsMonitor.js` or manual via `POST /api/admin/withdrawal`.
-- **After deadline or no time:** Auto-assign the replacement player (lucky loser/alternate). If no replacement, user gets a bye for that round.
-- **Mid-match retirement/walkover:** Result stands as recorded.
+**Withdrawal handling:**
+- If a picked player withdraws BEFORE their match starts, user is notified (email + push) and can re-pick from remaining available players
+- If withdrawal happens after match start (walkover/retirement mid-match), the result stands
+- Admin can manually flag withdrawals via `POST /api/admin/withdrawal` (TODO: build this endpoint)
+- Automatic detection: poll API every 5-10 min during R1 for withdrawal/walkover statuses
 
 **Key files:**
-- `backend/src/config/activeTournament.js` — `r1PerMatchLock` flag (currently `false`)
-- `backend/src/routes/picks.js` — R1 per-match branch exists but inactive when flag is false
-- `backend/src/services/tennisData.js` — `getDeadlines()` returns standard deadline for R1
-- `backend/src/services/opsMonitor.js` — automated withdrawal detection
-- `frontend/src/pages/TermsAndConditions.jsx` — sections 5a and 6 cover R1 deadline and withdrawal policy
+- `backend/src/config/activeTournament.js` — tournament config with `r1PerMatchLock: true`
+- `backend/src/services/dataAdapter.js` — `getR1MatchTimes()`, `hasMatchStarted()`, `isR1Closed()`, `getAvailableR1Players()`
+- `backend/src/routes/picks.js` — R1 branch in `getAvailablePlayers()` and `POST /api/picks`
+- `backend/src/services/tennisData.js` — `getDeadlines()` returns `perMatchLock: true` for R1
+- `frontend/src/pages/GroupHome.jsx` — R1 hint banner ("Players removed as matches start")
+- `frontend/src/pages/PickScreen.jsx` — TODO: update R1 view to show match start times, grey out started matches
+
+**CRITICAL: The R1 per-match lock and the R2+ round-level lock are completely separate code paths.** Changing one must not affect the other. The branch point is `TOURNAMENT.r1PerMatchLock` checked at the start of each function.
 
 ---
 
-## Data adapter layer (updated 22 Apr 2026)
+## Data adapter layer (NEW — 13 Apr 2026)
 
 **File:** `backend/src/services/dataAdapter.js`
 
-Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: **Scraper (primary)** → API-Tennis → Sofascore → mock. Goalserve fully removed from codebase 22 Apr 2026.
+Unified interface for tennis data. All providers output the same internal fixture format. Provider chain: Goalserve (preferred) → API-Tennis (legacy) → Sofascore (free) → mock.
 
 **Internal fixture format:**
 ```js
@@ -173,50 +176,15 @@ Unified interface for tennis data. All providers output the same internal fixtur
 
 **Status values:** `scheduled`, `live`, `completed`, `walkover`, `retired`, `cancelled`
 
-**Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain. Scraper is always first in chain when data exists.
+**Provider selection:** Set `TENNIS_DATA_PROVIDER` env var, or leave blank for auto-fallback chain.
 
-### FlashScore scraper pipeline (updated 23 Apr 2026)
-
-**Architecture:** Standalone Railway cron service (Playwright/Chromium in Docker), NOT a Cowork task or Claude Routine. Runs autonomously — no laptop, no AI session needed.
-
-**How it works:**
-1. Railway cron triggers `scraper/` container hourly (10:00-21:00 UTC = 11AM-10PM UK)
-2. Playwright launches headless Chromium, navigates to FlashScore live + results pages
-3. Extracts match data from DOM (`event__match`, `event__homeParticipant`, `event__awayParticipant`)
-4. Strips country suffixes from names: `"Sinner J. (Ita)"` → `"Sinner J."`
-5. Filters out qualification rounds (detects main-draw boundary, skips qualifying SF/F)
-6. POSTs fixtures array to `POST /api/admin/scrape-results` (auth: Bearer ADMIN_SECRET)
-7. Triggers `POST /api/admin/process-results` to grade picks, eliminate losers, send emails
-8. Backend stores in `scraped_results` PostgreSQL table + in-memory cache (stale data always served)
-9. `getDraw()` in tennisData.js reads scraper data via `overlayFixtures()` in seedDrawOverlay.js
-
-**Key files:**
-- `scraper/src/scrape.mjs` — Playwright scraper (headless Chromium, DOM extraction, score parsing)
-- `scraper/src/config.mjs` — tournament-specific config (FlashScore URLs, round mapping, timezone offset)
-- `scraper/Dockerfile` — based on `mcr.microsoft.com/playwright:v1.52.0-noble`
-- `scraper/railway.toml` — cron schedule (`0 10-21 * * *`)
-- `backend/src/services/scraperCache.js` — two-tier cache (in-memory + PostgreSQL). Critical: never discards stale data.
-- `backend/src/services/seedDrawOverlay.js` — 3-pass name matching (exact, fuzzy Levenshtein, surname subset)
-- `backend/src/routes/admin.js` — `POST /api/admin/scrape-results` and `GET /api/admin/scraper-status`
-
-**Railway service:** `valiant-forgiveness` in project `successful-embrace`. Root directory `/scraper`, auto-deploys from `main`. Env vars: `ADMIN_SECRET`, `BACKEND_URL`, `DEFAULT_ROUND`.
-
-**Name matching (critical — fixed 23 Apr):** FlashScore sends abbreviated names (`"Sinner J."`) while the seed draw uses full names (`"Jannik Sinner"`). The overlay uses 3-pass matching in `seedDrawOverlay.js`: (1) exact normalised match, (2) fuzzy Levenshtein > 0.85, (3) **surname subset match** — extracts parts with 3+ chars, checks if shorter set is a subset of the longer. This handles abbreviated first names, compound surnames (Carreno-Busta, Van De Zandschulp), and double initials (Etcheverry T. M.). The same 3-strategy approach is used for fixture matching, winner identification, AND withdrawal mapping. **No hardcoded name mapping table needed.**
-
-**FlashScore round mapping (96-draw Masters):**
-| FlashScore label | Internal round | Notes |
-|---|---|---|
-| (no header) | R1 | Uses `DEFAULT_ROUND` env var |
-| 1/64-finals | R64 | Seeds enter |
-| 1/32-finals | R32 | |
-| 1/16-finals | R16 | |
-| 1/8-finals / Quarter-finals | QF | |
-| Semi-finals | SF | |
-| Final | F | |
-
-**Per-tournament changes:** Update `scraper/src/config.mjs` (URLs, round map, timezone), Railway env `DEFAULT_ROUND`, and cron schedule (change to `*/15 10-21 * * *` for 15-min from Rome onwards).
-
-**Why Railway cron, not Claude Routines:** Scraper is deterministic (no AI reasoning needed). Claude Routines are research preview with daily run caps. Railway gives full control: Docker, logs, no usage limits. Routines should be considered for future tasks that need AI reasoning during execution.
+**Goalserve integration (TODO — 17 Apr):**
+1. Activate Goalserve 30-day free trial
+2. Set `GOALSERVE_API_KEY` env var
+3. Find Madrid tournament ID in their system
+4. Implement `fetchGoalserve()` in dataAdapter.js
+5. Verify withdrawal/walkover status detection
+6. Set `TENNIS_DATA_PROVIDER=goalserve` in Railway
 
 ---
 
@@ -245,21 +213,13 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 
 | File | What it does |
 |---|---|
-| `backend/src/middleware/auth.js` | **NEW** — JWT authentication middleware. `issueToken()`, `requireAuth`, `optionalAuth`, `csrfProtection`, `generateCsrfToken()`. Legacy userId fallback for migration. |
-| `backend/src/services/dataAdapter.js` | Unified data interface. Provider chain (Scraper/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. Goalserve removed 22 Apr. |
-| `backend/src/services/scraperCache.js` | Two-tier scraper cache (in-memory + PostgreSQL). Stale data always served. |
-| `backend/src/services/seedDrawOverlay.js` | `overlayFixtures()` — matches scraper names to seed draw via normaliseName() (2-pass: exact + fuzzy Levenshtein). |
-| `backend/src/config/activeTournament.js` | Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks. |
+| `backend/src/services/dataAdapter.js` | **NEW** — Unified data interface. Provider chain (Goalserve/API-Tennis/Sofascore). R1 per-match lock helpers. Internal fixture format. |
+| `backend/src/config/activeTournament.js` | **NEW** — Active tournament config. `r1PerMatchLock`, lock time overrides, round date fallbacks, Goalserve tournament ID. |
 | `backend/src/services/tennisData.js` | Core data logic — `fetchApiDraw()`, `getDraw()`, `getDeadlines()` (now returns `perMatchLock` flag for R1) |
 | `backend/src/routes/picks.js` | Pick submission + `getAvailablePlayers()` — R1 branch uses per-match lock; R2+ uses round-level lock |
 | `backend/src/routes/leaderboard.js` | Leaderboard data — returns `currentRoundPick` (player name or null), visibility controlled by `roundIsLocked` |
 | `backend/src/routes/draw.js` | `/bracket` and `/debug` route handlers |
 | `backend/src/routes/health.js` | Real production health check — validates env vars, live API call, DB ping |
-| `.github/workflows/db-backup.yml` | Daily automated PostgreSQL backup — pg_dump at 03:00 UTC, gzipped artifacts, 30-day retention, manual trigger |
-| `backend/src/services/opsMonitor.js` | **NEW** — Tournament ops automation brain. Withdrawal detection, draw release detection, lock time auto-setting, ops logging, tournament setup. Called every 15 min by cron. |
-| `backend/src/routes/ops.js` | **NEW** — Operations API endpoints (summary, log, setup-tournament, health-deep). All behind ADMIN_SECRET auth. |
-| `backend/src/services/matchstatAdapter.js` | **NEW** — Matchstat Tennis API integration. H2H, profiles, surface stats, recent form. Name→ID cache from rankings. `getMatchupIntelligence()` fires 8 parallel requests. |
-| `backend/src/routes/matchup.js` | Matchup route — combines seed draw, scraper fixtures, and Matchstat intelligence. 5-min cache. |
 | `backend/src/services/sofascoreAdapter.js` | Sofascore fetch — reads `SOFASCORE_BASE_URL` env var |
 | `backend/src/config/tournament.js` | Round structure constants (ROUNDS, MATCHES_PER_ROUND) |
 | `backend/src/data/tournaments.js` | Tournament registry — all events, statuses, `r1PerMatchLock` flag |
@@ -276,7 +236,6 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/pages/GroupHome.jsx` | Group dashboard — hero, pick CTA, nav cards, invite box |
 | `frontend/src/pages/DrawViewer.jsx` | Draw viewer — bracket + list view |
 | `frontend/src/pages/PickHistory.jsx` | User's pick history |
-| `frontend/src/context/AuthContext.jsx` | **UPDATED** — Auth context with JWT token storage, `authFetch()` helper (auto-attaches Authorization + X-CSRF-Token headers), CSRF cookie reader. |
 | `frontend/src/components/Layout.jsx` | Nav header, auth modal |
 | `frontend/src/styles/tokens.css` | Design tokens — three font stacks (--ds-font-sans: Outfit, --ds-font-display: Fraunces, --ds-font-mono: JetBrains Mono), colour palette, spacing, motion |
 | `frontend/src/styles/micro-interactions.css` | 8 micro-interaction improvements — button press, card entrance, pick pulse, skeleton shimmer, tab crossfade, gold CTA shimmer, arrow nudge, modal exit |
@@ -285,16 +244,12 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `frontend/src/components/Layout.css` | Header/nav/footer styles |
 | `frontend/src/data/tournaments.js` | Tournament config (drawAvailable flag, entry dates, etc.) |
 | `frontend/src/data/roundLabels.js` | Shared round label constants (ROUND_SHORT for tabs, ROUND_FULL for prose) |
-| `frontend/src/components/MatchupModal.jsx` | Matchup modal — tabbed UI (Form / H2H / Profile). Combines scraper tournament form, Matchstat H2H + profiles + surface stats. Player names use `shortName()` format ("Surname, F."). |
-| `frontend/src/components/MatchupModal.css` | Matchup modal styles — tabs, H2H bars, profile card, rank badges, mobile bottom-sheet |
 | `frontend/src/hooks/useFocusTrap.js` | Focus trap hook for modals (Tab cycling, auto-focus, Escape passthrough) |
 | `frontend/src/components/ErrorBoundary.jsx` | React error boundary wrapping entire app (crash recovery) |
 | `frontend/src/components/Skeleton.jsx` | Skeleton loading components for Leaderboard and GroupHome |
-| `frontend/src/utils/playerImage.js` | Shared avatar + name helpers: `avatarColour()`, `initials()`, `shortName()` ("Surname, F." format), `nameSlug()`, `isMockId()`, `getPlayerImageUrls()` — fallback chain (ATP CDN → initials) |
-| `frontend/src/ui/PlayerAvatar.jsx` | CSS sprite-based headshot component. Checks `playerManifest.json` in-memory (zero HTTP for misses), renders via `background-position` on sprite sheet. Falls back to coloured initials circle. |
+| `frontend/src/utils/playerImage.js` | Shared avatar helpers: `avatarColour()`, `initials()`, `nameSlug()`, `isMockId()`, `getPlayerImageUrls()` — fallback chain (ATP CDN → initials) |
+| `frontend/src/ui/PlayerAvatar.jsx` | Circular headshot component with fallback chain (photo → initials circle), responsive sizing |
 | `frontend/src/ui/PlayerAvatar.css` | Context-specific avatar sizing: 32px rows (PickScreen), 40px picked card, 20px bracket, 24px list, 56px matchup modal, mobile scale-down |
-| `frontend/src/data/playerManifest.json` | Sprite map — 169 player slugs → `{x, y, i}` positions in the 1280×880 WebP sprite sheet |
-| `frontend/public/player-sprite.webp` | Single 205KB sprite sheet replacing 170 individual headshot requests (6.4MB). 16×11 grid of 80px cells |
 
 ### Mobile app (separate repo: `tennis-survivor-mobile`)
 
@@ -334,10 +289,7 @@ R32: '2026-03-22T19:00:00Z', // Sun 22 Mar, 3PM EDT / 19:00 UTC
 | `GET /api/picks/history?userId=X&groupId=X` | All picks for a user in a group |
 | `GET /api/leaderboard/:groupId` | Full leaderboard with `currentRoundPick` and `roundIsLocked` |
 | `GET /api/groups/:groupId` | Group details including members |
-| `GET /api/matchup/:p1Key/:p2Key?name1=X&name2=X` | Player matchup — seed draw info, tournament form, Matchstat H2H/profiles/surface stats. 5-min cache. |
 | `GET /api/health` | Health check — returns 500 if API key missing or API call fails |
-| `GET /api/admin/approve-emails?secret=X` | One-click email approval — preview (HTML page) or send (`&confirm=true`) |
-| `POST /api/admin/approve-emails` | Programmatic email approval — `{secret, confirm}` |
 
 ---
 
@@ -427,17 +379,8 @@ Lock time overrides set for all rounds (R1 through F) in commit `69cddfd`.
 ### 9. ~~API-Tennis returning no fixture data~~ — FIXED (6 Apr 2026)
 Root cause: `tournament_season=2026` parameter. API-Tennis returns empty `{success: 1}` when this is included for Monte Carlo (tournament key 1970). Fix: set `apiSeason: null` in MC config and made the URL parameter conditional in `tennisData.js`, `health.js`, and `admin.js`. API now returns 50+ live fixtures correctly.
 
-### 10. ~~Transactional emails not deployed~~ — FIXED (21 Apr 2026)
-Email system now sends directly via Brevo (queue/approval removed 21 Apr). `emails_sent` table still used for dedup (UNIQUE constraint prevents duplicate sends). Cross-pool bug fixed: queries filter by `TOURNAMENT.id`.
-
-### 19. ~~TOURNAMENTS.find() stale status bug~~ — FIXED (21 Apr 2026)
-Four pages (PickScreen, DrawViewer, GroupHome, PickHistory) used `TOURNAMENTS.find()` which returns hardcoded `status: 'upcoming'` instead of `getTournament()` which computes status from dates. Caused PickHistory to show "No picks yet" even after picks were submitted, and would have broken other pages when Madrid went active. Fix: switched all four to `getTournament()` / `getAllTournaments()`. **Lesson:** never use raw `TOURNAMENTS` array for status checks — always use `getTournament()`.
-
-### 20. ~~Pick submission failing — userId missing~~ — FIXED (21 Apr 2026)
-POST `/api/picks` body didn't include userId. Frontend relied entirely on JWT via `authFetch`. After session 7 removed legacy `?userId` query param auth, the POST body was the only non-JWT fallback, but it was never updated to include userId. Fix: added `userId` to POST body in `PickScreen.jsx`.
-
-### 21. ~~Support route wrong table name~~ — FIXED (21 Apr 2026)
-`support.js` referenced non-existent `members` table (correct: `group_members`). Every support request from a logged-in user would crash with SQL error. Fix: corrected table name and cast `user_id::text`.
+### 10. ~~Transactional emails not deployed~~ — PARTIALLY FIXED (6 Apr 2026)
+Email approval system now deployed with `emails_sent` table, UNIQUE dedup constraint, admin digest, and one-click approve flow. Pick reminder and result emails queue as `pending` and require admin approval before sending. Cross-pool bug fixed: queries now filter by `TOURNAMENT.id` (was emailing Miami practice pool users). One-time migration clears incorrectly queued pre-fix emails.
 
 ### 11. Cross-pool email scoping — FIXED (6 Apr 2026)
 `sendResultEmails()` and `sendRemindersForRound()` queries were not filtered by tournament. Emails were being queued for Miami practice pool alongside Monte Carlo. Fixed by joining `groups` table and filtering by `g.tournament_id = TOURNAMENT.id`.
@@ -463,45 +406,12 @@ Jakub Mensik withdrew from Monte Carlo. Replaced by Damir Dzumhur (LL) in mock d
 ### 17. ~~Railway build failure — dead imports in draw.js~~ — FIXED (17 Apr 2026)
 `draw.js` imported `getApiKeyMap` and `getLiveDraw` from `tennisData.js`, but these were removed during the 13 Apr data adapter refactor. Node.js throws on missing named exports, preventing the backend from starting. Railway kept running the previous successful deploy, so the site appeared "live" but none of the new backend code (payment routes, R1 per-match lock, data adapter) was actually deployed. Fix: removed dead imports and three MC-only admin endpoints (`/fix-mock-ids`, `/fix-names`, `/live-completed`). **Lesson:** when refactoring a module's exports, grep for all consumers of the removed exports.
 
-### 22. ~~Pick history modal leaking open-round picks~~ — FIXED (21 Apr 2026)
-Clicking a leaderboard row opened a pick history modal that revealed a player's current-round pick before the deadline locked. Root cause: modal filtered picks on `currentRound` which is null until a round locks, making the filter pass-through. Frontend fix: use `openRound` (the currently unlocked round) for filtering. Backend fix: `/picks/history` now strips open-round picks when the requester is not the pick owner (checked via JWT). Two-layer defence ensures picks are private even if frontend is bypassed.
-
-### 19. Cancelled fixture collision in scraper — FIXED (22 Apr 2026)
-When a player withdraws and is replaced, FlashScore shows both a cancelled match and a completed match. If name mapping maps the replacement to the same seed draw player, `findFixtureMatch()` matches the cancelled fixture first, blocking the real result. Fix: filter cancelled fixtures before POSTing to backend.
-
-### 20. Results processor not triggered by scraper — FIXED (22 Apr 2026)
-The scraper pipeline POSTed fixtures to `scraperCache` but never called `autoProcessResults()`. This meant `picks.survived` stayed null, `group_members.is_alive` stayed true, and no emails were sent. The leaderboard appeared correct (computes elimination on-the-fly from draw data) but the DB was out of sync. Fix: added `POST /api/admin/process-results` as Step 9 in the scheduled scraper task.
-
-### 21. Tiebreak score encoding in scraper — FIXED (22 Apr 2026)
-FlashScore encodes tiebreaks as 2-digit numbers (e.g., "77-62" = 7-6 tiebreak 7-2). The game-score filter `if h >= 40 or a >= 40` incorrectly stripped these. Fix: check `if h in {15, 30, 40} or a in {15, 30, 40}` instead.
-
-### 19. ~~Draw cache never hitting~~ — FIXED (24 Apr 2026)
-`getDraw()` used `Date.now()` as cache comparison key. Since Date.now() changes every call, the cache never matched and `overlayFixtures()` ran on every request (Levenshtein matching across all players). Fix: use stable `getScraperFetchedAt()` timestamp from scraperCache. Cache now hits correctly between scraper updates.
-
-### 20. ~~windowOpensOverrides not read~~ — FIXED (24 Apr 2026)
-`windowOpensOverrides` in `activeTournament.js` defined pick window open times for each round, but `getDeadlines()` never read them. Both code paths used hardcoded "12h after previous round" formula. Fix: added `WINDOW_OPENS_OVERRIDES` constant and check in both getDeadlines paths. Session 26d set the schedule, session 29 wired it.
-
-### 21. ~~getDeadlines passing scraper data to API-Tennis parser~~ — FIXED (24 Apr 2026)
-When scraper data existed, `getDeadlines()` passed internal-format fixtures to `buildDrawFromFixtures()` which expects API-Tennis fields (`event_winner`, `event_date`). Fix: detect internal format and read `startTime`/`round`/`winnerId` directly.
-
-### 25. ~~Admin digest email never sent~~ — FIXED (24 Apr 2026)
-`sendAdminDigest()` used `_lastDigestPendingCount` variable that was never declared. ESM modules run in strict mode, so every 15-minute cron cycle threw `ReferenceError`, silently caught by the cron's catch block. The admin approval digest has never worked. Also `getPendingEmailsSummary()` queried all tournaments. Fix: declared variable at module level, added tournament filter to match `sendPendingEmails()`.
-
-### 26. ~~SPF record missing for email deliverability~~ — FIXED (24 Apr 2026)
-Brevo emails landing in spam. Root cause: SPF record was `v=spf1 ~all` with no Brevo include. Fix: Mickey added `include:spf.sendinblue.com` to SPF record in Namecheap Advanced DNS. DKIM was already verified.
-
-### 23. ~~Retired/walkover matches ignored by results processor~~ — FIXED (24 Apr 2026)
-`resultsProcessor.js` (both `processRoundResults` and `autoProcessResults`), `leaderboard.js` `buildGrader()`, and `seedDrawOverlay.js` elimination derivation all filtered for `status === 'completed'` only. Madrid R1/R64 had 3 matches ending in retirement or walkover — these had winners but were silently skipped. Picks stayed `survived=NULL` forever. Fix: introduced `DECIDED_STATUSES = Set(['completed','retired','walkover'])` pattern across all 4 files + admin.js logging. **Lesson:** any code checking match completion must use `DECIDED_STATUSES`, never bare `=== 'completed'`.
-
-### 24. ~~Eliminated users show no pick info on leaderboard~~ — FIXED (24 Apr 2026)
-Users eliminated in R1 had no `currentRoundPick` for R64 (they never picked), so leaderboard showed "Knocked out in First Round" with no context. Backend `leaderboard.js` now returns `eliminatingPick` (player name from the round that eliminated them). Frontend renders as "R1: Martin Landaluce". Also fixed: "Hidden" badge was shown for eliminated users — now only shown for alive users.
-
 ### 18. Stale mnt path causing reverted commits — SYSTEMIC RISK
 The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull` after other Cowork sessions push commits, the mnt files are older versions. Pushing from mnt overwrites newer changes on GitHub. This happened on 17 Apr: the big push (`0636b2c`) reverted winner detection commits (`ba5a47a`, `33008d7`) that had been pushed by earlier Cowork sessions. **Mitigation:** before pushing from mnt, always diff against GitHub HEAD — don't trust mnt's git status alone. Prefer `/tmp` clone which always has latest.
 
 ---
 
-## Current tournament state (as of 24 April 2026)
+## Current tournament state (as of 19 April 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
@@ -511,32 +421,16 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
 - Lessons: see memory `project_monte_carlo_activation.md`
 
-### Madrid 2026 (ACTIVE — R1 in progress)
+### Madrid 2026 (NEXT — almost ready)
 - Tournament: Mutua Madrid Open 2026
-- Status: R64 in progress (13 decided incl. 2 retired + 1 walkover, 19 scheduled). R1 complete (32/32 decided). R32 pick window opens 25 Apr 6pm UK.
+- Status: `upcoming` — draw expected 19-20 Apr, tournament starts 22 Apr
 - Entry: Free (second free tournament before Roland Garros paid launch)
-- R1 model: **Standard fixed deadline** (`r1PerMatchLock: false`). R1 lock at `2026-04-22T09:00:00Z`.
-- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
-- Data source: **FlashScore scraper** (sole live provider). Railway cron service `valiant-forgiveness` runs hourly (10-21 UTC). Goalserve fully removed from codebase 22 Apr.
-- Seed draw: `backend/src/data/seedDraws/madrid-2026.json` — all 13 qualifier slots filled. **8 position errors fixed 24 Apr:** positions 3-4 and 69-70 were swapped (Sinner showed Merida Aguilar instead of Bonzi as R64 opponent); van de Zandschulp→Garin (LL) at pos 91; Vallejo name/status corrected at pos 107; Prizmic and Kypson Q/LL statuses fixed.
-- Overlay: `seed_draw+scraper(64)` — R1 complete, R64 in progress, all fixtures overlaid.
-- Matchstat API: search fallback added for players outside top 200 (`searchPlayerId()` in `matchstatAdapter.js`). Mickey upgraded to paid Matchstat tier.
+- R1 model: **Per-match lock** (new system, first deployment)
+- Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a` (4 entries as of 19 Apr)
+- Data source: Goalserve (`GOALSERVE_API_KEY` set in Railway, adapter implemented) with API-Tennis fallback
 - Active tournament config: `backend/src/config/activeTournament.js` (set `ACTIVE_TOURNAMENT=madrid-2026`)
-- `JWT_SECRET` confirmed set in Railway (separate from `ADMIN_SECRET`).
-- Full experience audit completed 21 Apr — 5 critical bugs fixed (see session 14).
-
-### Rome 2026 (UPCOMING — open for entries)
-- Tournament: Internazionali BNL d'Italia (ATP Masters 1000)
-- Dates: 5-17 May 2026, Clay (outdoor), Rome, Italy
-- Status: `upcoming` — draw expected 3 May
-- Entry: Free (third free tournament before Roland Garros paid launch)
-- R1 model: Per-match lock (`r1PerMatchLock: true` in both FE+BE tournament registries)
-- Real DB group: `de81ed56-6c30-483a-9d38-3c48201ab42e` (0 entries as of 23 Apr)
-- Pool URL: `finalserveivor.com/group/de81ed56-6c30-483a-9d38-3c48201ab42e`
-- Homepage: appears below Madrid in "Open Now" grid with "Free entry — sign up now" footer
-- Entry gate: uses `entryOpen: true` flag (not r1LockAt from active tournament's deadlines)
-- Post-join: redirects to leaderboard page (pre-launch member view)
-- Seed draw: not yet created (will need `backend/src/data/seedDraws/rome-2026.json` once draw drops)
+- Pre-launch member view: leaderboard-style page with stats bar, member table, invite box (deployed 17 Apr)
+- Goalserve adapter: implemented in `dataAdapter.js` with 5-min cache, status mapping, round mapping, withdrawal detection. **Needs testing once draw drops.**
 
 ### Email design system (aligned 19 Apr)
 All 7 transactional email templates + admin digest in `backend/src/utils/email.js`. Fully aligned to live site design:
@@ -545,7 +439,7 @@ All 7 transactional email templates + admin digest in `backend/src/utils/email.j
 - **Gold pill CTAs:** `background: #FFC933; color: #2B1F00; border-radius: 999px` — matches "Join pool" button on site.
 - **Footer brand:** Split-font treatment: "Final" in Outfit bold + "Serve-ivor" in Fraunces italic green. Tagline "A tennis survivor pool" in JetBrains Mono.
 - **Colour tokens:** Mirror `frontend/src/styles/tokens.css` — canvas #FAFAF7, primary #0F4A23, gold #FFC933, etc.
-- **Direct send (21 Apr):** All emails send immediately via Brevo. `sendWithDedup()` uses `emails_sent` table for dedup only (prevents duplicate sends), not for queuing. No admin approval step. Old queue/digest system removed. **Deliverability note (22 Apr):** First result email landed in user's spam. Root cause: new domain reputation + missing SPF include. Fix needed: add `include:spf.sendinblue.com` to SPF record in Namecheap.
+- **Dedup/approval flow:** Emails queue as `pending` in `emails_sent` table. Admin approves via `POST /api/admin/approve-emails`. Cron never sends directly.
 - **Templates:** welcome, tournament-join, pick-reminder, round-survival, elimination, winner-announcement, withdrawal-alert, draw-released, admin-digest.
 
 ### What deployed on 18 Apr (backend + frontend)
@@ -558,51 +452,16 @@ Full-stack polish across 7 commits. **Key changes:**
 6. Accessibility: useFocusTrap hook, modal focus traps, keyboard-navigable leaderboard rows
 
 ### Outstanding actions (priority order)
-
-**Infrastructure & Scraper**
-1. ~~Activate Goalserve trial~~ DONE 19 Apr
-2. ~~Implement Goalserve adapter~~ DONE 19 Apr
-3. ~~Test Goalserve against live data~~ DONE 20 Apr
-4. ~~Set lock time overrides for R1~~ DONE 22 Apr
-5. ~~Remove Goalserve from codebase~~ DONE 22 Apr
-6. ~~Update scraper name mapping for R64~~ DONE 23 Apr (3-pass matching, no hardcoded table needed)
-7. ~~Deploy scraper as Railway cron service~~ DONE 23 Apr
-8. ~~Auto-detect withdrawal/lucky loser replacements~~ DONE 23 Apr
-9. **Set lock time overrides for R64+** — update `activeTournament.js` with actual first match times as rounds progress
-10. **Change Railway cron to 15-min runs** — for Rome 2026 onwards (currently hourly for Madrid). Update `railway.toml` in `scraper/` directory.
-11. **Monitor scraper for FlashScore HTML changes** — if FlashScore redesigns live/results pages, DOM selectors may break. Check first run of next tournament.
-12. ~~Fix SPF record for email deliverability~~ DONE 24 Apr — Mickey added `include:spf.sendinblue.com` to SPF record. DKIM was already verified.
-
-**Frontend & UI**
-13. ~~Verify micro-interactions on live site~~ — 8 CSS improvements deployed, visual check needed
-14. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS class toggle in `Layout.jsx`
-15. **Verify By Round scoreboard design** — live on finalserveivor.com, check score decoding and winner highlighting work correctly
-
-**Mobile App**
-16. ~~Feature parity audit (9 Apr)~~ DONE
-17. **Post-Madrid: Set EAS Project ID** — required before App Store submission
-18. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
-
-**Security & Code Quality**
-19. **Tighten CSRF migration mode** — currently allows bypass when csrf cookie absent. Set firm cutoff before paid launch.
-20. **Audit deferred items** — from session 15: useEffect dependency warnings in PickScreen/GroupHome/DrawViewer (not causing bugs but should clean up); AbortController cleanup pattern inconsistent; mobile password reset deep link not configured; PickScreen `pickMatchDetail` unused.
-21. **PaymentFlow: switch raw fetch() to authFetch()** — not blocking (dormant), fix before Rome.
-
-**Operations & Testing**
-22. **Validate Phase 1 during Madrid** — confirm results processing, withdrawal detection, draw release emails, lock time auto-setting all work end-to-end
-23. **Run daily ops brief first time** — click "Run now" on `fsv-daily-ops-brief` Cowork task to pre-approve tool permissions
-
-**Rome 2026 Prep**
-24. **Create Rome seed draw JSON** — once draw drops (~3 May), create `backend/src/data/seedDraws/rome-2026.json` from ATP draw PDF
-25. **Set Rome lock time overrides** — all rounds in `activeTournament.js` from official schedule
-26. **Switch `ACTIVE_TOURNAMENT` to `rome-2026`** — in Railway env vars when Madrid completes
-27. **Update scraper for Rome** — verify FlashScore URL, round mapping, name matching for Rome draw
-28. **Create Rome invite code** — generate and share for user acquisition
-29. **Encourage eliminated Madrid users to join Rome** — copy/email nudge
-
-**Post-Madrid**
-30. **Build Phase 2 (Marketing)** — brand voice doc, content calendar, weekly content scheduled task
-31. **Clean up old headshot files** — `frontend/public/players/*.jpg` (173 files, 6.4MB) superseded by sprite (205KB). Low priority.
+1. ~~Activate Goalserve trial~~ DONE 19 Apr — API key set in Railway
+2. ~~Implement Goalserve adapter~~ DONE 19 Apr — `fetchGoalserve()` wired in `dataAdapter.js`
+3. **Test Goalserve against live data** — once Madrid draw drops (~19-20 Apr), verify fixture count, round mapping, player names, per-match lock times
+4. **Set lock time overrides for R64+** — once order of play is announced, update `activeTournament.js` with actual first match times minus 1 hour
+5. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
+6. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
+7. **Pre-Madrid: SPF/DKIM for Brevo** — set up domain auth before sending to more than 3 users
+8. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
+9. **Post-Madrid: EAS Project ID** — set before App Store submission
+10. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -651,34 +510,19 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 
 | 19 Apr 2026 (session 3) | **Support system + nav + copy polish + context consolidation.** (1) Built full customer support contact form: `POST /api/support` endpoint with rate limiting (5/hr per IP), validation, user context auto-attachment; `sendSupportEmail()` in email.js sends directly via Brevo to finalservivor@gmail.com (bypasses approval queue); frontend `/support` page with category dropdown, subject, message, character counter, "Sending as" badge, success state. Route added in App.jsx, footer link added in Layout.jsx. (2) Added gold pill "My Pool" nav link — fetches user's pool membership via `/api/pools?userId=X`, shows pool name for single membership or "My Pools" for multiple. CSS class `.ds-nav-pool-pill` in Layout.css. Only visible when logged in. (3) Updated How to Play step card copy (4 changes): removed free/paid mention from step 1, removed strategy tip from step 2, removed retirement/withdrawal from step 4, removed prize-splitting from step 5. (4) Context consolidation: audited 17 workspace markdown files, consolidated into `.claude/memory/` files (roadmap.md, design-audits.md), added session-end protocol to CLAUDE.md, pushed all memory files to GitHub repo. |
 | 19 Apr 2026 (session 4) | **Player avatar headshots.** (1) Built PlayerAvatar component with fallback chain: Goalserve ID → name slug → initials circle. Integrated into PickScreen (32px rows, 40px picked card), DrawViewer (20px bracket, 24px list), MatchupModal (56px). Shared utility in `frontend/src/utils/playerImage.js`, component in `frontend/src/ui/PlayerAvatar.jsx` with responsive `.css`. (2) Sourced headshots from ATP Tour CDN (`atptour.com/-/media/alias/player-headshot/{4-char-id}`). Both Sofascore and ATP Tour block server-side requests (403), so used browser console script approach — paste JavaScript into Chrome DevTools on atptour.com to fetch same-origin. (3) First batch: 110 headshots downloaded and deployed (commit `c705be5`). (4) Cross-referenced against April 2026 ATP rankings (top 150), found 67 missing players. (5) Researched ATP Tour 4-char IDs for all 67 missing players via web search. (6) Created updated console download script with JSZip swapped for individual file downloads (no external library restrictions). (7) Mickey downloaded 63 of 67 missing headshots (4 not available on ATP CDN). (8) Committed and deployed (commit `5580f91`), Vercel deployment READY. Final coverage: 173 player headshots covering virtually all ATP top 150. |
-| 19 Apr 2026 (session 5) | **Backup verification + R1 standard deadline switch.** (1) Verified GitHub Actions backup run #3 success (pg_dump v17, 48s, artifact uploaded). Updated infrastructure memory files. (2) **R1 CTA bug fix** — Madrid group page showed "R1 is open" pick CTA before draw was released; gated on `drawAvailable` flag (commit `5d6971b`). (3) **R1 lock mode decision** — after discussion, switched from per-match lock to standard fixed deadline for all tournaments. Rationale: web-only product has no push notifications, casual users need a single clear deadline. Per-match lock code retained for future mobile app use. Changed `r1PerMatchLock: false` in `activeTournament.js`, `tournaments.js` (FE+BE), updated `picks.js` comments (commit `5cadb13`). (4) **Withdrawal policy** — three-tier approach: before deadline (re-pick), after deadline/no time (auto-assign replacement player), mid-match (result stands). (5) **Frontend copy cleanup** — removed all per-match lock text from GroupHome (R1-specific hint branch eliminated), PickScreen (per-match lock info card removed, single countdown for all rounds), and TermsAndConditions (Section 5a rewritten for fixed deadline, Section 6 rewritten with 6a/6b/6c withdrawal tiers) (commit `78e2d07`). Vercel deploy confirmed READY. Updated CLAUDE.md R1 section, auto-memory, and project memory files. |
-| 19 Apr 2026 (session 5-prior) | **Project safety: backups + branch protection.** (1) Created `.github/workflows/db-backup.yml` — daily automated PostgreSQL backup via GitHub Actions. Runs `pg_dump` at 03:00 UTC, gzipped, stored as GitHub Actions artifacts (30-day retention, auto-cleanup keeps latest 30). Initial commit `5bc4201`. (2) Enabled branch protection on `main` — force pushes and deletion blocked via GitHub API. (3) Added `DATABASE_URL` GitHub secret (public Railway connection string). (4) Fixed pg_dump version mismatch — Ubuntu default was v16, Railway runs PG 17. Installed `postgresql-client-17` and added PG 17 bin to `GITHUB_PATH` (commits `b415f45`, `533d46b`). (5) Verified workflow end-to-end — run #3 completed successfully (48s, artifact uploaded). (6) Deleted 3 completed workspace files. |
-| 20 Apr 2026 (session 7) | **Security audit completion: legacy auth removal.** Continued from session 5 (JWT/CSRF). (1) Mobile app JWT migration — updated 4 files in `tennis-survivor-mobile`: `storage.ts` (added `getStoredToken`/`setStoredToken` with SecureStore), `client.ts` (replaced `X-User-Id` header + `?userId` param with `Authorization: Bearer` token), `auth.ts` (added `token`/`csrf` to `AuthResponse` interface), `AuthContext.tsx` (login/register now persist JWT from server response). Commit `83c71d1`. (2) **Removed legacy auth fallback** from backend — stripped `x-user-id` header and `?userId` query param from `middleware/auth.js` (`requireAuth` + `optionalAuth`) and 3 route files (`groups.js`, `pools.js`, `picks.js`). Commit `5d5872f`. (3) Verified both deploys: Vercel READY, Railway confirmed — `X-User-Id: fake-id` now returns 401 `NO_TOKEN` (previously accepted). **This closes the userId spoofing vulnerability.** All auth now goes through cryptographically signed JWTs. Existing users will need to re-login (one-time friction). |
-| 20 Apr 2026 (session 9) | **Performance fix (10-20s → 130ms) + matchup modal rewrite + tournament template.** (1) **Root cause of 10-20s page loads** — Goalserve cache never populated when tournament had 0 fixtures. Every request re-triggered 3 fresh HTTP calls. Three-layer fix: draw-level cache keyed on Goalserve timestamp (commit `222e5cf`), Goalserve-only fetch for seed draw tournaments (commit `93e946a`), cache empty Goalserve results (commit `2c42268` — THE root cause fix). Response times: 130ms consistently. (2) **Matchup modal rewrite** — removed all API-Tennis code. Backend now uses seed draw JSON (name, seed, country) + Goalserve fixture cache (tournament form). Zero external API calls, 139ms. Frontend updated for new data shape: player cards with country flags and seed badges, tournament form with W/L indicators, H2H placeholder. Added `MatchupModal.css` with full design system styling and mobile bottom-sheet layout (commit `b8cbe8a`). (3) **Tournament setup template** — 16-step checklist covering 4 phases (before draw, draw released, tournament starts, tournament complete). Saved to `docs/new-tournament-setup.md` in repo and `CTO - TS/` folder. Covers exact files to change, commands to run, and 6 common gotchas. |
-| 21 Apr 2026 (session 11) | **Matchstat Tennis API integration.** (1) Signed up for Matchstat Tennis API on RapidAPI (free tier). Tested endpoints: rankings (top 11 on free tier), H2H info/matches, player profiles, past matches, surface summary. Discovered player ID mapping problem — Matchstat uses its own numeric IDs. (2) **Created `matchstatAdapter.js`** — full service with name→ID cache from rankings (24hr TTL), fuzzy surname matching fallback, 30-min data cache, 8 parallel API calls via `getMatchupIntelligence()`. Functions: `getH2H`, `getH2HMatches`, `getPlayerProfile`, `getPlayerForm`, `getPlayerSurfaceStats`. (3) **Wired into matchup route** — `matchup.js` now imports `getMatchupIntelligence`, enriches each player with `profile`, `recentForm`, `surfaceStats`, and populates `h2h` with `bySurface` and `meetings`. Graceful degradation when `MATCHSTAT_API_KEY` not set. (4) **Rewrote MatchupModal frontend** — tabbed UI (Form / H2H / Profile). Form tab shows tournament form or falls back to Matchstat recent form. H2H tab has surface breakdown bars (green/gold) and recent meetings. Profile tab shows bio details and current-year surface splits. H2H score replaces "vs" when available. Rank badges below player meta. (5) **Added ~180 lines of CSS** in `MatchupModal.css` — tabs, rank badge, H2H bars, profile card, mobile responsive. Commit `703404a`. Both deploys confirmed. **Known limitation:** free tier returns max 11 players in rankings, so name→ID cache only covers top 11. Mickey exploring trial of Pro tier ($10/mo) to remove cap. `MATCHSTAT_API_KEY` needs setting in Railway env vars. |
-| 21 Apr 2026 (session 12) | **Matchstat activation + pagination fix.** (1) **Set `MATCHSTAT_API_KEY` in Railway** via dashboard — deploy confirmed healthy. Matchup modal now returns H2H/profiles/surface stats in production. (2) **Discovered 11-player limit was pagination, not tier restriction** — RapidAPI pricing research showed free/pro/ultra tiers differ only in request volume (500/10K/75K per month), not data access. Rankings endpoint has `pageSize` (default 10) and `pageNo` params. (3) **Fixed `buildNameCache()` in `matchstatAdapter.js`** — changed from single unpaginated call (11 results) to 2 pages of 100 (`pageSize=100&pageNo=1` + `pageNo=2`), covering top 200 ATP players. Also added defensive `entry.player \|\| entry` to handle both nested and flat response shapes. Commit `bc3fccd`. (4) **Free tier budget analysis:** 500 req/month. Cache rebuild = 2 calls/day (60/month). Remaining 440 = ~55 unique matchup lookups (8 calls each, 30-min cache absorbs repeat views). Sufficient for Madrid with ~10 users. (5) **Decision: free tier for Madrid, upgrade to Pro ($10/mo) after tournament if it works well.** Context/memory files updated (commit `ea47a9c`). |
-| 21 Apr 2026 (session 13) | **Email queue removal + direct send.** (1) **Diagnosed "invalid admin secret" error** — `ADMIN_SECRET` in Railway was changed during Vercel security breach response, but email digest URLs still had the old secret embedded. (2) **Removed email queue/approval system entirely** — `sendWithDedup()` in `email.js` now sends immediately via Brevo instead of inserting as `status='pending'`. Dedup INSERT still prevents duplicate sends. `sendAdminDigest()` converted to no-op. All 8 email types now send directly: welcome, tournament-join, password-reset, support, pick-reminder, round-result, withdrawal-alert, draw-released. Commit `539d8b9`. (3) **Flushed old queued emails** — one-time startup code sent all pending/skipped emails via Brevo, then cleaned up (commit `7d31b4c`, cleanup `3311239`). (4) **Decision:** no queue system for Madrid. Small group size is good for testing direct send. Can re-add approval queue later for larger paid pools if needed. |
-| 21 Apr 2026 (session 10) | **Email approval fix + Brevo domain verification.** (1) **Diagnosed email approval failure** — admin digest email only showed a raw `curl` command, unusable for non-technical admin. Root cause: no clickable button, no GET endpoint. (2) **Built one-click email approval** — added `GET /api/admin/approve-emails` endpoint that returns HTML pages (preview table or send confirmation). Updated `sendAdminDigest()` in `email.js` to include gold "Approve & Send" pill button and "Preview without sending" link, with admin secret embedded in URLs. Commit `6452fbe`. (3) **Verified Brevo SPF/DKIM** — all 4 DNS records confirmed authenticated: Brevo code (TXT), DKIM 1 (`brevo1._domainkey` CNAME → `b1.finalserveivor-com.dkim.brevo.com`), DKIM 2 (`brevo2._domainkey` CNAME → `b2.finalserveivor-com.dkim.brevo.com`), DMARC (TXT `p=none`). Domain hosted on Namecheap, auto-configured via Brevo's Entri integration. Initial DNS check missed DKIM because Brevo uses CNAME records, not TXT. (4) **GitHub token refresh** — old PAT expired, new one provided and used for push. Both Vercel (READY) and Railway (200 health) confirmed. |
-| 21 Apr 2026 (session 15) | **Pick history modal leak fix + comprehensive 3-way audit + hardening.** (1) **Pick history modal leaking open-round picks** — clicking a leaderboard row opened a modal showing the player's R1 pick before the deadline locked. Root cause: modal filtered on `currentRound` (null when no rounds locked yet), so filter was `!null = true` and showed everything. Two-layer fix: frontend `Leaderboard.jsx` now passes `openRound` to modal, which filters `visiblePicks` on it; backend `picks.js` `/history` endpoint now strips open-round picks when the requesting user is not the pick owner (uses `optionalAuth` + JWT comparison). Commit `526f2ed`. (2) **Full 3-way parallel audit** — launched web, backend, and mobile audit agents. Web found 26 issues, backend 29, mobile 10 — 65 total across severity levels. Manually verified critical findings against actual code, catching several false positives. (3) **Audit fixes committed** — `isValidEmail()` was noted as "fixed" in known issues but was actually missing from `auth.js`; added function + wired into register and PATCH /me. CSRF `generateCsrfToken()` replaced `Math.random()` with `crypto.randomBytes(32)`. Deduplicated `avatarColour()` and `initials()` functions from Leaderboard.jsx and GroupHome.jsx (now import from `utils/playerImage.js`). Commit `7b22bb2`. (4) Vite build verified clean (91 modules). |
-| 21 Apr 2026 (session 14) | **Full experience audit + 5 critical bug fixes.** (1) **Pick submission failing** — `POST /api/picks` body didn't include `userId`. After session 7 removed legacy `?userId` auth, frontend relied entirely on JWT, but if token was invalid the POST had no fallback. Fix: added `userId` to POST body in `PickScreen.jsx` (commit `a0cd1c7`). (2) **Pick history blank** — `PickHistory.jsx` used `TOURNAMENTS.find()` (stale hardcoded status `'upcoming'`) and returned early, hiding picks even after submission. Fix: switched to `getTournament()` and only show empty state when `picks.length === 0` (commit `766bf2f`). (3) **Same stale status bug in 3 more pages** — `PickScreen`, `DrawViewer`, `GroupHome` all used `TOURNAMENTS.find()` instead of `getTournament()`. Fix: switched all three (commit `1f90b66`). (4) **Support form crashes** — `support.js` referenced non-existent table `members` (correct: `group_members`). Fix: corrected table name and cast (commit `1f90b66`). (5) **Player avatar missing in pick history** — added `PlayerAvatar` component to pick history rows (commits `eb48fb3`, `60457d1`). (6) **Comprehensive 3-way parallel audit** — frontend (13 pages), backend (14 files), live API (10 endpoints). Found 15 total issues: 5 critical (all fixed), 3 high (CSRF migration mode, PaymentFlow raw fetch, useEffect deps), 4 medium, 3 low. Confirmed: 56 R1 players available, deadlines correct, Goalserve returning 0 fixtures (expected — draw not yet in their system), `JWT_SECRET` already set in Railway. |
-| 22 Apr 2026 | **FlashScore scraper pipeline + Madrid R1 launch + R64 prep.** (1) **Built FlashScore scraper infrastructure** — `scraperCache.js` (two-tier cache: in-memory + PostgreSQL `scraped_results` table, 30-min TTL), `POST /api/admin/scrape-results` endpoint in admin.js, `fetchScraper()` added as first provider in dataAdapter.js chain, `getDraw()` in tennisData.js updated to try scraper data before Goalserve for overlay. (2) **Scraped FlashScore via Chrome MCP** — navigated to flashscore.co.uk/tennis/atp-singles/madrid, injected JavaScript to extract match data from DOM. Built 66-name mapping (FlashScore abbreviated "Z. Bergs" to full "Zizou Bergs"). (3) **Updated Madrid seed draw** — replaced all 13 qualifier placeholders with actual players from FlashScore (Trungelliti, Lajovic, Basilashvili, Faria, Kypson, Bonzi, Droguet, Gaubas, Budkov Kjaer, Vallejo, Damm, Moller, Merida Aguilar). Replaced Collignon (withdrawn) with Prizmic (LL) at pos 35. (4) **Fixed R1 pick screen opponent enrichment** — non-per-match-lock R1 code path returned bare player objects without opponent names or start times. Added `opponentMap` construction from R1 draw matches. (5) **Set R1 lock time** — `2026-04-22T09:00:00Z` (10am UK) in `lockTimeOverrides` config (persists across redeploys). (6) **Set up recurring scraper** — Cowork scheduled task `flashscore-scraper` runs every 20 min, scrapes Chrome, maps names, POSTs to backend. (7) **R64 name mapping** — extended scraper task to 97 total name mappings (added all 31 active seeds: Sinner, Zverev, Shelton, Medvedev, etc.). Added round detection ("1/64-finals" → "R64"). Tricky names: "De Minaur A." (capitalised particle), "Davidovich Fokina A." (compound surname), "Etcheverry T. M." (double initials), "Cerundolo J. M." vs "Cerundolo F." (two different Cerundolos). Seed abbreviations are predicted from observed FlashScore patterns — verify once first seed R64 matches appear. (8) **Result:** all 32 R1 matches overlaid, 64 players with opponent info, scraper running every 20 min. 6 commits pushed. **Key decision:** Goalserve abandoned as primary data source — returned 0 fixtures on tournament day 1. FlashScore via browser scraping is now the sole live data provider. |
-| 22 Apr 2026 (session 22) | **UI redesign — leaderboard, pick history, make a pick pages.** Card-based layout overhaul across three pages. (1) **Leaderboard page** — replaced HTML table with `.lb-card` div-based layout (rank number, avatar initials circle, display name, meta line, status badge, current round pick). Added Survivometer progress bar (0-100% elimination, green→red gradient, "X still standing" text). Status badges: "Alive" uses brand dark green (#0F4A23) background + white text + bright green dot; eliminated cards get 0.6 opacity + red struck-through name + red badge; winner state gets gold background. Removed `<Badge>` component import — all styling via custom CSS classes. (2) **Pick History / My Picks page** — replaced Card+Badge rows with `.ph-card` layout (round badge, PlayerAvatar, player name, round label, result pill). New status card design shows alive/eliminated dot, headline, rounds survived count, and won/lost/pending counters on the right. Result pills: "Advanced" uses dark green + checkmark SVG; "Eliminated" uses light red; "Pending" uses grey with border. Won cards get subtle green tint background; lost cards get 0.65 opacity + struck-through name. Added imports for `ROUND_FULL` from roundLabels, `avatarColour` and `initials` from playerImage. (3) **Make a Pick page** — replaced `<ul>/<li>` list with `.ps-pcard` card layout (seed badge, PlayerAvatar, info block with name/opponent/match time, tags, pick button). New tag system: `.ps-pcard-tag` pills replace Badge components: "Your pick" uses dark green + glowing green dot (matching leaderboard alive badge); "Already used" uses grey; "Pending" uses orange. Top seed cards get gold-tinted background with gold seed badge. Removed Badge import from pick screen — no longer used there. (4) **Mobile responsiveness** — Survivometer reduced padding to 12px 14px, smaller percentage text; leaderboard cards 10px gap + 12px padding + 36px avatars; pick history modal 92vw width on mobile; pick history cards 12px padding + 10px badge/result text; pick screen cards 10px gap + 12px padding + 32px seed badges + 8px tag text; round tabs reduced padding + 11px font on mobile; search row tightened gap for 320px overflow prevention; button touch targets maintained 44px minimum. (5) **Key design decisions:** Brand dark green (#0F4A23) is THE status colour for alive/active states; card-based layouts with 6px gap are standard for all list views; no more HTML tables in UI; Badge component phased out in favour of custom styled pills for tighter control; all pages use consistent 640px mobile breakpoint. No code pushed — session focused on design audit and memory updates. |
-| 22 Apr 2026 (session 22b) | **Name format + Survivometer fix.** (1) Created `shortName()` utility in `playerImage.js` — converts "Carlos Alcaraz" to "Alcaraz, C.", handles multi-part surnames. (2) Applied to `DrawViewer.jsx` — all bracket card names and list card names. (3) Applied to `MatchupModal.jsx` — player header names, form column headers, form opponent names, stat labels. Removed old `surname()` helper. (4) Fixed matchup modal overflow — `overflow-x: hidden` on `.mu-modal`. (5) **Fixed Survivometer denominator** — changed from `eliminated / totalEntrants` to `eliminated / (totalEntrants - 1)`. Lone survivor now shows 100% instead of 83%. Guard changed from `> 0` to `> 1` (avoids divide-by-zero with single entrant). With 6 players, 1 eliminated = 20% (was 17%). |
-| 20 Apr 2026 (session 8) | **Bracket fix + image optimisation + API performance.** Three performance/display fixes. (1) **Bracket spacing drift fix** — `.bc-col-body` used `justify-content: space-around` which drifted when bye cards had different height from match cards. Replaced with `flex: 1` on `.bc-slot` so every slot gets equal fraction regardless of content (commit `56a1c17`). (2) **CSS sprite sheet for player headshots** — replaced 170 individual JPG HTTP requests (6.4 MB) with a single 205 KB WebP sprite (1280x880, 16×11 grid of 80px cells). `PlayerAvatar.jsx` rewritten to use `background-position`. New files: `frontend/src/data/playerManifest.json` (slug→x,y map, 8KB), `frontend/public/player-sprite.webp` (205KB). Zero HTTP overhead for missing players (manifest check is in-memory). Commit `a5ae16ea`. (3) **Parallelised Goalserve API calls** — the three Goalserve endpoints (fixtures, draw, livescore) were fetched sequentially (each 2-6s, total 6-18s). Now use `Promise.allSettled` to run in parallel (total = max single call ≈ 3-5s). Added promise-level deduplication so concurrent callers share one in-flight fetch. Result: cold miss 5s (was 10-17s), cached <1.2s. Commit `ec7bb58`. |
-| 22 Apr 2026 (session 23) | **Goalserve removal + scraper cache fix.** (1) **Critical bug fix: scraper cache returning null** — `getScrapedResults()` in `scraperCache.js` returned null when in-memory cache exceeded 30-min TTL and DB data was also stale. Since scraper runs hourly with jitter, gaps could exceed TTL. Draw data disappeared, falling through to mock. Fix: stale data always served (match results don't un-happen). Only returns null when genuinely no data anywhere. Both memory and DB paths updated. (2) **Complete Goalserve removal** — deleted all Goalserve code from 14 files: `dataAdapter.js` (removed ~700 lines: adapter, cache, cron warming, config constants), `seedDrawOverlay.js` (renamed exports: `overlayGoalserve`→`overlayFixtures`, `buildGoalserveLookup`→`buildFixtureLookup`, `findGoalserveMatch`→`findFixtureMatch`), `tennisData.js` (simplified draw pipeline to scraper-only), `index.js` (removed Goalserve startup/cron warming), `activeTournament.js` (removed `goalserveTournamentId`, `roundNameOverrides`), `admin.js` (deleted ~200 lines: 3 Goalserve admin endpoints), `health.js` (replaced Goalserve diagnostics with scraper cache status), `matchup.js` (switched from Goalserve to scraper for tournament form), `opsMonitor.js` (removed unused import), `ops.js` (config field rename), `matchstatAdapter.js`, `seedDrawLoader.js`, `playerImage.js` (comment updates). Provider chain now: Scraper → API-Tennis → Sofascore → mock. (3) **Verified deployment** — both Vercel and Railway deployed successfully. Health endpoint confirms 45 fixtures active (31 R1 + 14 R64), 2 completed, provider=scraper. `GOALSERVE_API_KEY` env var can be deleted from Railway. |
-| 22 Apr 2026 (session 24) | **Scraper pipeline fixes + elimination UX overhaul.** (1) **Tiebreak score filtering bug** — scraper's game-score filter (`if h >= 40 or a >= 40`) incorrectly stripped tiebreak encodings like 63-77. Fixed to check `if h in {15, 30, 40} or a in {15, 30, 40}`. Muller vs Struff score corrected from "0-6" to "6-7 0-6". (2) **Cancelled fixture collision bug** — Collignon withdrew, replaced by Prizmic. FlashScore showed both a cancelled Collignon match and a completed Prizmic match. Name mapping mapped both to "Dino Prizmic", creating two fixtures with identical names. `findFixtureMatch()` in seedDrawOverlay matched the cancelled one first, so Berrettini's completed win was never applied. Fix: filter all cancelled fixtures before POSTing to backend. (3) **Results processing pipeline gap** — scraper POSTed fixtures but never triggered `autoProcessResults()`. Picks stayed `survived: null`, members stayed `is_alive: true`, no emails sent. Added `POST /api/admin/process-results` as Step 9 in the scheduled task. Verified: Servena's pick now `survived: false`, Rafa's pick `survived: true`. (4) **Friendly elimination UX** — replaced clinical "Eliminated" copy with casual tone across all surfaces: PickScreen card ("Unlucky! You're out this time"), hero badge ("Out in R1 — unlucky!"), locked pick ("Unlucky — out ✗"); PickHistory status ("Unlucky! Out in R1"), per-pick result ("Didn't advance"); Leaderboard meta ("Knocked out in R1"), modal ("Out in R1 — unlucky!"); GroupHome new eliminated card with nav to leaderboard/draw. (5) **Updated scheduled task** with all 3 bug fixes (cancelled filter, tiebreak fix, process-results trigger). Commit `85258e1`. |
-| 22 Apr 2026 (session 25) | **Day 1 extended scraper run + email deliverability investigation.** (1) **Scraper run** — executed FlashScore scraper via Chrome MCP scheduled task. Final state: 31 main draw fixtures (12 completed, 2 live, 17 scheduled). 2 cancelled excluded, 12 qualification finals excluded, 1 unmapped name (Garin C.) excluded. Completed: Cilic d. Bergs, Nava d. Brooksby, Kopriva d. Zhang, Buse d. Mannarino, Prizmic d. Berrettini, Baez d. Rinderknech, Fucsovics d. Kotov, Norrie d. Coric, Giron d. Safiullin, Darderi d. Monfils, Passaro d. Vukic, Muller d. Navone. Results processor triggered: 1 pick updated (Buse survivor confirmed). (2) **Email delivery investigation** — user reported Hurkacz pick result email not received. Traced full pipeline: `processRoundResults` -> `sendResultEmails` -> `sendRoundResultEmail` -> `sendWithDedup` -> `sendViaBrevo`. Discovered email queue system was removed 21 Apr (session 13): `sendWithDedup` now sends directly via Brevo, no admin approval step. Email was sent successfully but landed in user's spam folder. (3) **DNS/deliverability audit** — initially misdiagnosed DKIM as missing (checked wrong selectors: `mail._domainkey` instead of Brevo's actual `brevo1._domainkey` / `brevo2._domainkey`). Corrected: all 4 Brevo DNS records verified. Identified SPF fix needed: current SPF is `v=spf1 ~all` (no Brevo include); should be `v=spf1 include:spf.sendinblue.com ~all`. Primary spam cause is domain reputation (new domain, near-zero sending history). (4) **Unmapped player: Garin C.** — Cristian Garin not in 97-player name mapping. Match Garin vs Blockx excluded. Must add to mapping for future runs. (5) **No code pushed this session** — scraper execution + investigation only. |
-| 19 Apr 2026 (session 6) | **AI agent operations playbook + Phase 1 automation.** (1) Strategic discussion: Mickey confirmed long-term plan to run FSV with AI agents as entire team, himself as CEO (2-3 hrs/day oversight). (2) Created `FSV_AI_Agent_Operations_Playbook.docx` — comprehensive guide covering 4 agent clusters (Tournament Ops, Tech Lead, Marketing, Support), 3 build phases, daily workflow, costs, technical setup guides, glossary. (3) Built Phase 1 Tournament Operations automation: `opsMonitor.js` with withdrawal auto-detection (`checkWithdrawals`), draw release detection (`checkDrawRelease`), lock time auto-setting (`autoSetLockTimes`), persistent ops logging to `ops_log` DB table, tournament setup template. (4) Built `routes/ops.js` with 4 admin endpoints: `GET /api/ops/summary`, `GET /api/ops/log`, `POST /api/ops/setup-tournament`, `GET /api/ops/health-deep`. (5) Enhanced `resultsProcessor.js` with ops logging. (6) Enhanced 15-min cron in `index.js` to run `runOpsChecks` + slow cycle detection. (7) Added `ops_log` table + indexes to `schema.sql`. (8) Created Cowork scheduled task `fsv-daily-ops-brief` running daily at 8am — fetches ops summary, health check, Vercel status, generates plain-language brief. (9) Verified Railway deployment (new endpoints returning 401 not 404, confirming code is live). (10) Updated playbook Phase 1 table with completion status (Steps 1-4 DONE, Step 5 ACTIVE, Step 6 PENDING). Commit `5220fe4`. |
-| 23 Apr 2026 (session 26) | **Cloud scraper pipeline: Railway cron service.** (1) Replaced local Mac-based launchd scraper with production Railway cron service (Playwright/Chromium Docker). New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (1/32→R32, not R1). R1 has no header — uses `DEFAULT_ROUND` env. (3) Qualification filtering: detects main-draw boundary, skips qualifying SF/F. (4) Railway deployed: service "valiant-forgiveness", cron `0 10-21 * * *`, env ADMIN_SECRET/BACKEND_URL/DEFAULT_ROUND=R1. (5) Decision: Railway cron over Claude Routines — scraper is deterministic, Routines are preview with caps. Routines for future tasks needing AI reasoning. Commits `d4e3503`, `fc50563`. |
-| 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** First scraper run delivered 50 fixtures but 0 picks graded — two name-matching failures. (1) **Country suffix stripping:** FlashScore sends `"Sinner J. (Ita)"` — the `(Ita)` polluted normalisation. Scraper now strips country codes before sending. (2) **Surname subset matching (3-pass):** FlashScore abbreviated names (`"Sinner J."`) couldn't match seed draw full names (`"Jannik Sinner"`) — Levenshtein scores 0.47-0.76, threshold 0.85. Added Pass 3 to `seedDrawOverlay.js`: extracts parts ≥3 chars, checks subset containment. `["sinner"]` ⊂ `["jannik","sinner"]` → match. Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (3) **Winner matching fix:** overlay found fixtures (status=completed) but winner was None — winner identification code also used old normalisation. Fixed all three name-matching contexts (fixture finding, winner ID, withdrawal mapping) to use same 3-strategy approach. **Eliminates the hardcoded 97-name mapping table entirely.** (4) Verified full pipeline: 18 R64 winners matched, bracket progression working (Atmane→R32 slot), picks graded correctly, emails pipeline ready. Commits `fc50563`, `5629b44`. |
-| 23 Apr 2026 (session 26a) | **Cloud scraper pipeline: Railway cron service.** Replaced local Mac-based launchd scraper with production Railway service. Deployed 23 Apr. (1) New `scraper/` directory: `package.json`, `src/config.mjs`, `src/scrape.mjs`, `Dockerfile`, `railway.toml`, `.dockerignore`. (2) **FlashScore round mapping fix:** "1/X-finals" means X players remaining (e.g., 1/64=64 players). R1 has no header — uses `DEFAULT_ROUND` env var. Qualification detection: looks for "Qualification" in `.event__header`, sets `isMainDraw` flag. (3) **Railway service:** `valiant-forgerness` in project `successful-embrace`, cron `0 10-21 * * *` (hourly 11AM-10PM UK), env vars: ADMIN_SECRET, BACKEND_URL, DEFAULT_ROUND. (4) **Architecture decision:** Railway cron over Claude Routines because scraper is deterministic (no AI needed), Routines are preview with daily caps and agentic overhead. Routines reserved for tasks needing AI reasoning during execution. (5) **Commits:** `d4e3503` (Cloud scraper infra), `fc50563` (Initial scraper code). |
-| 23 Apr 2026 (session 26b) | **Critical name-matching fix for scraper→backend pipeline.** (1) **Issue:** First scraper run posted 50 fixtures but 0 picks graded. Root cause: FlashScore sends abbreviated names (`"Sinner J. (Ita)"`) but seed draw has full names (`"Jannik Sinner"`). Country suffix and name mismatch blocked matching. (2) **Country suffix stripping:** Scraper now strips `(Ita)` before POSTing. (3) **3-pass name matching in `seedDrawOverlay.js`:** (a) Exact normalised match (stripped accents, lowercase, token comparison), (b) Fuzzy Levenshtein > 0.85, (c) Surname subset matching — extract parts ≥3 chars, check if shorter set is subset of longer (`["sinner"]` ⊂ `["jannik","sinner"]` → match). Handles compound surnames (Carreno-Busta, Van De Zandschulp) and double initials. (4) **Applied to 3 contexts:** Fixture matching, winner identification, withdrawal mapping. **Eliminates hardcoded 97-name mapping table entirely.** (5) **Verified:** 18 R64 winners matched, bracket progression works (Atmane→R32), picks grade correctly, emails pipeline ready. (6) **Commits:** `fc50563` (Name fix), `5629b44` (Winner matching fix). |
-| 23 Apr 2026 (session 26c) | **Auto-withdrawal detection + By Round redesign.** (1) **Auto-withdrawal/lucky loser replacement:** Van De Zandschulp withdrew, Garin entered as LL. Scraper posted both cancelled and new fixtures, but Garin wasn't in seed draw. Built automated detection in `seedDrawOverlay.js`: pre-pass scans for unknown players at draw positions, cross-references cancelled fixtures with original player, auto-swaps seed draw player in memory with LL marker. No manual edits needed for future withdrawals. (2) **By Round view complete redesign** — scoreboard-style match cards (Option B from design mockup). New components: `parseSetScores()` parses raw score string into structured per-set data; `SetScores` renders per-player inline scores (won sets bold, lost muted, tiebreaks as superscript `7(3)`). Winner row: bold dark green (#0F4A23) with tick mark (✓). Loser row: 55% opacity. Custom status badges: "Finished" (green pill), "Live" (accent), "Scheduled" (neutral). Sort: live first → finished → scheduled. Card layout: min-width 340px (2-3 per row desktop, 1 mobile). (3) **Files changed:** `DrawViewer.jsx`, `DrawViewer.css`. (4) **Key decisions:** Scoreboard style chosen for information density. Sets-won prefix stripped (metadata). Tiebreaks fully decoded. (5) **Full pipeline verified end-to-end:** Scraper → POSTs to `/api/admin/scrape-results` ✓ → Overlay matches names ✓ → Winners identified ✓ → Bracket progresses ✓ → Picks grade ✓ → Auto-withdrawal detected ✓ → Result emails ready ✓. (6) **Commits:** `022830c` (Auto-withdrawal), `054f21c` (By Round redesign), `e3cbf31` (Scoreboard layout), `3876edb` (Mobile fix), `3c35edd` (Sort order). |
-| 23 Apr 2026 (session 27) | **Rome 2026 pool + pick card contrast fix.** (1) **Pick card text contrast** — current pick card (`.ps-picked-card--changeable`) had dark text on dark green background. Added CSS overrides to use white text (`--ds-primary-ink`) on primary background. Commit `decc514`. (2) **Rome 2026 pool setup** — added Rome to both FE+BE tournament registries (ATP M1000, 5-17 May, clay, `r1PerMatchLock: true`). Created real DB group `de81ed56-6c30-483a-9d38-3c48201ab42e` via `POST /api/groups` with Mickey's UUID as admin. Homepage sorts active pools before upcoming so Madrid stays featured. Upcoming free pools show "Free entry — sign up now" footer. Commit `960a558`. (3) **Entry gate fix** — Rome pool page showed "hasn't launched yet" because `isEntryClosed` used Madrid's R1 lock time from global `/api/draw/deadlines`. Fixed: only apply `r1LockAt` as entry deadline when `tournament?.status === 'active'`. Upcoming pools rely on `entryOpen` flag. (4) **Post-join redirect** — after joining a pre-launch pool, user is now navigated to leaderboard page instead of staying on group home. Commit `6c7059f`. (5) **GitHub PAT refresh** — old token expired, new one provided. Both Vercel and Railway deploys confirmed. |
-| 23 Apr 2026 (session 26d) | **Tournament schedule fix + avatar centering.** (1) **R64 pick window was closed** — `autoSetLockTimes` in opsMonitor set R64 lock from scraped start times because config had `null`. Window-open was calculated too late (12h after R1 start = 8PM UK). **Fix:** set ALL round lock times and window-open overrides in `activeTournament.js` from official Madrid schedule (tenngrand.com, atptour.com). `autoSetLockTimes` now skips all rounds. **Critical rule: scraper must NOT auto-change lock times.** Full schedule: R64 opens 23 Apr 2pm UK locks 24 Apr 10am, R32 opens 25 Apr 6pm locks 26 Apr 10am, R16 opens 27 Apr 6pm locks 28 Apr 10am, QF opens 28 Apr 6pm locks 29 Apr 10am, SF opens 30 Apr 6pm locks 1 May 10am, F opens 1 May 6pm locks 3 May 4pm. Commit `5e3c990`. (2) **PlayerAvatar face centering** — sprite headshots top-aligned (forehead showing, chin cut), added 10% vertical offset to centre face in circle crop. Commit `1e02fd5`. (3) **Key lesson for future tournaments:** always set all lock times and window-open overrides from official schedule BEFORE tournament starts. Never rely on auto-set. |
-| 24 Apr 2026 (session 28) | **Seed draw errors + Matchstat coverage + UI fixes.** (1) **Sprite sheet revert verified** — Vercel deployment confirmed working (1280x880, 169 players, 205KB). Previous session corrupted sprite via browser canvas re-encoding. (2) **Date range fix** — `fmtDateRange()` in `Homepage.jsx` now shows end month when tournament spans months ("Apr 22 – May 3" instead of "Apr 22 - 3"). (3) **Footer background fix** — changed from `var(--ds-ink)` (black) to `var(--ds-primary)` (emerald green). (4) **Matchstat search fallback** — added `searchPlayerId()` function to `matchstatAdapter.js` as fallback for players outside top 200 rankings cache. Uses `/atp/player/search/{surname}` endpoint. All 5 data functions changed from sync `lookupPlayerId()` to async `resolvePlayerId()` (cache + search). Mickey upgraded to paid Matchstat tier for better coverage. (5) **Seed draw overlay interleaving fix** — R64+ results weren't showing because overlay tried to match all fixtures before propagating winners. R64 matches had null player names (R1 winners not yet propagated). Fix: process each round sequentially — match, overlay, propagate, then next round. (6) **Cross-tournament email scoping (again)** — `sendResultEmails()`, `sendRemindersForRound()`, `eliminateNonPickers()`, and `sendPendingEmails()` were all querying across ALL tournaments (6 Apr fix got reverted by stale mnt incident). Re-applied JOIN groups + WHERE tournament_id filter. (7) **Tournament ID denormalisation** — added `tournament_id` column directly to `picks` and `emails_sent` tables to prevent future cross-tournament contamination (3rd occurrence). Schema migration, backfill, all queries updated. (8) **Email approval queue restored** — `sendWithDedup` now queues as 'pending' again (reversed session 13 removal). Admin digest re-enabled. Individual email approve/reject endpoints added (`sendPendingEmailById`, `rejectPendingEmailById`). (9) **CRITICAL: 8 seed draw position errors fixed** — positions 3-4 (Sinner's R64 feeder) were swapped with 69-70 (Bublik's section). Sinner showed "Merida Aguilar" as opponent instead of Bonzi. Also fixed: van de Zandschulp→Garin (LL) at pos 91, Vallejo name/status at pos 107, Prizmic and Kypson Q/LL statuses. Verified on live site: Sinner vs Bonzi (live match). Commit `2a924e4`. |
-| 24 Apr 2026 (session 29) | **Full-stack audit + 3 critical backend fixes.** (1) **Re-audit from GitHub HEAD** — previous audit used stale local mnt files and found many false issues. Cloned fresh from GitHub to audit the actual deployed code (scraper pipeline, seed draw overlay, resultsProcessor). (2) **Draw cache fix (CRITICAL)** — `getDraw()` in `tennisData.js` used `Date.now()` as cache comparison key, meaning the cache NEVER hit and `overlayFixtures()` (Levenshtein matching) ran on every single API request. Fixed: now uses stable `getScraperFetchedAt()` timestamp from `scraperCache.js`. Overlay only re-runs when new scraper data arrives. (3) **windowOpensOverrides fix** — carefully configured pick window open times in `activeTournament.js` were never read by `getDeadlines()`. Both code paths (static fallback + live fixture) now check `WINDOW_OPENS_OVERRIDES` before computing 12h-after-prev-round formula. Verified: R64 opensAt now correctly shows `2026-04-23T13:00:00Z`, R32 shows `2026-04-25T17:00:00Z`. (4) **getDeadlines scraper format fix** — when scraper data was available, `getDeadlines()` passed internal-format fixtures to `buildDrawFromFixtures()` which expects API-Tennis format (`event_winner`, `event_date`). Start times and round detection were silently failing. Now detects internal format and reads `startTime`/`round`/`winnerId` directly. (5) Full audit report produced: 12 issues identified with priorities. Remaining issues: leaderboard re-grades from draw on every request (perf), no opponent info for R2+ picks, mock fallback dead code. Commit `bac2aa4`. |
-| 24 Apr 2026 (session 30) | **Retired/walkover fix + leaderboard eliminating pick + admin digest fix + E2E testing.** (1) **CRITICAL: retired/walkover matches not processed** — `resultsProcessor.js`, `leaderboard.js` `buildGrader()`, and `seedDrawOverlay.js` all filtered for `status === 'completed'` only. Matches ending in retirement (2) or walkover (1) in Madrid R1/R64 had winners but were silently skipped, leaving picks with `survived=NULL` forever. Fix: added `DECIDED_STATUSES = Set(['completed','retired','walkover'])` across all 4 files. Also updated `admin.js` scrape-results logging. Commit `8082c14`. (2) **Leaderboard eliminating pick** — eliminated users with no current round pick (Mark/Servena knocked out in R1, viewing R64 leaderboard) showed just 'Knocked out in First Round' with no pick info. Backend now returns `eliminatingPick` (player name from their losing round). Frontend renders it as 'R1: ~~Martin Landaluce~~'. Also fixed: 'Hidden' badge no longer shown for eliminated users. Commit `52ac074`. (3) **End-to-end testing** — verified all API endpoints, data integrity, and user journeys on live site: health check, deadlines (overrides applied), leaderboard (grading correct), pick histories (all 6 users verified), draw bracket (127 matches, upsets propagated), retired/walkover now counted. (4) **Admin digest crash** — `_lastDigestPendingCount` never declared with `let`; ESM strict mode threw ReferenceError every cron cycle, silently swallowed by catch block. Admin approval digest emails never sent since the feature was added. Fix: declared variable at module level. Also scoped `getPendingEmailsSummary()` to current tournament. Commit `2141dcb`. (5) **SPF deliverability** — Mickey added `include:spf.sendinblue.com` to SPF record in Namecheap. Email deliverability now resolved. |
+
+---
+
+## Verification rule (CRITICAL)
+
+**Never trust memory files or CLAUDE.md as the source of truth for how code works.** The codebase is the truth. Memory files are pointers to where to look, not authoritative descriptions.
+
+Before making any claim about system behaviour (to Mickey or in reasoning):
+1. Read the actual code in the repo — not memory files, not CLAUDE.md tables
+2. If the code has changed since the memory was written, the memory is wrong
+3. When in doubt, `grep` the codebase rather than quoting from memory
+
+This rule exists because stale memory files have repeatedly caused wrong advice (e.g. claiming the scraper runs on Mickey's Mac when it actually runs on Railway). Memory files describing code architecture, file structures, or system behaviour will drift. The code will not.
 
 ---
 
@@ -743,7 +587,7 @@ Only update files where something actually changed. Don't touch files for the sa
 Read through MEMORY.md and spot-check every memory file that might be outdated by this session's work. Fix or remove anything stale. Common sources of staleness:
 - Data provider references (e.g. Goalserve refs after it was removed)
 - Tournament status (upcoming/active/completed)
-- Feature flags described as active when they have been disabled
+- Feature flags described as active when they've been disabled
 - MEMORY.md index descriptions that no longer match the file content
 
 We cannot carry forward wrong information. If in doubt, read the file and verify.
