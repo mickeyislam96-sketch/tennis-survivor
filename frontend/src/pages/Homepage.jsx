@@ -19,7 +19,9 @@ const fmtDateRange = (start, end) => {
   const sDay = s.getDate();
   if (!end) return `${sMonth} ${sDay}`;
   const e = new Date(end);
+  const eMonth = e.toLocaleDateString('en-GB', { month: 'short' });
   const eDay = e.getDate();
+  if (eMonth !== sMonth) return `${sMonth} ${sDay} – ${eMonth} ${eDay}`;
   return `${sMonth} ${sDay} – ${eDay}`;
 };
 
