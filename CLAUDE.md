@@ -713,12 +713,14 @@ Before starting feature work, ask: "If this breaks, what's the blast radius?" If
 
 ## Session-end protocol (MANDATORY)
 
-When Mickey says "update context" or the session is ending, do ALL of the following:
+**Trigger:** Mickey will paste a standard prompt at the end of every session (or say "update context"). When triggered, execute ALL 6 steps below. Do not skip any.
 
 ### 1. Update CLAUDE.md (this file)
+- Update "Last updated" date at the top
 - Add a row to the **Session history** table summarising what was built, fixed, or decided
 - Update **Outstanding actions** — strike through completed items, add new ones
 - If any new files, endpoints, or config were added, update the relevant tables above
+- If any known issues were fixed, mark them as FIXED with the date
 - Push the updated CLAUDE.md to GitHub
 
 ### 2. Update memory files in `.claude/memory/`
@@ -726,7 +728,7 @@ These files live in the repo AND in the Cowork workspace. They capture lasting d
 
 | File | What to update |
 |---|---|
-| `MEMORY.md` | Index — add entries for any new topic files |
+| `MEMORY.md` | Index — add entries for any new topic files, correct stale descriptions |
 | `final-serve-ivor.md` | Product state — tournament status, member counts, active features |
 | `design-system.md` | Any new fonts, colours, tokens, or component patterns |
 | `infrastructure.md` | New services, env vars, deployment changes |
@@ -737,15 +739,28 @@ These files live in the repo AND in the Cowork workspace. They capture lasting d
 
 Only update files where something actually changed. Don't touch files for the sake of it.
 
-### 3. Clean up workspace docs
+### 3. Stale content audit
+Read through MEMORY.md and spot-check every memory file that might be outdated by this session's work. Fix or remove anything stale. Common sources of staleness:
+- Data provider references (e.g. Goalserve refs after it was removed)
+- Tournament status (upcoming/active/completed)
+- Feature flags described as active when they have been disabled
+- MEMORY.md index descriptions that no longer match the file content
+
+We cannot carry forward wrong information. If in doubt, read the file and verify.
+
+### 4. Clean up workspace docs
 If task-specific docs were created in the workspace folder (`CTO - TS/`):
 - Delete any that are fully completed and whose insights are captured in memory files
 - Keep active handoff docs and reference docs for unbuilt features
 
-### 4. Push memory files to repo
-Memory files must be pushed to GitHub (under `.claude/memory/`) so non-Cowork sessions can access them too. Use the GitHub Contents API.
+### 5. Push to GitHub
+All changed files (CLAUDE.md, memory files, any code) must be pushed to GitHub. Memory files go under `.claude/memory/` in the repo. Use the GitHub Contents API or `/tmp` clone.
+
+### 6. Verify pushes landed
+After pushing, confirm the changes are actually on GitHub. Fetch at least one pushed file via the GitHub API to verify. Local-only changes are invisible to other session types and will be lost.
 
 ### What NOT to do
 - Don't just append to session history and call it done — that's how context gets lost
 - Don't create new one-off docs for decisions that belong in the memory files
 - Don't skip the push — local-only files are invisible to other session types
+- Don't skip the stale audit — this is how wrong information propagates across sessions
