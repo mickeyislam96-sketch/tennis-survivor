@@ -202,3 +202,12 @@ export function invalidateScraperCache() {
   scraperCache = { fixtures: null, fetchedAt: 0, scrapedAt: null };
   console.log('[scraperCache] Memory cache invalidated');
 }
+
+/**
+ * Get the timestamp when scraper data was last received.
+ * Used by tennisData.js draw cache to detect when overlay results can be reused.
+ * Returns 0 if no data has been received.
+ */
+export function getScraperFetchedAt() {
+  return scraperCache.fetchedAt;
+}

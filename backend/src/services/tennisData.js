@@ -14,7 +14,7 @@ import { fetchSofascoreFixtures } from './sofascoreAdapter.js';
 import { hasSeedDraw, loadSeedDraw } from '../data/seedDrawLoader.js';
 import { fetchFixtures } from './dataAdapter.js';
 import { overlayFixtures } from './seedDrawOverlay.js';
-import { getScrapedResults } from './scraperCache.js';
+import { getScrapedResults, getScraperFetchedAt } from './scraperCache.js';
 
 // ACTIVE_TOURNAMENT is imported statically at line 8 above (no dynamic import needed)
 
@@ -297,20 +297,22 @@ export async function getDraw(roundFilter = null) {
     if (hasSeedDraw(tournamentId)) {
       const currentRound = roundFilter || ROUNDS[ROUNDS.length - 1];
 
-      // Check if we can serve from draw cache (same scraper data = same overlay result)
-      const scraperData = await getScrapedResults();
-      const scraperFetchedAt = scraperData?.length > 0 ? Date.now() : 0;
+      // Check if we can serve from draw cache (same scraper data = same overlay result).
+      // getScraperFetchedAt() returns a STABLE timestamp (set when data arrives from
+      // the scraper), unlike Date.now() which changes every call and would defeat caching.
+      const scraperFetchedAt = getScraperFetchedAt();
 
-      if (drawCache.result && drawCache.scraperFetchedAt === scraperFetchedAt) {
+      if (drawCache.result && drawCache.scraperFetchedAt === scraperFetchedAt && scraperFetchedAt > 0) {
         return { ...drawCache.result, currentRound };
       }
 
+      const scraperData = await getScrapedResults();
       const seedDraw = loadSeedDraw(tournamentId, roundFilter);
 
       if (scraperData && scraperData.length > 0) {
         const merged = overlayFixtures(seedDraw, scraperData);
         drawCache = { result: merged, scraperFetchedAt };
-        console.log(`[tennisData] Draw overlay complete (scraper, ${scraperData.length} fixtures)`);
+        console.log(`[tennisData] Draw overlay complete (scraper, ${scraperData.length} fixtures, cached at ${scraperFetchedAt})`);
         return { ...merged, currentRound };
       }
 
@@ -376,6 +378,7 @@ export async function fetchApiDrawRaw() {
 // Pull lock time overrides from activeTournament config (set per round as order of play is announced).
 // Falls back to empty object if no config — rounds will use API start times or fallback dates.
 const LOCKTIME_OVERRIDES = ACTIVE_TOURNAMENT?.lockTimeOverrides || {};
+const WINDOW_OPENS_OVERRIDES = ACTIVE_TOURNAMENT?.windowOpensOverrides || {};
 
 // ── Runtime lock overrides ──────────────────────────────────────────────────
 // In-memory overrides that take precedence over LOCKTIME_OVERRIDES and API data.
@@ -451,6 +454,8 @@ export async function getDeadlines() {
       let opensAt = null;
       if (i === 0) {
         opensAt = null; // R1 always open from the start
+      } else if (WINDOW_OPENS_OVERRIDES[round]) {
+        opensAt = WINDOW_OPENS_OVERRIDES[round];
       } else {
         const prevFirstStart = ROUND_DATES[ROUNDS[i - 1]] ? new Date(ROUND_DATES[ROUNDS[i - 1]]) : null;
         opensAt = prevFirstStart
@@ -485,12 +490,31 @@ export async function getDeadlines() {
     F:   '2026-05-03T13:00:00Z',  // Sun 3 May — men's final
   };
 
-  const draw = buildDrawFromFixtures(fixtures);
+  // Build round → matches lookup. If fixtures are in internal format (from scraper),
+  // use them directly. If in API-Tennis format, run through buildDrawFromFixtures.
   const matchesByRound = {};
   ROUNDS.forEach((r) => (matchesByRound[r] = []));
-  (draw.matches || []).forEach((m) => {
-    if (matchesByRound[m.round]) matchesByRound[m.round].push(m);
-  });
+
+  const isInternalFormat = fixtures[0] && ('matchId' in fixtures[0] || 'winnerId' in fixtures[0]);
+  if (isInternalFormat) {
+    // Scraper data — already has round, startTime, winnerId in internal format
+    for (const f of fixtures) {
+      if (f.round && matchesByRound[f.round]) {
+        matchesByRound[f.round].push({
+          round: f.round,
+          startTime: f.startTime || null,
+          status: f.status || 'scheduled',
+          winnerId: f.winnerId || null,
+        });
+      }
+    }
+  } else {
+    // API-Tennis format — parse through buildDrawFromFixtures
+    const draw = buildDrawFromFixtures(fixtures);
+    (draw.matches || []).forEach((m) => {
+      if (matchesByRound[m.round]) matchesByRound[m.round].push(m);
+    });
+  }
 
   const now = new Date();
   return ROUNDS.map((round, index) => {
@@ -515,7 +539,11 @@ export async function getDeadlines() {
     // Window opens 12h after the first match of the nearest non-empty previous round starts.
     // Falls back to the known schedule date for that round when the API has no times yet.
     let opensAt = null;
-    if (index > 0) {
+    if (index === 0) {
+      opensAt = null; // R1 always open
+    } else if (WINDOW_OPENS_OVERRIDES[round]) {
+      opensAt = WINDOW_OPENS_OVERRIDES[round];
+    } else {
       let prevFirstStart = null;
       for (let pi = index - 1; pi >= 0; pi--) {
         const prevRound = ROUNDS[pi];
