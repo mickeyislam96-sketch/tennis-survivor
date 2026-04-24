@@ -360,114 +360,117 @@ export function overlayFixtures(seedDraw, fixtures) {
   // Clone matches to avoid mutating the cached seed draw
   const updatedMatches = patchedSeedDraw.matches.map(m => ({ ...m }));
 
-  for (const match of updatedMatches) {
-    if (match.bye) continue;
-    if (!match.player1Name || !match.player2Name) continue; // TBD future rounds
-
-    const gsFixture = findFixtureMatch(match, lookup, fixtures);
-
-    if (gsFixture) {
-      matched++;
-
-      // Overlay live data
-      if (gsFixture.status && gsFixture.status !== 'scheduled') {
-        match.status = gsFixture.status;
-      }
-      if (gsFixture.winnerId || gsFixture.winnerName) {
-        // Match the scraper winner to our seed draw player IDs.
-        // 3 strategies: exact normalised, fuzzy Levenshtein, surname subset.
-        const winnerNorm = normaliseName(gsFixture.winnerName);
-        const p1Norm = normaliseName(match.player1Name);
-        const p2Norm = normaliseName(match.player2Name);
-        const winnerSP = surnameParts(gsFixture.winnerName);
-        const p1SP = surnameParts(match.player1Name);
-        const p2SP = surnameParts(match.player2Name);
-
-        const p1Match = winnerNorm === p1Norm
-          || levenshteinSimilarity(winnerNorm, p1Norm) > 0.85
-          || surnameSubsetMatch(winnerSP, p1SP);
-        const p2Match = winnerNorm === p2Norm
-          || levenshteinSimilarity(winnerNorm, p2Norm) > 0.85
-          || surnameSubsetMatch(winnerSP, p2SP);
-
-        if (p1Match && !p2Match) {
-          match.winnerId = match.player1Id;
-          match.winnerName = match.player1Name;
-        } else if (p2Match && !p1Match) {
-          match.winnerId = match.player2Id;
-          match.winnerName = match.player2Name;
-        }
-      }
-      if (gsFixture.startTime) {
-        match.startTime = gsFixture.startTime;
-      }
-      if (gsFixture.score) {
-        match.score = gsFixture.score;
-      }
-      if (gsFixture.isWithdrawal) {
-        match.isWithdrawal = true;
-        // Map withdrawn player ID to seed draw ID
-        const withdrawnName = gsFixture.withdrawnPlayerId === gsFixture.player1Id
-          ? gsFixture.player1Name
-          : gsFixture.player2Name;
-        const withdrawnNorm = normaliseName(withdrawnName);
-        const withdrawnSP = surnameParts(withdrawnName);
-        const p1Norm = normaliseName(match.player1Name);
-        const p1SP = surnameParts(match.player1Name);
-        const isP1 = withdrawnNorm === p1Norm
-          || levenshteinSimilarity(withdrawnNorm, p1Norm) > 0.85
-          || surnameSubsetMatch(withdrawnSP, p1SP);
-        match.withdrawnPlayerId = isP1 ? match.player1Id : match.player2Id;
-      }
-    } else {
-      // Only count as unmatched if it's a real R1 match (not a future-round TBD)
-      if (match.round === patchedSeedDraw.rounds[0] && match.player1Name && match.player2Name) {
-        unmatched++;
-        unmatchedMatches.push(`${match.player1Name} vs ${match.player2Name} (${match.round})`);
-      }
-    }
-  }
-
-  if (unmatched > 0) {
-    console.warn(`[seedDrawOverlay] ${matched} matched, ${unmatched} unmatched R1 fixtures:`,
-      unmatchedMatches.slice(0, 5).join(', '));
-  } else if (matched > 0) {
-    console.log(`[seedDrawOverlay] Successfully matched ${matched} fixtures`);
-  }
-
-  // ── Propagate winners into subsequent round slots ────────────────────────
-  // After overlaying results, winners of completed (or bye) matches should
-  // fill the appropriate player slot in the next round's match.
-  // Match IDs follow `m-{round}-{index}`.  Feeder pairing:
-  //   prevRound[i*2] + prevRound[i*2+1]  →  nextRound[i]
-  //   prevRound[i*2] winner  →  nextRound[i].player1
-  //   prevRound[i*2+1] winner →  nextRound[i].player2
+  // ── Round-by-round matching + propagation ──────────────────────────────
+  // CRITICAL FIX: The seed draw only pre-populates R64 slots with bye winners.
+  // R1 match winners are left as null in the raw seed draw because their
+  // results aren't known until the overlay runs. This means R64 matches
+  // have null player names and can't be matched to scraper fixtures.
+  //
+  // Solution: process each round sequentially — match fixtures, overlay
+  // results, then propagate winners into the NEXT round's slots before
+  // attempting to match that round. This ensures every round has both
+  // player names filled in before fixture matching runs.
 
   const rounds = patchedSeedDraw.rounds || [];
-  if (rounds.length > 1) {
-    // Group matches by round, preserving matchOrder within each round
-    const matchesByRound = {};
-    for (const m of updatedMatches) {
-      if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
-      matchesByRound[m.round].push(m);
+
+  // Group matches by round for round-by-round processing
+  const matchesByRound = {};
+  for (const m of updatedMatches) {
+    if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
+    matchesByRound[m.round].push(m);
+  }
+  // Sort each round's matches by matchOrder so feeder indexing works
+  for (const round of rounds) {
+    if (matchesByRound[round]) {
+      matchesByRound[round].sort((a, b) => a.matchOrder - b.matchOrder);
     }
-    // Sort each round's matches by matchOrder so feeder indexing works
-    for (const round of rounds) {
-      if (matchesByRound[round]) {
-        matchesByRound[round].sort((a, b) => a.matchOrder - b.matchOrder);
+  }
+
+  let propagated = 0;
+
+  for (let ri = 0; ri < rounds.length; ri++) {
+    const round = rounds[ri];
+    const roundMatches = matchesByRound[round] || [];
+
+    // ── Step 1: Match fixtures for this round ──────────────────────────
+    for (const match of roundMatches) {
+      if (match.bye) continue;
+      if (!match.player1Name || !match.player2Name) continue; // Still TBD
+
+      const gsFixture = findFixtureMatch(match, lookup, fixtures);
+
+      if (gsFixture) {
+        matched++;
+
+        // Overlay live data
+        if (gsFixture.status && gsFixture.status !== 'scheduled') {
+          match.status = gsFixture.status;
+        }
+        if (gsFixture.winnerId || gsFixture.winnerName) {
+          // Match the scraper winner to our seed draw player IDs.
+          // 3 strategies: exact normalised, fuzzy Levenshtein, surname subset.
+          const winnerNorm = normaliseName(gsFixture.winnerName);
+          const p1Norm = normaliseName(match.player1Name);
+          const p2Norm = normaliseName(match.player2Name);
+          const winnerSP = surnameParts(gsFixture.winnerName);
+          const p1SP = surnameParts(match.player1Name);
+          const p2SP = surnameParts(match.player2Name);
+
+          const p1Match = winnerNorm === p1Norm
+            || levenshteinSimilarity(winnerNorm, p1Norm) > 0.85
+            || surnameSubsetMatch(winnerSP, p1SP);
+          const p2Match = winnerNorm === p2Norm
+            || levenshteinSimilarity(winnerNorm, p2Norm) > 0.85
+            || surnameSubsetMatch(winnerSP, p2SP);
+
+          if (p1Match && !p2Match) {
+            match.winnerId = match.player1Id;
+            match.winnerName = match.player1Name;
+          } else if (p2Match && !p1Match) {
+            match.winnerId = match.player2Id;
+            match.winnerName = match.player2Name;
+          }
+        }
+        if (gsFixture.startTime) {
+          match.startTime = gsFixture.startTime;
+        }
+        if (gsFixture.score) {
+          match.score = gsFixture.score;
+        }
+        if (gsFixture.isWithdrawal) {
+          match.isWithdrawal = true;
+          // Map withdrawn player ID to seed draw ID
+          const withdrawnName = gsFixture.withdrawnPlayerId === gsFixture.player1Id
+            ? gsFixture.player1Name
+            : gsFixture.player2Name;
+          const withdrawnNorm = normaliseName(withdrawnName);
+          const withdrawnSP = surnameParts(withdrawnName);
+          const p1Norm = normaliseName(match.player1Name);
+          const p1SP = surnameParts(match.player1Name);
+          const isP1 = withdrawnNorm === p1Norm
+            || levenshteinSimilarity(withdrawnNorm, p1Norm) > 0.85
+            || surnameSubsetMatch(withdrawnSP, p1SP);
+          match.withdrawnPlayerId = isP1 ? match.player1Id : match.player2Id;
+        }
+      } else {
+        // Count as unmatched if this round's match has both names but no fixture
+        if (match.player1Name && match.player2Name) {
+          unmatched++;
+          unmatchedMatches.push(`${match.player1Name} vs ${match.player2Name} (${match.round})`);
+        }
       }
     }
 
-    let propagated = 0;
-    for (let ri = 0; ri < rounds.length - 1; ri++) {
-      const currentRound = rounds[ri];
+    // ── Step 2: Propagate this round's winners into NEXT round ────────
+    // This fills in player names for the next round BEFORE we try to
+    // match fixtures for it.
+    if (ri < rounds.length - 1) {
       const nextRound = rounds[ri + 1];
-      const currentMatches = matchesByRound[currentRound] || [];
       const nextMatches = matchesByRound[nextRound] || [];
 
       for (let i = 0; i < nextMatches.length; i++) {
-        const feeder1 = currentMatches[i * 2];
-        const feeder2 = currentMatches[i * 2 + 1];
+        const feeder1 = roundMatches[i * 2];
+        const feeder2 = roundMatches[i * 2 + 1];
         const nextMatch = nextMatches[i];
 
         // Feeder 1 winner → nextMatch.player1
@@ -484,10 +487,13 @@ export function overlayFixtures(seedDraw, fixtures) {
         }
       }
     }
+  }
 
-    if (propagated > 0) {
-      console.log(`[seedDrawOverlay] Propagated ${propagated} winner(s) into subsequent round slots`);
-    }
+  if (unmatched > 0) {
+    console.warn(`[seedDrawOverlay] ${matched} matched, ${unmatched} unmatched fixtures:`,
+      unmatchedMatches.slice(0, 10).join(', '));
+  } else if (matched > 0) {
+    console.log(`[seedDrawOverlay] Successfully matched ${matched} fixtures (propagated ${propagated} winners)`);
   }
 
   // Update player elimination status from live results
