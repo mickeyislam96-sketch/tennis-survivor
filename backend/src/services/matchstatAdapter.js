@@ -122,6 +122,58 @@ function lookupPlayerId(playerName) {
   return null;
 }
 
+/**
+ * Search for a player by name via the Matchstat search endpoint.
+ * Used as a fallback when the rankings-based cache misses (qualifiers,
+ * lucky losers, lower-ranked players outside top 200).
+ */
+async function searchPlayerId(playerName) {
+  if (!playerName || !isConfigured()) return null;
+
+  // Check if we already searched and cached this player
+  const key = normaliseName(playerName);
+  if (nameToIdCache.has(key)) return nameToIdCache.get(key);
+
+  try {
+    const surname = playerName.split(' ').pop();
+    const data = await apiFetch(`/atp/player/search/${encodeURIComponent(surname)}`);
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    // Cache all search results for future lookups
+    for (const p of data) {
+      if (p.id && p.name) {
+        nameToIdCache.set(normaliseName(p.name), p.id);
+      }
+    }
+
+    // Now try the lookup again
+    if (nameToIdCache.has(key)) return nameToIdCache.get(key);
+
+    // Fuzzy surname match on search results
+    const normSurname = surname.toLowerCase();
+    for (const p of data) {
+      if (p.name && p.name.toLowerCase().split(' ').pop() === normSurname) {
+        nameToIdCache.set(key, p.id); // cache under original name too
+        return p.id;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.warn(`[matchstat] Search failed for "${playerName}":`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Resolve a player ID: try cache first, then search API as fallback.
+ */
+async function resolvePlayerId(playerName) {
+  const cached = lookupPlayerId(playerName);
+  if (cached) return cached;
+  return searchPlayerId(playerName);
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -130,8 +182,8 @@ function lookupPlayerId(playerName) {
  */
 async function getH2H(player1Name, player2Name) {
   await buildNameCache();
-  const id1 = lookupPlayerId(player1Name);
-  const id2 = lookupPlayerId(player2Name);
+  const id1 = await resolvePlayerId(player1Name);
+  const id2 = await resolvePlayerId(player2Name);
   if (!id1 || !id2) return null;
 
   const info = await apiFetch(`/atp/h2h/info/${id1}/${id2}`);
@@ -155,8 +207,8 @@ async function getH2H(player1Name, player2Name) {
  */
 async function getH2HMatches(player1Name, player2Name) {
   await buildNameCache();
-  const id1 = lookupPlayerId(player1Name);
-  const id2 = lookupPlayerId(player2Name);
+  const id1 = await resolvePlayerId(player1Name);
+  const id2 = await resolvePlayerId(player2Name);
   if (!id1 || !id2) return null;
 
   const matches = await apiFetch(`/atp/h2h/matches/${id1}/${id2}`);
@@ -178,7 +230,7 @@ async function getH2HMatches(player1Name, player2Name) {
  */
 async function getPlayerProfile(playerName) {
   await buildNameCache();
-  const id = lookupPlayerId(playerName);
+  const id = await resolvePlayerId(playerName);
   if (!id) return null;
 
   const profile = await apiFetch(`/atp/player/profile/${id}`);
@@ -206,7 +258,7 @@ async function getPlayerProfile(playerName) {
  */
 async function getPlayerForm(playerName) {
   await buildNameCache();
-  const id = lookupPlayerId(playerName);
+  const id = await resolvePlayerId(playerName);
   if (!id) return null;
 
   const matches = await apiFetch(`/atp/player/past-matches/${id}`);
@@ -229,7 +281,7 @@ async function getPlayerForm(playerName) {
  */
 async function getPlayerSurfaceStats(playerName) {
   await buildNameCache();
-  const id = lookupPlayerId(playerName);
+  const id = await resolvePlayerId(playerName);
   if (!id) return null;
 
   const data = await apiFetch(`/atp/player/surface-summary/${id}`);
@@ -284,6 +336,7 @@ export {
   isConfigured,
   buildNameCache,
   lookupPlayerId,
+  resolvePlayerId,
   getH2H,
   getH2HMatches,
   getPlayerProfile,
