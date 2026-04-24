@@ -1,34 +1,25 @@
 # Memory Index
 
-- [Final Serve-ivor project context](project_tennis_survivor.md) — full stack, infrastructure IDs, key files, design system, live URLs
+- [Final Serve-ivor project context](project_tennis_survivor.md) — infra IDs, live URLs, env vars, repo paths
 - [Git workflow for tennis-survivor](feedback_git_workflow.md) — mnt path has index.lock, use plumbing or /tmp clone
-- [Mickey — user profile](user_mickey.md) — non-technical founder, Mac user, needs plain-language guidance
+- [Mickey — user profile](user_mickey.md) — non-technical founder, Mac user, AI agent team model
 - [Monte Carlo 2026 — complete](project_monte_carlo_activation.md) — Mark won from 11 entrants, lessons for Madrid
 - [No untested emails to prod](feedback_no_untested_email_to_prod.md) — must have dedup tracking table + dry-run before deploying email-sending code
-- [Design decisions + design system](feedback_bracket_design.md) — Direction A "Clean Court" locked; always mockup first; reference file in CTO - TS
-- [Design system — Direction A](project_design_system.md) — tokens, typography, component styles, mobile fixes. 3 commits deployed 12 Apr
+- [Design decisions + design system](feedback_bracket_design.md) — Direction A "Clean Court" locked; always mockup first
 - [Deployment discipline](feedback_deployment_discipline.md) — verify every push: trace code paths, check React rules, confirm deploy before moving on
 - [Risk timing](feedback_risk_timing.md) — don't ship risky refactors during live tournament windows; stability over polish
 - [Pick pool architecture](feedback_pick_pool_architecture.md) — decouple pick pool from bracket propagation; use simple elimination filter
-- [Paid launch decisions](project_paid_launch_decisions.md) — Madrid free, Rome free, RG first paid £10. Stripe deployed. Go-live handoff in CLAUDE.md
-- [Mobile app audit](project_mobile_app_audit.md) — 23 Apr: design system deployed, avatars, R1 lock UI, support form. Gaps: payment, bracket, EAS ID
-- [Mobile design system](project_mobile_design_system.md) — Direction A applied 23 Apr. Fonts bundled locally, expo-asset patch, all 14 screens styled
-- [No push without mockup](feedback_no_push_without_mockup.md) — never push new features to prod without mocking up and verifying full user journey first
+- [Paid launch decisions](project_paid_launch_decisions.md) — Madrid free, Rome free, RG first paid £10. Stripe deployed.
 - [Points game mode](project_points_game_mode.md) — SHELVED. Too niche for casual fans, dilutes survivor simplicity
-- [Payment infrastructure](project_payment_infrastructure.md) — Stripe deployed 14 Apr (test mode). Security hardened. Dormant until paid group created.
-- [Data provider strategy](project_api_replacement.md) — FlashScore scraper sole provider, Goalserve removed 22 Apr, Matchstat for H2H intelligence
-- [FlashScore scraper infrastructure](project_flashscore_scraper.md) — Railway cron service (Playwright headless Chromium), hourly 10-21 UTC, fully server-side
-- [R1 lock mode decision](project_r1_per_match_lock.md) — Madrid uses standard fixed deadline (disabled). Per-match lock code retained for future Grand Slams.
+- [Payment infrastructure](project_payment_infrastructure.md) — Stripe deployed (test mode). Payout strategy via Wise API.
+- [R1 lock mode decision](project_r1_per_match_lock.md) — Madrid uses standard fixed deadline (disabled). Per-match lock retained for future Grand Slams.
 - [Verify both deploys](feedback_verify_both_deploys.md) — Railway can fail silently while Vercel succeeds; always test backend separately
-- [Player avatar headshots](project_player_avatars.md) — Web: sprite sheet. Mobile: individual URLs from /players/. Both: initials fallback. isMockId catches all prefixes
 - [expo-asset patch required](feedback_mobile_expo_asset_patch.md) — must npm install after every pull; postinstall patches RN 0.81 ESM bug
 - [Mobile repo git workflow](feedback_mobile_git_workflow.md) — separate PAT needed, clone to /tmp, web PAT doesn't work for mobile repo
-- [AI agent automation — Phase 1](project_ai_agent_automation.md) — Tournament ops automated 19 Apr. Cron: results/withdrawals/draw/locks. Scraper on Railway cron.
-- [Security hardening — JWT, CSRF, helmet](project_security_hardening.md) — Full audit + hardening 19 Apr. JWT auth, CSRF cookies, helmet headers, admin Bearer tokens, rate limiting.
-- [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments. FlashScore scraper, not Goalserve.
-- [Brevo domain auth + email queue](project_brevo_domain_auth.md) — DNS fully verified (SPF fixed 24 Apr). Queue restored: sendWithDedup queues pending, admin digest for approval
-- [Tournament status pattern](feedback_tournament_status_pattern.md) — always use getTournament(), never raw TOURNAMENTS.find(). Caused 4 pages to break.
+- [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments
+- [Roadmap and launch strategy](roadmap.md) — 3-phase plan, payment processor strategy (Stripe prohibited), payout design
+- [Tournament status pattern](feedback_tournament_status_pattern.md) — always use getTournament(), never raw TOURNAMENTS.find()
 - [Cross-tournament deadlines](feedback_cross_tournament_deadlines.md) — /draw/deadlines is global; don't gate upcoming pools on active tournament's r1LockAt
-- [Seed draw validation](feedback_seed_draw_validation.md) — always cross-reference seed draw JSON against ATP website; Madrid had 8 wrong positions including swapped bracket sections
-- [Draw cache + deadline bugs](feedback_draw_cache_and_deadlines.md) — cache must use stable timestamp; windowOpensOverrides must be read; getDeadlines must detect fixture format
-- [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover']) for match winners
+- [Seed draw validation](feedback_seed_draw_validation.md) — always cross-reference seed draw JSON against ATP website
+- [Draw cache + deadline bugs](feedback_draw_cache_and_deadlines.md) — cache must use stable timestamp; windowOpensOverrides must be read
+- [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover'])
