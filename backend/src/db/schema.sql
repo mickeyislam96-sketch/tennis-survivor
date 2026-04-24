@@ -208,3 +208,21 @@ CREATE TABLE IF NOT EXISTS scraped_results (
 
 CREATE INDEX IF NOT EXISTS idx_scraped_results_round
   ON scraped_results(round);
+
+
+-- ── Tournament scoping: denormalise tournament_id onto picks + emails_sent ──
+-- This prevents cross-tournament contamination bugs where queries forget to
+-- JOIN groups. With tournament_id on the table, scoping is a simple WHERE clause.
+ALTER TABLE picks ADD COLUMN IF NOT EXISTS tournament_id TEXT;
+ALTER TABLE emails_sent ADD COLUMN IF NOT EXISTS tournament_id TEXT;
+
+-- Backfill from groups table (safe to re-run)
+UPDATE picks SET tournament_id = g.tournament_id
+  FROM groups g WHERE g.id = picks.group_id AND picks.tournament_id IS NULL;
+
+UPDATE emails_sent SET tournament_id = g.tournament_id
+  FROM groups g WHERE g.id = emails_sent.group_id AND emails_sent.tournament_id IS NULL;
+
+-- Index for fast tournament-scoped queries
+CREATE INDEX IF NOT EXISTS idx_picks_tournament ON picks(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_emails_sent_tournament ON emails_sent(tournament_id);

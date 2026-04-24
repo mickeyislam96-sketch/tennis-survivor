@@ -35,14 +35,14 @@ export async function processRoundResults(round) {
 
   for (const { winnerId, loserId } of outcomes) {
     const w = await pool.query(
-      `UPDATE picks SET survived = true WHERE round = $1 AND player_id = $2 AND survived IS NULL`,
-      [round, winnerId]
+      `UPDATE picks SET survived = true WHERE round = $1 AND player_id = $2 AND survived IS NULL AND tournament_id = $3`,
+      [round, winnerId, TOURNAMENT.id]
     );
     picksUpdated += w.rowCount;
 
     const l = await pool.query(
-      `UPDATE picks SET survived = false WHERE round = $1 AND player_id = $2 AND survived IS NULL`,
-      [round, loserId]
+      `UPDATE picks SET survived = false WHERE round = $1 AND player_id = $2 AND survived IS NULL AND tournament_id = $3`,
+      [round, loserId, TOURNAMENT.id]
     );
     picksUpdated += l.rowCount;
 
@@ -50,13 +50,15 @@ export async function processRoundResults(round) {
       `UPDATE group_members gm
          SET is_alive = false, eliminated_round = $1
          FROM picks p
+         JOIN groups g ON g.id = p.group_id
         WHERE p.round = $1
           AND p.player_id = $2
           AND p.survived = false
           AND p.user_id = gm.user_id
           AND p.group_id = gm.group_id
-          AND gm.is_alive = true`,
-      [round, loserId]
+          AND gm.is_alive = true
+          AND g.tournament_id = $3`,
+      [round, loserId, TOURNAMENT.id]
     );
     eliminated += e.rowCount;
   }
@@ -99,8 +101,8 @@ export async function autoProcessResults() {
     if (completed.length === 0) continue;
 
     const { rows } = await pool.query(
-      `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL`,
-      [round]
+      `SELECT COUNT(*) FROM picks WHERE round = $1 AND survived IS NULL AND tournament_id = $2`,
+      [round, TOURNAMENT.id]
     );
     if (Number(rows[0].count) === 0) continue;
 

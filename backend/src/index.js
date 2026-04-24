@@ -28,6 +28,7 @@ import { adminRouter } from './routes/admin.js';
 import { supportRouter } from './routes/support.js';
 import { opsRouter } from './routes/ops.js';
 import { matchupRouter } from './routes/matchup.js';
+import { checkTournamentScoping } from './db/tournamentScopeCheck.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -45,6 +46,9 @@ app.get('/ping', (_req, res) => res.json({ ok: true }));
     const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
     await pool.query(schema);
     console.log('Database schema ready.');
+
+    // Verify tournament_id denormalisation is healthy
+    await checkTournamentScoping();
   } catch (err) {
     console.error('Schema init error:', err.message);
   }

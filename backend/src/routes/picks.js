@@ -348,14 +348,15 @@ picksRouter.post('/', async (req, res) => {
         // UPSERT — insert new pick, or update player if they're changing within the open window.
         // The survived field is reset to NULL on change since the round hasn't been graded yet.
         const result = await pool.query(
-          `INSERT INTO picks (group_id, user_id, round, player_id, player_name, survived)
-           VALUES ($1, $2, $3, $4, $5, NULL)
+          `INSERT INTO picks (group_id, user_id, round, player_id, player_name, survived, tournament_id)
+           VALUES ($1, $2, $3, $4, $5, NULL, $6)
            ON CONFLICT (group_id, user_id, round)
            DO UPDATE SET player_id = EXCLUDED.player_id,
                          player_name = EXCLUDED.player_name,
-                         survived = NULL
+                         survived = NULL,
+                         tournament_id = EXCLUDED.tournament_id
            RETURNING id::text, group_id::text, user_id::text, round, player_id, player_name, survived, created_at`,
-          [groupId, userId, round, playerId, resolvedName]
+          [groupId, userId, round, playerId, resolvedName, TOURNAMENT.id]
         );
         return res.status(201).json(rowToPick(result.rows[0]));
       } catch (e) {

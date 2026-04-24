@@ -86,10 +86,10 @@ const FONT_LINK    = '<link href="https://fonts.googleapis.com/css2?family=Fraun
 export async function sendWithDedup({ userId, groupId, round, emailType, to, subject, html }) {
   // Attempt dedup insert — prevents sending the same email twice
   const { rowCount } = await pool.query(
-    `INSERT INTO emails_sent (user_id, group_id, round, email_type, status, subject, recipient_email, recipient_name, metadata)
-     VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8)
+    `INSERT INTO emails_sent (user_id, group_id, round, email_type, status, subject, recipient_email, recipient_name, metadata, tournament_id)
+     VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8, $9)
      ON CONFLICT (user_id, group_id, round, email_type) DO NOTHING`,
-    [userId, groupId, round, emailType, subject, to, null, JSON.stringify({ html })]
+    [userId, groupId, round, emailType, subject, to, null, JSON.stringify({ html }), TOURNAMENT.id]
   );
 
   if (rowCount === 0) {
