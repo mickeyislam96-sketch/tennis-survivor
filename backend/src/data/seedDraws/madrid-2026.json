@@ -21,7 +21,7 @@
     "F": 1
   },
   "generatedAt": "2026-04-20T18:00:00Z",
-  "source": "ATP Official Draw PDF \u2014 Released 2026-04-20 12:23 CET",
+  "source": "ATP Official Draw PDF — Released 2026-04-20 12:23 CET",
   "seeds": [
     {
       "seed": 1,
@@ -239,15 +239,17 @@
     },
     {
       "pos": 3,
-      "name": "Marco Trungelliti",
+      "name": "Benjamin Bonzi",
       "seed": "Q",
-      "country": "ARG"
+      "country": "FRA",
+      "qualifier": true
     },
     {
       "pos": 4,
-      "name": "Daniel Merida Aguilar",
-      "seed": "WC",
-      "country": "ESP"
+      "name": "Titouan Droguet",
+      "seed": "Q",
+      "country": "FRA",
+      "qualifier": true
     },
     {
       "pos": 5,
@@ -440,7 +442,7 @@
     {
       "pos": 35,
       "name": "Dino Prizmic",
-      "seed": "LL",
+      "seed": "Q",
       "country": "CRO"
     },
     {
@@ -640,7 +642,7 @@
     {
       "pos": 67,
       "name": "Patrick Kypson",
-      "seed": "Q",
+      "seed": "LL",
       "country": "USA"
     },
     {
@@ -651,15 +653,17 @@
     },
     {
       "pos": 69,
-      "name": "Benjamin Bonzi",
-      "seed": "Q",
-      "country": "FRA"
+      "name": "Marco Trungelliti",
+      "seed": "LL",
+      "country": "ARG",
+      "qualifier": true
     },
     {
       "pos": 70,
-      "name": "Titouan Droguet",
+      "name": "Daniel Merida Aguilar",
       "seed": "Q",
-      "country": "FRA"
+      "country": "ESP",
+      "qualifier": true
     },
     {
       "pos": 71,
@@ -789,9 +793,10 @@
     },
     {
       "pos": 91,
-      "name": "Botic van de Zandschulp",
-      "seed": null,
-      "country": "NED"
+      "name": "Cristian Garin",
+      "seed": "LL",
+      "country": "CHI",
+      "qualifier": true
     },
     {
       "pos": 92,
@@ -889,9 +894,10 @@
     },
     {
       "pos": 107,
-      "name": "David Vallejo",
-      "seed": "WC",
-      "country": "ESP"
+      "name": "Adolfo Daniel Vallejo",
+      "seed": "Q",
+      "country": "ESP",
+      "qualifier": true
     },
     {
       "pos": 108,
