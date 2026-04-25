@@ -457,9 +457,14 @@ export async function getDeadlines() {
       } else if (WINDOW_OPENS_OVERRIDES[round]) {
         opensAt = WINDOW_OPENS_OVERRIDES[round];
       } else {
-        const prevFirstStart = ROUND_DATES[ROUNDS[i - 1]] ? new Date(ROUND_DATES[ROUNDS[i - 1]]) : null;
-        opensAt = prevFirstStart
-          ? new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString()
+        // Compute previous round's lock time, then add 6 hours
+        const prevRound = ROUNDS[i - 1];
+        const prevFirstStart = ROUND_DATES[prevRound] ? new Date(ROUND_DATES[prevRound]) : null;
+        let prevLockAt = prevFirstStart ? new Date(prevFirstStart.getTime() - 60 * 60 * 1000) : null;
+        if (runtimeLockOverrides[prevRound]) prevLockAt = new Date(runtimeLockOverrides[prevRound]);
+        else if (LOCKTIME_OVERRIDES[prevRound]) prevLockAt = new Date(LOCKTIME_OVERRIDES[prevRound]);
+        opensAt = prevLockAt
+          ? new Date(prevLockAt.getTime() + 6 * 60 * 60 * 1000).toISOString()
           : null;
       }
       const hasOpened = i === 0 || (opensAt && now >= new Date(opensAt));
@@ -536,15 +541,16 @@ export async function getDeadlines() {
     let lockAt     = lockAtDate ? lockAtDate.toISOString() : null;
     let isLocked   = lockAtDate ? now >= lockAtDate : false;
 
-    // Window opens 12h after the first match of the nearest non-empty previous round starts.
-    // Falls back to the known schedule date for that round when the API has no times yet.
+    // Window opens 6h after the previous round's lock time.
+    // Lock time = first match - 1h (or runtime/config override).
     let opensAt = null;
     if (index === 0) {
       opensAt = null; // R1 always open
     } else if (WINDOW_OPENS_OVERRIDES[round]) {
       opensAt = WINDOW_OPENS_OVERRIDES[round];
     } else {
-      let prevFirstStart = null;
+      // Find the nearest non-empty previous round and compute its lock time + 6h
+      let prevLockAt = null;
       for (let pi = index - 1; pi >= 0; pi--) {
         const prevRound = ROUNDS[pi];
         const prevMatches = matchesByRound[prevRound] || [];
@@ -554,11 +560,17 @@ export async function getDeadlines() {
           .sort((a, b) => a - b)[0] || null;
         const fallbackPrevDate = ROUND_DATE_FALLBACK[prevRound]
           ? new Date(ROUND_DATE_FALLBACK[prevRound]) : null;
-        prevFirstStart = apiPrevStart || fallbackPrevDate;
-        if (prevFirstStart) break;
+        const prevFirstStart = apiPrevStart || fallbackPrevDate;
+        if (prevFirstStart) {
+          // Previous round's lock = its first match - 1h, unless overridden
+          prevLockAt = new Date(prevFirstStart.getTime() - 60 * 60 * 1000);
+          if (runtimeLockOverrides[prevRound]) prevLockAt = new Date(runtimeLockOverrides[prevRound]);
+          else if (LOCKTIME_OVERRIDES[prevRound]) prevLockAt = new Date(LOCKTIME_OVERRIDES[prevRound]);
+          break;
+        }
       }
-      if (prevFirstStart) {
-        opensAt = new Date(prevFirstStart.getTime() + 12 * 60 * 60 * 1000).toISOString();
+      if (prevLockAt) {
+        opensAt = new Date(prevLockAt.getTime() + 6 * 60 * 60 * 1000).toISOString();
       }
     }
 
