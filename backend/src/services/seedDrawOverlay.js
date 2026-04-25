@@ -389,6 +389,12 @@ export function overlayFixtures(seedDraw, fixtures) {
 
   let propagated = 0;
 
+  // ── DEBUG: log fixture round distribution ─────────────────────────
+  const fixtureRoundCounts = {};
+  for (const f of fixtures) { fixtureRoundCounts[f.round || 'UNDEFINED'] = (fixtureRoundCounts[f.round || 'UNDEFINED'] || 0) + 1; }
+  console.log(`[seedDrawOverlay] DEBUG: ${fixtures.length} fixtures, rounds: ${JSON.stringify(fixtureRoundCounts)}`);
+  console.log(`[seedDrawOverlay] DEBUG: seed draw rounds: ${JSON.stringify(rounds)}, matches per round: ${JSON.stringify(Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).length])))}`);
+
   for (let ri = 0; ri < rounds.length; ri++) {
     const round = rounds[ri];
     const roundMatches = matchesByRound[round] || [];
@@ -400,6 +406,15 @@ export function overlayFixtures(seedDraw, fixtures) {
     // JM Cerundolo's R64 result was bleeding into F. Cerundolo's R32 match).
     const roundFixtures = fixtures.filter(f => f.round === round);
     const roundLookup = buildFixtureLookup(roundFixtures);
+
+    // DEBUG: log per-round matching details
+    const nonByeWithNames = roundMatches.filter(m => !m.bye && m.player1Name && m.player2Name);
+    if (roundFixtures.length > 0 || nonByeWithNames.length > 0) {
+      console.log(`[seedDrawOverlay] DEBUG ${round}: ${roundFixtures.length} fixtures, ${nonByeWithNames.length} matchable seed draw matches`);
+      if (roundFixtures.length > 0 && nonByeWithNames.length > 0) {
+        console.log(`[seedDrawOverlay] DEBUG ${round} sample fixture: p1="${roundFixtures[0].player1Name}" p2="${roundFixtures[0].player2Name}" | seed match: p1="${nonByeWithNames[0].player1Name}" p2="${nonByeWithNames[0].player2Name}"`);
+      }
+    }
 
     for (const match of roundMatches) {
       if (match.bye) continue;
