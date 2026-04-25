@@ -547,6 +547,18 @@ export function overlayFixtures(seedDraw, fixtures) {
     players: finalPlayers,
     matches: updatedMatches,
     dataSource: `seed_draw+scraper(${matched})`,
+    _debug: {
+      fixtureCount: fixtures.length,
+      fixtureRounds: (() => { const c = {}; for (const f of fixtures) { c[f.round || 'UNDEF'] = (c[f.round || 'UNDEF'] || 0) + 1; } return c; })(),
+      seedDrawRounds: rounds,
+      matchesPerRound: Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).length])),
+      nonByeWithNamesPerRound: Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).filter(m => !m.bye && m.player1Name && m.player2Name).length])),
+      roundFixtureCounts: Object.fromEntries(rounds.map(r => [r, fixtures.filter(f => f.round === r).length])),
+      sampleFixture: fixtures[0] ? { round: fixtures[0].round, p1: fixtures[0].player1Name, p2: fixtures[0].player2Name, roundType: typeof fixtures[0].round } : null,
+      matched,
+      unmatched,
+      propagated,
+    },
     replacements: replacements.length > 0
       ? replacements.map(r => ({ replacement: r.unknownPlayerName, opposedBy: r.knownPlayerName }))
       : undefined,
