@@ -33,42 +33,42 @@ export const RESULTS_URL =
  * 64 matches, "2nd Round" = R2, etc.
  */
 /**
- * FlashScore uses "1/X-finals" notation where X = number of players remaining.
+ * FlashScore round labels → internal round keys for 96-draw Masters 1000.
  *
- * For a 96-draw Masters 1000:
- *   R1  (first round, non-seeds):  32 matches, 64 players → no FlashScore label or "1st Round"
- *   R64 (second round, seeds in):  32 matches, 64 players → "1/64-finals" on FlashScore (confusingly)
- *   R32 (third round):             16 matches, 32 players → "1/32-finals"
- *   R16:                            8 matches, 16 players → "1/16-finals"
- *   QF:                             4 matches,  8 players → "1/8-finals" or "Quarter-finals"
- *   SF:                             2 matches              → "Semi-finals"
- *   F:                              1 match                → "Final"
+ * FlashScore uses 128-draw-style fraction labels regardless of actual draw
+ * size. For a 96-draw (Madrid, Rome, etc.), this shifts the mapping:
  *
- * NOTE: R1 matches sometimes appear WITHOUT a round header on the live page
- * (they sit at the top before any round label). The scraper handles this via
- * defaultRound logic in extractMatches.
+ *   OUR round  │ FlashScore fraction (results page) │ FlashScore ordinal (live page)
+ *   ───────────┼────────────────────────────────────┼────────────────────────────────
+ *   R1         │ "1/64-finals"  (32 non-seed matches)│  (no ordinal — uses DEFAULT_ROUND or no header)
+ *   R64        │ "1/32-finals"  (seeds enter, 32 matches)│ "1st Round"
+ *   R32        │ "1/16-finals"  (16 matches)         │ "2nd Round"
+ *   R16        │ "1/8-finals"   (8 matches)          │ "3rd Round"
+ *   QF         │ "Quarter-finals"                    │ "Quarter-finals"
+ *   SF         │ "Semi-finals"                       │ "Semi-finals"
+ *   F          │ "Final"                             │ "Final"
  *
- * IMPORTANT: "1/64-finals" maps to R64, NOT R1. This is counterintuitive but
- * correct — FlashScore counts remaining players, not round number.
+ * For Grand Slams (128-draw), the fraction labels align 1:1 with our rounds
+ * and this map would need adjusting back.
  */
 export const ROUND_MAP = {
-  // FlashScore's actual labels (as of April 2026)
-  '1/64-finals':      'R64',  // 32 matches, seeds enter (round 2)
-  '1/32-finals':      'R32',  // 16 matches (round 3)
-  '1/16-finals':      'R16',  // 8 matches
-  '1/8-finals':       'QF',   // 4 matches (quarter-finals)
+  // Fraction labels (FlashScore results page)
+  '1/64-finals':      'R1',   // 32 non-seeded matches (preliminary round)
+  '1/32-finals':      'R64',  // Seeds enter, 32 matches
+  '1/16-finals':      'R32',  // 16 matches
+  '1/8-finals':       'R16',  // 8 matches (round of 16)
   'quarter-finals':   'QF',
   'semi-finals':      'SF',
   'final':            'F',
 
-  // Alternative labels (FlashScore sometimes varies by tournament)
-  '1st round':        'R1',
-  'first round':      'R1',
-  '2nd round':        'R64',
-  'second round':     'R64',
-  '3rd round':        'R32',
-  'third round':      'R32',
-  'round of 16':      'R16',
+  // Ordinal labels (FlashScore live page — "1st Round" = seeds' first match)
+  '1st round':        'R64',
+  'first round':      'R64',
+  '2nd round':        'R32',
+  'second round':     'R32',
+  '3rd round':        'R16',
+  'third round':      'R16',
+  'round of 16':      'R16',  // Named round — always R16 regardless of draw size
   'quarter-final':    'QF',
   'quarterfinals':    'QF',
   'semi-final':       'SF',

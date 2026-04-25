@@ -389,11 +389,6 @@ export function overlayFixtures(seedDraw, fixtures) {
 
   let propagated = 0;
 
-  // ── DEBUG: log fixture round distribution ─────────────────────────
-  const fixtureRoundCounts = {};
-  for (const f of fixtures) { fixtureRoundCounts[f.round || 'UNDEFINED'] = (fixtureRoundCounts[f.round || 'UNDEFINED'] || 0) + 1; }
-  console.log(`[seedDrawOverlay] DEBUG: ${fixtures.length} fixtures, rounds: ${JSON.stringify(fixtureRoundCounts)}`);
-  console.log(`[seedDrawOverlay] DEBUG: seed draw rounds: ${JSON.stringify(rounds)}, matches per round: ${JSON.stringify(Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).length])))}`);
 
   for (let ri = 0; ri < rounds.length; ri++) {
     const round = rounds[ri];
@@ -406,15 +401,6 @@ export function overlayFixtures(seedDraw, fixtures) {
     // JM Cerundolo's R64 result was bleeding into F. Cerundolo's R32 match).
     const roundFixtures = fixtures.filter(f => f.round === round);
     const roundLookup = buildFixtureLookup(roundFixtures);
-
-    // DEBUG: log per-round matching details
-    const nonByeWithNames = roundMatches.filter(m => !m.bye && m.player1Name && m.player2Name);
-    if (roundFixtures.length > 0 || nonByeWithNames.length > 0) {
-      console.log(`[seedDrawOverlay] DEBUG ${round}: ${roundFixtures.length} fixtures, ${nonByeWithNames.length} matchable seed draw matches`);
-      if (roundFixtures.length > 0 && nonByeWithNames.length > 0) {
-        console.log(`[seedDrawOverlay] DEBUG ${round} sample fixture: p1="${roundFixtures[0].player1Name}" p2="${roundFixtures[0].player2Name}" | seed match: p1="${nonByeWithNames[0].player1Name}" p2="${nonByeWithNames[0].player2Name}"`);
-      }
-    }
 
     for (const match of roundMatches) {
       if (match.bye) continue;
@@ -547,23 +533,6 @@ export function overlayFixtures(seedDraw, fixtures) {
     players: finalPlayers,
     matches: updatedMatches,
     dataSource: `seed_draw+scraper(${matched})`,
-    _debug: {
-      fixtureCount: fixtures.length,
-      fixtureRounds: (() => { const c = {}; for (const f of fixtures) { c[f.round || 'UNDEF'] = (c[f.round || 'UNDEF'] || 0) + 1; } return c; })(),
-      seedDrawRounds: rounds,
-      matchesPerRound: Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).length])),
-      nonByeWithNamesPerRound: Object.fromEntries(rounds.map(r => [r, (matchesByRound[r] || []).filter(m => !m.bye && m.player1Name && m.player2Name).length])),
-      roundFixtureCounts: Object.fromEntries(rounds.map(r => [r, fixtures.filter(f => f.round === r).length])),
-      sampleFixture: fixtures[0] ? { round: fixtures[0].round, p1: fixtures[0].player1Name, p2: fixtures[0].player2Name, roundType: typeof fixtures[0].round } : null,
-      r1Fixtures: fixtures.filter(f => f.round === 'R1').map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
-      r64FixturesSample: fixtures.filter(f => f.round === 'R64').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
-      r1SeedDrawSample: (() => { const m = (matchesByRound['R1'] || []).filter(m => !m.bye && m.player1Name && m.player2Name); return m.slice(0, 3).map(m => ({ p1: m.player1Name, p2: m.player2Name })); })(),
-      r32FixturesSample: fixtures.filter(f => f.round === 'R32').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
-      r16FixturesSample: fixtures.filter(f => f.round === 'R16').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
-      matched,
-      unmatched,
-      propagated,
-    },
     replacements: replacements.length > 0
       ? replacements.map(r => ({ replacement: r.unknownPlayerName, opposedBy: r.knownPlayerName }))
       : undefined,
