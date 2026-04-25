@@ -558,6 +558,8 @@ export function overlayFixtures(seedDraw, fixtures) {
       r1Fixtures: fixtures.filter(f => f.round === 'R1').map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
       r64FixturesSample: fixtures.filter(f => f.round === 'R64').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
       r1SeedDrawSample: (() => { const m = (matchesByRound['R1'] || []).filter(m => !m.bye && m.player1Name && m.player2Name); return m.slice(0, 3).map(m => ({ p1: m.player1Name, p2: m.player2Name })); })(),
+      r32FixturesSample: fixtures.filter(f => f.round === 'R32').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
+      r16FixturesSample: fixtures.filter(f => f.round === 'R16').slice(0, 5).map(f => ({ p1: f.player1Name, p2: f.player2Name, status: f.status })),
       matched,
       unmatched,
       propagated,
