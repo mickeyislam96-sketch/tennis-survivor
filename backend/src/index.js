@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import { autoProcessResults } from './services/resultsProcessor.js';
 import { checkPickReminders } from './services/emailScheduler.js';
 import { runOpsChecks } from './services/opsMonitor.js';
+import { remapRoundLabelsIfNeeded } from "./services/scraperCache.js";
 
 
 import express from 'express';
@@ -151,4 +152,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Final Serve-ivor API running on 0.0.0.0:${PORT}`);
 
   // Queue system removed 21 Apr 2026. Old pending emails flushed in commit 7d31b4c.
+
+  // ONE-TIME: remap old round labels in scraper cache (remove after Madrid 2026)
+  try { await remapRoundLabelsIfNeeded(); } catch (e) { console.error("[startup] remap failed:", e.message); }
 });

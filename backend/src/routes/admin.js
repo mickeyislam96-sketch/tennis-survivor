@@ -17,7 +17,7 @@ import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRunt
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
 import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendPendingEmailById, rejectPendingEmailById, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
-import { setScrapedResults, getScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
+import { setScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
 
 export const adminRouter = Router();
 
@@ -776,31 +776,4 @@ adminRouter.post('/scrape-results', async (req, res) => {
 adminRouter.get('/scraper-status', (req, res) => {
   if (!checkSecret(req, res)) return;
   res.json({ ok: true, ...getScraperCacheStatus() });
-});
-
-// ── POST /api/admin/remap-rounds (TEMPORARY — remove after scraper re-runs) ──
-// One-shot fix: remap cached fixture round labels from 128-draw convention to
-// 96-draw convention. Only needed because the scraper produced data with the
-// old ROUND_MAP before the fix was deployed.
-adminRouter.post("/remap-rounds", async (req, res) => {
-  if (!checkSecret(req, res)) return;
-  try {
-    const fixtures = await getScrapedResults();
-    if (!fixtures || fixtures.length === 0) {
-      return res.status(404).json({ error: "No fixtures in cache" });
-    }
-    const REMAP = { R1: "R64", R64: "R1", R32: "R64", R16: "R32" };
-    let changed = 0;
-    const remapped = fixtures.map(f => {
-      const newRound = REMAP[f.round];
-      if (newRound) { changed++; return { ...f, round: newRound }; }
-      return f;
-    });
-    const roundCounts = {};
-    for (const f of remapped) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
-    await setScrapedResults(remapped, new Date().toISOString());
-    res.json({ ok: true, changed, total: remapped.length, newRounds: roundCounts });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });

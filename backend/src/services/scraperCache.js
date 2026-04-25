@@ -211,3 +211,47 @@ export function invalidateScraperCache() {
 export function getScraperFetchedAt() {
   return scraperCache.fetchedAt;
 }
+
+
+/**
+ * ONE-TIME FIX: Remap round labels from old 128-draw convention to correct
+ * 96-draw convention. Runs once on startup. Safe to call multiple times —
+ * checks if remap is needed by looking for seed players in R1 fixtures.
+ * REMOVE THIS after Madrid 2026 completes.
+ */
+export async function remapRoundLabelsIfNeeded() {
+  const fixtures = await getScrapedResults();
+  if (!fixtures || fixtures.length === 0) return;
+
+  // Detect if remap is needed: in the OLD (wrong) mapping, "R1" fixtures
+  // contain seed matches (e.g. Zverev, Medvedev). In the CORRECT mapping,
+  // R1 fixtures are non-seed preliminary matches. If we see fewer than 20
+  // R1 fixtures AND more than 20 R64 fixtures, the labels are probably wrong.
+  const r1Count = fixtures.filter(f => f.round === 'R1').length;
+  const r64Count = fixtures.filter(f => f.round === 'R64').length;
+  const r32Count = fixtures.filter(f => f.round === 'R32').length;
+
+  // Old mapping: R1 ~10, R64 ~32, R32 ~22, R16 ~11
+  // Correct:     R1 ~32, R64 ~32, R32 ~11-16
+  // If R1 < 20 and R64 >= 30, the data needs remapping
+  if (r1Count >= 20 || r64Count < 25) {
+    console.log('[scraperCache] Round labels look correct — no remap needed ' +
+      `(R1: ${r1Count}, R64: ${r64Count}, R32: ${r32Count})`);
+    return;
+  }
+
+  console.log('[scraperCache] Detected old round labels — remapping for 96-draw...');
+  const REMAP = { R1: 'R64', R64: 'R1', R32: 'R64', R16: 'R32' };
+  let changed = 0;
+  const remapped = fixtures.map(f => {
+    const newRound = REMAP[f.round];
+    if (newRound) { changed++; return { ...f, round: newRound }; }
+    return f;
+  });
+
+  const roundCounts = {};
+  for (const f of remapped) { roundCounts[f.round] = (roundCounts[f.round] || 0) + 1; }
+  console.log('[scraperCache] Remapped ' + changed + ' fixtures. New rounds: ' + JSON.stringify(roundCounts));
+
+  await setScrapedResults(remapped, new Date().toISOString());
+}
