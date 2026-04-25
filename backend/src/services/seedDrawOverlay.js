@@ -354,7 +354,6 @@ export function overlayFixtures(seedDraw, fixtures) {
     return patched;
   });
 
-  const lookup = buildFixtureLookup(fixtures);
   let matched = 0;
   let unmatched = 0;
   const unmatchedMatches = [];
@@ -395,11 +394,18 @@ export function overlayFixtures(seedDraw, fixtures) {
     const roundMatches = matchesByRound[round] || [];
 
     // ── Step 1: Match fixtures for this round ──────────────────────────
+    // CRITICAL: Only match against fixtures from the SAME round.
+    // Without this filter, surname-subset matching (Pass 3) can confuse
+    // players with shared surnames across rounds (e.g. Cerundolo brothers:
+    // JM Cerundolo's R64 result was bleeding into F. Cerundolo's R32 match).
+    const roundFixtures = fixtures.filter(f => f.round === round);
+    const roundLookup = buildFixtureLookup(roundFixtures);
+
     for (const match of roundMatches) {
       if (match.bye) continue;
       if (!match.player1Name || !match.player2Name) continue; // Still TBD
 
-      const gsFixture = findFixtureMatch(match, lookup, fixtures);
+      const gsFixture = findFixtureMatch(match, roundLookup, roundFixtures);
 
       if (gsFixture) {
         matched++;
