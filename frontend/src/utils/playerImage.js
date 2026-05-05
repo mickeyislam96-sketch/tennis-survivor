@@ -19,10 +19,15 @@ export function avatarColour(name) {
 
 /**
  * First + Last initials from a name string.
- * "Carlos Alcaraz" → "CA", "Novak" → "N"
+ * Handles both "Carlos Alcaraz" → "CA" and "Alcaraz, Carlos" → "AC"
  */
 export function initials(name) {
-  return (name || '?')
+  if (!name) return '?';
+  // Handle "Surname, Firstname" format
+  const normalised = name.includes(', ')
+    ? name.split(', ').reverse().join(' ')
+    : name;
+  return normalised
     .split(' ')
     .map((w) => w[0] || '')
     .join('')
@@ -47,10 +52,16 @@ export function shortName(name) {
 /**
  * Build a slug from a player name for image filename lookup.
  * "Carlos Alcaraz" → "carlos-alcaraz"
+ * "Alcaraz, Carlos" → "carlos-alcaraz"  (handles seed draw format)
  * Strips accents so "Holger Rune" and accented variants both resolve.
  */
 export function nameSlug(name) {
-  return (name || '')
+  if (!name) return '';
+  // Handle "Surname, Firstname" format — headshots are stored firstname-lastname
+  const normalised = name.includes(', ')
+    ? name.split(', ').reverse().join(' ')
+    : name;
+  return normalised
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')   // strip accents
     .toLowerCase()
@@ -59,19 +70,20 @@ export function nameSlug(name) {
 }
 
 /**
- * Is this a real data-provider ID or a mock placeholder?
- * Mock IDs look like "p1", "p27", "mc-p5", etc.
+ * Is this a synthetic draw ID (not a real data-provider ID)?
+ * Catches: p3, mc-p5, rome-p3, rome-s1, madrid-p7, rg-q2, etc.
+ * These IDs have no matching headshot file — skip straight to name slug.
  */
 function isMockId(id) {
-  return !id || /^(mc-)?p\d+$/i.test(id);
+  return !id || /^([a-z]+-)?[ps]\d+$/i.test(id);
 }
 
 /**
  * Returns an ordered list of image URLs to try for a player.
  *
  * Resolution order:
- * 1. Player ID  → /players/{id}.jpg  (skipped for mock IDs)
- * 2. Name slug fallback   → /players/{slug}.jpg
+ * 1. Real data-provider ID → /players/{id}.jpg  (skipped for synthetic IDs)
+ * 2. Name slug fallback    → /players/{slug}.jpg
  *
  * PlayerAvatar walks this list: try the first URL, on 404 try the next,
  * then fall back to initials.

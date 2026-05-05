@@ -346,8 +346,16 @@ export function Layout({ children }) {
       .then(pools => {
         if (cancelled) return;
         const mine = (pools || []).filter(p => p.isMember);
-        if (mine.length === 1) setMyPool({ id: mine[0].id, name: mine[0].name });
-        else if (mine.length > 1) setMyPool({ id: null, name: 'My Pools' });
+        // Prefer active tournament pool — completed pools (e.g. Madrid) shouldn't
+        // override the current active one in the nav pill.
+        const activeMine = mine.filter(p => p.tournament?.status === 'active');
+        const upcomingMine = mine.filter(p => p.tournament?.status === 'upcoming');
+        const preferred = activeMine.length > 0 ? activeMine
+          : upcomingMine.length > 0 ? upcomingMine
+          : mine;
+        if (preferred.length === 1) setMyPool({ id: preferred[0].id, name: preferred[0].name });
+        else if (preferred.length > 1) setMyPool({ id: preferred[0].id, name: preferred[0].name });
+        else if (mine.length > 0) setMyPool({ id: mine[0].id, name: mine[0].name });
         else setMyPool(null);
       })
       .catch(() => {});
