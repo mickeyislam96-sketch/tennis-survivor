@@ -1,13 +1,13 @@
 ---
 name: Paid tournament launch decisions
-description: Three-phase roadmap — Madrid (free), Rome (free), Roland Garros (first paid, £10). Revolut Business bridge, We Tranxact long-term.
+description: Three-phase roadmap — Madrid (free, complete), Rome (free, active), Roland Garros (first paid, £10). Revolut Business bridge, We Tranxact long-term.
 type: project
 originSessionId: bd42fd4c-21d9-46f8-ad10-aca3317a9571
 ---
 **Revised plan (15 Apr 2026):**
 
-Phase 1: **Madrid** (22 Apr - 3 May) — free, web + mobile, final trial
-Phase 2: **Rome** (5-17 May) — free, open for entries since 23 Apr, real DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`
+Phase 1: **Madrid** (22 Apr - ~4 May) — free, COMPLETE
+Phase 2: **Rome** (5-17 May) — free, ACTIVE, R1 in progress, DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`
 Phase 3: **Roland Garros** (18 May - 7 Jun) — FIRST PAID, £10 entry
 
 **Payment approach changed:** Stripe rejected (gambling flag). QuadraPay also rejected. Now using **Revolut Business** as bridge solution (payment links, admin verification). We Tranxact for long-term automated payments.
