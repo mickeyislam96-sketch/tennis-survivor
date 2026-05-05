@@ -777,3 +777,22 @@ adminRouter.get('/scraper-status', (req, res) => {
   if (!checkSecret(req, res)) return;
   res.json({ ok: true, ...getScraperCacheStatus() });
 });
+
+// ── POST /api/admin/reset-member ─────────────────────────────────────────────
+// Reset a member's elimination status (e.g. stale data from previous tournament).
+// Body: { secret, groupId, userId }
+adminRouter.post('/reset-member', async (req, res) => {
+  if (!checkSecret(req, res)) return;
+  const { groupId, userId } = req.body;
+  if (!groupId || !userId) return res.status(400).json({ error: 'groupId and userId are required' });
+  try {
+    const result = await pool.query(
+      `UPDATE group_members SET is_alive = true, eliminated_round = NULL WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
+    res.json({ ok: true, rowsUpdated: result.rowCount, groupId, userId });
+  } catch (err) {
+    console.error('[admin] reset-member error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
