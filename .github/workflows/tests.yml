@@ -1,0 +1,83 @@
+# Run backend tests on every push to main and every PR.
+# Failure here surfaces a red badge on the commit, so regressions in
+# /api/health, the invite round-trip, picks-available, or anything covered
+# by the integration suite can't slip through silently — even when the push
+# came from a Cowork session that bypassed any local pre-push hook.
+#
+# Two jobs:
+#   1. smoke      — black-box tests against the live production API
+#   2. integration — DB-backed mutation tests against a Postgres service container
+name: Backend tests
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    name: Smoke (against production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Run smoke tests against production
+        working-directory: backend
+        run: npm run test:smoke
+        env:
+          # Pin to production by default. Override via repo secret SMOKE_API
+          # once a staging environment exists.
+          SMOKE_API: ${{ secrets.SMOKE_API || 'https://tennis-survivor-production.up.railway.app' }}
+
+      - name: Run validator on rome-2026
+        run: node scripts/validate-tournament.mjs rome-2026
+
+  integration:
+    name: Integration (DB-backed)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: fsv_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Run integration tests
+        working-directory: backend
+        env:
+          TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/fsv_test
+          NODE_ENV: test
+          ADMIN_SECRET: ci-test-admin-secret
+          JWT_SECRET: ci-test-jwt-secret
+        run: npx vitest run tests/integration
