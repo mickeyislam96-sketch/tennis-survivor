@@ -4,6 +4,23 @@
 
 ---
 
+## Tournament transition prompts
+
+When transitioning from one tournament to the next, paste one of these
+into the new Cowork task as the opening message:
+
+- **Free tournament** (no entry fee): `docs/transition-prompt.md`
+- **Paid tournament** (entry fee, e.g. Roland Garros 2026 onwards):
+  `docs/paid-transition-prompt.md`
+
+Both are standalone — Claude reads the file and follows the phases.
+The paid version is a superset that adds Stripe/Revolut/processor
+checks, payment endpoint smoke, real test purchase, and previous-
+tournament settlement steps. Use whichever matches the new pool's
+`isPaid` flag.
+
+---
+
 ## What the product is
 
 **Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Madrid 2026 is complete. **Rome 2026** is now active (started 6 May, free entry, R1 picks open).
