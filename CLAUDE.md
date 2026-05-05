@@ -1,12 +1,12 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 24 April 2026 (session 32). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 5 May 2026 (session 33). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
 ## What the product is
 
-**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Next tournament: **Madrid 2026** (starts 22 Apr, free entry, draw 19 Apr).
+**Final Serve-ivor** is a tennis survivor fantasy game. Players join groups, pick one player per round, and are eliminated if their pick loses. Last survivor wins the prize pool. Built around major ATP draws. Monte Carlo 2026 is complete (Mark won, 11 entrants). Madrid 2026 is complete. **Rome 2026** is now active (started 6 May, free entry, R1 picks open).
 
 ---
 
@@ -415,25 +415,30 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 
 ---
 
-## Current tournament state (as of 19 April 2026)
+## Current tournament state (as of 5 May 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
 - Real DB group: `2d0d1477-0761-49c8-aaf7-d54ad466062f`
-- Winner detection: backend `leaderboard.js` sets `isWinner` on longest-surviving member(s), even if all eliminated
-- GroupHome completed view: fetches leaderboard API for `isWinner` flag, shows winner banner
-- Leaderboard: winner row has gold highlight, trophy emoji, "Winner" status (not greyed out)
-- Lessons: see memory `project_monte_carlo_activation.md`
 
-### Madrid 2026 (ACTIVE — R64 in progress)
+### Madrid 2026 (COMPLETE)
 - Tournament: Mutua Madrid Open 2026
-- Status: `active` — R1 complete, R64 in progress as of 24 Apr
-- Entry: Free (second free tournament before Roland Garros paid launch)
-- R1 model: Standard fixed deadline (per-match lock disabled)
+- Result: Rafa won (6 members, all eliminated)
 - Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
-- Data source: FlashScore scraper (Railway cron service, hourly). Goalserve removed from codebase 22 Apr.
-- Active tournament config: `backend/src/config/activeTournament.js` (`ACTIVE_TOURNAMENT=madrid-2026`)
+- Entry: Free. R1 model: standard fixed deadline.
+
+### Rome 2026 (ACTIVE — R1 pick window open)
+- Tournament: Internazionali BNL d'Italia 2026
+- Status: `active` — R1 starts 6 May, pick window open until 09:00 UTC 6 May
+- Entry: Free (third free tournament before Roland Garros paid launch)
+- R1 model: Standard fixed deadline (`r1PerMatchLock: false`)
+- Real DB group: `de81ed56-6c30-483a-9d38-3c48201ab42e`
+- Invite code: `ROME-2026-POOL-bxxhnp`
+- Data source: FlashScore scraper (Railway cron service, hourly). Scraper env vars updated for Rome.
+- Active tournament config: `backend/src/config/activeTournament.js` (`ACTIVE_TOURNAMENT=rome-2026`)
 - Scraper service: Railway service ID `012860d6-07a0-48f1-8818-ccc4625188a0`
+- Seed draw: `backend/src/data/seedDraws/rome-2026.json` (128 positions, official ATP draw 05/05/2026)
+- Player headshots: 49/52 R1 players have photos; Cadenasso + Cina too low-ranked (show initials)
 
 ### Email design system (aligned 19 Apr)
 All 7 transactional email templates + admin digest in `backend/src/utils/email.js`. Fully aligned to live site design:
@@ -457,15 +462,15 @@ Full-stack polish across 7 commits. **Key changes:**
 ### Outstanding actions (priority order)
 1. ~~Activate Goalserve trial~~ DONE 19 Apr — replaced by FlashScore scraper 22 Apr
 2. ~~Implement Goalserve adapter~~ DONE 19 Apr — Goalserve removed from codebase 22 Apr
-3. ~~Test data against live data~~ DONE — FlashScore scraper running on Railway, Madrid R64 in progress
-4. **Set lock time overrides per round** — update `activeTournament.js` with actual first match times minus 1 hour as each round's order of play is announced
-5. **Update DEFAULT_ROUND env var per round** — Railway scraper service env var, must change as tournament progresses (currently R64)
-6. **Verify micro-interactions on live site** — 8 CSS improvements deployed, need visual check
-7. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
-8. ~~Pre-Madrid: SPF/DKIM for Brevo~~ DONE 24 Apr — SPF record fixed, all DNS verified
-9. **Pre-Madrid: Mobile app sync** — R1 per-match lock UI changes need reflecting in React Native app
-10. **Post-Madrid: EAS Project ID** — set before App Store submission
-11. **Post-Madrid: App Store submission** — TestFlight, screenshots, metadata
+3. ~~Test data against live data~~ DONE — FlashScore scraper running on Railway
+4. ~~Pre-Madrid: SPF/DKIM for Brevo~~ DONE 24 Apr — SPF record fixed, all DNS verified
+5. **Update lock time overrides per round (Rome)** — update `activeTournament.js` R64 through F lock times once each round's order of play is announced (current values are estimates)
+6. **Update DEFAULT_ROUND env var per round (Rome)** — Railway scraper service, change R1 → R64 → R32 etc. as tournament progresses
+7. **Verify scraper is posting Rome data** — match start times currently null; will populate once scraper cron runs against Rome FlashScore URL
+8. **Payment infrastructure for Roland Garros** — Revolut Business bridge plan. Mickey needs to register UK Ltd, open Revolut Business account before RG launch (18 May)
+9. **Modal exit animation JS trigger** — CSS deployed in `micro-interactions.css` but needs JS change in `Layout.jsx` to add `.ds-modal--closing` class before removing modal from DOM
+10. **Mobile app sync** — Rome activation not yet reflected in React Native app
+11. **EAS Project ID + App Store submission** — set before TestFlight/App Store
 
 ### Opponent matchup feature (3 Apr, mobile parity 9 Apr)
 Pick screen now shows opponent info below each player name. Three states:
@@ -518,6 +523,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 | 24 Apr 2026 (session 31) | **Context integrity overhaul.** (1) Updated session-end protocol in CLAUDE.md from 4 steps to 6 — added mandatory stale content audit (step 3) and push verification (step 6). (2) Added "Verification rule (CRITICAL)" section — never trust memory files as source of truth; always verify against actual codebase. (3) Fixed 4 memory files with wrong scraper info (claimed Cowork scheduled task on Mickey's Mac; actually Railway cron service with Playwright). (4) Aggressive memory trim: deleted 10 code-describing files, reduced from 35 to 23 entries. Only decisions, gotchas, preferences, and external references remain. (5) Updated GitHub PAT (old one expired). |
 | 24 Apr 2026 (session 32) | **Email approval fix.** `checkSecret()` in `admin.js` had been hardened to reject query-param secrets ("leaked in logs/history"), but the admin digest email sends one-click approval links as `GET /approve-emails?secret=X`. Result: every approval link returned 401. Fix: re-added `req.query.secret` as fallback option 3 in `checkSecret()`. Deployed commit `bc94ce9`. Verified working — returns HTML preview page with pending emails. |
 
+| 5 May 2026 (session 33) | **Rome 2026 activation + site audit.** (1) Full site audit to ensure Rome is prioritised over Madrid across all user-facing surfaces. (2) Fixed My Pools golden nav pill showing Madrid (completed) instead of Rome (active) — updated `Layout.jsx` to prefer active tournament, then upcoming, then any. (3) Fixed player headshots not loading for Rome players — two root causes: `isMockId()` regex didn't match `rome-p3` style IDs (fixed to `/^([a-z]+-)?[ps]\d+$/i`); seed draw stores "Surname, Firstname" but headshots stored as `firstname-lastname.jpg` (fixed `nameSlug()` and `initials()` to handle comma format). Both fixes in commit `37ef883`. (4) Fixed Shevchenko name mismatch in `rome-2026.json` ("Aleksandr" → "Alexander" to match headshot file) — commit `76f0c41449`. (5) Fixed stale Madrid elimination data on Rafa's account in Rome group — `group_members.is_alive = false, eliminated_round = R64` from Madrid was persisting because 0-picks fallback reads DB column; added `POST /api/admin/reset-member` endpoint and called it to restore Rafa, commit `d175b24`. (6) Verified Rome fully activated: health endpoint confirms `tournament: rome-2026`, 52 R1 players with correct opponent pairings, pick window open, group ID `de81ed56-6c30-483a-9d38-3c48201ab42e`. (7) Created reusable tournament transition prompt (9-step checklist for deprioritising old tournament and activating new one). |
 ---
 
 ## Verification rule (CRITICAL)
