@@ -6,7 +6,10 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "db:init": "node src/db/init.js",
-    "find-indian-wells": "node scripts/find-indian-wells.js"
+    "find-indian-wells": "node scripts/find-indian-wells.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "vitest run tests/smoke"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -27,5 +30,8 @@
     "pg": "^8.11.3",
     "stripe": "^22.0.1",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
   }
 }
