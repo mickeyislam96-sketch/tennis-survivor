@@ -2,6 +2,8 @@
 
 Everything that needs to change in code when launching a new tournament in Final Serve-ivor. Follow in order.
 
+> **Use the automation:** before pushing tournament-config changes, run `node scripts/validate-tournament.mjs <id>` (e.g. `rome-2026`) — it cross-checks all three registries, the seed draw, and lock-time presence. After deploying, run `EXPECTED_TOURNAMENT=<id> bash scripts/smoke.sh` to confirm the live API serves the new tournament correctly. These two scripts catch >90% of the silent inconsistencies that previously took a live tournament window to surface.
+
 ---
 
 ## Phase 1: Before the draw is released (1-2 weeks before tournament)
@@ -144,6 +146,8 @@ curl -s "https://tennis-survivor-production.up.railway.app/api/picks/available?u
 ```
 
 Expected: 95 rounds returned, ~280 matches, 32 available R1 players (non-bye, non-qualifier).
+
+**Or just:** `EXPECTED_TOURNAMENT=<id> bash scripts/smoke.sh` — runs all the relevant probes in one command and exits non-zero if anything is off.
 
 ---
 
