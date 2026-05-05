@@ -52,9 +52,9 @@ export const TOURNAMENTS = [
     surface: 'Clay',
     status: 'upcoming',
     drawDate: '2026-05-03',
-    drawAvailable: false,
+    drawAvailable: true,
     entryOpen: true,
-    r1PerMatchLock: true,
+    r1PerMatchLock: false,
     bracketWidget: null,
   },
   {

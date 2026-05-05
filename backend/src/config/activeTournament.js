@@ -8,10 +8,74 @@
  * Usage: import { TOURNAMENT } from '../config/activeTournament.js';
  */
 
-const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || 'madrid-2026';
+const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || 'rome-2026';
 
 // ── Tournament configs ───────────────────────────────────────────────────────
 const TOURNAMENTS = {
+  'rome-2026': {
+    id: 'rome-2026',
+    name: 'Internazionali BNL d\'Italia',
+    shortName: 'Rome',
+    year: 2026,
+    tourLevel: 'ATP Masters 1000',
+    startDate: '2026-05-06',
+    endDate: '2026-05-17',
+    surface: 'Clay (outdoor)',
+    drawSize: 96,
+    seedsWithByes: 32,
+
+    // Round structure (96-draw Masters 1000)
+    rounds: ['R1', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+    matchesPerRound: { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
+
+    // R1 lock mode: false = standard fixed deadline (same as all other rounds).
+    // Per-match lock is disabled — fixed deadline is simpler and doesn't require
+    // push notifications to work well.
+    r1PerMatchLock: false,
+
+    // Lock time overrides (1h before first match of each round).
+    // ⚠️  UPDATE THESE once the order of play is confirmed for each round.
+    // Rome matches typically start 10:00–11:00 local (08:00–09:00 UTC, CEST = UTC+2).
+    // These are conservative estimates based on the official tournament schedule.
+    lockTimeOverrides: {
+      R1:  '2026-05-06T08:00:00Z',  // Wed 6 May — 10:00 Rome / 09:00 UK
+      R64: '2026-05-08T08:00:00Z',  // Fri 8 May — UPDATE once OOP confirmed
+      R32: '2026-05-10T08:00:00Z',  // Sun 10 May — UPDATE once OOP confirmed
+      R16: '2026-05-12T08:00:00Z',  // Tue 12 May — UPDATE once OOP confirmed
+      QF:  '2026-05-13T08:00:00Z',  // Wed 13 May — UPDATE once OOP confirmed
+      SF:  '2026-05-15T08:00:00Z',  // Fri 15 May — UPDATE once OOP confirmed
+      F:   '2026-05-17T11:00:00Z',  // Sun 17 May — final ~13:00 local / 11:00 UTC
+    },
+
+    // Window open overrides — when the pick window opens for each round.
+    // Rule: open the evening the previous round's last matches are played.
+    windowOpensOverrides: {
+      // R1: opens immediately when draw is released (no override needed)
+      R64: '2026-05-07T17:00:00Z',  // Thu 7 May 6pm UK — R1 day 2 evening
+      R32: '2026-05-09T17:00:00Z',  // Sat 9 May 6pm UK — R64 day 2 evening
+      R16: '2026-05-11T17:00:00Z',  // Mon 11 May 6pm UK — R32 day 2 evening
+      QF:  '2026-05-12T17:00:00Z',  // Tue 12 May 6pm UK — R16 evening
+      SF:  '2026-05-13T17:00:00Z',  // Wed 13 May 6pm UK — QF day 1 evening
+      F:   '2026-05-15T17:00:00Z',  // Fri 15 May 6pm UK — SF evening
+    },
+
+    // Fallback round dates (used when live API has no start times).
+    // Source: official Internazionali BNL d'Italia 2026 schedule.
+    roundDateFallbacks: {
+      R1:  '2026-05-06T09:00:00Z',  // Wed 6 May + Thu 7 May
+      R64: '2026-05-08T09:00:00Z',  // Fri 8 May + Sat 9 May
+      R32: '2026-05-10T09:00:00Z',  // Sun 10 May + Mon 11 May
+      R16: '2026-05-12T09:00:00Z',  // Tue 12 May
+      QF:  '2026-05-13T09:00:00Z',  // Wed 13 May + Thu 14 May
+      SF:  '2026-05-15T09:00:00Z',  // Fri 15 May + Sat 16 May
+      F:   '2026-05-17T11:00:00Z',  // Sun 17 May (final ~13:00 local)
+    },
+
+    // API provider config
+    apiTennisTournamentKey: null,
+    apiSeason: null,
+  },
+
   'madrid-2026': {
     id: 'madrid-2026',
     name: 'Mutua Madrid Open',
@@ -24,61 +88,42 @@ const TOURNAMENTS = {
     drawSize: 96,
     seedsWithByes: 32,
 
-    // Round structure (96-draw Masters 1000)
     rounds: ['R1', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
     matchesPerRound: { R1: 32, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
 
-    // R1 lock mode: false = standard fixed deadline (like all other rounds).
-    // true = per-match lock (players removed as their match starts).
-    // Standard deadline is simpler for users and works without push notifications.
-    // Per-match lock may be revisited when mobile app has push notifications.
     r1PerMatchLock: false,
 
-    // Lock time overrides (1h before first match of each round).
-    // These are PLACEHOLDER estimates from the official tournament schedule.
-    // The scraper should flag when actual order-of-play times differ, but
-    // must NOT auto-override these without admin confirmation.
-    // Madrid matches typically start at 11:00 local (09:00 UTC).
     lockTimeOverrides: {
-      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr 10am UK — LOCKED (R1 complete)
-      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr 10am UK — 1h before first R64 match
-      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr 10am UK — 1h before first R32 match
-      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr 10am UK
-      QF:  '2026-04-29T09:00:00Z',  // Wed 29 Apr 10am UK
-      SF:  '2026-05-01T09:00:00Z',  // Fri 1 May 10am UK
-      F:   '2026-05-03T15:00:00Z',  // Sun 3 May 4pm UK (final not before 5pm local)
+      R1:  '2026-04-22T09:00:00Z',
+      R64: '2026-04-24T09:00:00Z',
+      R32: '2026-04-26T09:00:00Z',
+      R16: '2026-04-28T09:00:00Z',
+      QF:  '2026-04-29T09:00:00Z',
+      SF:  '2026-05-01T09:00:00Z',
+      F:   '2026-05-03T15:00:00Z',
     },
 
-    // Window open overrides — when the pick window opens for each round.
-    // Default logic: 12h after first match of previous round. But that's
-    // often too late (e.g. R1 finishes in one day, R64 should open same evening).
-    // These overrides ensure windows open at sensible times.
-    // Rule: open the evening the previous round's last matches are played.
     windowOpensOverrides: {
-      // R1: opens immediately when draw is released (no override needed)
-      R64: '2026-04-23T13:00:00Z',  // Wed 23 Apr 2pm UK — R1 day 2, most R1 done
-      R32: '2026-04-25T17:00:00Z',  // Fri 25 Apr 6pm UK — R64 day 2 evening
-      R16: '2026-04-27T17:00:00Z',  // Sun 27 Apr 6pm UK — R32 day 2 evening
-      QF:  '2026-04-28T17:00:00Z',  // Mon 28 Apr 6pm UK — R16 evening
-      SF:  '2026-04-30T17:00:00Z',  // Wed 30 Apr 6pm UK — QF day 2 evening
-      F:   '2026-05-01T17:00:00Z',  // Thu 1 May 6pm UK — SF evening
+      R64: '2026-04-23T13:00:00Z',
+      R32: '2026-04-25T17:00:00Z',
+      R16: '2026-04-27T17:00:00Z',
+      QF:  '2026-04-28T17:00:00Z',
+      SF:  '2026-04-30T17:00:00Z',
+      F:   '2026-05-01T17:00:00Z',
     },
 
-    // Fallback round dates (used when live API has no start times).
-    // Source: official Madrid Open 2026 schedule (tenngrand.com, atptour.com).
     roundDateFallbacks: {
-      R1:  '2026-04-22T09:00:00Z',  // Wed 22 Apr + Thu 23 Apr
-      R64: '2026-04-24T09:00:00Z',  // Fri 24 Apr + Sat 25 Apr
-      R32: '2026-04-26T09:00:00Z',  // Sun 26 Apr + Mon 27 Apr
-      R16: '2026-04-28T09:00:00Z',  // Tue 28 Apr
-      QF:  '2026-04-29T09:00:00Z',  // Wed 29 Apr + Thu 30 Apr
-      SF:  '2026-05-01T09:00:00Z',  // Fri 1 May
-      F:   '2026-05-03T15:00:00Z',  // Sun 3 May (not before 5pm local = 3pm UTC)
+      R1:  '2026-04-22T09:00:00Z',
+      R64: '2026-04-24T09:00:00Z',
+      R32: '2026-04-26T09:00:00Z',
+      R16: '2026-04-28T09:00:00Z',
+      QF:  '2026-04-29T09:00:00Z',
+      SF:  '2026-05-01T09:00:00Z',
+      F:   '2026-05-03T15:00:00Z',
     },
 
-    // API provider config
-    apiTennisTournamentKey: null, // Legacy — set if falling back to API-Tennis
-    apiSeason: null,              // Some APIs break with explicit season param
+    apiTennisTournamentKey: null,
+    apiSeason: null,
   },
 
   'monte-carlo-2026': {
@@ -103,9 +148,8 @@ const TOURNAMENTS = {
   },
 };
 
-export const TOURNAMENT = TOURNAMENTS[ACTIVE_TOURNAMENT_ID] || TOURNAMENTS['madrid-2026'];
+export const TOURNAMENT = TOURNAMENTS[ACTIVE_TOURNAMENT_ID] || TOURNAMENTS['rome-2026'];
 
 export function getTournamentConfig(id) {
   return TOURNAMENTS[id] || null;
 }
-
