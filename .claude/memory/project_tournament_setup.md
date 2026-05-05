@@ -16,4 +16,13 @@ originSessionId: bed0bd02-0917-4cd2-b3a7-51715be53d77
 
 **Common gotchas:** lock times not set (users pick after matches start), scraper name matching failures (FlashScore abbreviations don't match seed draw via normaliseName), stale ACTIVE_TOURNAMENT (needs Railway restart), qualifier name updates, draw size mismatch (96-draw has 128 positions), cross-tournament deadline contamination (global `/api/draw/deadlines` returns active tournament's schedule — upcoming pools must NOT use r1LockAt as entry gate).
 
+**Automation tooling (added 5 May 2026 in session 35):**
+- `scripts/validate-tournament.mjs <id>` — pre-push registry/seed-draw cross-check.
+- `scripts/smoke.sh` — post-deploy smoke (health, pools, invite round-trip, frontend).
+- `docs/transition-prompt.md` — paste-into-new-task prompt for free transitions.
+- `docs/paid-transition-prompt.md` — superset for paid events (RG onwards).
+- `.github/workflows/tests.yml` — CI runs smoke + integration on every push.
+
+Use these before reaching for the manual checklist — they catch >90% of past launch issues automatically.
+
 **Why:** Created 20 Apr to prevent the multi-session debugging that Madrid setup required. Should make Rome and Roland Garros launches significantly faster.

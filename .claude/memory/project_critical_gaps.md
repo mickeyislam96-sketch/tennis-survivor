@@ -59,14 +59,13 @@ admin action? It needs scoped token + audit log.
 | # | Gap | Status |
 |---|---|---|
 | 1 | Observability / alerting | **Pending Mickey** — UptimeRobot account creation. Backend side ready: `/api/health` returns 503 with `scraper_freshness: STALE` when scrapes go missing during active hours. Steps documented in chat. |
-| 2 | Automated tests | **Foundation shipped.** `backend/tests/smoke/` (11 black-box tests against live API, runs via `npm test` in 1.5s). `backend/tests/integration/` (DB-backed mutation suite, one example, skips when `TEST_DATABASE_URL` unset). Workflow saved for Mickey at `/tmp/tests-workflow-for-mickey.yml` to add via GitHub UI (mnt PAT lacks `workflow` scope). |
+| 2 | Automated tests | **Done.** `backend/tests/smoke/` (11 tests against live API). `backend/tests/integration/` (DB-backed, one example, skips without `TEST_DATABASE_URL`). `.github/workflows/tests.yml` runs both on every push (smoke against prod + integration with Postgres 17 service container). First run green at commit `273455b`, ~30s total. |
 | 3 | Staging environment | **Not started.** Pending Mickey's Railway dashboard work. Branch deploy from `staging` recommended. |
 | 4 | `ADMIN_SECRET` rotation | **Stage 1 shipped.** New `backend/src/auth/adminAuth.js` provides `requireAdmin(req, res, scope)` and the back-compat `checkSecret(req, res)`. Every admin call now writes to `admin_audit_log`. Per-scope tokens supported via `ADMIN_TOKEN_<SCOPE>` env vars but currently unused — `ADMIN_SECRET` still grants every scope. Stage 2 (incremental scope rollout) deferred. |
 | 5 | DB backups | **Mostly addressed already.** Daily pg_dump runs via `.github/workflows/db-backup.yml` (gzipped, 30-day artifact retention). Restore verification still untested — quarterly process. |
 
 **Stage 2 plan (4-day window between Rome final and RG R1):**
 
-- Add the `tests.yml` workflow (Mickey's GitHub UI step).
 - Mickey runs UptimeRobot setup.
 - Set up Railway staging branch deploy.
 - Roll out scoped tokens per critical action (`ADMIN_TOKEN_FINANCIAL` first — refunds and settlement are the highest blast radius).
