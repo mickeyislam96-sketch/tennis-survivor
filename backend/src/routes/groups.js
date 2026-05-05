@@ -79,7 +79,7 @@ groupsRouter.get('/invite/:code', async (req, res) => {
     const result = await pool.query(
       `SELECT id::text, name, invite_code, entry_fee_cents, prize_pool_cents,
               tournament_id, admin_user_id::text, created_at
-       FROM groups WHERE invite_code = $1`,
+       FROM groups WHERE UPPER(invite_code) = $1`,
       [code]
     );
     if (result.rows.length > 0) {
@@ -141,7 +141,7 @@ groupsRouter.post('/', async (req, res) => {
   const { name, entryFeeCents = 0, adminUserId, tournamentId } = req.body;
   const adminId = adminUserId || req.userId;
   const groupName = (name || 'My Pool').trim();
-  const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6);
+  const inviteCode = groupName.replace(/\s+/g, '-').toUpperCase().slice(0, 20) + '-' + Date.now().toString(36).slice(-6).toUpperCase();
   const tournament = tournamentId || 'indian-wells-2026';
 
   if (isUUID(adminId)) {
