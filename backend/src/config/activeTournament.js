@@ -18,7 +18,7 @@ const TOURNAMENTS = {
     shortName: 'Rome',
     year: 2026,
     tourLevel: 'ATP Masters 1000',
-    startDate: '2026-05-06',
+    startDate: '2026-05-05',
     endDate: '2026-05-17',
     surface: 'Clay (outdoor)',
     drawSize: 96,
