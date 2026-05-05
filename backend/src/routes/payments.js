@@ -215,21 +215,12 @@ paymentsRouter.post('/webhook/:processor', async (req, res) => {
   }
 });
 
-// ── Admin auth helper (Authorization header or body.secret) ─────────────────
-function checkAdminAuth(req, res) {
-  const adminSecret = process.env.ADMIN_SECRET;
-  if (!adminSecret) { res.status(401).json({ error: 'Unauthorised' }); return false; }
-  let provided = null;
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) provided = authHeader.slice(7);
-  if (!provided && req.body?.secret) provided = req.body.secret;
-  if (!provided || provided !== adminSecret) { res.status(401).json({ error: 'Unauthorised' }); return false; }
-  return true;
-}
+// ── Admin auth — delegated to the central module so every call is audited ───
+import { checkSecret as checkAdminAuth } from '../auth/adminAuth.js';
 
 // ── Admin: list all payment orders ──────────────────────────────────────────
 paymentsRouter.get('/admin/list', async (req, res) => {
-  if (!checkAdminAuth(req, res)) return;
+  if (!await checkAdminAuth(req, res)) return;
 
   try {
     const result = await pool.query(`
@@ -250,7 +241,7 @@ paymentsRouter.get('/admin/list', async (req, res) => {
 
 // ── Admin: revenue summary ──────────────────────────────────────────────────
 paymentsRouter.get('/admin/revenue', async (req, res) => {
-  if (!checkAdminAuth(req, res)) return;
+  if (!await checkAdminAuth(req, res)) return;
 
   try {
     const result = await pool.query(`
@@ -273,10 +264,8 @@ paymentsRouter.get('/admin/revenue', async (req, res) => {
 
 // ── Admin: refund a specific order ──────────────────────────────────────────
 paymentsRouter.post('/admin/refund', async (req, res) => {
-  const { secret, orderId } = req.body;
-  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Unauthorised' });
-  }
+  if (!await checkAdminAuth(req, res)) return;
+  const { orderId } = req.body;
   if (!orderId) return res.status(400).json({ error: 'orderId required' });
 
   try {

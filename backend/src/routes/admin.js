@@ -18,6 +18,7 @@ import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
 import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendPendingEmailById, rejectPendingEmailById, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
 import { setScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
+import { checkSecret } from '../auth/adminAuth.js';
 
 export const adminRouter = Router();
 
@@ -31,50 +32,11 @@ const adminLimiter = rateLimit({
 });
 adminRouter.use(adminLimiter);
 
-function getAdminSecret() {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    console.error('[admin] ADMIN_SECRET env var is not set — all admin requests will be rejected');
-  }
-  return secret;
-}
-
-/**
- * Check admin secret from (in priority order):
- *   1. Authorization: Bearer <secret>   (preferred — not logged in URLs)
- *   2. req.body.secret                  (legacy — POST body only)
- *   3. req.query.secret                 (for GET one-click links, e.g. email approval)
- */
-function checkSecret(req, res) {
-  let secret = null;
-
-  // 1. Authorization header (preferred)
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    secret = authHeader.slice(7);
-  }
-
-  // 2. POST body fallback
-  if (!secret && req.body?.secret) {
-    secret = req.body.secret;
-  }
-
-  // 3. Query param fallback (needed for one-click approval links in emails)
-  if (!secret && req.query?.secret) {
-    secret = req.query.secret;
-  }
-
-  if (!secret || secret !== getAdminSecret()) {
-    res.status(401).json({ error: 'Unauthorised — invalid admin secret' });
-    return false;
-  }
-  return true;
-}
 
 // ── POST /api/admin/process-results ──────────────────────────────────────────
 // Trigger results processing. Optionally for a specific round only.
 adminRouter.post('/process-results', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { round } = req.body;
   try {
     const result = round
@@ -90,8 +52,8 @@ adminRouter.post('/process-results', async (req, res) => {
 // ── POST /api/admin/set-lock-override ────────────────────────────────────────
 // Force a round's lock time without redeploying.
 // Body: { secret, round: "R32", lockAt: "2026-04-26T17:00:00Z" }
-adminRouter.post('/set-lock-override', (req, res) => {
-  if (!checkSecret(req, res)) return;
+adminRouter.post('/set-lock-override', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
   const { round, lockAt } = req.body;
   if (!round)  return res.status(400).json({ error: 'round is required (e.g. "R32")' });
   if (!lockAt) return res.status(400).json({ error: 'lockAt is required (ISO 8601 date string)' });
@@ -106,8 +68,8 @@ adminRouter.post('/set-lock-override', (req, res) => {
 // ── POST /api/admin/clear-lock-override ──────────────────────────────────────
 // Remove a runtime lock override. Falls back to config or API times.
 // Body: { secret, round: "R32" }
-adminRouter.post('/clear-lock-override', (req, res) => {
-  if (!checkSecret(req, res)) return;
+adminRouter.post('/clear-lock-override', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
   const { round } = req.body;
   if (!round) return res.status(400).json({ error: 'round is required' });
   try {
@@ -126,7 +88,7 @@ adminRouter.post('/clear-lock-override', (req, res) => {
 // Only use after confirming the pick window is closed.
 // Body: { secret, round: "R32" }
 adminRouter.post('/eliminate-non-pickers', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { round } = req.body;
   if (!round || !ROUNDS.includes(round)) {
     return res.status(400).json({ error: `Unknown round "${round}". Valid: ${ROUNDS.join(', ')}` });
@@ -142,7 +104,7 @@ adminRouter.post('/eliminate-non-pickers', async (req, res) => {
 // ── GET /api/admin/status ─────────────────────────────────────────────────────
 // System status overview — current tournament, cache, deadlines, runtime overrides.
 adminRouter.get('/status', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     const [deadlines, dbResult] = await Promise.all([
       getDeadlines().catch(() => null),
@@ -179,7 +141,7 @@ adminRouter.get('/status', async (req, res) => {
 // Generate a new invite code for a group.
 // Body: { secret, groupId }
 adminRouter.post('/regenerate-invite', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { groupId } = req.body;
   if (!groupId) return res.status(400).json({ error: 'groupId is required' });
   try {
@@ -203,7 +165,7 @@ adminRouter.post('/regenerate-invite', async (req, res) => {
 // actually R1 picks — non-seeds playing in the first round.
 // After renaming, triggers results processing so R1 wins/losses get graded.
 adminRouter.post('/fix-r1-picks', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     // Only rename picks that haven't been graded yet and were created before
     // the R32 window properly opened (i.e. before R1 lock time).
@@ -246,7 +208,7 @@ adminRouter.post('/fix-r1-picks', async (req, res) => {
 // Delete a specific pending email by its database ID.
 // Body: { secret, emailId }
 adminRouter.post('/delete-email', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { emailId } = req.body;
   if (!emailId) return res.status(400).json({ error: 'emailId is required' });
   try {
@@ -271,7 +233,7 @@ adminRouter.post('/delete-email', async (req, res) => {
 // processor can re-queue corrected emails.
 // Body: { secret, round, emailType? }   emailType defaults to 'round_result'
 adminRouter.post('/reset-round-emails', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { round, emailType } = req.body;
   if (!round) return res.status(400).json({ error: 'round is required' });
   const type = emailType || 'round_result';
@@ -297,7 +259,7 @@ adminRouter.post('/reset-round-emails', async (req, res) => {
 // ── GET /api/admin/pending-emails ───────────────────────────────────────────
 // List all pending emails with their IDs (for selective deletion).
 adminRouter.get('/pending-emails', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     const { rows } = await pool.query(
       `SELECT id, user_id::text, group_id::text, round, email_type, subject, recipient_email, recipient_name, created_at
@@ -316,7 +278,7 @@ adminRouter.get('/pending-emails', async (req, res) => {
 // "only send when pending count increases" guard.
 // Body: { secret }
 adminRouter.post('/force-digest', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     await sendAdminDigest({ force: true });
     res.json({ ok: true, message: 'Admin digest sent (forced).' });
@@ -329,7 +291,7 @@ adminRouter.post('/force-digest', async (req, res) => {
 // Diagnostic: test API-Tennis connectivity, look up correct tournament key,
 // and try fetching Monte Carlo fixtures.
 adminRouter.get('/api-diag', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const apiKey = process.env.TENNIS_API_KEY;
   const configuredKey = TOURNAMENT.apiTournamentKey;
   const results = { apiKey: apiKey ? 'present' : 'MISSING', configuredTournamentKey: configuredKey };
@@ -397,7 +359,7 @@ adminRouter.get('/api-diag', async (req, res) => {
 // ── GET /api/admin/user/:userId ──────────────────────────────────────────────
 // Look up a user's details (for debugging / email fixes).
 adminRouter.get('/user/:userId', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     const result = await pool.query(
       'SELECT id::text, email, display_name, created_at FROM users WHERE id = $1::uuid',
@@ -414,7 +376,7 @@ adminRouter.get('/user/:userId', async (req, res) => {
 // Correct a user's email address.
 // Body: { secret, userId, newEmail }
 adminRouter.post('/fix-email', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { userId, newEmail } = req.body;
   if (!userId || !newEmail) {
     return res.status(400).json({ error: 'userId and newEmail are required' });
@@ -441,7 +403,7 @@ adminRouter.post('/fix-email', async (req, res) => {
 // Body: { secret, userId, groupId }
 // Also resets their pick for the eliminated round to survived=NULL.
 adminRouter.post('/revive-member', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { userId, groupId } = req.body;
   if (!userId || !groupId) {
     return res.status(400).json({ error: 'userId and groupId are required' });
@@ -480,7 +442,7 @@ adminRouter.post('/revive-member', async (req, res) => {
 // so they can re-pick.
 // Body: { secret, playerId, playerName, round, replacementName? }
 adminRouter.post('/withdrawal', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { playerId, playerName, round, replacementName } = req.body;
   if (!playerId || !playerName || !round) {
     return res.status(400).json({ error: 'playerId, playerName, and round are required' });
@@ -554,7 +516,7 @@ adminRouter.post('/withdrawal', async (req, res) => {
 // ── GET /api/admin/picks/:groupId ────────────────────────────────────────────
 // View all picks for a group (useful for debugging / manual review).
 adminRouter.get('/picks/:groupId', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { groupId } = req.params;
   try {
     const result = await pool.query(
@@ -576,7 +538,7 @@ adminRouter.get('/picks/:groupId', async (req, res) => {
 // POST { secret }          → preview (list what's queued)
 // POST { secret, confirm } → send all pending emails
 adminRouter.post('/approve-emails', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { confirm } = req.body;
   try {
     if (confirm) {
@@ -596,7 +558,7 @@ adminRouter.post('/approve-emails', async (req, res) => {
 // GET ?secret=X&confirm=true → send all pending and show HTML result page
 // GET ?secret=X              → preview pending as HTML page
 adminRouter.get('/approve-emails', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { confirm } = req.query;
   try {
     if (confirm === 'true') {
@@ -652,7 +614,7 @@ adminRouter.get('/approve-emails', async (req, res) => {
 // Queue draw-released emails for all members of the current tournament's groups.
 // Body: { secret }
 adminRouter.post('/send-draw-released', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   try {
     // Find all members in all groups for the current tournament
     const result = await pool.query(
@@ -713,7 +675,7 @@ adminRouter.post('/send-draw-released', async (req, res) => {
 // ── POST /api/admin/send-new-tournament ─────────────────────────────────────
 // TODO: Needs sendNewTournamentEmail() in email.js — build email template first.
 adminRouter.post('/send-new-tournament', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   res.status(501).json({ error: 'New tournament email template not yet implemented' });
 });
 
@@ -722,7 +684,7 @@ adminRouter.post('/send-new-tournament', async (req, res) => {
 // Body: { secret, fixtures: [...], scrapedAt: "ISO string" }
 // The fixtures array must use the internal fixture format (see dataAdapter.js).
 adminRouter.post('/scrape-results', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { fixtures, scrapedAt } = req.body;
 
   if (!Array.isArray(fixtures)) {
@@ -773,8 +735,8 @@ adminRouter.post('/scrape-results', async (req, res) => {
 
 // ── GET /api/admin/scraper-status ────────────────────────────────────────────
 // Check the scraper cache status (is data flowing? how old is it?).
-adminRouter.get('/scraper-status', (req, res) => {
-  if (!checkSecret(req, res)) return;
+adminRouter.get('/scraper-status', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
   res.json({ ok: true, ...getScraperCacheStatus() });
 });
 
@@ -782,7 +744,7 @@ adminRouter.get('/scraper-status', (req, res) => {
 // Reset a member's elimination status (e.g. stale data from previous tournament).
 // Body: { secret, groupId, userId }
 adminRouter.post('/reset-member', async (req, res) => {
-  if (!checkSecret(req, res)) return;
+  if (!await checkSecret(req, res)) return;
   const { groupId, userId } = req.body;
   if (!groupId || !userId) return res.status(400).json({ error: 'groupId and userId are required' });
   try {

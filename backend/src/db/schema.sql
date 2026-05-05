@@ -226,3 +226,32 @@ UPDATE emails_sent SET tournament_id = g.tournament_id
 -- Index for fast tournament-scoped queries
 CREATE INDEX IF NOT EXISTS idx_picks_tournament ON picks(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_emails_sent_tournament ON emails_sent(tournament_id);
+
+
+-- ── Admin audit log (added 5 May 2026) ──────────────────────────────────────
+-- Every call to an admin endpoint writes one row here, success or failure.
+-- Read with: SELECT * FROM admin_audit_log ORDER BY timestamp DESC LIMIT 50;
+-- Backed by backend/src/auth/adminAuth.js requireAdmin() middleware.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id           BIGSERIAL PRIMARY KEY,
+  timestamp    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  scope        TEXT NOT NULL,             -- scope required by the endpoint (e.g. 'tournament', 'emails', 'legacy')
+  token_name   TEXT,                      -- which named token was used (e.g. 'master', 'tournament', 'read')
+  route        TEXT NOT NULL,             -- request path
+  method       TEXT NOT NULL,             -- GET / POST / etc.
+  ip           TEXT,
+  user_agent   TEXT,
+  success      BOOLEAN NOT NULL,
+  reason       TEXT,                      -- failure reason: 'no_token' | 'invalid_token' | 'scope_mismatch'
+  body_summary JSONB                      -- redacted request body (no secrets/passwords/tokens)
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_timestamp
+  ON admin_audit_log (timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_token
+  ON admin_audit_log (token_name, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_failures
+  ON admin_audit_log (timestamp DESC) WHERE success = false;
+
