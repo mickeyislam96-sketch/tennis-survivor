@@ -1,5 +1,22 @@
 # Final Serve-ivor — Roadmap & Launch Strategy
 
+## Critical fixes (kicked off 5 May 2026)
+
+After Rome launch settled, audited bigger-picture gaps. Five rated
+critical, queued in priority order. See
+`.claude/memory/project_critical_gaps.md` for the full audit.
+
+1. Alerting on `/api/health` (UptimeRobot) — quick win, do first.
+2. Backend integration test suite — ~20 tests covering invite,
+   payment, picks, leaderboard. Two days.
+3. Staging environment via Railway branch deploy. Half a day.
+4. ADMIN_SECRET rotation to scoped tokens with audit log. Before RG.
+5. DB-restore verification. Quarterly.
+
+Target: items 1-4 in the 4-day window between Rome F (17 May) and
+RG R1 (18 May). All four must be done before the first paid pool
+opens.
+
 ## Three-phase approach
 1. **Madrid Open** (22 Apr - ~4 May 2026): Free entry, COMPLETE. Stability trial.
 2. **Rome Masters** (5-17 May): Free, ACTIVE (R1 in progress as of 5 May). Target: mobile app launch.

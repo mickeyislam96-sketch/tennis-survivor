@@ -4,7 +4,7 @@ description: Full technical context for the Final Serve-ivor tennis survivor gam
 type: project
 originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 ---
-**Product:** Final Serve-ivor — tennis survivor fantasy game. Players pick one ATP player per round, eliminated if their pick loses. Live at https://finalserveivor.com. Monte Carlo 2026 complete (Mark won). Madrid Open 2026 complete (finished ~4 May). Rome 2026 ACTIVE (started 5 May, free, R1 open, DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`, invite code `ROME-2026-POOL-bxxhnp`).
+**Product:** Final Serve-ivor — tennis survivor fantasy game. Players pick one ATP player per round, eliminated if their pick loses. Live at https://finalserveivor.com. Monte Carlo 2026 complete (Mark won). Madrid Open 2026 complete (finished ~4 May). Rome 2026 ACTIVE (started 5 May, free, **R1 main draw R1 lock 6 May 08:00 UTC**, DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`, invite code `ROME-2026-POOL-bxxhnp`). All 12 R1 qualifier slots resolved 5 May post-Q3 from ATP Tour archive (commit `4708e5b`).
 
 **Stack:**
 - Frontend: React + Vite → Vercel (auto-deploys from GitHub main)
@@ -39,6 +39,8 @@ originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 **Performance (20 Apr 2026):** Draw/bracket endpoints ~130ms (was 10-20s). Draw-level cache keyed on scraper data timestamp, scraper cache always serves stale data (match results don't un-happen). Sprite sheet: 97% image payload reduction (6.4MB → 205KB, 170 requests → 1).
 
 **Automation (Phase 1 — deployed 19 Apr):** 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All ops logged to `ops_log` table.
+
+**Transition tooling (5 May 2026):** `scripts/validate-tournament.mjs` (registry/seed-draw cross-check, run before pushing) and `scripts/smoke.sh` (4 live-API checks including invite-code round-trip, run after deploy). Transition prompts: `docs/transition-prompt.md` (free) and `docs/paid-transition-prompt.md` (paid, superset).
 
 **Mac repo path:** `/Users/mikaeelislam/tennis-survivor`
 
