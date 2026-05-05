@@ -92,6 +92,53 @@ healthRouter.get('/', async (_req, res) => {
   // ── 3b. Scraper cache status ───────────────────────────────────────────────
   checks.scraper_cache = getScraperCacheStatus();
 
+  // ── 3c. Scraper freshness guard ────────────────────────────────────────────
+  // Fail health check (allOk=false → 503) if the scraper cache is stale
+  // during the active scraping window. Outside the window we don't fail —
+  // the scraper is on a 10–21 UTC hourly schedule, so an overnight gap of
+  // up to 13 hours is normal. We only alarm when scrapes go missing while
+  // they're meant to be running. UptimeRobot pings every 5 min and won't
+  // fire on transient sub-minute gaps right at the top of the hour.
+  const STALE_THRESHOLD_S = 4 * 60 * 60;     // 4 hours
+  const utcHour = new Date().getUTCHours();
+  const inActiveWindow = utcHour >= 10 && utcHour < 21;
+  const cache = checks.scraper_cache;
+
+  if (cache?.hasMemoryCache && typeof cache.cacheAge === 'number') {
+    if (cache.cacheAge > STALE_THRESHOLD_S && inActiveWindow) {
+      checks.scraper_freshness = {
+        status:           'STALE',
+        cacheAgeSeconds:  cache.cacheAge,
+        thresholdSeconds: STALE_THRESHOLD_S,
+        scrapedAt:        cache.scrapedAt,
+        detail:           `Scraper cache is ${Math.round(cache.cacheAge / 60)}min old during active scraping window (10–21 UTC).`,
+      };
+      allOk = false;
+    } else if (cache.cacheAge > STALE_THRESHOLD_S) {
+      checks.scraper_freshness = {
+        status:          'idle_window',
+        cacheAgeSeconds: cache.cacheAge,
+        note:            'Outside active scraping hours (21–10 UTC) — overnight gap is expected.',
+      };
+    } else {
+      checks.scraper_freshness = {
+        status:          'fresh',
+        cacheAgeSeconds: cache.cacheAge,
+      };
+    }
+  } else if (inActiveWindow) {
+    checks.scraper_freshness = {
+      status: 'NO_CACHE',
+      detail: 'Scraper has no cached data during active scraping window.',
+    };
+    allOk = false;
+  } else {
+    checks.scraper_freshness = {
+      status: 'no_cache_idle',
+      note:   'No cache and outside active hours.',
+    };
+  }
+
   // ── 4. Database ──────────────────────────────────────────────────────────────
   try {
     await pool.query('SELECT 1');

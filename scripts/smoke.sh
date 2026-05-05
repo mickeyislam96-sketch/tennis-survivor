@@ -40,6 +40,12 @@ TOURN=$(echo "$HEALTH" | grep -o '"tournament":"[^"]*"' | cut -d'"' -f4)
 if [ "$TOURN" = "$EXPECTED_TOURNAMENT" ]; then ok "active tournament = $TOURN"; else no "active tournament = '$TOURN' (expected '$EXPECTED_TOURNAMENT')"; fi
 SRC=$(echo "$HEALTH" | grep -o '"data_source":"[^"]*"' | head -1 | cut -d'"' -f4)
 if [ "$SRC" != "" ] && [ "$SRC" != "mock_data" ] && [ "$SRC" != "mock_fallback" ]; then ok "data source = $SRC"; else no "data source = '$SRC' (mock fallback active)"; fi
+FRESH=$(echo "$HEALTH" | grep -o '"scraper_freshness":{[^}]*}' | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+case "$FRESH" in
+  fresh|idle_window|no_cache_idle) ok "scraper freshness = $FRESH" ;;
+  STALE|NO_CACHE)                  no "scraper freshness = $FRESH (alarm should be firing)" ;;
+  *)                               echo "  (no scraper_freshness in payload)" ;;
+esac
 
 step "2. /api/pools"
 POOLS=$(curl -s -m 30 "$API/api/pools")
