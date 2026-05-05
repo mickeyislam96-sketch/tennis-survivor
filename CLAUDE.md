@@ -554,6 +554,7 @@ This rule exists because stale memory files have repeatedly caused wrong advice 
 4. When refactoring a module's exports, **grep all consumers** for removed exports (17 Apr `draw.js` imported deleted functions from `tennisData.js` — broke Railway build silently)
 5. Consider all component states: loading, error, empty data, full data
 6. If the change is a significant refactor of a working component, flag the risk and discuss timing
+7. **For tournament transitions:** run `node scripts/validate-tournament.mjs <id>` (e.g. `rome-2026`) before pushing. It validates registry alignment across the three config files, seed draw shape, lock-time presence, and FE/BE drawAvailable agreement. Catches the silent inconsistencies that previously took a live tournament window to surface.
 
 ### After pushing
 1. Wait for **both** Vercel AND Railway deploys to succeed. Vercel via MCP `list_deployments`; Railway has no MCP — hit `/api/health` to confirm new code is running, or test an endpoint that only exists in the new code.

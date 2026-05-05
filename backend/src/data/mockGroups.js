@@ -1,18 +1,15 @@
-export const MOCK_GROUPS = [
-  // Monte Carlo 2026 and Miami Open 2026 were closed friends-only runs. They
-  // are intentionally kept out of MOCK_GROUPS so the lobby never surfaces
-  // orphan pools for tournaments removed from the registry.
-  {
-    id: 'g4',
-    name: 'Madrid 2026 Pool',
-    inviteCode: 'MADRID-2026',
-    entryFeeCents: 0,
-    prizePoolCents: 0,
-    tournamentId: 'madrid-2026',
-    adminUserId: 'u1',
-    createdAt: new Date().toISOString()
-  },
-];
+// Mock groups are no longer used as "demo pools" in the lobby — every active
+// tournament now has a real DB group, and the /pools endpoint already filters
+// out mock entries when a DB pool exists for the same tournament.
+//
+// Past mock groups (Madrid 2026, Monte Carlo, Miami) were removed once their
+// DB equivalents went live. Leave this array empty so retired tournaments
+// can never accidentally surface a stale invite code or member count.
+//
+// MOCK_USERS / MOCK_MEMBERS / MOCK_PICKS are still referenced by the mock
+// fallback paths in routes that haven't been fully migrated to DB-only —
+// keep them in place.
+export const MOCK_GROUPS = [];
 
 export const MOCK_USERS = [
   { id: 'u1',  email: 'alice@example.com',   displayName: 'Alice' },
