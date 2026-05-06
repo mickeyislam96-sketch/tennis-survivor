@@ -130,6 +130,14 @@ else fail(`drawAvailable mismatch: BE=${beReg.drawAvailable}, FE=${feReg.drawAva
 console.log('');
 if (failures === 0) {
   console.log('✅ Tournament config is internally consistent. Safe to push.');
+  console.log('');
+  console.log('⚠️  REMINDER — this script does NOT check Railway env vars.');
+  console.log('   After deploying, you MUST verify the scraper service has:');
+  console.log(`     FLASHSCORE_URL  pointing at ${id}'s FlashScore page`);
+  console.log(`     RESULTS_URL     pointing at ${id}'s FlashScore results page`);
+  console.log('   Then trigger a Run now on the cron + run scripts/smoke.sh.');
+  console.log('   The 6 May 2026 incident: scraper env vars missing for a week,');
+  console.log('   bracket silently scraped previous tournament. See CLAUDE.md.');
   process.exit(0);
 } else {
   console.log(`❌ ${failures} check(s) failed. Fix before pushing.`);

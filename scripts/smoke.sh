@@ -51,6 +51,25 @@ case "$FRESH" in
   *)                               echo "  (no scraper_freshness in payload)" ;;
 esac
 
+# 1b. Bracket overlay sanity check — catches the case where the scraper is
+# fresh but scraping the WRONG tournament. dataSource must contain
+# `scraper(N)` with N > 0 (or N=0 *only* if R1 has not started yet, e.g.
+# pre-launch). This is the regression check for the 6 May 2026 incident
+# where the scraper silently kept scraping Madrid for a week.
+BRACKET=$(curl -s -m 30 "$API/api/draw/bracket?round=R1")
+DSRC=$(echo "$BRACKET" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('dataSource',''))" 2>/dev/null)
+echo "  dataSource = $DSRC"
+case "$DSRC" in
+  *"scraper(0)"*)
+    no "bracket dataSource = $DSRC — scraper is fresh but matched 0 fixtures (likely scraping wrong tournament; verify FLASHSCORE_URL on Railway scraper service)" ;;
+  *"scraper("*")"*)
+    ok "bracket dataSource = $DSRC (overlay merging correctly)" ;;
+  "seed_draw_only"|"")
+    echo "  (no scraper data yet — fine pre-tournament, but verify after R1 starts)" ;;
+  *)
+    echo "  (unexpected dataSource $DSRC — check $API/api/draw/bracket manually)" ;;
+esac
+
 step "2. /api/pools"
 POOLS=$(curl -s -m 30 "$API/api/pools")
 ACTIVE_COUNT=$(echo "$POOLS" | grep -o '"status":"active"' | wc -l | tr -d ' ')

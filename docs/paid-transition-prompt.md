@@ -313,14 +313,38 @@ REVOLUT_PAYMENT_LINK_<NEW-ID> = https://revolut.me/...
 For automated mode (when We Tranxact or similar is wired), per-processor
 secrets — confirm with Mickey based on the active processor at the time.
 
-**Scraper service** (`flashscore-scraper`):
+**Scraper service** (`valiant-forgiveness` — Railway service ID `012860d6-07a0-48f1-8818-ccc4625188a0`):
 
 ```
-FLASHSCORE_URL  = https://www.flashscore.com/tennis/atp-singles/{city-slug}/
-RESULTS_URL     = https://www.flashscore.com/tennis/atp-singles/{city-slug}/results/
+FLASHSCORE_URL  = https://www.flashscore.co.uk/tennis/atp-singles/{city-slug}/
+RESULTS_URL     = https://www.flashscore.co.uk/tennis/atp-singles/{city-slug}/results/
 DEFAULT_ROUND   = R1
-TIMEZONE_OFFSET = 2  (CEST clay) | 1 (BST UK) | 4 (EDT US early year)
+TIMEZONE_OFFSET = 2   (CEST clay) | 1 (BST UK) | 4 (EDT US early year)
 ```
+
+⚠️  **CRITICAL — DO NOT SKIP** ⚠️
+
+`FLASHSCORE_URL` and `RESULTS_URL` were historically *missing entirely* from
+the scraper service for the entire week between Madrid completion and Rome
+launch. The scraper code used to fall back to hardcoded Madrid defaults, so
+it silently scraped the wrong tournament. Bracket and leaderboard returned
+`seed_draw+scraper(0)` because the Madrid pairings could not be matched to
+Rome's seed draw. We did not notice for a week.
+
+After PR #4 merged, the scraper crashes loudly on missing env vars — but
+verify explicitly. After save → redeploy, click the scraper service →
+"Cron Runs" → "Run now" and wait for green. Then run:
+
+```bash
+API="https://tennis-survivor-production.up.railway.app"
+SECRET="<your ADMIN_SECRET>"
+curl -s "$API/api/admin/scraper-fixtures?secret=$SECRET&round=R1"   | python3 -c "import sys,json; print('R1 fixtures:', json.load(sys.stdin).get('total'))"
+curl -s "$API/api/draw/bracket?round=R1"   | python3 -c "import sys,json; print('dataSource:', json.load(sys.stdin).get('dataSource'))"
+```
+
+Expected: R1 fixtures > 0 AND dataSource is `seed_draw+scraper(N)` with
+N > 0. `seed_draw+scraper(0)` means scraping the wrong tournament — fix
+FLASHSCORE_URL before continuing.
 
 **Vercel** (frontend):
 

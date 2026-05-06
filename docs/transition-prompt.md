@@ -227,18 +227,65 @@ ACTIVE_TOURNAMENT = {new-tournament-id}
 
 Save → Redeploy.
 
-**Scraper service** (`flashscore-scraper`):
+**Scraper service** (`valiant-forgiveness` — Railway service ID `012860d6-07a0-48f1-8818-ccc4625188a0`):
 
 ```
-FLASHSCORE_URL  = https://www.flashscore.com/tennis/atp-singles/{city-slug}/
-RESULTS_URL     = https://www.flashscore.com/tennis/atp-singles/{city-slug}/results/
+FLASHSCORE_URL  = https://www.flashscore.co.uk/tennis/atp-singles/{city-slug}/
+RESULTS_URL     = https://www.flashscore.co.uk/tennis/atp-singles/{city-slug}/results/
 DEFAULT_ROUND   = R1
-TIMEZONE_OFFSET = 2  (CEST for European clay) or 1 (BST UK) or 4 (EDT Indian Wells/Miami early year)
+TIMEZONE_OFFSET = 2   (CEST for European clay) or 1 (BST UK) or 4 (EDT Indian Wells/Miami early year)
 ```
 
-Save → Redeploy.
+⚠️  **CRITICAL — DO NOT SKIP** ⚠️
 
-Wait for Mickey to confirm both services have been redeployed.
+`FLASHSCORE_URL` and `RESULTS_URL` were historically *missing entirely* from
+the scraper service for the entire week between Madrid completion and Rome
+launch. The scraper code used to fall back to hardcoded Madrid defaults, so
+it silently scraped the wrong tournament. Bracket and leaderboard returned
+`seed_draw+scraper(0)` because the Madrid pairings could not be matched to
+Rome's seed draw. We did not notice for a week.
+
+After the no-default guardrail PR merged (PR #4), the scraper service will
+crash with a clear error on first run if these env vars are missing — but
+do **not** rely on that. Verify explicitly below.
+
+Save → Redeploy. **Wait for the redeploy to complete (Railway shows green).**
+
+Then click the scraper service → "Cron Runs" tab → **"Run now"**. Wait
+for the run to show success (green dot, not red).
+
+**Verification (cannot proceed until all three pass):**
+
+```bash
+API="https://tennis-survivor-production.up.railway.app"
+SECRET="<your ADMIN_SECRET>"
+NEW_ID="{new-tournament-id}"
+
+# A. Scraper cache contains data
+curl -s "$API/api/admin/scraper-fixtures?secret=$SECRET&round=R1"   | python3 -c "import sys,json; d=json.load(sys.stdin); print('R1 fixtures in cache:', d.get('total'))"
+# Expected: > 0
+
+# B. Bracket merges scraper data onto NEW tournament's seed draw
+curl -s "$API/api/draw/bracket?round=R1"   | python3 -c "import sys,json; d=json.load(sys.stdin); print('dataSource:', d.get('dataSource'))"
+# Expected: 'seed_draw+scraper(N)' where N > 0
+# 'seed_draw+scraper(0)' = scraper is scraping the WRONG tournament
+
+# C. Health check passes for new tournament
+curl -s "$API/api/health" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+t = d.get('checks',{}).get('env',{}).get('tournament')
+print('Tournament:', t)
+assert t == '$NEW_ID', f'Expected $NEW_ID, got {t}'
+"
+```
+
+If B returns `seed_draw+scraper(0)` you are scraping the wrong tournament.
+Stop and double-check `FLASHSCORE_URL` is set to the new tournament's URL,
+not the previous one's. Re-trigger Run now after fixing.
+
+Wait for Mickey to confirm both services have been redeployed and all
+three verification checks pass.
 
 ---
 

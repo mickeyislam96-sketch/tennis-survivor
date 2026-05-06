@@ -25,4 +25,20 @@ originSessionId: bed0bd02-0917-4cd2-b3a7-51715be53d77
 
 Use these before reaching for the manual checklist — they catch >90% of past launch issues automatically.
 
-**Why:** Created 20 Apr to prevent the multi-session debugging that Madrid setup required. Should make Rome and Roland Garros launches significantly faster.
+**Critical post-deploy verification (added 6 May, session 37):**
+After updating scraper Railway env vars, you MUST verify two things or the bracket will silently show stale data from the previous tournament:
+
+```
+curl "$API/api/admin/scraper-fixtures?secret=$SECRET&round=R1" | jq .total
+# expected: > 0
+
+curl "$API/api/draw/bracket?round=R1" | jq -r .dataSource
+# expected: seed_draw+scraper(N) with N > 0
+# scraper(0) = scraping wrong tournament — fix FLASHSCORE_URL
+```
+
+`scripts/smoke.sh` step 1b runs this check automatically post-launch.
+
+**Why:** 6 May 2026 incident — `FLASHSCORE_URL` and `RESULTS_URL` were *never set* on the Railway scraper service after Madrid → Rome transition. Hardcoded Madrid defaults in `scraper/src/config.mjs` kicked in. Scraper silently scraped Madrid for a week. Bracket returned `seed_draw+scraper(0)` because Madrid pairings could not be matched onto Rome's seed draw. PR #4 makes the scraper crash loudly on missing env vars going forward, but verification is still the safety net.
+
+**Why (tooling):** Created 20 Apr to prevent the multi-session debugging that Madrid setup required. Should make Rome and Roland Garros launches significantly faster.

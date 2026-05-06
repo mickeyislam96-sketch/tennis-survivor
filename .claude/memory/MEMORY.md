@@ -20,3 +20,4 @@
 - [Name parsing — Surname, Firstname format](feedback_name_parsing.md) — seed-draw uses canonical comma format; formatters must detect it
 - [CORS preview origins](feedback_cors_preview_origins.md) — Vercel preview URLs must be in the backend allowlist; regex locked to project's Vercel team
 - [Non-picker elimination timing](feedback_non_picker_elimination_timing.md) — must fire on round-lock not match-completion; sweep added to 15-min cron
+- [Silent Madrid scraper defaults](feedback_silent_scraper_defaults.md) — scraper had hardcoded Madrid URL fallbacks + missing Railway env vars; bracket silently scraped wrong tournament for a week
