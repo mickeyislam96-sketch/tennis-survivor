@@ -29,12 +29,12 @@ bad ideas. Always work from a fresh `/tmp` clone, never from `mnt`.
 ## PHASE 0 — Get up to speed
 
 1. Read `CLAUDE.md` from the repo (not mnt).
-2. Read `.claude/memory/MEMORY.md` and any memory file relevant to:
+3. Read `.claude/memory/MEMORY.md` and any memory file relevant to:
    tournament setup, payment infrastructure, paid launch decisions,
    deployment discipline, known issues.
-3. Read `docs/new-tournament-setup.md`, `docs/transition-prompt.md`,
+4. Read `docs/new-tournament-setup.md`, `docs/transition-prompt.md`,
    and this file.
-4. Clone the repo to `/tmp`:
+5. Clone the repo to `/tmp`:
 
    ```bash
    AUTH_URL=$(git -C /sessions/*/mnt/tennis-survivor remote get-url origin)
@@ -43,7 +43,7 @@ bad ideas. Always work from a fresh `/tmp` clone, never from `mnt`.
    cd /tmp/ts-new && git rev-parse HEAD
    ```
 
-5. Stop. Do not touch code yet.
+6. Stop. Do not touch code yet.
 
 ---
 

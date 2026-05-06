@@ -21,12 +21,15 @@ ideas. Always work from a fresh `/tmp` clone, never from `mnt`.
 
 ## PHASE 0 — Get up to speed (do this first, every session)
 
-1. Read `CLAUDE.md` from the repo (not mnt) for project context.
-2. Read `.claude/memory/MEMORY.md` and any memory file relevant to
+1. Read `docs/working-agreement.md` first — this is the binding rule
+   for how to ship changes safely. It defines the branch + PR workflow
+   that prevents repeating the 6 May Rome incident set.
+2. Read `CLAUDE.md` from the repo (not mnt) for project context.
+3. Read `.claude/memory/MEMORY.md` and any memory file relevant to
    tournament setup, payments, deployment discipline, and known issues.
-3. Read `docs/new-tournament-setup.md` (the 16-step canonical runbook)
+4. Read `docs/new-tournament-setup.md` (the 16-step canonical runbook)
    and `docs/transition-prompt.md` (this file).
-4. Clone the repo to `/tmp`:
+5. Clone the repo to `/tmp`:
 
    ```bash
    AUTH_URL=$(git -C /sessions/*/mnt/tennis-survivor remote get-url origin)
@@ -38,7 +41,7 @@ ideas. Always work from a fresh `/tmp` clone, never from `mnt`.
    The PAT is embedded in the mnt remote URL. Confirm GitHub HEAD matches
    what `git ls-remote` reports for `origin/main`.
 
-5. Stop. Do not touch code yet. Move to Phase 1.
+6. Stop. Do not touch code yet. Move to Phase 1.
 
 ---
 

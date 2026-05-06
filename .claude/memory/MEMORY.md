@@ -13,3 +13,5 @@
 - [Paid transition prompt](../../docs/paid-transition-prompt.md) — superset for paid events (Stripe/Revolut bridge, payment smoke, settlement)
 - [Admin auth pattern](feedback_admin_auth_pattern.md) — always use requireAdmin from adminAuth.js; never hand-roll ADMIN_SECRET checks
 - [6 May Rome launch — phantom-pick + buffer bugs](feedback_06may_phantom_picks.md) — frontend deadline divergence + missing membership check on picks endpoint
+- [Working agreement](../../docs/working-agreement.md) — branch + PR workflow, no direct pushes to main for user-facing changes
+- [Branch + PR workflow lesson](feedback_branch_pr_workflow.md) — 6 May rationale; how to apply; exceptions
