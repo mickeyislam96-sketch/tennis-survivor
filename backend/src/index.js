@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { autoProcessResults } from './services/resultsProcessor.js';
+import { autoProcessResults, sweepLockedRoundNonPickers } from './services/resultsProcessor.js';
 import { checkPickReminders } from './services/emailScheduler.js';
 import { runOpsChecks } from './services/opsMonitor.js';
 
@@ -155,6 +155,14 @@ cron.schedule('*/15 * * * *', async () => {
   // 1. Process match results and grade picks
   try { await autoProcessResults(); }
   catch (err) { console.error('[cron] Results error:', err.message); }
+
+  // 1b. Sweep locked rounds for non-pickers — closes the gap where a
+  //     user who didn't pick stays 'alive' until the first match of
+  //     the round completes (autoProcessResults only fires when there's
+  //     a completed match). With this, non-pickers are eliminated
+  //     within 15 mins of a round locking.
+  try { await sweepLockedRoundNonPickers(); }
+  catch (err) { console.error('[cron] Non-picker sweep error:', err.message); }
 
   // 2. Send pick reminders (24h before lock)
   try { await checkPickReminders(); }

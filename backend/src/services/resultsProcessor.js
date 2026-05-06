@@ -207,3 +207,40 @@ async function sendResultEmails(round) {
     console.error(`[results-email] Error querying picks for ${round}: ${err.message}`);
   }
 }
+
+/**
+ * Sweep every locked round for non-pickers and eliminate them.
+ *
+ * Without this, non-picker elimination only fires when the round's
+ * first match completes (because it's a sub-step of processRoundResults).
+ * That creates a window of 1-2 hours where a user who didn't pick
+ * still appears alive on the leaderboard. Calling this on the 15-min
+ * cron closes that window — within 15 mins of a round locking, every
+ * non-picker is removed.
+ *
+ * The eliminateNonPickers function itself guards against running
+ * while the round is open, so this is safe to call repeatedly.
+ *
+ * Returns the total number of non-pickers eliminated across all
+ * rounds in this sweep.
+ */
+export async function sweepLockedRoundNonPickers() {
+  let total = 0;
+  try {
+    const deadlines = await getDeadlines();
+    if (!Array.isArray(deadlines)) return 0;
+    for (const d of deadlines) {
+      if (d.isLocked && d.round) {
+        const n = await eliminateNonPickers(d.round);
+        total += n;
+        if (n > 0) {
+          console.log(`[results] sweep: eliminated ${n} non-pickers for locked round ${d.round}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[results] sweepLockedRoundNonPickers error:', err.message);
+  }
+  return total;
+}
+
