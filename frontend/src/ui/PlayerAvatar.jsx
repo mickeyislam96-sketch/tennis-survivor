@@ -26,13 +26,22 @@ export default function PlayerAvatar({ playerId, playerName, size = 32 }) {
     overflow: 'hidden',
   };
 
-  // Sprite hit — show headshot via background-position
-  // The sprite cells are top-aligned headshots (hair → chin). To centre
-  // on the face in a circle crop, we shift up by ~10% of cell height so
-  // the eyes/nose sit in the middle of the circle, not the forehead.
+  // Sprite hit — show headshot via background-position.
+  //
+  // The sprite cells are 80×80 crops of ATP-CDN headshots which are
+  // top-aligned (hair → chin → upper shoulders). To centre on the face
+  // in a circle crop, we shift the displayed window down so the eyes/
+  // nose sit at the centre of the circle rather than at the top.
+  //
+  // 18% downward shift was chosen empirically across the current sprite
+  // contents — it keeps eyes around 40% from the circle's top and the
+  // mouth roughly in the centre, which reads cleanly at every size we
+  // currently render (20px bracket, 28px list, 32px row, 56px modal).
+  // If a future sprite uses different framing (e.g. wider crops with
+  // more shoulder), nudge this single value to re-centre everywhere.
   if (entry) {
     const scale = size / CELL;
-    const faceOffset = Math.round(CELL * 0.10 * scale); // 10% downward shift
+    const faceOffset = Math.round(CELL * 0.18 * scale); // 18% downward shift
     return (
       <span
         className="player-avatar player-avatar--photo"
