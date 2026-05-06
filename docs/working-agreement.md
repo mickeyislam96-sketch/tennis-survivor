@@ -196,6 +196,12 @@ If any step fails, the tournament does not get announced.
   reconciliation) belong in smoke tests, not just runbooks.
 - "I rushed because the user was waiting" is the most expensive
   excuse in this codebase. Discipline matters most under pressure.
+- **Never transcribe precise strings (tokens, hashes, secrets, invite
+  codes, verification values) from a screenshot.** They get visually
+  truncated and you don't notice. Pull from the DOM via JavaScript,
+  use a copy-paste action, or query the source. See
+  `.claude/memory/feedback_screenshot_truncation.md` for the 6 May
+  GSC token incident.
 
 ---
 

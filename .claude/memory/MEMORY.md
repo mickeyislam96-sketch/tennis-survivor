@@ -15,3 +15,5 @@
 - [6 May Rome launch — phantom-pick + buffer bugs](feedback_06may_phantom_picks.md) — frontend deadline divergence + missing membership check on picks endpoint
 - [Working agreement](../../docs/working-agreement.md) — branch + PR workflow, no direct pushes to main for user-facing changes
 - [Branch + PR workflow lesson](feedback_branch_pr_workflow.md) — 6 May rationale; how to apply; exceptions
+- [Screenshot truncation lesson](feedback_screenshot_truncation.md) — never transcribe a precise string by eye; pull from DOM
+- [SEO infrastructure](project_seo_infrastructure.md) — robots.txt + sitemap.xml + JSON-LD live; GSC verified; canonical/www follow-ups noted

@@ -40,6 +40,8 @@ originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 
 **Automation (Phase 1 — deployed 19 Apr):** 15-min cron handles result settlement, withdrawal detection, draw release detection, lock time auto-setting. All ops logged to `ops_log` table.
 
+**SEO + Search Console (6 May 2026):** robots.txt, sitemap.xml, canonical URL, JSON-LD WebSite + Game blocks live in production. Google Search Console domain property verified for `finalserveivor.com`. See `project_seo_infrastructure.md` for full state and follow-ups (canonical/www mismatch, sitemap re-fetch).
+
 **Transition tooling (5 May 2026):** `scripts/validate-tournament.mjs` (registry/seed-draw cross-check, run before pushing) and `scripts/smoke.sh` (4 live-API checks including invite-code round-trip, run after deploy). Transition prompts: `docs/transition-prompt.md` (free) and `docs/paid-transition-prompt.md` (paid, superset).
 
 **Mac repo path:** `/Users/mikaeelislam/tennis-survivor`
