@@ -478,9 +478,17 @@ Replace N with the actual commit count.
 - **The scraper cache holds the old tournament's data** until it runs
   against the new FlashScore URL. Match `startTime` may be null for
   the first 30-60 minutes after the env-var update.
-- **Player names are "Surname, Firstname" in seed draws** but
-  headshots are stored as `firstname-surname.jpg`. The
+- **Player names are "Surname, Firstname" in seed draws** (canonical
+  ATP / FlashScore format). Any frontend formatter must detect the
+  comma — `shortName()` was broken for weeks because it assumed the
+  legacy `"Firstname Lastname"` format and inverted every player on
+  the bracket. Headshots are stored as `firstname-surname.jpg`. The
   `playerImage.js` utility handles the conversion.
+- **Vercel preview origin must be in CORS allowlist.** When using
+  the working-agreement preview-verify step, the preview URL is a
+  different origin from prod. The backend's `ALLOWED_ORIGINS` regex
+  must match the project's Vercel team subdomain or login fails with
+  'Failed to fetch'. See `feedback_cors_preview_origins.md`.
 - **`computeStatus()` overrides the registry `status` field** based
   on dates. If a tournament shows the wrong status, the dates are
   wrong, not the field.

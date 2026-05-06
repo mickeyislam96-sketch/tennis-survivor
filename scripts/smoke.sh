@@ -110,11 +110,14 @@ for p in data:
 " 2>/dev/null)
   GHOST_USER="00000000-1111-2222-3333-444444444444"
   RESP=$(curl -s -o /dev/null -w "%{http_code}" -m 15 -X POST "$API/api/picks"     -H "Content-Type: application/json"     -d "{\"groupId\":\"$POOL_ID\",\"userId\":\"$GHOST_USER\",\"round\":\"R1\",\"playerId\":\"rome-s1\",\"playerName\":\"X\"}")
-  if [ "$RESP" = "403" ]; then
-    ok "non-member pick rejected (HTTP $RESP)"
-  else
-    no "non-member pick returned HTTP $RESP (expected 403)"
-  fi
+  # Accept either 403 (membership check fired — preferred) or 400
+  # (round-lock check fired first — happens after the round closes;
+  # both prove the pick wasn't accepted). 201 would be the regression.
+  case "$RESP" in
+    403) ok "non-member pick rejected with 403 (membership check)" ;;
+    400) ok "non-member pick rejected with 400 (likely round locked — also fine)" ;;
+    *)   no "non-member pick returned HTTP $RESP (expected 400 or 403; 201 would be a regression)" ;;
+  esac
 fi
 
 echo ""

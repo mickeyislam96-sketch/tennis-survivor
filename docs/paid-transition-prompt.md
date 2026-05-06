@@ -603,8 +603,11 @@ End the session with the literal sentence:
 - **Railway does not auto-restart on env-var change.** Save → Redeploy.
 - **Scraper cache lag.** Match `startTime` may be null for 30-60
   minutes after the FlashScore URL switches.
-- **Player names are "Surname, Firstname"** in seed draws but
-  headshots are `firstname-surname.jpg`.
+- **Player names are "Surname, Firstname"** in seed draws (canonical
+  ATP / FlashScore format). Any frontend formatter must detect the
+  comma — `shortName()` was broken for weeks because it assumed the
+  legacy `"Firstname Lastname"` format and inverted every player.
+  Headshots are stored as `firstname-surname.jpg`.
 - **`computeStatus()` overrides registry `status`** based on dates.
 - **Hooks rules.** No hooks after early returns or inside conditionals.
 - **Invite codes are uppercase end-to-end** as of commit `fc0bad8`.
@@ -616,6 +619,11 @@ End the session with the literal sentence:
   case where `PAYMENT_WEBHOOK_SECRET` is unset and webhooks are wide
   open. A wide-open webhook can be used to fake confirmed payments
   and join free.
+- **Vercel preview origin must be in CORS allowlist.** When using
+  the working-agreement preview-verify step, the preview URL is a
+  different origin from prod. The backend's `ALLOWED_ORIGINS` regex
+  must match the project's Vercel team subdomain or login fails with
+  'Failed to fetch'. See `feedback_cors_preview_origins.md`.
 - **Idempotency.** Payment orders, webhook handlers, and confirm
   endpoints must be idempotent. The same Stripe charge or Revolut
   reference should never double-credit a pool.

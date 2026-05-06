@@ -17,3 +17,5 @@
 - [Branch + PR workflow lesson](feedback_branch_pr_workflow.md) — 6 May rationale; how to apply; exceptions
 - [Screenshot truncation lesson](feedback_screenshot_truncation.md) — never transcribe a precise string by eye; pull from DOM
 - [SEO infrastructure](project_seo_infrastructure.md) — robots.txt + sitemap.xml + JSON-LD live; GSC verified; canonical/www follow-ups noted
+- [Name parsing — Surname, Firstname format](feedback_name_parsing.md) — seed-draw uses canonical comma format; formatters must detect it
+- [CORS preview origins](feedback_cors_preview_origins.md) — Vercel preview URLs must be in the backend allowlist; regex locked to project's Vercel team
