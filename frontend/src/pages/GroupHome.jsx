@@ -478,8 +478,11 @@ export function GroupHome() {
     // Only use R1 lock as entry deadline for the active tournament —
     // the /draw/deadlines endpoint returns the active tournament's schedule,
     // not this pool's tournament. For upcoming pools, rely on entryOpen flag.
+    // Entry stays open right up until R1 lock — the original 1-hour buffer
+    // (intended to give late joiners time to pick) was preventing genuine
+    // last-minute joiners. Users can pick immediately after joining anyway.
     const entryDeadline = r1LockAt && tournament?.status === 'active'
-      ? new Date(new Date(r1LockAt).getTime() - 60 * 60 * 1000)
+      ? new Date(r1LockAt)
       : null;
     const isEntryClosed = isCompleted || tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
