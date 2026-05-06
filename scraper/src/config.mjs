@@ -3,19 +3,34 @@
  *
  * Update this file when switching tournaments.
  * Everything else (scrape logic, DOM extraction, score parsing) stays the same.
+ *
+ * IMPORTANT (lesson learned 6 May 2026):
+ * FLASHSCORE_URL and RESULTS_URL are REQUIRED env vars — no defaults.
+ * Previously the defaults pointed at the most recent tournament (Madrid),
+ * which meant if the env vars were never set on Railway, the scraper
+ * silently scraped the WRONG tournament for an entire week before anyone
+ * noticed. Failing loudly on missing env vars is much safer.
  */
 
-// ── Tournament-specific ─────────────────────────────────────────────────────
+// ── Tournament-specific (REQUIRED) ──────────────────────────────────────────
+
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value || !value.trim()) {
+    throw new Error(
+      `[scraper config] Required env var ${name} is not set. ` +
+      `Set it on the Railway scraper service before deploying. ` +
+      `See docs/transition-prompt.md for the per-tournament setup checklist.`
+    );
+  }
+  return value.trim();
+}
 
 /** FlashScore URL for the current tournament's live/upcoming page */
-export const FLASHSCORE_URL =
-  process.env.FLASHSCORE_URL ||
-  'https://www.flashscore.co.uk/tennis/atp-singles/madrid/';
+export const FLASHSCORE_URL = requireEnv('FLASHSCORE_URL');
 
 /** FlashScore URL for the results page (completed matches) */
-export const RESULTS_URL =
-  process.env.RESULTS_URL ||
-  'https://www.flashscore.co.uk/tennis/atp-singles/madrid/results/';
+export const RESULTS_URL = requireEnv('RESULTS_URL');
 
 /**
  * Round name mapping: FlashScore labels → internal round keys.
