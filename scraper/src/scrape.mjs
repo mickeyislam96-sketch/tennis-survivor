@@ -12,8 +12,13 @@
  * Environment:
  *   BACKEND_URL    — e.g. https://tennis-survivor-production.up.railway.app
  *   ADMIN_SECRET   — same secret as the backend ADMIN_SECRET env var
- *   FLASHSCORE_URL — (optional) override the tournament URL
- *   RESULTS_URL    — (optional) override the results page URL
+ *   FLASHSCORE_URL — REQUIRED — current tournament's FlashScore live page
+ *   RESULTS_URL    — REQUIRED — current tournament's FlashScore results page
+ *
+ * NOTE (6 May 2026): FLASHSCORE_URL/RESULTS_URL were previously optional and
+ * defaulted to the most recent tournament. That meant if env vars were never
+ * set on Railway, the scraper silently scraped the wrong tournament. Now they
+ * fail loudly via require checks in src/config.mjs.
  */
 
 import { chromium } from 'playwright';
