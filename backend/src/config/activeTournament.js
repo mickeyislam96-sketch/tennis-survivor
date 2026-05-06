@@ -38,7 +38,7 @@ const TOURNAMENTS = {
     // Rome matches typically start 10:00–11:00 local (08:00–09:00 UTC, CEST = UTC+2).
     // These are conservative estimates based on the official tournament schedule.
     lockTimeOverrides: {
-      R1:  '2026-05-06T08:00:00Z',  // Wed 6 May — 10:00 Rome / 09:00 UK
+      R1:  '2026-05-06T09:00:00Z',  // Wed 6 May — 11:00 Rome / 10:00 UK (extended by 1h on 5 May to give late joiners more time)
       R64: '2026-05-08T08:00:00Z',  // Fri 8 May — UPDATE once OOP confirmed
       R32: '2026-05-10T08:00:00Z',  // Sun 10 May — UPDATE once OOP confirmed
       R16: '2026-05-12T08:00:00Z',  // Tue 12 May — UPDATE once OOP confirmed
