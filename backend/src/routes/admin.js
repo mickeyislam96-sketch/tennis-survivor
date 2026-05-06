@@ -859,3 +859,52 @@ adminRouter.get('/orphan-picks', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/bulk-add-members ─────────────────────────────────────────
+// Add multiple users to a group in one request. Skips users who are already
+// members. Returns per-user status. Used to recover from silent-join-failure
+// incidents like the 6 May Rome launch.
+adminRouter.post('/bulk-add-members', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  const { groupId, userIds } = req.body;
+  if (!groupId || !Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ error: 'groupId and userIds[] required' });
+  }
+  const results = [];
+  for (const userId of userIds) {
+    try {
+      // Use the user's existing display_name from users table if available.
+      const userRow = await pool.query('SELECT display_name FROM users WHERE id = $1', [userId]);
+      if (userRow.rows.length === 0) {
+        results.push({ userId, status: 'skipped', reason: 'user_not_found' });
+        continue;
+      }
+      const displayName = userRow.rows[0].display_name || 'Player';
+
+      const existing = await pool.query(
+        'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+        [groupId, userId]
+      );
+      if (existing.rows.length > 0) {
+        results.push({ userId, status: 'skipped', reason: 'already_member' });
+        continue;
+      }
+
+      const ins = await pool.query(
+        `INSERT INTO group_members (group_id, user_id, display_name, is_alive)
+         VALUES ($1, $2, $3, true)
+         RETURNING id::text, joined_at`,
+        [groupId, userId, displayName]
+      );
+      results.push({ userId, status: 'added', memberId: ins.rows[0].id, joinedAt: ins.rows[0].joined_at });
+    } catch (err) {
+      results.push({ userId, status: 'error', error: err.message });
+    }
+  }
+  const summary = {
+    added: results.filter(r => r.status === 'added').length,
+    skipped: results.filter(r => r.status === 'skipped').length,
+    errors: results.filter(r => r.status === 'error').length,
+  };
+  res.json({ ok: true, summary, results });
+});
+
