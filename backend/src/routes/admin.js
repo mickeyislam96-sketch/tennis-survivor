@@ -908,3 +908,25 @@ adminRouter.post('/bulk-add-members', async (req, res) => {
   res.json({ ok: true, summary, results });
 });
 
+// ── GET /api/admin/scraper-fixtures ──────────────────────────────────────────
+// Diagnostic: dump the raw fixtures the scraper has in memory cache so we
+// can see what player names + statuses are coming from FlashScore.
+adminRouter.get('/scraper-fixtures', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  try {
+    const { fetchFixtures } = await import('../services/dataAdapter.js');
+    const result = await fetchFixtures();
+    const round = req.query.round;
+    let fixtures = result.fixtures || [];
+    if (round) fixtures = fixtures.filter((f) => f.round === round);
+    res.json({
+      ok: true,
+      provider: result.provider,
+      total: fixtures.length,
+      fixtures: fixtures.slice(0, 60),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
