@@ -510,6 +510,45 @@ Open the new pool's invite URL in a private window. Confirm the join
 modal shows the entry fee. Click "Pay & Join" (do not actually pay).
 Confirm the payment page renders.
 
+### 8d. Multi-account incognito test (BLOCKING — 6 May lesson)
+
+3+ fresh incognito sessions. After each "successful" UI action, verify
+against the live API. If UI shows joined but leaderboard API doesn't
+list them, you've hit a phantom-membership bug — STOP and diagnose.
+The 6 May Rome launch passed all server-side smoke but real users still
+got broken state because of frontend deadline-buffer + missing-membership
+checks. Don't trust UI success states without API verification.
+
+### 8e. Data integrity (BLOCKING)
+
+```bash
+# Orphan picks must be 0
+curl -s "$API/api/admin/orphan-picks" -H "Authorization: Bearer $ADMIN_SECRET" \
+  | python3 -c "import sys,json; print('orphan picks:', json.load(sys.stdin).get('count','?'))"
+
+# Pick endpoint must reject non-members with 403 (regression test)
+GHOST="00000000-1111-2222-3333-444444444444"
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST "$API/api/picks" \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"$GHOST\",\"groupId\":\"$GROUP\",\"round\":\"R1\",\"playerId\":\"x\",\"playerName\":\"y\"}"
+```
+
+Both required: orphan count = 0, pick rejection = 403. Do not announce
+the pool until both pass.
+
+### 8f. Frontend deadline matches backend lockAt
+
+The frontend's GroupHome.jsx computes its own entryDeadline. On 6 May
+it subtracted 1h from lockAt, hiding the join button before the backend
+actually closed entries. Verify no buffer subtraction:
+
+```bash
+grep -n "entryDeadline" frontend/src/pages/GroupHome.jsx
+```
+
+Should NOT see `getTime() - 60 * 60 * 1000` or any other subtraction.
+Frontend entry deadline must equal backend R1 lockAt exactly.
+
 ---
 
 ## PHASE 9 — Session-end protocol (MANDATORY)

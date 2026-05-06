@@ -339,20 +339,82 @@ hand-rolling SQL.)
 
 ---
 
-## PHASE 8 — User-facing flow check
+## PHASE 8 — User-facing flow check (BLOCKING — this is where 6 May's bugs hid)
 
-This is the step the original prompt missed. Server-side checks pass
-≠ users can join.
+The 6 May Rome launch passed every server-side smoke check, but real
+users could NOT join because of frontend issues. Server-side checks
+pass ≠ users can join. Don't skip this.
 
-Tell Mickey to:
+### 8a. Multi-account incognito test (run BEFORE you announce the pool)
 
-1. Open the new pool's invite URL in a private/incognito window.
-2. Confirm the join modal renders with the pool name and entry status.
-3. Click "Join" (you may need to register a throwaway account first).
-4. Confirm landing on the group home page with R1 picks open.
-5. Make a test pick, confirm the picked-card UI updates.
+Tell Mickey to test with **at least 3 fresh accounts** in **separate
+incognito windows** (or different browsers). Single click-through is
+not enough — the 6 May invite-buffer bug only fired during a specific
+time window, and the phantom-pick bug only surfaced after a join
+silently failed.
 
-If any step fails, the bug is real and visible. Diagnose immediately.
+For each account:
+1. Open the invite URL in a fresh incognito window.
+2. **Open DevTools (F12) → Console tab BEFORE clicking anything.**
+3. Click through register → join.
+4. Take screenshot of any error.
+5. After each "successful" UI action, **immediately verify against the
+   live API**:
+
+   ```bash
+   curl -s "$API/api/leaderboard/$GROUP" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   print('Members:', [m['displayName'] for m in d['leaderboard']])"
+   ```
+
+   If the user shows in the UI as "joined" but isn't in the leaderboard
+   API, you've hit a phantom-membership bug. STOP and diagnose.
+
+6. After picking, verify the pick is in the DB:
+
+   ```bash
+   curl -s "$API/api/admin/picks/$GROUP" \
+     -H "Authorization: Bearer $ADMIN_SECRET" \
+     | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('picks',[])), 'picks')"
+   ```
+
+### 8b. Frontend-vs-backend deadline alignment (the 6 May 1-hour-buffer bug)
+
+The frontend can have its OWN deadline computation that diverges from
+the backend's R1 lockAt. On 6 May, GroupHome.jsx subtracted 1 hour from
+lockAt to compute entry deadline, hiding the join button before the
+backend actually closed entries.
+
+Verify:
+1. Read `r1LockAt` from `/api/draw/deadlines` (backend).
+2. `grep -n "entryDeadline\|getTime() - 60" frontend/src/pages/GroupHome.jsx`
+   — confirm there's no subtraction. The frontend's entryDeadline must
+   equal the backend's R1 lockAt exactly.
+
+### 8c. Orphan-picks check (BLOCKING)
+
+```bash
+curl -s "$API/api/admin/orphan-picks" -H "Authorization: Bearer $ADMIN_SECRET" \
+  | python3 -c "import sys,json; print('orphan picks:', json.load(sys.stdin).get('count','?'))"
+```
+
+Must be 0. Any non-zero count means users have picks for pools they
+aren't members of — the silent-join-failure / phantom-pick scenario.
+Use `POST /api/admin/bulk-add-members` to recover.
+
+### 8d. Pick endpoint requires membership (regression test)
+
+```bash
+GHOST="00000000-1111-2222-3333-444444444444"
+curl -s -o /dev/null -w "HTTP %{http_code}" -X POST "$API/api/picks" \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"$GHOST\",\"groupId\":\"$GROUP\",\"round\":\"R1\",\"playerId\":\"x\",\"playerName\":\"y\"}"
+```
+
+Must return 403 (not 201). 6 May regression fix.
+
+If any of 8a–8d fails, do not announce the pool. Diagnose first.
 
 ---
 

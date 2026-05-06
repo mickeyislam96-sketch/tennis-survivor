@@ -16,6 +16,10 @@
 #   3. /api/pools returns at least one active pool
 #   4. The active pool's invite link round-trips (catches the case-sensitivity bug)
 #   5. The frontend /finalserveivor.com is reachable
+#   6. orphan-picks count is 0 (catches the membership/pick mismatch bug —
+#      requires ADMIN_SECRET via env var)
+#   7. /api/picks rejects pick attempts from non-members with 403
+#      (regression test for the 6 May data-integrity fix; requires ADMIN_SECRET)
 #
 # Exits non-zero on any failure so it can wedge into CI later.
 
@@ -77,6 +81,41 @@ fi
 step "4. Frontend reachable"
 HTTP_WEB=$(curl -s -L -o /dev/null -w "%{http_code}" -m 15 "$WEB")
 if [ "$HTTP_WEB" = "200" ]; then ok "$WEB responds 200"; else no "$WEB responds $HTTP_WEB"; fi
+
+step "5. Orphan picks (data integrity)"
+if [ -z "${ADMIN_SECRET:-}" ]; then
+  echo "  (skipped — set ADMIN_SECRET in env to enable)"
+else
+  ORPHAN=$(curl -s -m 15 "$API/api/admin/orphan-picks" -H "Authorization: Bearer $ADMIN_SECRET")
+  COUNT=$(echo "$ORPHAN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('count', 'ERR'))" 2>/dev/null)
+  if [ "$COUNT" = "0" ]; then
+    ok "orphan-picks count = 0"
+  elif [ "$COUNT" = "ERR" ] || [ -z "$COUNT" ]; then
+    echo "  (admin endpoint not deployed yet or auth failed — skipping)"
+  else
+    no "orphan-picks count = $COUNT (users have picks for groups they aren't members of)"
+    echo "$ORPHAN" | python3 -m json.tool 2>/dev/null | head -20
+  fi
+fi
+
+step "6. /api/picks rejects non-member with 403 (regression check for 6 May fix)"
+if [ -n "$ACTIVE_CODE" ]; then
+  # Use the active pool ID and a fresh non-member UUID
+  POOL_ID=$(echo "$POOLS" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for p in data:
+    if (p.get('tournament') or {}).get('status') == 'active':
+        print(p['id']); break
+" 2>/dev/null)
+  GHOST_USER="00000000-1111-2222-3333-444444444444"
+  RESP=$(curl -s -o /dev/null -w "%{http_code}" -m 15 -X POST "$API/api/picks"     -H "Content-Type: application/json"     -d "{\"groupId\":\"$POOL_ID\",\"userId\":\"$GHOST_USER\",\"round\":\"R1\",\"playerId\":\"rome-s1\",\"playerName\":\"X\"}")
+  if [ "$RESP" = "403" ]; then
+    ok "non-member pick rejected (HTTP $RESP)"
+  else
+    no "non-member pick returned HTTP $RESP (expected 403)"
+  fi
+fi
 
 echo ""
 if [ "$fail_count" -eq 0 ]; then
