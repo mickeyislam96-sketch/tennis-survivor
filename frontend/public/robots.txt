@@ -1,0 +1,16 @@
+# Final Serve-ivor — robots policy
+# Allow all reputable crawlers full access. The site is public-facing
+# and benefits from indexing. API endpoints are deliberately excluded
+# from the sitemap (they don't have user-friendly content).
+
+User-agent: *
+Allow: /
+
+# Don't crawl pool-internal pages — they're behind auth and produce
+# 404s or redirect to login for anonymous crawlers.
+Disallow: /group/
+Disallow: /api/
+Disallow: /pay/
+
+# Sitemap reference
+Sitemap: https://finalserveivor.com/sitemap.xml
