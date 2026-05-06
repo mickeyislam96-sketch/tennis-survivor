@@ -306,13 +306,21 @@ picksRouter.post('/', async (req, res) => {
       }
     }
 
-    // Check if the user is eliminated — eliminated players cannot submit picks
+    // Membership + eliminated check.
+    // CRITICAL: previously this only rejected eliminated members, silently
+    // accepting picks from non-members. That created phantom picks for
+    // accounts whose join failed (the pick screen showed a 'current pick'
+    // not present in the leaderboard, since group_members had no row).
+    // Now: must be a member, and must be alive.
     if (isUUID(userId) && isUUID(groupId)) {
       const memberCheck = await pool.query(
         'SELECT is_alive FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, userId]
       );
-      if (memberCheck.rows.length > 0 && memberCheck.rows[0].is_alive === false) {
+      if (memberCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'You are not a member of this pool. Click the invite link to join first.' });
+      }
+      if (memberCheck.rows[0].is_alive === false) {
         return res.status(403).json({ error: 'You have been eliminated and can no longer make picks' });
       }
     }
