@@ -758,3 +758,26 @@ adminRouter.post('/reset-member', async (req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// ── POST /api/admin/remove-user ──────────────────────────────────────────────
+// Remove a user entirely (cascades through group_members, picks, payment_orders).
+// Use sparingly — destructive. Auditable via admin_audit_log.
+adminRouter.post('/remove-user', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+  try {
+    // Postgres ON DELETE CASCADE handles group_members; explicit picks delete
+    // is defensive in case the schema doesn't have it.
+    await pool.query('DELETE FROM picks WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM group_members WHERE user_id = $1', [userId]);
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, email, display_name', [userId]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    console.log(`[admin] remove-user: deleted ${result.rows[0].email}`);
+    res.json({ ok: true, removed: result.rows[0] });
+  } catch (err) {
+    console.error('[admin] remove-user error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
