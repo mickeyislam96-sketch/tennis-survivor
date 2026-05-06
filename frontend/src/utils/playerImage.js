@@ -36,17 +36,73 @@ export function initials(name) {
 }
 
 /**
- * Convert "Firstname Lastname" → "Lastname, F."
- * Handles multi-part surnames: "Carlos Alcaraz Garfia" → "Alcaraz Garfia, C."
- * Single names pass through unchanged: "TBD" → "TBD"
+ * Surname-first display name.
+ *
+ * Handles two input formats:
+ *  - "Surname, Firstname" (canonical seed-draw format) — most common
+ *  - "Firstname Lastname" (legacy / API format)
+ *
+ * Output is always "Surname, F." for a single first name, or
+ * "Surname, F.M." for multi-name first names. Multi-word surnames
+ * (Carreno Busta, Davidovich Fokina, Mpetshi Perricard) are preserved
+ * verbatim. Hyphenated first names (Jan-Lennard) are split on hyphens
+ * so each component gets an initial: "Struff, J.-L.".
+ *
+ * Examples:
+ *   "Sinner, Jannik"               → "Sinner, J."
+ *   "Cerundolo, Juan Manuel"       → "Cerundolo, J.M."
+ *   "Carreno Busta, Pablo"         → "Carreno Busta, P."
+ *   "Mpetshi Perricard, Giovanni"  → "Mpetshi Perricard, G."
+ *   "Struff, Jan-Lennard"          → "Struff, J.-L."
+ *   "Auger-Aliassime, Felix"       → "Auger-Aliassime, F."
+ *   "Carlos Alcaraz"               → "Alcaraz, C."         (legacy)
+ *   "Carlos Alcaraz Garfia"        → "Alcaraz Garfia, C."  (legacy)
+ *   "TBD" / "Qualifier 13" / null  → returned as-is or "—"
  */
 export function shortName(name) {
   if (!name) return '—';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) return name;
-  const first = parts[0];
+  const trimmed = name.trim();
+  if (!trimmed) return '—';
+
+  // Single token (e.g. "TBD", "Qualifier 13" with one word, etc.)
+  if (!/\s/.test(trimmed) && !trimmed.includes(',')) return trimmed;
+
+  // Build initials for first names. Hyphens are treated as separators
+  // so "Jan-Lennard" becomes ["Jan","Lennard"] → "J.-L.".
+  const buildInitials = (firstNames) => firstNames
+    .split(/\s+/)
+    .map((part) => part
+      .split('-')
+      .filter(Boolean)
+      .map((sub) => `${sub[0].toUpperCase()}.`)
+      .join('-')
+    )
+    .filter(Boolean)
+    .join('');
+
+  if (trimmed.includes(',')) {
+    // Canonical "Surname, Firstname[s]" format.
+    const [surnameRaw, firstNamesRaw = ''] = trimmed.split(',', 2);
+    const surname = surnameRaw.trim();
+    const firstNames = firstNamesRaw.trim();
+    if (!surname) return trimmed;
+    if (!firstNames) return surname;
+    const inits = buildInitials(firstNames);
+    return inits ? `${surname}, ${inits}` : surname;
+  }
+
+  // Legacy "Firstname [Middle...] Lastname [Lastname2]" format.
+  // Heuristic: first word = first name, remaining = surname (preserves
+  // multi-word surnames like "Alcaraz Garfia").
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) return trimmed;
+  // Guard: placeholder strings like "Qualifier 13", "TBD 1" — anything
+  // where a token is purely numeric — should be left as-is rather than
+  // mangled into "13, Q.".
+  if (parts.some((part) => /^\d+$/.test(part))) return trimmed;
+  const firstName = parts[0];
   const surname = parts.slice(1).join(' ');
-  return `${surname}, ${first[0]}.`;
+  return `${surname}, ${firstName[0].toUpperCase()}.`;
 }
 
 /**
