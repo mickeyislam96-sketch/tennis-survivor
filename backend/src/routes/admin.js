@@ -813,3 +813,49 @@ adminRouter.get('/recent-users', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/picks-by-player ───────────────────────────────────────────
+// Find picks across all groups where player_name matches a string.
+// Used to track down phantom picks where membership and pick are out of sync.
+adminRouter.get('/picks-by-player', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'name query param required' });
+  try {
+    const result = await pool.query(
+      `SELECT p.*, u.email, u.display_name AS user_display_name, g.name AS group_name, g.tournament_id,
+              EXISTS(SELECT 1 FROM group_members m WHERE m.user_id = p.user_id AND m.group_id = p.group_id) AS is_member
+       FROM picks p
+       LEFT JOIN users u ON u.id = p.user_id
+       LEFT JOIN groups g ON g.id = p.group_id
+       WHERE p.player_name ILIKE $1
+       ORDER BY p.created_at DESC LIMIT 50`,
+      [`%${name}%`]
+    );
+    res.json({ ok: true, picks: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/admin/orphan-picks ──────────────────────────────────────────────
+// Picks whose user_id is NOT a member of the corresponding group_id. These
+// are exactly the phantom-pick scenario from the 6 May incident.
+adminRouter.get('/orphan-picks', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  try {
+    const result = await pool.query(
+      `SELECT p.*, u.email, u.display_name, g.name AS group_name, g.tournament_id
+       FROM picks p
+       LEFT JOIN users u ON u.id = p.user_id
+       LEFT JOIN groups g ON g.id = p.group_id
+       WHERE NOT EXISTS (
+         SELECT 1 FROM group_members m WHERE m.user_id = p.user_id AND m.group_id = p.group_id
+       )
+       ORDER BY p.created_at DESC LIMIT 100`
+    );
+    res.json({ ok: true, count: result.rows.length, picks: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
