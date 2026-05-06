@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Final Serve-ivor</title>
-    <meta name="description" content="Tennis survivor fantasy game. Pick one player per round. Last one standing wins the prize pool." />
+    <meta name="description" content="Final Serve-ivor — the tennis survivor pool. Pick one ATP player per round, stay in if they win, knocked out if they lose. Last survivor wins the prize pot. Built around Madrid, Rome, Roland Garros and more." />
+    <meta name="keywords" content="tennis survivor pool, tennis pick em, ATP survivor, tennis fantasy, finalserveivor, final survivor tennis, Roland Garros pool, Rome tennis pool, Madrid tennis pool" />
     <meta property="og:title" content="Final Serve-ivor — Tennis Survivor" />
     <meta property="og:description" content="Pick one player per round. Last one standing wins the prize pool." />
     <meta property="og:image" content="https://finalserveivor.com/og-image.png" />
@@ -17,6 +18,47 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Canonical URL — tells Google which version of the site is authoritative -->
+    <link rel="canonical" href="https://finalserveivor.com/" />
+
+    <!-- Favicon + manifest -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0F4A23" />
+
+    <!-- Structured data — helps Google understand what the site is and show rich results -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Final Serve-ivor",
+        "alternateName": ["Final Serveivor", "Final Survivor Tennis", "FinalServeivor"],
+        "url": "https://finalserveivor.com/",
+        "description": "Tennis survivor pool. Pick one ATP player per round, stay in if they win, get knocked out if they lose. Last one standing wins the prize pot.",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Final Serve-ivor",
+          "url": "https://finalserveivor.com/"
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://finalserveivor.com/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Game",
+        "name": "Final Serve-ivor",
+        "description": "Tennis survivor pool game built around major ATP draws. Players pick one player per round and are eliminated if their pick loses. Last survivor wins the prize pot.",
+        "url": "https://finalserveivor.com/",
+        "genre": ["Sports", "Survivor pool", "Tennis"],
+        "applicationCategory": "Game",
+        "operatingSystem": "Web"
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
