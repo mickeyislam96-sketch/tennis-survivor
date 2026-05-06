@@ -360,7 +360,7 @@ export function Layout({ children }) {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, location.pathname]);  // refetch on navigation so the pill updates after a successful join
 
   const openAuth = (mode) => { setInitialMode(mode); setShowAuth(true); };
 
