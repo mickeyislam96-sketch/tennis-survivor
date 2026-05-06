@@ -781,3 +781,35 @@ adminRouter.post('/remove-user', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/recent-users ──────────────────────────────────────────────
+// List users by recency. Used to track down accounts that registered but
+// got stuck in a join failure mode.
+adminRouter.get('/recent-users', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  try {
+    const users = await pool.query(
+      `SELECT u.id::text, u.email, u.display_name, u.created_at,
+              COALESCE(json_agg(DISTINCT jsonb_build_object(
+                'group_id', m.group_id::text,
+                'group_name', g.name,
+                'tournament_id', g.tournament_id,
+                'joined_at', m.joined_at,
+                'is_alive', m.is_alive
+              )) FILTER (WHERE m.id IS NOT NULL), '[]'::json) AS memberships,
+              (SELECT COUNT(*) FROM picks p WHERE p.user_id = u.id) AS pick_count
+       FROM users u
+       LEFT JOIN group_members m ON m.user_id = u.id
+       LEFT JOIN groups g ON g.id = m.group_id
+       GROUP BY u.id
+       ORDER BY u.created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json({ ok: true, users: users.rows });
+  } catch (err) {
+    console.error('[admin] recent-users error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
