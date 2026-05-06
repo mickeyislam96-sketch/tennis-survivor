@@ -87,13 +87,43 @@ for (const key of WARN_ENV) {
   }
 }
 
+// Allowed origins for browser cross-origin requests.
+//   - Production hosts (apex, www, original Vercel alias).
+//   - Vercel preview URLs for this project (any subdomain under
+//     mickeyislam96-sketchs-projects.vercel.app or the matching
+//     git-branch alias). Without this, the working agreement's
+//     branch+PR+preview workflow can't verify user-facing changes
+//     because login (and every other API call) fails CORS preflight
+//     on the preview origin.
+//   - Local dev hosts (only when not running in production).
 const ALLOWED_ORIGINS = [
   'https://finalserveivor.com',
   'https://www.finalserveivor.com',
   'https://tennis-survivor.vercel.app',
-  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
 ];
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+const ALLOWED_ORIGIN_PATTERNS = [
+  // Vercel preview URLs for this project. Pattern locks to this
+  // specific Vercel team to prevent drive-by allowlist of unrelated
+  // forks or third-party Vercel deployments.
+  /^https:\/\/tennis-survivor-[a-z0-9-]+-mickeyislam96-sketchs-projects\.vercel\.app$/,
+];
+
+function corsOriginCheck(origin, callback) {
+  // No Origin header (server-to-server, curl, mobile native) — allow.
+  if (!origin) return callback(null, true);
+  if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+  if (ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin))) return callback(null, true);
+  if (process.env.NODE_ENV !== 'production') {
+    if (origin === 'http://localhost:5173' || origin === 'http://localhost:3000') {
+      return callback(null, true);
+    }
+  }
+  // Unknown origin — reject. Don't throw (would 500); pass `false`
+  // so the cors package returns a clean CORS-failed response.
+  return callback(null, false);
+}
+
+app.use(cors({ origin: corsOriginCheck, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(csrfProtection);
