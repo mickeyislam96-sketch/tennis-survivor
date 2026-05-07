@@ -470,6 +470,11 @@
   margin-top: 2px;
   line-height: 1.3;
 }
+.ps-pcard-opponent--possible {
+  font-style: italic;
+  opacity: 0.85;
+}
+
 
 .ps-pcard-match-time {
   display: flex;

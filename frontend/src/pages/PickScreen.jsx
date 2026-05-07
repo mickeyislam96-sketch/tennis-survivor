@@ -593,9 +593,13 @@ export function PickScreen() {
                           </span>
                         )}
                       </div>
-                      {player.opponentName && (
+                      {player.opponentName ? (
                         <div className="ps-pcard-opponent">vs {player.opponentName}</div>
-                      )}
+                      ) : (player.opponentPossible && player.opponentPossible.length > 0) ? (
+                        <div className="ps-pcard-opponent ps-pcard-opponent--possible">
+                          vs {player.opponentPossible.join(' or ')}
+                        </div>
+                      ) : null}
                       {isPerMatchLock && player.matchStartTime && (
                         <div className="ps-pcard-match-time">
                           {formatMatchTime(player.matchStartTime)}
