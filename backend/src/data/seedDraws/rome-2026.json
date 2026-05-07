@@ -77,7 +77,9 @@
     },
     "14": {
       "name": "Vacherot, Valentin",
-      "country": "MON"
+      "country": "MON",
+      "withdrawn": true,
+      "replacedBy": "Landaluce, Martin (LL, pos 48)"
     },
     "15": {
       "name": "Fils, Arthur",
@@ -454,9 +456,11 @@
     },
     {
       "pos": 48,
-      "name": "Vacherot, Valentin",
-      "seed": 14,
-      "country": "MON"
+      "name": "Landaluce, Martin",
+      "seed": null,
+      "country": "ESP",
+      "isLuckyLoser": true,
+      "replaces": "Vacherot, Valentin"
     },
     {
       "pos": 49,
