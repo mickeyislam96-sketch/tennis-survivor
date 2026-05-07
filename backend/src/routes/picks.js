@@ -135,32 +135,90 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
       .map(p => ({ ...p, ...(opponentMap[p.id] || {}) }));
   }
 
-  // ── R2+ standard path (existing logic) ─────────────────────────────────
+  // ── R2+ standard path ─────────────────────────────────────────────────
   // Build pending/confirmed sets from the previous round up-front.
   const prevRoundIndex = ROUNDS.indexOf(currentRound) - 1;
+  const prevRound = prevRoundIndex >= 0 ? ROUNDS[prevRoundIndex] : null;
   const pendingFromPrevRound = new Set();
-  if (prevRoundIndex >= 0) {
-    const prevRound = ROUNDS[prevRoundIndex];
-    (draw.matches || [])
+  const prevRoundMatchesSorted = [];
+  if (prevRound) {
+    const prevMatches = (draw.matches || [])
       .filter(m => m.round === prevRound)
-      .forEach(m => {
-        if (!m.winnerId) {
-          if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
-          if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
-        }
-      });
+      .sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0));
+    prevRoundMatchesSorted.push(...prevMatches);
+    for (const m of prevMatches) {
+      if (!m.winnerId) {
+        if (m.player1Id) pendingFromPrevRound.add(m.player1Id);
+        if (m.player2Id) pendingFromPrevRound.add(m.player2Id);
+      }
+    }
+  }
+
+  // Sort current-round matches by matchOrder so feeder relationship works
+  // (feederN_index = currentMatchIndex * 2 + 0/1 in matchOrder space).
+  const roundMatches = (draw.matches || [])
+    .filter(m => m.round === currentRound)
+    .sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0));
+
+  // Build opponent map for this round.
+  // For each match slot, identify all "candidate" players that could end up
+  // playing in that slot:
+  //   - If the slot has a player ID set (seed entered, or winner propagated)
+  //     → that player is the only candidate.
+  //   - Otherwise → walk back to the prev-round feeder match. If feeder has
+  //     a winner, use that single candidate; if not, the candidates are both
+  //     feeder players (TBD).
+  // Then for each candidate in slot1, their opponent info reflects slot2 (and
+  // vice versa). Single candidate on the other side → opponentName. Multiple
+  // candidates → opponentPossible array (frontend renders "vs A or B").
+  const opponentMap = {};
+  function slotCandidates(slotPlayerId, slotPlayerName, feeder) {
+    if (slotPlayerId) {
+      return [{ id: slotPlayerId, name: slotPlayerName || null }];
+    }
+    if (!feeder) return [];
+    if (feeder.winnerId) {
+      return [{ id: feeder.winnerId, name: feeder.winnerName || null }];
+    }
+    const cands = [];
+    if (feeder.player1Id) cands.push({ id: feeder.player1Id, name: feeder.player1Name || null });
+    if (feeder.player2Id) cands.push({ id: feeder.player2Id, name: feeder.player2Name || null });
+    return cands;
+  }
+  for (let i = 0; i < roundMatches.length; i++) {
+    const m = roundMatches[i];
+    const feeder1 = prevRoundMatchesSorted[i * 2] || null;
+    const feeder2 = prevRoundMatchesSorted[i * 2 + 1] || null;
+    const slot1 = slotCandidates(m.player1Id, m.player1Name, feeder1);
+    const slot2 = slotCandidates(m.player2Id, m.player2Name, feeder2);
+
+    const baseEntry = {
+      matchStartTime: m.startTime || null,
+      matchStatus: m.status || 'scheduled',
+    };
+    const opponentEntry = (otherSlot) => {
+      if (otherSlot.length === 1) {
+        return { opponentId: otherSlot[0].id, opponentName: otherSlot[0].name };
+      }
+      const possibles = otherSlot.map(c => c.name).filter(Boolean);
+      return { opponentName: null, opponentPossible: possibles };
+    };
+    for (const c of slot1) {
+      opponentMap[c.id] = { ...opponentEntry(slot2), ...baseEntry };
+    }
+    for (const c of slot2) {
+      opponentMap[c.id] = { ...opponentEntry(slot1), ...baseEntry };
+    }
   }
 
   // Build the set of players who actually have a match this round.
-  const roundMatches = (draw.matches || []).filter(m => m.round === currentRound);
   if (roundMatches.length > 0) {
     const playingThisRound = new Set(
       roundMatches.flatMap(m => [m.player1Id, m.player2Id]).filter(Boolean)
     );
 
     // Supplement with players from the previous round who may still advance.
-    if (prevRoundIndex >= 0) {
-      const prevRound = ROUNDS[prevRoundIndex];
+    if (prevRound) {
       (draw.matches || [])
         .filter(m => m.round === prevRound)
         .forEach(m => {
@@ -179,15 +237,24 @@ async function getAvailablePlayers(userId, groupId, currentRound) {
 
     const playerPool = (draw.players || [])
       .filter(p => !p.roundEliminated && playingThisRound.has(p.id) && !isQualifierPlaceholder(p))
-      .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+      .map(p => ({
+        ...p,
+        ...(opponentMap[p.id] || {}),
+        ...(pendingFromPrevRound.has(p.id) ? { pendingPrevRound: true } : {}),
+      }));
 
     if (playerPool.length > 0) return playerPool;
   }
 
-  // Fallback: return all non-eliminated players.
+  // Fallback: return all non-eliminated players (without opponent info — the
+  // round structure doesn't yet allow us to resolve matchups).
   return (draw.players || [])
     .filter(p => !p.roundEliminated && !isQualifierPlaceholder(p))
-    .map(p => pendingFromPrevRound.has(p.id) ? { ...p, pendingPrevRound: true } : p);
+    .map(p => ({
+      ...p,
+      ...(opponentMap[p.id] || {}),
+      ...(pendingFromPrevRound.has(p.id) ? { pendingPrevRound: true } : {}),
+    }));
 }
 
 // GET /api/picks/available?groupId=&round=
