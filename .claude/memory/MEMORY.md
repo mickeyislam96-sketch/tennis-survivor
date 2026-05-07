@@ -15,3 +15,4 @@
 - [Staging environment](project_staging_environment.md) — staging URLs, workflow contract, outstanding cleanups (FRONTEND_URL, CI trigger, scraper). Shipped 7 May 2026.
 - [fsv-daily-brief skill](reference_daily_brief_skill.md) — morning brief skill, what it does, when it triggers, hard rules, approval flow.
 - [Brief skill domain caveats](feedback_brief_domain_caveats.md) — suspended ≠ retired in tennis; (n-1) is correct survivor-pool denominator. Two landmines Mickey caught session 36.
+- [Seeded-player withdrawal with bye](feedback_seeded_withdrawal_with_bye.md) — auto-replacement only fires for R1; seeds with byes need manual seed-draw JSON update + player ID changes from rome-sN to rome-pPos
