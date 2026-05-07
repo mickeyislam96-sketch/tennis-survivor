@@ -138,11 +138,12 @@ function PickWindow({ opensAt, lockAt }) {
 // ── Survivor meter ────────────────────────────────────────────
 function SurvivorMeter({ alive, total }) {
   const eliminated = total - alive;
-  // Denominate by total members. Previously this used `total - 1` (apparently to
-  // exclude an eventual winner from the field), but that gives wrong percentages
-  // mid-tournament when no winner has been determined: a 6-person pool with 1
-  // eliminated reads "20% of the field eliminated" (1/5) when it should be 17% (1/6).
-  const pct = total > 0 ? Math.round((eliminated / total) * 100) : 0;
+  // Denominator is (total - 1): in a survivor pool, N enter and N-1 will be
+  // eliminated, so the "field" being eliminated equals total - 1. When that
+  // field is fully eliminated (N-1 of N-1), the survivometer reads 100% and
+  // the last person standing has won. This is the correct survivor-pool
+  // semantic — do not change to total without thinking it through.
+  const pct = total > 1 ? Math.round((eliminated / (total - 1)) * 100) : 0;
 
   let tone = 'primary';
   if (pct >= 80) tone = 'danger';
