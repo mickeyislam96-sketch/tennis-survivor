@@ -183,13 +183,29 @@ export async function getScrapedResults() {
 
 /**
  * Get cache status for admin diagnostics.
+ *
+ * `cacheAge` reflects how old the actual SCRAPED DATA is (now - scrapedAt),
+ * not when it was last loaded into memory. Previously cacheAge was derived
+ * from fetchedAt, which reset to ~0 every time Railway restarted and the
+ * in-memory cache was backfilled from DB — silently masking stale-scraper
+ * conditions from /api/health (and therefore from UptimeRobot alerts).
+ *
+ * `loadedAgeSeconds` is kept as a separate diagnostic field for the original
+ * "how long since this was loaded into memory" semantic — useful for debugging
+ * restart and cache-invalidation patterns.
  */
 export function getScraperCacheStatus() {
+  const scrapedAtMs = scraperCache.scrapedAt
+    ? new Date(scraperCache.scrapedAt).getTime()
+    : null;
   return {
     hasMemoryCache: !!(scraperCache.fixtures && scraperCache.fixtures.length > 0),
     fixtureCount: scraperCache.fixtures?.length || 0,
-    cacheAge: scraperCache.fetchedAt ? Math.round((Date.now() - scraperCache.fetchedAt) / 1000) : null,
+    cacheAge: scrapedAtMs ? Math.round((Date.now() - scrapedAtMs) / 1000) : null,
     scrapedAt: scraperCache.scrapedAt,
+    loadedAgeSeconds: scraperCache.fetchedAt
+      ? Math.round((Date.now() - scraperCache.fetchedAt) / 1000)
+      : null,
     cacheTtlSeconds: CACHE_TTL / 1000,
   };
 }

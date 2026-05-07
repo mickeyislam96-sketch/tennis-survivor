@@ -223,24 +223,28 @@ export function Leaderboard() {
 
         <p className="lb-click-hint">Tap any player to see their pick history.</p>
 
-        {/* Survivometer — uses (n-1) denominator so lone survivor = 100% */}
-        {totalEntrants > 1 && (
+        {/* Survivometer — denominator is total members. Previously used (n-1) so a
+            lone survivor read 100%, but mid-tournament that produced wrong-looking
+            ratios: a 6-person pool with 1 eliminated showed "1/5 · 20%" against 6
+            visible names. Using total members makes the shown ratio match the
+            leaderboard count below it. */}
+        {totalEntrants > 0 && (
           <div className="lb-survivometer">
             <div className="lb-survivometer-header">
               <span className="lb-survivometer-label">Survivometer</span>
               <span className="lb-survivometer-stat">
-                {eliminated} / {totalEntrants - 1} eliminated
+                {eliminated} / {totalEntrants} eliminated
               </span>
             </div>
             <div className="lb-survivometer-track">
               <div
                 className="lb-survivometer-fill"
-                style={{ width: `${Math.round((eliminated / (totalEntrants - 1)) * 100)}%` }}
+                style={{ width: `${Math.round((eliminated / totalEntrants) * 100)}%` }}
               />
             </div>
             <div className="lb-survivometer-footer">
               <span className="lb-survivometer-pct">
-                {Math.round((eliminated / (totalEntrants - 1)) * 100)}%
+                {Math.round((eliminated / totalEntrants) * 100)}%
               </span>
               <span className="lb-survivometer-alive">
                 {aliveCount} still standing
