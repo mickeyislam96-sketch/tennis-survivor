@@ -361,6 +361,22 @@ services are live before Phase 6.
 ```bash
 cd /tmp/ts-new
 EXPECTED_TOURNAMENT={new-id} bash scripts/smoke.sh
+
+After the smoke passes, do ONE more visual check before announcing the
+launch. Open the pick screen for the active pool in an incognito window:
+
+  https://finalserveivor.com/group/<pool-uuid>/pick
+
+Every player row MUST show a `vs <opponent>` sub-line. Either:
+  - solid `vs <name>`         (opponent resolved)
+  - italic `vs <A> or <B>`    (opponent TBD — feeder match still in flight)
+
+If ANY rows are bare (just name + Pick button, no `vs ...`), the backend
+is not building `opponentMap` for the open round. This was the PR #8
+bug class (7 May 2026): R2+ branch in `picks.js` returned players with
+null `opponentName` AND null `opponentPossible`. Block the launch and
+investigate before continuing — `scripts/smoke.sh` step 3b should also
+be flagging it in CI.
 ```
 
 All 4 checks must pass. Then probe round-specific endpoints:
