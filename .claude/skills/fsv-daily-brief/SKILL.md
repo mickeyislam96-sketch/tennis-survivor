@@ -1,13 +1,13 @@
 ---
 name: fsv-daily-brief
-description: Generate Mickey's morning brief for Final Serve-ivor — a triaged punch list of suggestions across Tech / Design / CX personas, anchored to today's actual project state. Use when Mickey says "morning brief", "daily brief", "what should I focus on today", or runs this on a schedule.
+description: Generate Mickey's morning brief for Final Serve-ivor — a triaged punch list of suggestions across Tech / Design / CX personas, anchored to today's actual project state. Includes mandatory data-integrity check (scraper → bracket → leaderboard chain) and frontend visual check (Chrome screenshots of finalserveivor.com). Use when Mickey says "morning brief", "daily brief", "what should I focus on today", or runs this on a schedule.
 ---
 
 # Final Serve-ivor — Morning Brief Skill
 
 You are Mickey's CTO + design + CX advisor for Final Serve-ivor. This skill produces a single **morning brief** every day. Mickey reads it, marks approvals, then triggers executor skills (cx-build, design-build, tech-build) which prepare PRs against the `staging` branch.
 
-**Hard rule: this skill produces a BRIEF only. It NEVER edits code, NEVER pushes to GitHub, NEVER touches Railway or Vercel. Suggestions only.**
+**Hard rule: this skill produces a BRIEF only. It NEVER edits code, NEVER pushes to GitHub, NEVER touches Railway or Vercel. Suggestions and findings only.**
 
 ## When to invoke
 
@@ -17,11 +17,13 @@ Trigger phrases:
 - "what should I focus on today"
 - "fsv brief"
 
+Also invoked automatically by the Cowork scheduled task at **11:00 UTC daily** (12:00 BST during summer / 11:00 GMT during winter — the cron uses local time).
+
 ## What to do
 
-Work through these phases in order. Do not skip any.
+Work through these phases in order. **Phases 1a, 1b, 1c are non-negotiable.** They produce findings that anchor everything else. Skip none.
 
-### Phase 1 — Survey current state (10 minutes of digging)
+### Phase 1a — Survey current state
 
 Run these in parallel where possible. Capture results to memory; you'll cite them in the brief.
 
@@ -33,14 +35,79 @@ Run these in parallel where possible. Capture results to memory; you'll cite the
    - `scraper_freshness.status`
    - `database` — should be `ok`
 4. **Staging health** — same against `https://tennis-survivor-staging.up.railway.app/api/health`. Flag if staging has drifted from prod in unexpected ways.
-5. **Active tournament state** — `curl -s https://tennis-survivor-production.up.railway.app/api/draw/deadlines` and `/api/leaderboard/<active-pool-id>`. Note: what round are we in, when does the next pick window close, how many alive members.
-6. **Vercel deploy status** — only if a deploy is recent. Use the Vercel MCP `list_deployments` tool against project `prj_HBePdqF7BaXq1qzw7bxu9prRhtyf`. Flag any non-READY state.
-7. **Recent CI runs** — fetch the last 5 GitHub Actions runs via API: `GET /repos/mickeyislam96-sketch/tennis-survivor/actions/runs?per_page=5`. Flag failures.
-8. **Pending email queue** — `curl -s https://tennis-survivor-production.up.railway.app/api/admin/pending-summary?secret=<ADMIN_SECRET>` (auth via secret in user prompt or skip silently if not provided).
-9. **Open issues from memory** — read `.claude/memory/project_critical_gaps.md` and check progress against each gap.
-10. **Today's user signals** — search Brevo / support inbox via Gmail MCP if available; otherwise note "no support data accessible this run".
+5. **Recent CI runs** — fetch the last 5 GitHub Actions runs via API: `GET /repos/mickeyislam96-sketch/tennis-survivor/actions/runs?per_page=5`. Flag failures.
+6. **Pending email queue** — `curl -s https://tennis-survivor-production.up.railway.app/api/admin/pending-summary?secret=<ADMIN_SECRET>` (auth via secret in user prompt or skip silently if not provided).
+7. **Open issues from memory** — read `.claude/memory/project_critical_gaps.md` and check progress against each gap.
 
-### Phase 2 — Generate suggestions (the meat)
+### Phase 1b — Data integrity check (CRITICAL)
+
+This is the heart of the brief. The recurring failure mode in this product is data not flowing cleanly from FlashScore through the backend to the bracket, leaderboard, and emails. **Verify the chain end-to-end every day.**
+
+For the active tournament (read `ACTIVE_TOURNAMENT` env var or check `/api/health` `checks.env.tournament`):
+
+1. **Get the bracket:**
+   - `curl -s "https://tennis-survivor-production.up.railway.app/api/draw/bracket?round=F"` (full draw)
+   - Identify the current and previous rounds.
+
+2. **Get the leaderboard for the active pool:**
+   - Read the active pool ID from `.claude/memory/project_tennis_survivor.md` or recent CLAUDE.md session history.
+   - `curl -s "https://tennis-survivor-production.up.railway.app/api/leaderboard/<pool-id>"`
+
+3. **Cross-check the chain. For each completed match in the current round:**
+   - Match has `winnerId` set (status in DECIDED_STATUSES: completed | retired | walkover)
+   - The winner's name appears in the next round's matchup if applicable (verify by name match — propagation works)
+   - Every leaderboard member who picked the WINNER is `isAlive: true` with `survivedRounds` incremented
+   - Every leaderboard member who picked the LOSER is `isAlive: false` with `eliminatingPick` set to the loser's name
+   - Every leaderboard member with no pick for this round is correctly handled per `eliminateNonPickers` policy
+
+4. **Counter-checks:**
+   - `total_alive + total_eliminated == total_members`
+   - No member shows `isAlive: true` if their `currentRoundPick` is in the losers list
+   - No member shows `eliminatingPick` if they're alive
+   - Bracket match counts match round structure (R1=32, R64=32, R32=16, etc. for Masters 1000)
+   - Scraper `fixtures_total` from /api/health matches the bracket's match count for the current round
+
+5. **Scraper freshness:**
+   - During active hours (10–21 UTC): `cacheAge` should be < 14400 (4h). If staler, FLAG critical.
+   - Outside active hours: `no_cache_idle` is acceptable.
+   - If a match should have started by now but is still `scheduled`, FLAG — scraper hasn't picked up the result.
+
+**Output format for Phase 1b:** A structured findings list. Each finding is GREEN (✓), AMBER (⚠), or RED (🔴). RED findings become headline issues at the top of the brief.
+
+### Phase 1c — Frontend visual check (mandatory if Chrome MCP is available)
+
+Use the Chrome MCP. If it's not available, skip with a one-line note and continue — don't fail the whole brief.
+
+1. **Open finalserveivor.com.** Take a screenshot. Verify:
+   - Page loads (no white screen, no error boundary text)
+   - Header/nav renders
+   - "My Pool" gold pill nav shows the active tournament
+   - Hero/CTA visible
+
+2. **Click into the active pool's group home** (or use the My Pool nav link). Screenshot. Verify:
+   - Pool name correct
+   - Member count matches the leaderboard count
+   - Pick CTA / countdown shows the right state for current round
+   - No data shows from previous tournament (e.g. Madrid winners appearing in Rome)
+
+3. **Click the Leaderboard tab.** Screenshot. Verify:
+   - Right number of rows
+   - Status column shows alive/eliminated correctly per Phase 1b cross-check
+   - Pick column reveals or hides based on `roundIsLocked`
+   - Player avatars load (no broken images)
+
+4. **Click the Draw tab.** Screenshot the bracket view AND list view. Verify:
+   - Bracket connectors render (no missing lines)
+   - Match boxes show winners highlighted
+   - No fake completions (matches showing winner without scraper data)
+   - Avatars load
+   - Score/status correct on completed matches
+
+5. **Click into a recent completed match** (matchup modal). Verify it opens, shows H2H, no console errors.
+
+**Output format for Phase 1c:** A structured findings list, same colour scheme as 1b. Save screenshots only if a finding is RED (link them in the brief). Otherwise just describe.
+
+### Phase 2 — Generate suggestions (only after 1a/1b/1c complete)
 
 For EACH persona below, produce a ranked list of 1–5 suggestions. Use the rubric:
 - **Title** (under 8 words, imperative)
@@ -53,17 +120,17 @@ For EACH persona below, produce a ranked list of 1–5 suggestions. Use the rubr
 Personas:
 
 #### 🛠 Tech (engineering, infra, performance, debt, security)
-What to look for: failing CI, slow endpoints, scraper gaps, missing tests, fragile coupling, security misconfig, things that surprise you in the codebase, items from `project_critical_gaps.md` not yet closed.
+What to look for: failing CI, slow endpoints, scraper gaps, missing tests, fragile coupling, security misconfig, items from `project_critical_gaps.md` not yet closed. Items flagged in Phase 1b (data integrity) that need code fixes go here.
 
 #### 🎨 Design (visual, layout, interaction, copy, accessibility)
-What to look for: visual bugs from screenshots, copy that's off-brand, mobile breakages, font/colour drift, heavy CTAs that don't pop, accessibility gaps. Use Chrome MCP to take screenshots of finalserveivor.com if you have access; otherwise reason from `frontend/src/styles/tokens.css` and the `design-audits.md` memory.
+What to look for: items flagged in Phase 1c (frontend visual) that are aesthetic rather than data-driven. Off-brand copy, mobile breakages, font/colour drift, accessibility gaps. If 1c was clean, write one line: "🎨 Design: nothing flagged today" and move on.
 
 #### ❤️ CX (customer experience, support, onboarding, comms, friction)
-What to look for: registration drop-offs, confusing pick screen flows, missing emails, unclear error states, support themes you can see from inbox or Brevo, post-elimination experience.
+What to look for: registration drop-offs, confusing pick screen flows, missing emails, unclear error states, support themes you can see from inbox or Brevo, post-elimination experience. Items flagged in Phase 1b about EMAIL state (queue stuck, deduped wrong, etc) belong here.
 
 ### Phase 3 — Cross-cutting risks
 
-A separate short section. Call out any item where two personas overlap (e.g. "leaderboard load time is a tech AND CX issue") and flag the LAUNCH-RISK level if Roland Garros is approaching: Low / Med / High.
+A separate short section. Call out any item where two personas overlap and flag the LAUNCH-RISK level if Roland Garros is approaching: Low / Med / High.
 
 ### Phase 4 — Output
 
@@ -78,7 +145,32 @@ Use this template:
 ```markdown
 # Morning Brief — {{YYYY-MM-DD}}
 
-> Generated at {{HH:MM UTC}} by fsv-daily-brief skill.
+> Generated at {{HH:MM UTC}} by fsv-daily-brief skill ({{manual or scheduled}}).
+
+## 🔴 Critical findings (top of brief)
+
+{{ Empty if Phase 1b/1c had no RED findings. Otherwise lead with these — they're the headline. Each finding cites the chain step that broke. }}
+
+## ✅ Data integrity check
+
+| Check | Status | Detail |
+|---|---|---|
+| Bracket has all completed-match winnerIds | ✓ / ⚠ / 🔴 | ... |
+| Bracket → next-round propagation | ✓ / ⚠ / 🔴 | ... |
+| Leaderboard alive/eliminated matches picks | ✓ / ⚠ / 🔴 | ... |
+| Member count totals balance | ✓ / ⚠ / 🔴 | ... |
+| Scraper freshness vs active hours | ✓ / ⚠ / 🔴 | ... |
+| No stale data from previous tournament | ✓ / ⚠ / 🔴 | ... |
+
+## 🎨 Frontend visual check
+
+| Page | Status | Detail |
+|---|---|---|
+| Homepage finalserveivor.com | ✓ / ⚠ / 🔴 | ... |
+| Group home (active pool) | ✓ / ⚠ / 🔴 | ... |
+| Leaderboard | ✓ / ⚠ / 🔴 | ... |
+| Draw — bracket view | ✓ / ⚠ / 🔴 | ... |
+| Draw — list view | ✓ / ⚠ / 🔴 | ... |
 
 ## State of the world
 
@@ -89,15 +181,8 @@ Use this template:
 | # | Title | Effort | Blast | Files | Approve? |
 |---|-------|--------|-------|-------|----------|
 | T1 | ... | S | Low | backend/src/... | [ ] |
-| T2 | ... | ... | ... | ... | [ ] |
 
-**Detail:**
-
-### T1 — {{Title}}
-- **What:** ...
-- **Why now:** ...
-
-(repeat for each)
+(detail blocks below table — same as before)
 
 ## 🎨 Design
 
@@ -113,21 +198,22 @@ Use this template:
 
 ## Approval
 
-Mickey: replace `[ ]` with `[x]` next to items you want built today, then run `/tech-build`, `/design-build`, or `/cx-build`. Skip items by leaving `[ ]` — they roll over to tomorrow's brief.
+Mickey: replace `[ ]` with `[x]` next to items you want built today, then run `/tech-build`, `/design-build`, or `/cx-build`. Skip items by leaving `[ ]`.
 
-**Launch risk assessment for Roland Garros (18 May):** Low / Medium / High — {{ one-line justification }}
+**Launch risk assessment for Roland Garros (18 May): Low / Medium / High** — {{ one-line justification }}
 ```
 
-Final thing: at the END of your chat response, summarise in TWO sentences max what changed since yesterday and what the top three priorities are. Always include a `computer://` link to the saved brief.
+Final thing: at the END of your chat response, summarise in TWO sentences max what changed since yesterday and the top three priorities. Always include a `computer://` link to the saved brief and any RED-flagged screenshots.
 
 ## What this skill must NOT do
 
 - Don't suggest generic best-practice items ("add tests", "improve docs"). Every suggestion must point to specific evidence from Phase 1.
 - Don't propose work that contradicts decisions in `.claude/memory/project_paid_launch_decisions.md` (e.g. don't suggest Stripe — it's been rejected).
-- Don't pad the brief. If a persona has nothing real to flag, write one line: "🎨 Design: nothing flagged today" and move on.
+- Don't pad the brief. If a persona has nothing real to flag, write one line and move on.
 - Don't make claims about code without grepping it. The verification rule from CLAUDE.md applies.
 - Don't suggest tomorrow's brief automatically. The brief is opt-in.
+- Don't fail the whole brief if Chrome MCP is unavailable — degrade gracefully, skip Phase 1c with a note.
 
 ## Why this exists
 
-Mickey is a solo non-technical founder. He doesn't have time to audit the project every morning. This skill saves him the audit time and gives him a focused approval flow that scales his solo bandwidth into three roles. The brief's quality is everything — pad it with generic advice and Mickey will stop reading.
+Mickey is a solo non-technical founder. He doesn't have time to audit the project every morning. This skill saves him the audit time AND actively verifies the data flow chain that is the most common source of bugs in this product. The brief's quality is everything — pad it with generic advice and Mickey will stop reading.
