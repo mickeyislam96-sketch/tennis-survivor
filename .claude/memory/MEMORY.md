@@ -7,17 +7,10 @@
 - [Roadmap](roadmap.md) — phase progress, payment processor status, mobile app status, AI ops model
 - [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover'])
 - [Draw cache + deadline bugs](feedback_draw_cache_and_deadlines.md) — cache must use stable timestamp; windowOpensOverrides must be read
-- [Critical-gaps audit](project_critical_gaps.md) — alerting, tests, staging, admin-secret rotation, DB-restore verification (priority order)
+- [Critical-gaps audit](project_critical_gaps.md) — alerting, tests, staging, admin-secret rotation, DB-restore verification (priority order). Gaps #2 and #3 closed; #1, #4 stage 2, #5 still open.
 - [Invite-link case bug](feedback_invite_case_bug.md) — generation/lookup must agree on casing; use WHERE UPPER(col) = UPPER($1) defensively
 - [Tournament transition prompts](../../docs/transition-prompt.md) — paste at start of any free-tournament transition session
 - [Paid transition prompt](../../docs/paid-transition-prompt.md) — superset for paid events (Stripe/Revolut bridge, payment smoke, settlement)
 - [Admin auth pattern](feedback_admin_auth_pattern.md) — always use requireAdmin from adminAuth.js; never hand-roll ADMIN_SECRET checks
-- [6 May Rome launch — phantom-pick + buffer bugs](feedback_06may_phantom_picks.md) — frontend deadline divergence + missing membership check on picks endpoint
-- [Working agreement](../../docs/working-agreement.md) — branch + PR workflow, no direct pushes to main for user-facing changes
-- [Branch + PR workflow lesson](feedback_branch_pr_workflow.md) — 6 May rationale; how to apply; exceptions
-- [Screenshot truncation lesson](feedback_screenshot_truncation.md) — never transcribe a precise string by eye; pull from DOM
-- [SEO infrastructure](project_seo_infrastructure.md) — robots.txt + sitemap.xml + JSON-LD live; GSC verified; canonical/www follow-ups noted
-- [Name parsing — Surname, Firstname format](feedback_name_parsing.md) — seed-draw uses canonical comma format; formatters must detect it
-- [CORS preview origins](feedback_cors_preview_origins.md) — Vercel preview URLs must be in the backend allowlist; regex locked to project's Vercel team
-- [Non-picker elimination timing](feedback_non_picker_elimination_timing.md) — must fire on round-lock not match-completion; sweep added to 15-min cron
-- [Silent Madrid scraper defaults](feedback_silent_scraper_defaults.md) — scraper had hardcoded Madrid URL fallbacks + missing Railway env vars; bracket silently scraped wrong tournament for a week
+- [Staging environment](project_staging_environment.md) — staging URLs, workflow contract, outstanding cleanups (FRONTEND_URL, CI trigger, scraper). Shipped 7 May 2026.
+- [fsv-daily-brief skill](reference_daily_brief_skill.md) — morning brief skill, what it does, when it triggers, hard rules, approval flow.
