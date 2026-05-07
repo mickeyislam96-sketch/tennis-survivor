@@ -129,6 +129,27 @@ function surnameSubsetMatch(partsA, partsB) {
 }
 
 /**
+ * Looser match: any shared surname token between the two sides.
+ * Handles double-barrel surnames where one source has only one half:
+ *   seed "Merida, Daniel"           parts: ["merida","daniel"]
+ *   scraper "Merida Aguilar D."     parts: ["merida","aguilar"]
+ *   subset fails (each side has 2 tokens, neither is a subset of the
+ *   other) but they share "merida" — same player.
+ *
+ * Looser than subsetMatch but still safe inside Pass 3 of matchOneFixture
+ * because Pass 3 requires BOTH sides of the fixture to match. A two-of-two
+ * confidence requirement combined with the round filter makes a false
+ * positive extremely unlikely (it would need two unrelated players who
+ * each share a surname token with the wrong side and play each other in
+ * the same round).
+ */
+function surnameAnyOverlap(partsA, partsB) {
+  if (partsA.length === 0 || partsB.length === 0) return false;
+  const setB = new Set(partsB);
+  return partsA.some(p => setB.has(p));
+}
+
+/**
  * Find the fixture that matches a seed draw match.
  * Uses the seed draw's player names to find the corresponding fixture.
  *
@@ -196,6 +217,8 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
   const sdP2Parts = surnameParts(seedMatch.player2Name);
 
   if (sdP1Parts.length > 0 && sdP2Parts.length > 0) {
+    // Pass 3a: strict subset on both sides (clean cases like
+    //          seed "Sinner, Jannik" ↔ scraper "Sinner J.")
     for (const fix of fixtures) {
       const fxP1Parts = surnameParts(fix.player1Name);
       const fxP2Parts = surnameParts(fix.player2Name);
@@ -208,6 +231,24 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
       // Try: seed p1 → fixture p2, seed p2 → fixture p1
       const p1to2 = surnameSubsetMatch(sdP1Parts, fxP2Parts);
       const p2to1 = surnameSubsetMatch(sdP2Parts, fxP1Parts);
+      if (p1to2 && p2to1) return fix;
+    }
+
+    // Pass 3b: looser shared-token match on both sides. Handles double-
+    // barrel surnames where seed and scraper disagree on which half is
+    // recorded (e.g. "Merida, Daniel" ↔ "Merida Aguilar D."). Still
+    // requires both sides of the fixture to match — round filter +
+    // both-sides constraint keep false positives away.
+    for (const fix of fixtures) {
+      const fxP1Parts = surnameParts(fix.player1Name);
+      const fxP2Parts = surnameParts(fix.player2Name);
+
+      const p1to1 = surnameAnyOverlap(sdP1Parts, fxP1Parts);
+      const p2to2 = surnameAnyOverlap(sdP2Parts, fxP2Parts);
+      if (p1to1 && p2to2) return fix;
+
+      const p1to2 = surnameAnyOverlap(sdP1Parts, fxP2Parts);
+      const p2to1 = surnameAnyOverlap(sdP2Parts, fxP1Parts);
       if (p1to2 && p2to1) return fix;
     }
   }

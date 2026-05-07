@@ -17,3 +17,4 @@
 - [Brief skill domain caveats](feedback_brief_domain_caveats.md) — suspended ≠ retired in tennis; (n-1) is correct survivor-pool denominator. Two landmines Mickey caught session 36.
 - [Seeded-player withdrawal with bye](feedback_seeded_withdrawal_with_bye.md) — auto-replacement only fires for R1; seeds with byes need manual seed-draw JSON update + player ID changes from rome-sN to rome-pPos
 - [Picks opponent enrichment](feedback_picks_opponent_enrichment.md) — every round path in picks.js getAvailablePlayers() must build opponentMap; R2+ silently skipped it for 7 weeks before PR #8
+- [Double-barrel surnames](feedback_double_barrel_surnames.md) — seed draw must store full surname (Merida Aguilar, not Merida) or surname-overlap matching has to fall back; covered by Pass 3b + unit tests
