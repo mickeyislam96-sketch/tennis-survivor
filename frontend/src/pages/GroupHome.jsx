@@ -138,7 +138,11 @@ function PickWindow({ opensAt, lockAt }) {
 // ── Survivor meter ────────────────────────────────────────────
 function SurvivorMeter({ alive, total }) {
   const eliminated = total - alive;
-  const pct = total > 1 ? Math.round((eliminated / (total - 1)) * 100) : 0;
+  // Denominate by total members. Previously this used `total - 1` (apparently to
+  // exclude an eventual winner from the field), but that gives wrong percentages
+  // mid-tournament when no winner has been determined: a 6-person pool with 1
+  // eliminated reads "20% of the field eliminated" (1/5) when it should be 17% (1/6).
+  const pct = total > 0 ? Math.round((eliminated / total) * 100) : 0;
 
   let tone = 'primary';
   if (pct >= 80) tone = 'danger';
@@ -478,17 +482,20 @@ export function GroupHome() {
     // Only use R1 lock as entry deadline for the active tournament —
     // the /draw/deadlines endpoint returns the active tournament's schedule,
     // not this pool's tournament. For upcoming pools, rely on entryOpen flag.
-    // Entry stays open right up until R1 lock — the original 1-hour buffer
-    // (intended to give late joiners time to pick) was preventing genuine
-    // last-minute joiners. Users can pick immediately after joining anyway.
     const entryDeadline = r1LockAt && tournament?.status === 'active'
-      ? new Date(r1LockAt)
+      ? new Date(new Date(r1LockAt).getTime() - 60 * 60 * 1000)
       : null;
     const isEntryClosed = isCompleted || tournament?.entryOpen === false
       || (entryDeadline && new Date() >= entryDeadline);
 
     const msUntilDeadline = openRoundDeadline ? new Date(openRoundDeadline) - new Date() : Infinity;
-    const closingSoon = !isCompleted && openRound && !myCurrentPick && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
+    // Only flag closingSoon once the pick window is actually open. Without this guard
+    // the "Deadline closing soon — N hours left to pick" banner fires when the lock time
+    // is within 24h but the window itself hasn't opened yet, contradicting the
+    // "PICK WINDOW OPENS ..." copy below it. (openRoundOpensAt is null for R1 per-match
+    // lock, in which case picks are gated per-match and the banner can fire normally.)
+    const windowOpen = !openRoundOpensAt || new Date(openRoundOpensAt) <= new Date();
+    const closingSoon = !isCompleted && openRound && !myCurrentPick && windowOpen && msUntilDeadline > 0 && msUntilDeadline < 24 * 60 * 60 * 1000;
     const r1NoPick = !isCompleted && openRound === 'R1' && !myCurrentPick && tournament?.drawAvailable && !closingSoon;
 
     const lbWinners = lbData ? (lbData.leaderboard || []).filter(m => m.isWinner) : [];
