@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useModalExit } from '../hooks/useModalExit';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { getTournament, getAllTournaments } from '../data/tournaments';
@@ -170,6 +171,7 @@ function SurvivorMeter({ alive, total }) {
 
 // ── Auth modal (pool-scoped) ──────────────────────────────────
 function AuthModal({ onClose, onSuccess, poolName, register, login }) {
+  const { requestClose, isClosing } = useModalExit(onClose);
   const [mode, setMode] = useState('register');
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -202,14 +204,17 @@ function AuthModal({ onClose, onSuccess, poolName, register, login }) {
   };
 
   return (
-    <div className="ds-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className={`ds-modal-backdrop${isClosing ? ' ds-modal--closing' : ''}`}
+      onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
+    >
       <div className="ds-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <header className="ds-modal-header">
           <span className="ds-modal-eyebrow">JOIN · {poolName}</span>
           <h2 className="ds-modal-title">
             {mode === 'register' ? 'Create your account' : 'Welcome back'}
           </h2>
-          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="ds-modal-close" onClick={requestClose} aria-label="Close">✕</button>
         </header>
 
         <div className="ds-modal-body">
