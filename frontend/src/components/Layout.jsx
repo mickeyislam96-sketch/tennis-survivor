@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { Button } from '../ui/Button.jsx';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useModalExit } from '../hooks/useModalExit';
 import { avatarColour, initials } from '../utils/playerImage';
 import './Layout.css';
 
@@ -128,6 +129,9 @@ function UserMenu({ user }) {
 // ── Auth modal (sign in / register / forgot password) ────────
 function AuthModal({ onClose, initialMode = 'login' }) {
   const { register, login } = useAuth();
+  // Delay actual onClose until the exit animation completes (~200ms) so
+  // the .ds-modal--closing CSS in micro-interactions.css has time to play.
+  const { requestClose, isClosing } = useModalExit(onClose);
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -151,10 +155,10 @@ function AuthModal({ onClose, initialMode = 'login' }) {
     try {
       if (mode === 'register') {
         await register(email.trim(), name.trim(), password);
-        onClose();
+        requestClose();
       } else if (mode === 'login') {
         await login(email.trim(), password);
-        onClose();
+        requestClose();
       } else if (mode === 'forgot') {
         const res = await fetch(`${API}/auth/forgot-password`, {
           method: 'POST',
@@ -183,14 +187,14 @@ function AuthModal({ onClose, initialMode = 'login' }) {
 
   const handleBackdropKeyDown = (e) => {
     if (e.key === 'Escape') {
-      onClose();
+      requestClose();
     }
   };
 
   return (
     <div
-      className="ds-modal-backdrop"
-      onClick={onClose}
+      className={`ds-modal-backdrop${isClosing ? ' ds-modal--closing' : ''}`}
+      onClick={requestClose}
       onKeyDown={handleBackdropKeyDown}
       role="presentation"
     >
@@ -205,7 +209,7 @@ function AuthModal({ onClose, initialMode = 'login' }) {
         <header className="ds-modal-header">
           <span className="ds-modal-eyebrow">FINAL SERVE-IVOR</span>
           <h2 id="auth-modal-title" className="ds-modal-title">{title}</h2>
-          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="ds-modal-close" onClick={requestClose} aria-label="Close">✕</button>
         </header>
 
         <div className="ds-modal-body">
