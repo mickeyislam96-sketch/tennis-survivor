@@ -18,3 +18,5 @@
 - [Seeded-player withdrawal with bye](feedback_seeded_withdrawal_with_bye.md) — auto-replacement only fires for R1; seeds with byes need manual seed-draw JSON update + player ID changes from rome-sN to rome-pPos
 - [Picks opponent enrichment](feedback_picks_opponent_enrichment.md) — every round path in picks.js getAvailablePlayers() must build opponentMap; R2+ silently skipped it for 7 weeks before PR #8
 - [Double-barrel surnames](feedback_double_barrel_surnames.md) — seed draw must store full surname (Merida Aguilar, not Merida) or surname-overlap matching has to fall back; covered by Pass 3b + unit tests
+- [Overlay startTime sanity check](feedback_overlay_starttime_sanity.md) — implausibility checks belong in seedDrawOverlay (single render-time gate), not in the scraper. PR #11/#14 history.
+- [/api/pools entryOpen](feedback_api_pools_entry_open.md) — backend is single source of truth for `is entry open?`; FE Homepage and GroupHome must read same flag, not re-derive from status.
