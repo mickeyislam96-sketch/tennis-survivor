@@ -11,6 +11,44 @@ import { optionalAuth } from '../middleware/auth.js';
 import { pool } from '../db/pool.js';
 import { MOCK_GROUPS, MOCK_MEMBERS } from '../data/mockGroups.js';
 import { getTournament } from '../data/tournaments.js';
+import { TOURNAMENT as ACTIVE_TOURNAMENT } from '../config/activeTournament.js';
+import { getDeadlines } from '../services/tennisData.js';
+
+// Entry deadline = R1 lockAt - 1h. Same rule GroupHome.jsx uses, surfaced
+// here so the homepage filters can rely on a single source of truth.
+const ENTRY_LOCKOUT_MS = 60 * 60 * 1000;
+
+async function deriveActiveR1LockAt() {
+  try {
+    const deadlines = await getDeadlines();
+    const r1 = (deadlines || []).find(d => d.round === 'R1');
+    return r1?.lockAt ? new Date(r1.lockAt) : null;
+  } catch (e) {
+    console.warn('[pools] getDeadlines failed for entry-open derivation:', e.message);
+    return null;
+  }
+}
+
+function deriveEntryStatus(tournament, activeR1LockAt) {
+  // Completed events never accept entry.
+  if (tournament?.status === 'completed') {
+    return { entryOpen: false, entryClosedReason: 'completed' };
+  }
+  // Upcoming events accept entry until they go active. We don't have a
+  // pre-computed lock time for non-active tournaments, so the FE registry's
+  // entryOpen flag (or the join flow) is the final gate for those.
+  if (tournament?.status !== 'active') {
+    return { entryOpen: true, entryClosedReason: null };
+  }
+  // Active event AND it's the global ACTIVE_TOURNAMENT — apply the R1 cutoff.
+  if (tournament?.id === ACTIVE_TOURNAMENT?.id && activeR1LockAt) {
+    const cutoff = new Date(activeR1LockAt.getTime() - ENTRY_LOCKOUT_MS);
+    if (new Date() >= cutoff) {
+      return { entryOpen: false, entryClosedReason: 'r1-locked' };
+    }
+  }
+  return { entryOpen: true, entryClosedReason: null };
+}
 
 export const poolsRouter = Router();
 
@@ -21,9 +59,14 @@ function isUUID(str) {
 poolsRouter.get('/', async (req, res) => {
   const userId = req.userId || req.query.userId;  // JWT or legacy query param
 
+  // Fire the deadlines lookup in parallel with the DB query — avoids adding
+  // ~100ms to the response time. We only need this for the active tournament.
+  const activeR1LockAtPromise = deriveActiveR1LockAt();
+
   // ── Real DB groups ────────────────────────────────────────────────────────
   let dbPools = [];
   try {
+    const activeR1LockAt = await activeR1LockAtPromise;
     const result = await pool.query(
       `SELECT
          g.id::text,
@@ -44,6 +87,7 @@ poolsRouter.get('/', async (req, res) => {
 
     dbPools = result.rows.map(row => {
       const tournament = getTournament(row.tournament_id);
+      const entry = deriveEntryStatus(tournament, activeR1LockAt);
       return {
         id: row.id,
         name: row.name,
@@ -57,6 +101,8 @@ poolsRouter.get('/', async (req, res) => {
         isMember: parseInt(row.is_member, 10) > 0,
         isReal: true,
         winnerName: null,
+        entryOpen: entry.entryOpen,
+        entryClosedReason: entry.entryClosedReason,
       };
     }).filter(p => p.tournament !== null); // Hide orphaned pools (e.g. retired test tournaments)
 
@@ -97,6 +143,7 @@ poolsRouter.get('/', async (req, res) => {
   // ── Mock groups (official demo pools) ─────────────────────────────────────
   // Drop any mock groups whose tournamentId isn't in the registry so retired
   // events (Miami, Monte Carlo) can never leak into the lobby via the mock path.
+  const mockActiveR1LockAt = await activeR1LockAtPromise;
   const mockPools = MOCK_GROUPS
     .map(group => ({ group, tournament: getTournament(group.tournamentId) }))
     .filter(({ tournament }) => tournament !== null)
@@ -104,6 +151,7 @@ poolsRouter.get('/', async (req, res) => {
       const members = MOCK_MEMBERS.filter(m => m.groupId === group.id);
       const isMember = userId ? members.some(m => m.userId === userId) : false;
       const aliveCount = members.filter(m => m.isAlive).length;
+      const entry = deriveEntryStatus(tournament, mockActiveR1LockAt);
       return {
         id: group.id,
         name: group.name,
@@ -116,6 +164,8 @@ poolsRouter.get('/', async (req, res) => {
         aliveCount,
         isMember,
         isReal: false,
+        entryOpen: entry.entryOpen,
+        entryClosedReason: entry.entryClosedReason,
       };
     });
 
