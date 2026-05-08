@@ -589,6 +589,65 @@ grep -n "entryDeadline" frontend/src/pages/GroupHome.jsx
 Should NOT see `getTime() - 60 * 60 * 1000` or any other subtraction.
 Frontend entry deadline must equal backend R1 lockAt exactly.
 
+### 8g. Bracket startTimes match the tournament day (BLOCKING after R1)
+
+The 2026-05-08 brief flagged 23/32 R64 cards stamped with the previous
+day's date. Root cause was a scraper run late on day N seeing day N+1
+matches displayed time-only and defaulting the date to scrape time.
+Fixed by `seedDrawOverlay.js` dropping startTimes >6h in the past for
+scheduled matches (PR #11). After R1 has played at least once, verify:
+
+```bash
+curl -s "$API/api/draw/bracket?round=F" | python3 -c "
+import sys, json, datetime
+d = json.load(sys.stdin)
+now = datetime.datetime.utcnow()
+issues = []
+for m in d['matches']:
+    if m.get('status') == 'scheduled' and m.get('startTime'):
+        ts = datetime.datetime.fromisoformat(m['startTime'].replace('Z',''))
+        delta = (now - ts).total_seconds() / 3600
+        if delta > 6:
+            issues.append(f"{m['round']}: {m['player1Name']} v {m['player2Name']} — {m['startTime']} is {delta:.1f}h ago")
+if issues:
+    print('STALE STARTTIMES:')
+    for i in issues[:10]: print(' ', i)
+else:
+    print('OK — no stale startTimes on scheduled matches')
+"
+```
+
+Must print `OK`. Stale startTimes mean the overlay sanity check has
+regressed OR you're hitting a new variant. Critical on a paid event
+because confused match times = picks made on the wrong assumption.
+
+### 8h. Homepage CTA matches /api/pools entryOpen (BLOCKING)
+
+The 2026-05-08 brief flagged a homepage card showing `LIVE` + `Enter free →`
+for a tournament whose R1 had locked 2 days earlier. Root cause: the
+homepage filtered on `tournament.status` only, not on `entryOpen`. Fixed
+by surfacing `entryOpen` from `/api/pools` (PR #12). Verify:
+
+```bash
+curl -s "$API/api/pools" | python3 -c "
+import sys, json
+pools = json.load(sys.stdin)
+for p in pools:
+    t = p.get('tournament') or {}
+    if 'entryOpen' not in p:
+        print(f"  ✗ {t.get('shortName','?')}: entryOpen MISSING")
+        sys.exit(1)
+    print(f"  ✓ {t.get('shortName','?')}: status={t.get('status')} entryOpen={p['entryOpen']} reason={p['entryClosedReason']}")
+"
+```
+
+Then visually:
+- If `entryOpen: false` for the active pool: homepage shows `LIVE NOW · Tournaments underway` (not `OPEN NOW`); card CTA is `View leaderboard →` (not `Enter →`/`Enter free →`); status pill reads `Live · entry closed`.
+- If `entryOpen: true`: `OPEN NOW · Pools accepting entries` shows with the Enter CTA.
+
+For a paid pool: an Enter CTA on a closed pool means a user could pay
+£10 and bounce off the R1 lock at join. Treat as critical.
+
 ---
 
 ## PHASE 9 — Session-end protocol (MANDATORY)

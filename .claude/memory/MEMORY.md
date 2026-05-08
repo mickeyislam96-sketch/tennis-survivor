@@ -22,3 +22,4 @@
 - [/api/pools entryOpen](feedback_api_pools_entry_open.md) — backend is single source of truth for `is entry open?`; FE Homepage and GroupHome must read same flag, not re-derive from status.
 - [Admin scope-token rollout](feedback_admin_scope_rollout.md) — Stage 2 contract: setting ADMIN_TOKEN_<SCOPE> automatically blocks master from that scope. Financial endpoints scoped first.
 - [DB-restore drill](project_db_restore_drill.md) — closes critical-gap #5. Quarterly GH Actions workflow + manual script. Asserts schema + row counts + referential integrity.
+- [Transition hardening 2026-05-08](feedback_transition_hardening_2026_05_08.md) — added smoke 3c+3d, transition Phase 8e+8f (free) / 8g+8h (paid), and brief Phase 1b checks 6+7 + 1c additions to prevent recurrence of today's two bug classes.

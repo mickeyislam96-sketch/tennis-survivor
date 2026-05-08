@@ -68,9 +68,22 @@ For the active tournament (read `ACTIVE_TOURNAMENT` env var or check `/api/healt
    - Scraper `fixtures_total` from /api/health matches the bracket's match count for the current round
 
 5. **Scraper freshness:**
-   - During active hours (10–21 UTC): `cacheAge` should be < 14400 (4h). If staler, FLAG critical.
+   - During active hours (10–21 UTC): `cacheAge` should be < 5400 (90 min, post-PR #13). If staler, FLAG critical.
    - Outside active hours: `no_cache_idle` is acceptable.
    - If a match should have started by now but is still `scheduled`, FLAG — scraper hasn't picked up the result.
+
+6. **startTime sanity (catches stale-scraper-overlay class):**
+   - Pull the bracket and inspect every match where `status: 'scheduled'` and `startTime` is non-null.
+   - For any such match, the `startTime` must be in the future, OR the most recent few hours. If it's >6h in the past, the seedDrawOverlay sanity check should already drop it — if you see a stale time displayed, the contract is broken.
+   - Particularly for the round whose `lockAt` has just passed: if half the cards still show yesterday's date, this is the 2026-05-08 bug class recurring.
+
+7. **/api/pools `entryOpen` consistency:**
+   - For every pool in `/api/pools`, the `entryOpen` boolean and `entryClosedReason` must agree with the tournament's status:
+     - `status: completed` → `entryOpen: false, entryClosedReason: 'completed'`
+     - `status: active` AND R1 lock has passed → `entryOpen: false, entryClosedReason: 'r1-locked'`
+     - `status: active` AND R1 lock in future → `entryOpen: true, entryClosedReason: null`
+     - `status: upcoming` → `entryOpen: true`
+   - If `entryOpen` is missing from any pool object (indicates `/api/pools` regressed), FLAG critical — the homepage CTA-gating depends on it.
 
 **Output format for Phase 1b:** A structured findings list. Each finding is GREEN (✓), AMBER (⚠), or RED (🔴). RED findings become headline issues at the top of the brief.
 
@@ -83,6 +96,8 @@ Use the Chrome MCP. If it's not available, skip with a one-line note and continu
    - Header/nav renders
    - "My Pool" gold pill nav shows the active tournament
    - Hero/CTA visible
+   - **Hero eyebrow matches tournament status:** if the featured tournament is `active`, eyebrow reads `LIVE NOW` (not `NEXT TOURNAMENT`).
+   - **Entry CTA matches `entryOpen` from /api/pools:** scroll past the hero. The first section showing the Rome card. If `entryOpen` is `false` (R1 has locked or tournament completed), the section heading should be `LIVE NOW · Tournaments underway` (NOT `OPEN NOW · Pools accepting entries`) and the card CTA should be `View leaderboard →` (NOT `Enter free →` or `Enter →`). If you see an Enter CTA when `entryOpen: false`, FLAG 🔴 — this is the 2026-05-08 D1 bug class recurring.
 
 2. **Click into the active pool's group home** (or use the My Pool nav link). Screenshot. Verify:
    - Pool name correct
@@ -102,6 +117,7 @@ Use the Chrome MCP. If it's not available, skip with a one-line note and continu
    - No fake completions (matches showing winner without scraper data)
    - Avatars load
    - Score/status correct on completed matches
+   - **Match dates plausible.** The list view shows a date+time string per match card (e.g. `8 May · 11:00`). For a round whose `lockAt` has just passed, dates should be today or tomorrow — never more than a day before the present. Yesterday's-date showing on cards for a freshly-locked round is the 2026-05-08 startTime-stale bug class. Either the overlay sanity check has regressed or the scraper is stamping dates wrongly. FLAG 🔴.
 
 5. **Click into a recent completed match** (matchup modal). Verify it opens, shows H2H, no console errors.
 
