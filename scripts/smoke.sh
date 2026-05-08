@@ -149,6 +149,73 @@ else
   echo "  (no open round detected — skipping opponent-enrichment check)"
 fi
 
+step "3c. /api/pools entryOpen field present on every pool"
+# 2026-05-08 brief D1: homepage was showing Enter CTA on a tournament whose
+# R1 had locked because /api/pools didn't surface entryOpen. PR #12 fixed
+# it; this asserts the contract holds.
+ENTRY_CHECK=$(echo "$POOLS" | python3 -c '
+import sys, json
+pools = json.load(sys.stdin)
+missing = [p.get("tournamentId", "?") for p in pools if "entryOpen" not in p]
+if missing:
+    print("MISSING|" + ",".join(missing))
+else:
+    bad = []
+    for p in pools:
+        t = p.get("tournament") or {}
+        if t.get("status") == "completed" and p.get("entryOpen") is not False:
+            bad.append((t.get("shortName") or "?") + "=completed/open")
+    if bad:
+        print("INCONSISTENT|" + ",".join(bad))
+    else:
+        print("OK|" + str(len(pools)))
+' 2>/dev/null)
+case "$ENTRY_CHECK" in
+  OK\|*) ok "every pool has entryOpen + entryClosedReason ($(echo "$ENTRY_CHECK" | cut -d'|' -f2) pools)" ;;
+  MISSING*) no "/api/pools missing entryOpen field on: $(echo "$ENTRY_CHECK" | cut -d'|' -f2)" ;;
+  INCONSISTENT*) no "/api/pools entryOpen inconsistent with status: $(echo "$ENTRY_CHECK" | cut -d'|' -f2)" ;;
+  *) echo "  (could not parse pools response)" ;;
+esac
+
+step "3d. Bracket startTime sanity (no stale dates on scheduled matches)"
+# 2026-05-08 brief T1: scraper-overlay timing left R64 cards stamped with
+# yesterday's date. Overlay now drops startTimes >6h in the past for
+# scheduled matches (PR #11). This asserts none slip through to prod.
+STALE=$(curl -s -m 30 "$API/api/draw/bracket?round=F" | python3 -c '
+import sys, json, datetime
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("PARSE_ERROR"); sys.exit(0)
+now = datetime.datetime.utcnow()
+issues = []
+for m in d.get("matches", []):
+    if m.get("status") == "scheduled" and m.get("startTime"):
+        try:
+            ts = datetime.datetime.fromisoformat(m["startTime"].replace("Z",""))
+        except Exception:
+            continue
+        delta = (now - ts).total_seconds() / 3600
+        if delta > 6:
+            p1 = (m.get("player1Name") or "?")[:15]
+            p2 = (m.get("player2Name") or "?")[:15]
+            issues.append((m.get("round") or "?") + ":" + p1 + " v " + p2 + " " + m["startTime"])
+if issues:
+    print("STALE|" + str(len(issues)) + "|" + "; ".join(issues[:3]))
+else:
+    print("OK")
+' 2>/dev/null)
+case "$STALE" in
+  OK) ok "no stale startTimes on scheduled matches" ;;
+  STALE*)
+    COUNT=$(echo "$STALE" | cut -d'|' -f2)
+    SAMPLE=$(echo "$STALE" | cut -d'|' -f3)
+    no "$COUNT scheduled matches have startTimes >6h in the past — overlay sanity check may have regressed (PR #11). Sample: $SAMPLE"
+    ;;
+  PARSE_ERROR) echo "  (bracket endpoint failed to parse — likely covered by health check)" ;;
+  *) echo "  (unexpected response — check $API/api/draw/bracket manually)" ;;
+esac
+
 step "4. Frontend reachable"
 HTTP_WEB=$(curl -s -L -o /dev/null -w "%{http_code}" -m 15 "$WEB")
 if [ "$HTTP_WEB" = "200" ]; then ok "$WEB responds 200"; else no "$WEB responds $HTTP_WEB"; fi

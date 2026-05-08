@@ -480,7 +480,63 @@ curl -s -o /dev/null -w "HTTP %{http_code}" -X POST "$API/api/picks" \
 
 Must return 403 (not 201). 6 May regression fix.
 
-If any of 8a–8d fails, do not announce the pool. Diagnose first.
+### 8e. Bracket startTimes match the tournament day (BLOCKING after R1)
+
+The 2026-05-08 brief flagged 23/32 R64 cards stamped with the previous
+day's date. Root cause was a scraper run late on day N seeing day N+1
+matches displayed time-only and defaulting the date to scrape time.
+Fixed by `seedDrawOverlay.js` dropping startTimes >6h in the past for
+scheduled matches (PR #11). After R1 has played at least once, verify:
+
+```bash
+curl -s "$API/api/draw/bracket?round=F" | python3 -c "
+import sys, json, datetime
+d = json.load(sys.stdin)
+now = datetime.datetime.utcnow()
+issues = []
+for m in d['matches']:
+    if m.get('status') == 'scheduled' and m.get('startTime'):
+        ts = datetime.datetime.fromisoformat(m['startTime'].replace('Z',''))
+        delta = (now - ts).total_seconds() / 3600
+        if delta > 6:
+            issues.append(f"{m['round']}: {m['player1Name']} v {m['player2Name']} — {m['startTime']} is {delta:.1f}h ago")
+if issues:
+    print('STALE STARTTIMES:')
+    for i in issues[:10]: print(' ', i)
+else:
+    print('OK — no stale startTimes on scheduled matches')
+"
+```
+
+Must print `OK`. Any stale-startTime issues mean the overlay sanity
+check has regressed OR you're hitting a new variant of the bug.
+
+### 8f. Homepage CTA matches /api/pools entryOpen (BLOCKING)
+
+The 2026-05-08 brief flagged a homepage card showing `LIVE` + `Enter free →`
+for a tournament whose R1 had locked 2 days earlier. Root cause was the
+homepage filtering on `tournament.status` only, not on `entryOpen`. Fixed
+by surfacing `entryOpen` from `/api/pools` (PR #12). Verify:
+
+```bash
+# Every pool must have entryOpen + entryClosedReason populated
+curl -s "$API/api/pools" | python3 -c "
+import sys, json
+pools = json.load(sys.stdin)
+for p in pools:
+    t = p.get('tournament') or {}
+    if 'entryOpen' not in p:
+        print(f"  ✗ {t.get('shortName','?')}: entryOpen missing")
+        sys.exit(1)
+    print(f"  ✓ {t.get('shortName','?')}: status={t.get('status')} entryOpen={p['entryOpen']} reason={p['entryClosedReason']}")
+"
+```
+
+Then visually:
+- If `entryOpen: false` for the active pool: homepage must show `LIVE NOW · Tournaments underway` section (not `OPEN NOW · Pools accepting entries`); card CTA must be `View leaderboard →` (not `Enter free →`); status pill reads `Live · entry closed`.
+- If `entryOpen: true`: homepage must show `OPEN NOW · Pools accepting entries` and an Enter CTA.
+
+If any of 8a–8f fails, do not announce the pool. Diagnose first.
 
 ---
 
