@@ -124,42 +124,49 @@ function parseStartTime(timeStr, dateStr) {
   // page was viewed) it shows just a time like "14:00". Matches on any other
   // day show the date too (e.g. "08.05. 14:00").
   //
-  // The scraper, however, runs from a Railway cron that doesn't know what
-  // FlashScore is calling "today". A scrape at 21:00 UTC on day N will see
-  // tomorrow's R64 matches displayed as time-only ("08:00"). Defaulting the
-  // date to the scrape moment would stamp them with day N at 06:00 UTC —
-  // a full day before they actually play.
-  //
-  // Safer to return null when the date is absent. The bracket and pick screens
-  // already handle a null startTime (rendering as "SCHEDULED" without a date),
-  // and the next scrape will populate the real time once FlashScore promotes
-  // the fixture to "today".
+  // The scraper runs from a Railway cron that doesn't know what FlashScore is
+  // calling "today". For matches displayed today-relative we optimistically
+  // stamp with the scraper's current UTC date. The downstream seedDrawOverlay
+  // applies a sanity check (drops startTime values >6h in the past for
+  // scheduled matches), so a late-evening scrape that sees tomorrow's order
+  // of play as time-only entries doesn't actually leak wrong data into the
+  // bracket — the stamped time gets dropped at overlay time.
   //
   // History: 2026-05-08 morning brief flagged 23/32 R64 matches stamped with
-  // 2026-05-07 timestamps for the same reason.
-  if (!timeStr || !dateStr) return null;
+  // 2026-05-07 timestamps because a previous-day evening scrape had stamped
+  // tomorrow's matches with that day's date. The fix sits in the overlay
+  // (single source of truth on what gets shown), letting the scraper stay
+  // simple and not lose information for the much more common case of
+  // matches displayed time-only on the same day they play.
+  if (!timeStr && !dateStr) return null;
 
-  const dateParts = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
-  if (!dateParts) return null;
+  const now = new Date();
+  let day = now.getUTCDate();
+  let month = now.getUTCMonth() + 1;
+  let year = now.getUTCFullYear();
 
-  let day = parseInt(dateParts[1], 10);
-  let month = parseInt(dateParts[2], 10);
-  let year = parseInt(dateParts[3], 10);
-  if (year < 100) year += 2000;
-  // FlashScore frequently omits the year on the results page (e.g. "07.05.").
-  // Treat a missing year as the current UTC year, which is correct for
-  // in-progress tournaments and stable for results scraped within the same
-  // calendar year.
-  if (Number.isNaN(year)) year = new Date().getUTCFullYear();
+  if (dateStr) {
+    const parts = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+    if (parts) {
+      day = parseInt(parts[1], 10);
+      month = parseInt(parts[2], 10);
+      year = parseInt(parts[3], 10);
+      if (year < 100) year += 2000;
+    }
+  }
 
-  const timeParts = timeStr.match(/(\d{1,2}):(\d{2})/);
-  if (!timeParts) return null;
+  if (timeStr) {
+    const timeParts = timeStr.match(/(\d{1,2}):(\d{2})/);
+    if (timeParts) {
+      const hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const utcHours = hours - TIMEZONE_OFFSET_HOURS;
+      const pad = n => String(n).padStart(2, '0');
+      return `${year}-${pad(month)}-${pad(day)}T${pad(utcHours)}:${pad(minutes)}:00Z`;
+    }
+  }
 
-  const hours = parseInt(timeParts[1], 10);
-  const minutes = parseInt(timeParts[2], 10);
-  const utcHours = hours - TIMEZONE_OFFSET_HOURS;
-  const pad = n => String(n).padStart(2, '0');
-  return `${year}-${pad(month)}-${pad(day)}T${pad(utcHours)}:${pad(minutes)}:00Z`;
+  return null;
 }
 
 // ── Extract matches from the current page (runs in browser context) ─────────
