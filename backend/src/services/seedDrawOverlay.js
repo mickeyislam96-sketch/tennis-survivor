@@ -482,7 +482,33 @@ export function overlayFixtures(seedDraw, fixtures) {
           }
         }
         if (gsFixture.startTime) {
-          match.startTime = gsFixture.startTime;
+          // Sanity check: a scheduled match cannot have a startTime that's
+          // far in the past. The scraper occasionally emits stale dates when
+          // FlashScore shows time-only displays for next-day matches; this
+          // guard prevents the bracket from showing yesterday's date on
+          // today's R64 fixtures even if the scraper sends bad data.
+          //
+          // History: 2026-05-08 brief flagged 23/32 R64 cards with stale
+          // 2026-05-07 timestamps. Root cause was fixed in the scraper
+          // (parseStartTime now returns null without a date), but this check
+          // is defence in depth — a contract the overlay enforces regardless
+          // of provider quality.
+          const isDecided = DECIDED_STATUSES.has(gsFixture.status);
+          const isLive = gsFixture.status === 'live';
+          const startTs = new Date(gsFixture.startTime).getTime();
+          const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+
+          if (isDecided || isLive || startTs >= sixHoursAgo) {
+            match.startTime = gsFixture.startTime;
+          } else {
+            // Drop stale startTime. Match stays scheduled with no date,
+            // which the FE renders gracefully ("SCHEDULED" with no date).
+            console.warn(
+              `[seedDrawOverlay] dropping stale startTime ${gsFixture.startTime} ` +
+              `for ${match.round} ${match.player1Name} vs ${match.player2Name} ` +
+              `(status=${gsFixture.status})`
+            );
+          }
         }
         if (gsFixture.score) {
           match.score = gsFixture.score;
