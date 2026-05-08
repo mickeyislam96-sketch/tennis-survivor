@@ -21,3 +21,4 @@
 - [Overlay startTime sanity check](feedback_overlay_starttime_sanity.md) — implausibility checks belong in seedDrawOverlay (single render-time gate), not in the scraper. PR #11/#14 history.
 - [/api/pools entryOpen](feedback_api_pools_entry_open.md) — backend is single source of truth for `is entry open?`; FE Homepage and GroupHome must read same flag, not re-derive from status.
 - [Admin scope-token rollout](feedback_admin_scope_rollout.md) — Stage 2 contract: setting ADMIN_TOKEN_<SCOPE> automatically blocks master from that scope. Financial endpoints scoped first.
+- [DB-restore drill](project_db_restore_drill.md) — closes critical-gap #5. Quarterly GH Actions workflow + manual script. Asserts schema + row counts + referential integrity.
