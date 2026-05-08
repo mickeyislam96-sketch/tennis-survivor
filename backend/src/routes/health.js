@@ -99,7 +99,17 @@ healthRouter.get('/', async (_req, res) => {
   // up to 13 hours is normal. We only alarm when scrapes go missing while
   // they're meant to be running. UptimeRobot pings every 5 min and won't
   // fire on transient sub-minute gaps right at the top of the hour.
-  const STALE_THRESHOLD_S = 4 * 60 * 60;     // 4 hours
+  // Threshold rationale: scrapes run hourly (10–21 UTC). One missed run
+  // takes the cache to ~75 min old. Two missed runs to ~135 min. Setting
+  // the alarm at 90 min means we catch a single missed scrape within ~5 min
+  // (UptimeRobot ping cadence) without false-alarming on a single delayed
+  // run. Outside active hours the threshold doesn't matter — the
+  // 'idle_window' branch keeps allOk true regardless of cacheAge.
+  //
+  // History: 2026-05-08 brief flagged the previous 4h threshold as too
+  // forgiving — a silent first-scrape failure of the day wouldn't have
+  // paged until 14:00 UTC. New threshold pages it within 11:30 UTC.
+  const STALE_THRESHOLD_S = 90 * 60;         // 90 minutes during active hours
   const utcHour = new Date().getUTCHours();
   const inActiveWindow = utcHour >= 10 && utcHour < 21;
   const cache = checks.scraper_cache;

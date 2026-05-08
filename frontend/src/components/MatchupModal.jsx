@@ -402,7 +402,7 @@ export function MatchupModal({ player1Id, player2Id, player1Name, player2Name, o
         {!hasAnyForm && (
           <div className="mu2-section">
             <div className="mu-empty">
-              No match results yet. Form will appear here as matches are played.
+              No prior match history available for these players.
             </div>
           </div>
         )}
