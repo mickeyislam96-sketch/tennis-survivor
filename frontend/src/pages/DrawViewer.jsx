@@ -240,7 +240,10 @@ function SetScores({ sets, isPlayer1, isWinner }) {
 function ListCard({ match, onMatchClick }) {
   const p1w  = match.winnerId != null && match.winnerId === match.player1Id;
   const p2w  = match.winnerId != null && match.winnerId === match.player2Id;
-  const done = match.status === 'completed' || match.status === 'walkover' || match.status === 'retired';
+  // 'done' includes walkover/retired ONLY when a winner is confirmed.
+  // Unconfirmed walkovers/retirements render as a pending state below.
+  const done = (match.status === 'completed') ||
+               ((match.status === 'walkover' || match.status === 'retired') && !!match.winnerId);
   const live = isLive(match.status);
   const clickable = canShowMatchup(match);
   const date = match.startTime
@@ -276,8 +279,16 @@ function ListCard({ match, onMatchClick }) {
         <span className="lc-date">{date}{time ? ` \u00b7 ${time}` : ''}</span>
         {live ? (
           <span className="lc-badge lc-badge--live">Live</span>
+        ) : (match.status === 'walkover' || match.status === 'retired') && !match.winnerId ? (
+          <span
+            className="lc-badge lc-badge--review"
+            style={{ background: '#fff3cd', color: '#7a4f00', borderColor: '#f0c36d' }}
+            title="Walkover or retirement awaiting admin confirmation"
+          >
+            {match.status === 'walkover' ? 'Walkover' : 'Retired'} · pending
+          </span>
         ) : done ? (
-          <span className="lc-badge lc-badge--finished">Finished</span>
+          <span className="lc-badge lc-badge--finished">{match.status === 'walkover' ? 'Walkover' : match.status === 'retired' ? 'Retired' : 'Finished'}</span>
         ) : (
           <span className="lc-badge lc-badge--scheduled">Scheduled</span>
         )}
