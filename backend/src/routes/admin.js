@@ -930,3 +930,52 @@ adminRouter.get('/scraper-fixtures', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/walkover-pending ───────────────────────────────────────────
+// Lists every match in the current tournament's bracket where status is
+// walkover or retired but no winnerId has been confirmed (not by scraper, not
+// by manualResultOverrides). Use this every morning during a tournament — any
+// rows returned here are matches that will not propagate correctly until you
+// add a manualResultOverrides entry to backend/src/config/activeTournament.js
+// (or correct the scraper data).
+//
+// Origin: 2026-05-09 Machac/Medvedev R64 incident — scraper guessed walkover
+// winner from player order, got it wrong, bracket showed Machac progressing.
+// Fix: scraper no longer guesses; admin records truth via overrides; this
+// endpoint surfaces anything still pending so it can't go silent.
+adminRouter.get('/walkover-pending', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  try {
+    const { getDraw } = await import('../services/tennisData.js');
+    const draw = await getDraw();
+    const pending = (draw.matches || [])
+      .filter(m => (m.status === 'walkover' || m.status === 'retired') && !m.winnerId)
+      .map(m => ({
+        round: m.round,
+        player1Name: m.player1Name,
+        player2Name: m.player2Name,
+        status: m.status,
+        startTime: m.startTime,
+        score: m.score,
+        suggestedOverride: {
+          round: m.round,
+          matchPlayers: [m.player1Name, m.player2Name],
+          winner: '<<choose: ' + m.player1Name + ' OR ' + m.player2Name + '>>',
+          status: m.status,
+          note: 'Recorded YYYY-MM-DD: <reason>',
+        },
+      }));
+    res.json({
+      ok: true,
+      tournament: TOURNAMENT.id,
+      count: pending.length,
+      pending,
+      hint: pending.length === 0
+        ? 'No pending walkovers. ✅'
+        : 'For each entry, copy `suggestedOverride` (replace placeholder) into TOURNAMENT.manualResultOverrides in backend/src/config/activeTournament.js, fill in the winner, push, and verify via /api/draw/bracket.',
+    });
+  } catch (err) {
+    console.error('[admin] walkover-pending error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
