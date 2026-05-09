@@ -19,23 +19,20 @@
  * This test pins layer 3: the override mechanism produces the right winner
  * regardless of what the scraper claimed.
  */
-import { test, expect, vi } from 'vitest';
+import { test, expect, beforeEach, afterEach } from 'vitest';
 import { overlayFixtures } from '../../src/services/seedDrawOverlay.js';
+import { TOURNAMENT } from '../../src/config/activeTournament.js';
 
-vi.mock('../../src/config/activeTournament.js', () => ({
-  TOURNAMENT: {
-    id: 'test-2026',
-    manualResultOverrides: [
-      {
-        round: 'R64',
-        matchPlayers: ['Machac, Tomas', 'Medvedev, Daniil'],
-        winner: 'Medvedev, Daniil',
-        status: 'walkover',
-        note: 'Machac withdrew before R64 — Medvedev advances.',
-      },
-    ],
-  },
-}));
+// We mutate TOURNAMENT.manualResultOverrides for each test and restore it
+// after. This avoids vi.mock hoisting subtleties — the overlay reads the
+// live reference, which we control directly here.
+let savedOverrides;
+beforeEach(() => {
+  savedOverrides = TOURNAMENT.manualResultOverrides;
+});
+afterEach(() => {
+  TOURNAMENT.manualResultOverrides = savedOverrides;
+});
 
 function buildSeedDraw() {
   return {
@@ -44,10 +41,9 @@ function buildSeedDraw() {
     players: [
       { id: 't-machac', name: 'Machac, Tomas', country: 'CZE', roundEliminated: null },
       { id: 't-medvedev', name: 'Medvedev, Daniil', country: 'RUS', roundEliminated: null },
-      { id: 't-llamas', name: 'Llamas Ruiz, Pablo', country: 'ESP', roundEliminated: null },
     ],
     matches: [
-      // R64 Machac vs Medvedev
+      // Single R64 match — feeder for R32 match 0
       {
         id: 'm-R64-0', round: 'R64', matchOrder: 0,
         player1Id: 't-machac', player1Name: 'Machac, Tomas',
@@ -55,10 +51,10 @@ function buildSeedDraw() {
         winnerId: null, winnerName: null, status: 'scheduled',
         startTime: null, bye: false,
       },
-      // R32: feeders are R64 match 0 (above) — propagation should pick override winner
+      // R32 match — both players null so propagation can fill them
       {
         id: 'm-R32-0', round: 'R32', matchOrder: 0,
-        player1Id: 't-llamas', player1Name: 'Llamas Ruiz, Pablo',
+        player1Id: null, player1Name: null,
         player2Id: null, player2Name: null,
         winnerId: null, winnerName: null, status: 'scheduled',
         startTime: null, bye: false,
@@ -68,6 +64,16 @@ function buildSeedDraw() {
 }
 
 test('manual override flips a walkover winner from scraper-default to truth', () => {
+  TOURNAMENT.manualResultOverrides = [
+    {
+      round: 'R64',
+      matchPlayers: ['Machac, Tomas', 'Medvedev, Daniil'],
+      winner: 'Medvedev, Daniil',
+      status: 'walkover',
+      note: 'Machac withdrew before R64 — Medvedev advances.',
+    },
+  ];
+
   const seedDraw = buildSeedDraw();
   // Scraper output mirrors the buggy 2026-05-09 reality: assigned Machac as
   // winner because player ordering put him first. The overlay should ignore
@@ -76,7 +82,7 @@ test('manual override flips a walkover winner from scraper-default to truth', ()
     matchId: 'fs-1', round: 'R64',
     player1Id: 'fs-machac', player1Name: 'Machac T.',
     player2Id: 'fs-medvedev', player2Name: 'Medvedev D.',
-    winnerId: 'fs-machac',         // ← what scraper currently claims (wrong)
+    winnerId: 'fs-machac',         // ← what an old buggy scraper might claim
     winnerName: 'Machac T.',
     status: 'walkover',
     startTime: '2026-05-09T07:00:00Z',
@@ -92,24 +98,23 @@ test('manual override flips a walkover winner from scraper-default to truth', ()
   expect(r64.isManualOverride).toBe(true);
   expect(r64.status).toBe('walkover');
 
-  // Propagation: R32 player2 should be Medvedev (R64 winner)
-  expect(r32.player2Name).toBe('Medvedev, Daniil');
-  expect(r32.player2Id).toBe('t-medvedev');
+  // Propagation: R32 player1 should now be Medvedev (R64 match 0 winner →
+  // feeder1 of R32 match 0).
+  expect(r32.player1Name).toBe('Medvedev, Daniil');
+  expect(r32.player1Id).toBe('t-medvedev');
 });
 
-test('walkover with no override and no scraper winnerId is flagged for review', () => {
-  const seedDraw = buildSeedDraw();
-  // Override targets Machac/Medvedev. Use a different match to test the
-  // unconfirmed path.
-  seedDraw.matches[0].player1Name = 'Smith, John';
-  seedDraw.matches[0].player1Id = 't-smith';
-  seedDraw.players.push({ id: 't-smith', name: 'Smith, John', country: 'USA', roundEliminated: null });
+test('walkover with no override and no scraper winnerId is flagged for review and does NOT propagate', () => {
+  TOURNAMENT.manualResultOverrides = []; // no override
 
+  const seedDraw = buildSeedDraw();
+
+  // Scraper now sends winnerId: null for walkovers (it no longer guesses).
   const fixtures = [{
     matchId: 'fs-1', round: 'R64',
-    player1Id: 'fs-smith', player1Name: 'Smith J.',
+    player1Id: 'fs-machac', player1Name: 'Machac T.',
     player2Id: 'fs-medvedev', player2Name: 'Medvedev D.',
-    winnerId: null,           // scraper now refuses to guess walkover winners
+    winnerId: null,
     winnerName: null,
     status: 'walkover',
     startTime: null,
@@ -118,13 +123,15 @@ test('walkover with no override and no scraper winnerId is flagged for review', 
 
   const result = overlayFixtures(seedDraw, fixtures);
   const r64 = result.matches.find(m => m.round === 'R64');
+  const r32 = result.matches.find(m => m.round === 'R32');
 
-  // No override matches this pairing, no scraper winnerId → must NOT propagate
+  // Walkover status applied, but no winner asserted
+  expect(r64.status).toBe('walkover');
   expect(r64.winnerId).toBeFalsy();
   expect(r64.requiresAdminReview).toBe(true);
-  expect(r64.status).toBe('walkover');
 
-  // R32 player2 should still be null (no propagation from unconfirmed walkover)
-  const r32 = result.matches.find(m => m.round === 'R32');
-  expect(r32.player2Id).toBeFalsy();
+  // Critical: an unconfirmed walkover MUST NOT propagate a fake winner.
+  // The R32 match should still have player1 as null/undefined.
+  expect(r32.player1Id).toBeFalsy();
+  expect(r32.player1Name).toBeFalsy();
 });
