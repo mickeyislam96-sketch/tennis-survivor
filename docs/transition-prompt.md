@@ -107,6 +107,10 @@ Edit three files:
   - Initialise `manualResultOverrides: []` (empty array). You will populate
     it during the tournament when walkovers/withdrawals happen. See
     Phase 8.5 below + `docs/new-tournament-setup.md` gotcha #7.
+  - **Emails: nothing per-tournament.** Templates in
+    `backend/src/utils/email.js` are tournament-agnostic. New email types
+    follow the component pattern in
+    `.claude/memory/feedback_email_design_system.md`.
   - Change the default fallback at the bottom:
     `const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || '{new-id}';`
 - `backend/src/data/tournaments.js`
