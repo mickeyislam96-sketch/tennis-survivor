@@ -1,21 +1,30 @@
 # Final Serve-ivor — Roadmap & Launch Strategy
 
-## Critical fixes (kicked off 5 May 2026)
+## Critical fixes (kicked off 5 May 2026 — all 5 closed in code by 9 May 2026)
 
 After Rome launch settled, audited bigger-picture gaps. Five rated
 critical, queued in priority order. See
 `.claude/memory/project_critical_gaps.md` for the full audit.
 
-1. Alerting on `/api/health` (UptimeRobot) — quick win, do first.
-2. Backend integration test suite — ~20 tests covering invite,
-   payment, picks, leaderboard. Two days.
-3. Staging environment via Railway branch deploy. Half a day.
-4. ADMIN_SECRET rotation to scoped tokens with audit log. Before RG.
-5. DB-restore verification. Quarterly.
+1. ~~Alerting on `/api/health` (UptimeRobot)~~ DONE 7 May (session 36).
+   Prod + staging on 5-min interval, email alerts confirmed firing.
+2. ~~Backend integration test suite~~ DONE 5 May (session 35). Smoke +
+   integration jobs in CI on every push and PR.
+3. ~~Staging environment via Railway branch deploy~~ DONE 7 May
+   (session 36). `tennis-survivor-staging.up.railway.app`, isolated
+   Postgres, Vercel preview URL.
+4. **Stage 2 admin-token rollout — code DONE 8 May (session 38 PR #16)**;
+   Mickey-side: set `ADMIN_TOKEN_FINANCIAL` on Railway. Master
+   `ADMIN_SECRET` is auto-blocked from financial endpoints once that
+   env var exists. No code redeploy.
+5. ~~DB-restore verification~~ Code DONE 8 May (session 38 PR #17).
+   Quarterly cron + `scripts/test-db-restore.sh`. Manual smoke run
+   pending (≤30min) so we don't wait until July to discover a bug.
 
-Target: items 1-4 in the 4-day window between Rome F (17 May) and
-RG R1 (18 May). All four must be done before the first paid pool
-opens.
+**Mickey-side queue before RG R1 (18 May):** set
+`ADMIN_TOKEN_FINANCIAL` on Railway, run a manual DB-restore smoke
+test, run the daily walkover-pending check throughout Rome (Phase 8.5
+in transition prompts).
 
 ## Three-phase approach
 1. **Madrid Open** (22 Apr - ~4 May 2026): Free entry, COMPLETE. Stability trial.
