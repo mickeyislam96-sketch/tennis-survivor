@@ -203,6 +203,13 @@ See `docs/transition-prompt.md` Phase 2a for the schema rules.
     `roundDateFallbacks`.
   - Initialise `manualResultOverrides: []` (empty array). Populate during
     the tournament for any walkovers/withdrawals (see Phase 8.5).
+  - **Emails: nothing per-tournament.** Templates in
+    `backend/src/utils/email.js` are tournament-agnostic. If this paid
+    tournament needs NEW email types (payment receipt, refund, payout
+    claim), follow the component pattern documented in
+    `.claude/memory/feedback_email_design_system.md`. Use the existing
+    builders; don't introduce inline colours without matching CSS classes
+    or the dark-mode @media override won't hit them.
   - Update the default fallback at the bottom.
 - `backend/src/data/tournaments.js`
   - Add an entry. Include:
