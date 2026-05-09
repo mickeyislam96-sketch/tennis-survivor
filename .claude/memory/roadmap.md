@@ -26,6 +26,25 @@ critical, queued in priority order. See
 test, run the daily walkover-pending check throughout Rome (Phase 8.5
 in transition prompts).
 
+## Email redesign (session 38c — 9 May 2026)
+
+`backend/src/utils/email.js` rewritten as Direction A: same brand
+(emerald + gold + Outfit/Fraunces/JetBrains Mono), but cross-client
+correct. Dark-mode safe (Apple Mail iOS auto-inversion no longer
+mangles the white card or gold pill). Mobile breakpoint at 480px.
+System-font fallback chain extended for Apple Mail iOS where Google
+Fonts get stripped. Court-bg PNG removed; CSS-only line pattern in
+its place. Welcome trimmed to 2 sections + CTA. Admin digest
+collapsed to 3-column table.
+
+Pattern doc: `.claude/memory/feedback_email_design_system.md`.
+
+**For paid tournaments needing new email types** (payment receipt,
+refund notification, payout claim): follow the same recipe —
+component builders + LIGHT/DARK tokens + the dark-mode CSS-class
+contract. The system handles correctness automatically; only the
+body composition needs to be written.
+
 ## Three-phase approach
 1. **Madrid Open** (22 Apr - ~4 May 2026): Free entry, COMPLETE. Stability trial.
 2. **Rome Masters** (5-17 May): Free, ACTIVE (R1 in progress as of 5 May). Target: mobile app launch.
