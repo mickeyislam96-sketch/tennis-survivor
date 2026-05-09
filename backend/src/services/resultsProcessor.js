@@ -121,6 +121,13 @@ export async function autoProcessResults() {
     summary.push(result);
   }
 
+  // Defence in depth: even if no rounds had NULL picks, sync any
+  // already-resolved picks whose member is_alive flag drifted. Cheap.
+  const synced = await syncGroupMembersFromPicks();
+  if (synced > 0) {
+    summary.push({ round: 'sync', eliminated: synced });
+  }
+
   if (summary.length === 0) console.log('[results] Nothing to process.');
   return summary;
 }
@@ -162,6 +169,50 @@ export async function eliminateNonPickers(round) {
   );
   console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
   return result.rowCount;
+}
+
+/**
+ * Sync group_members.is_alive from picks.survived.
+ *
+ * History (2026-05-09 incident — see CLAUDE.md session 38):
+ * processRoundResults updates picks.survived AND group_members.is_alive in
+ * the same call. But autoProcessResults SKIPS rounds where the NULL-pick
+ * count is zero. So once every member's current-round pick is resolved,
+ * the round is skipped — leaving any group_member whose pick lost but
+ * whose is_alive flag wasn't flipped (e.g. due to ordering, retries, or
+ * manual reset-member calls) permanently mis-marked as alive.
+ *
+ * The Rome 2026 R64 case: Rafa picked de Minaur, who lost; pick.survived
+ * went to false but is_alive stayed true. /api/leaderboard reported the
+ * stale state; /api/pools.aliveCount disagreed with the leaderboard.
+ *
+ * This function runs every cron tick. Idempotent — if there's nothing to
+ * sync, it's a single SELECT that returns zero. Cheap insurance.
+ */
+export async function syncGroupMembersFromPicks() {
+  try {
+    const result = await pool.query(
+      `UPDATE group_members gm
+          SET is_alive = false,
+              eliminated_round = COALESCE(gm.eliminated_round, p.round)
+         FROM picks p
+         JOIN groups g ON g.id = p.group_id
+        WHERE p.survived = false
+          AND p.user_id  = gm.user_id
+          AND p.group_id = gm.group_id
+          AND gm.is_alive = true
+          AND g.tournament_id = $1`,
+      [TOURNAMENT.id]
+    );
+    if (result.rowCount > 0) {
+      console.log(`[results] syncGroupMembersFromPicks: flipped ${result.rowCount} member(s) to is_alive=false`);
+      await logOps('results', 'sync_alive', { eliminated: result.rowCount });
+    }
+    return result.rowCount;
+  } catch (err) {
+    console.error('[results] syncGroupMembersFromPicks error:', err.message);
+    return 0;
+  }
 }
 
 /**
