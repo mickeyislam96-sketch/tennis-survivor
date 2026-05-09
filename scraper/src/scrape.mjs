@@ -159,12 +159,35 @@ function parseStartTime(timeStr, dateStr, status) {
   let year = now.getUTCFullYear();
 
   if (dateStr) {
-    const parts = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
-    if (parts) {
-      day = parseInt(parts[1], 10);
-      month = parseInt(parts[2], 10);
-      year = parseInt(parts[3], 10);
+    // FlashScore typically renders dates as "DD.MM." for the current season
+    // (no year) or "DD.MM.YY" / "DD.MM.YYYY" for older entries. The original
+    // regex only matched the 3-component form, which silently fell through
+    // to today's date for the much more common 2-component form. That
+    // shipped the 2026-05-09 R1-stamped-today bug.
+    const partsFull = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+    const partsNoYear = !partsFull && dateStr.match(/(\d{1,2})[./](\d{1,2})\.?(?!\d)/);
+    if (partsFull) {
+      day = parseInt(partsFull[1], 10);
+      month = parseInt(partsFull[2], 10);
+      year = parseInt(partsFull[3], 10);
       if (year < 100) year += 2000;
+    } else if (partsNoYear) {
+      day = parseInt(partsNoYear[1], 10);
+      month = parseInt(partsNoYear[2], 10);
+      // Year inference: prefer the year that makes the date no more than
+      // ~6 months in the past. Tournaments roll over Dec→Jan once a year;
+      // a "06.01." date scraped on 2026-12-30 belongs to 2027, not 2026.
+      const candidate = new Date(Date.UTC(year, month - 1, day));
+      const diffMs = candidate.getTime() - now.getTime();
+      const sixMonthsMs = 183 * 24 * 60 * 60 * 1000;
+      if (diffMs > sixMonthsMs) year -= 1;          // candidate is too far in the future → previous year
+      else if (diffMs < -sixMonthsMs) year += 1;    // candidate is too far in the past → next year
+    } else if (DECIDED.has((status || '').toLowerCase())) {
+      // Defence in depth: a DECIDED match that has a dateStr we cannot
+      // parse should NOT inherit today's date — that's the same bug class
+      // as the missing-dateStr branch above. Return null and let the FE
+      // render "—" for the date.
+      return null;
     }
   }
 
