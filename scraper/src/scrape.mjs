@@ -119,7 +119,7 @@ function playerIdFromName(name) {
 
 // ── Parse time string to ISO 8601 ──────────────────────────────────────────
 
-function parseStartTime(timeStr, dateStr) {
+function parseStartTime(timeStr, dateStr, status) {
   // FlashScore convention: when a match is scheduled for today (the day the
   // page was viewed) it shows just a time like "14:00". Matches on any other
   // day show the date too (e.g. "08.05. 14:00").
@@ -139,6 +139,19 @@ function parseStartTime(timeStr, dateStr) {
   // simple and not lose information for the much more common case of
   // matches displayed time-only on the same day they play.
   if (!timeStr && !dateStr) return null;
+
+  // For COMPLETED/walkover/retired matches we will NOT default-stamp today
+  // when FlashScore has no date in the row. Result: cards render with no
+  // date rather than today's date pretending a match played 3 days ago
+  // happened today. Skipping today-default for non-decided statuses (live,
+  // scheduled) preserves the time-only display flow that the scraper relies
+  // on for same-day OOP scrapes.
+  // History: 2026-05-08 + 2026-05-09 — every R1 finished card stamped
+  // today's date even though R1 played 3 days earlier.
+  const DECIDED = new Set(['completed', 'walkover', 'retired']);
+  if (DECIDED.has((status || '').toLowerCase()) && !dateStr) {
+    return null;
+  }
 
   const now = new Date();
   let day = now.getUTCDate();
@@ -457,7 +470,7 @@ function transformToFixtures(rawMatches) {
     const matchId = m.fsMatchId ? `fs-${m.fsMatchId}` : generateMatchId(round, p1Name, p2Name);
 
     const status = normalizeStatus(m.statusText, m.hasScore);
-    const startTime = parseStartTime(m.timeText, m.dateText);
+    const startTime = parseStartTime(m.timeText, m.dateText, status);
 
     // Winner detection from set scores
     let winnerId = null;
