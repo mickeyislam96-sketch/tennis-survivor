@@ -479,10 +479,23 @@ function transformToFixtures(rawMatches) {
       else if (p2Sets > p1Sets) { winnerId = p2Id; winnerName = p2Name; }
     }
 
-    // Walkover/retirement: winner is the opponent of the retired/walkover player
+    // Walkover/retirement winner detection.
+    //
+    // WALKOVER: the score on FlashScore is just '---' (no digits). It is not
+    // safe to infer the winner from player ordering — that bug shipped on
+    // 2026-05-09 (Rome R64: Machac withdrew so Medvedev advanced, but the
+    // scraper guessed Machac and the bracket showed him progressing into R32).
+    // We now leave winnerId/winnerName null for walkovers; admins record the
+    // truth in TOURNAMENT.manualResultOverrides (config/activeTournament.js)
+    // and the seedDrawOverlay applies it before propagation.
+    //
+    // RETIRED: the loser is whoever stopped — but FlashScore shows the partial
+    // score with the retiring player typically behind. We use the score-leader
+    // heuristic but only when there's a clear majority (strictly more sets,
+    // not a tie). On a tie we leave winnerId null and let the admin confirm.
     const isWalkover = status === 'walkover';
     const isRetired = status === 'retired';
-    if ((isWalkover || isRetired) && m.score) {
+    if (isRetired && m.score) {
       const sets = m.score.split(',').map(s => s.trim());
       let p1Sets = 0;
       let p2Sets = 0;
@@ -493,14 +506,16 @@ function transformToFixtures(rawMatches) {
           else if (parseInt(parts[2]) > parseInt(parts[1])) p2Sets++;
         }
       }
-      if (p1Sets >= p2Sets) { winnerId = p1Id; winnerName = p1Name; }
-      else { winnerId = p2Id; winnerName = p2Name; }
+      if (p1Sets > p2Sets) { winnerId = p1Id; winnerName = p1Name; }
+      else if (p2Sets > p1Sets) { winnerId = p2Id; winnerName = p2Name; }
+      // tie → leave null
     }
+    // For walkovers we leave winnerId/winnerName null intentionally.
 
     const isWithdrawal = isWalkover;
-    const withdrawnPlayerId = isWalkover && winnerId
-      ? (winnerId === p1Id ? p2Id : p1Id)
-      : null;
+    // Scraper genuinely doesn't know which player withdrew; admin override
+    // sets withdrawnPlayerId at the overlay layer.
+    const withdrawnPlayerId = null;
 
     return {
       matchId,
