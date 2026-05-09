@@ -201,6 +201,8 @@ See `docs/transition-prompt.md` Phase 2a for the schema rules.
     `true` for Grand Slams.
   - Set `lockTimeOverrides`, `windowOpensOverrides`,
     `roundDateFallbacks`.
+  - Initialise `manualResultOverrides: []` (empty array). Populate during
+    the tournament for any walkovers/withdrawals (see Phase 8.5).
   - Update the default fallback at the bottom.
 - `backend/src/data/tournaments.js`
   - Add an entry. Include:
@@ -649,6 +651,38 @@ For a paid pool: an Enter CTA on a closed pool means a user could pay
 £10 and bounce off the R1 lock at join. Treat as critical.
 
 ---
+
+## PHASE 8.5 — Walkover-pending check (BLOCKING — daily during tournament)
+
+Walkovers cannot be resolved by the scraper (FlashScore shows score "---").
+After every round, check for unresolved walkovers and record the truth in
+`manualResultOverrides` before users notice.
+
+```bash
+# Replace ADMIN_SECRET with the prod secret.
+curl -s "https://tennis-survivor-production.up.railway.app/api/admin/walkover-pending?secret=$ADMIN_SECRET" | jq .
+```
+
+When count is 0, you're clean. When count > 0:
+
+1. For each entry, find the actual winner (ATP Tour news, FlashScore main
+   page, the player's own social — withdrawals usually have a public note).
+2. Add to `TOURNAMENT.manualResultOverrides` in
+   `backend/src/config/activeTournament.js` using the `suggestedOverride`
+   shape from the response. Replace the placeholder with the real winner.
+3. `node scripts/validate-tournament.mjs <id>` (validator step 6 will
+   verify your override is well-formed).
+4. Push. Backend redeploys.
+5. `/api/admin/walkover-pending` count should drop to 0.
+6. Visually verify `/group/<id>/draw` (bracket + list view): WALKOVER
+   badge present, correct player has the green checkmark, correct player
+   propagates to the next round box.
+
+**History:** 2026-05-09 Rome R64 — Machac withdrew so Medvedev advanced,
+but the scraper's pre-fix walkover heuristic guessed Machac. Bracket
+showed Machac progressing into R32 until corrected. The override
+mechanism + this check exists so this can never go silent again.
+
 
 ## PHASE 9 — Session-end protocol (MANDATORY)
 
