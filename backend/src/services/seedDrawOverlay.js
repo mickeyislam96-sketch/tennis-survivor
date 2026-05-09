@@ -10,6 +10,9 @@
  * The result is the internal fixture format used by picks.js and the bracket viewer.
  */
 
+import { TOURNAMENT } from '../config/activeTournament.js';
+
+
 // ── Name normalisation ──────────────────────────────────────────────────────
 
 /**
@@ -457,6 +460,13 @@ export function overlayFixtures(seedDraw, fixtures) {
           match.status = gsFixture.status;
         }
         if (gsFixture.winnerId || gsFixture.winnerName) {
+        if (gsFixture.status === 'walkover' && !gsFixture.winnerId) {
+          // Walkover with no scraper-confirmed winner: do NOT trust the
+          // scraper's winnerName guess. Leave the seed-draw match unresolved
+          // until a manual override is applied (Step 1.5 above) or the
+          // scraper sends a confirmed winnerId.
+          continue;
+        }
           // Match the scraper winner to our seed draw player IDs.
           // 3 strategies: exact normalised, fuzzy Levenshtein, surname subset.
           const winnerNorm = normaliseName(gsFixture.winnerName);
@@ -537,6 +547,70 @@ export function overlayFixtures(seedDraw, fixtures) {
       }
     }
 
+    // ── Step 1.5: Apply manual result overrides for this round ──────
+    // Walkovers (status='walkover' with no parseable score) cannot have their
+    // winner inferred reliably from FlashScore output. The scraper now leaves
+    // winnerId/winnerName null for walkovers; the truth must be recorded in
+    // TOURNAMENT.manualResultOverrides. Overrides also let admins fix incorrect
+    // scrapes without waiting for the next scraper pass.
+    //
+    // Each override entry shape (see backend/src/config/activeTournament.js):
+    //   { round, matchPlayers: [name, name], winner: name, status, note }
+    //
+    // The override matches by normalised player names so it survives small
+    // formatting variations between scraper output and seed-draw spelling.
+    const overrides = (TOURNAMENT?.manualResultOverrides || []).filter(o => o.round === round);
+    let overridesApplied = 0;
+    for (const ov of overrides) {
+      if (!Array.isArray(ov.matchPlayers) || ov.matchPlayers.length !== 2 || !ov.winner) {
+        console.warn('[seedDrawOverlay] manual override malformed, skipping:', JSON.stringify(ov));
+        continue;
+      }
+      const ovP1 = normaliseName(ov.matchPlayers[0]);
+      const ovP2 = normaliseName(ov.matchPlayers[1]);
+      const target = roundMatches.find(m => {
+        if (!m.player1Name || !m.player2Name) return false;
+        const p1 = normaliseName(m.player1Name);
+        const p2 = normaliseName(m.player2Name);
+        return (p1 === ovP1 && p2 === ovP2) || (p1 === ovP2 && p2 === ovP1);
+      });
+      if (!target) {
+        console.warn(`[seedDrawOverlay] override target not found in ${round}: ${ov.matchPlayers.join(' vs ')}`);
+        continue;
+      }
+      const winnerNorm = normaliseName(ov.winner);
+      const p1Match = winnerNorm === normaliseName(target.player1Name);
+      const p2Match = winnerNorm === normaliseName(target.player2Name);
+      if (!p1Match && !p2Match) {
+        console.error(`[seedDrawOverlay] override winner "${ov.winner}" matches neither ${target.player1Name} nor ${target.player2Name} — skipping`);
+        continue;
+      }
+      target.winnerId = p1Match ? target.player1Id : target.player2Id;
+      target.winnerName = p1Match ? target.player1Name : target.player2Name;
+      target.status = ov.status || target.status || 'walkover';
+      target.score = target.score || '---';
+      target.isManualOverride = true;
+      target.overrideNote = ov.note || null;
+      if (target.status === 'walkover') {
+        target.isWithdrawal = true;
+        // The withdrawnPlayerId is the one who is NOT the winner
+        target.withdrawnPlayerId = p1Match ? target.player2Id : target.player1Id;
+      }
+      overridesApplied++;
+      console.log(`[seedDrawOverlay] manual override applied (${round}): ${target.player1Name} vs ${target.player2Name} → winner ${target.winnerName}`);
+    }
+
+    // ── Step 1.6: Flag unconfirmed walkovers (status=walkover, no winnerId) ──
+    // After scraper overlay + manual overrides, any match with status='walkover'
+    // but no winnerId is unresolved and must NOT propagate. We log loudly so
+    // ops monitor + admin endpoint can surface it.
+    for (const m of roundMatches) {
+      if ((m.status === 'walkover' || m.status === 'retired') && !m.winnerId && m.player1Name && m.player2Name) {
+        m.requiresAdminReview = true;
+        console.warn(`[seedDrawOverlay] UNCONFIRMED WALKOVER (${round}): ${m.player1Name} vs ${m.player2Name} — needs manualResultOverrides entry`);
+      }
+    }
+
     // ── Step 2: Propagate this round's winners into NEXT round ────────
     // This fills in player names for the next round BEFORE we try to
     // match fixtures for it.
@@ -599,7 +673,7 @@ export function overlayFixtures(seedDraw, fixtures) {
     ...patchedSeedDraw,
     players: finalPlayers,
     matches: updatedMatches,
-    dataSource: `seed_draw+scraper(${matched})`,
+    dataSource: `seed_draw+scraper(${matched})${updatedMatches.some(m => m.isManualOverride) ? '+overrides(' + updatedMatches.filter(m => m.isManualOverride).length + ')' : ''}${updatedMatches.some(m => m.requiresAdminReview) ? '+REVIEW(' + updatedMatches.filter(m => m.requiresAdminReview).length + ')' : ''}`,
     replacements: replacements.length > 0
       ? replacements.map(r => ({ replacement: r.unknownPlayerName, opposedBy: r.knownPlayerName }))
       : undefined,
