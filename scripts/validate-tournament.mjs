@@ -123,7 +123,42 @@ if (!fs.existsSync(sdPath)) {
   }
 }
 
-step('6. Frontend & backend draw flags align');
+step('6. Manual result overrides validity');
+const overrides = activeCfg.manualResultOverrides;
+if (!Array.isArray(overrides)) {
+  fail('manualResultOverrides must be an array (use [] for tournaments with no overrides)');
+} else if (overrides.length === 0) {
+  ok('no manual result overrides defined');
+} else {
+  ok(`${overrides.length} manual override(s) defined — validating each`);
+  const validStatuses = new Set(['walkover', 'retired', 'completed']);
+  const seen = new Set();
+  for (const ov of overrides) {
+    const labelParts = [];
+    if (!ov || typeof ov !== 'object') { fail(`manualResultOverrides entry not an object: ${JSON.stringify(ov)}`); continue; }
+    if (!activeCfg.rounds.includes(ov.round)) fail(`override.round "${ov.round}" not in tournament rounds`);
+    else labelParts.push(ov.round);
+    if (!Array.isArray(ov.matchPlayers) || ov.matchPlayers.length !== 2) {
+      fail(`override.matchPlayers must be length-2 array (saw ${JSON.stringify(ov.matchPlayers)})`);
+    } else {
+      labelParts.push(ov.matchPlayers.join(' vs '));
+    }
+    if (!ov.winner) fail(`override missing winner: ${JSON.stringify(ov)}`);
+    else if (Array.isArray(ov.matchPlayers) && !ov.matchPlayers.includes(ov.winner)) {
+      fail(`override.winner "${ov.winner}" must equal one of matchPlayers (${ov.matchPlayers.join(', ')})`);
+    }
+    if (ov.status && !validStatuses.has(ov.status)) {
+      fail(`override.status "${ov.status}" must be one of ${[...validStatuses].join(', ')}`);
+    }
+    const key = `${ov.round}|${[...(ov.matchPlayers || [])].sort().join('|')}`;
+    if (seen.has(key)) fail(`duplicate override for same match: ${labelParts.join(' / ')}`);
+    seen.add(key);
+    if (ov.note) ok(`  ${labelParts.join(' / ')} → ${ov.winner} (${ov.note.slice(0, 60)}${ov.note.length > 60 ? '…' : ''})`);
+    else ok(`  ${labelParts.join(' / ')} → ${ov.winner}`);
+  }
+}
+
+step('7. Frontend & backend draw flags align');
 if (beReg.drawAvailable === feReg.drawAvailable) ok(`drawAvailable matches (${beReg.drawAvailable})`);
 else fail(`drawAvailable mismatch: BE=${beReg.drawAvailable}, FE=${feReg.drawAvailable}`);
 
