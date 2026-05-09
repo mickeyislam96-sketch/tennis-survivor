@@ -205,7 +205,7 @@ The leaderboard's `isWinner` flag is set automatically for the longest-surviving
 
 | File | What changes |
 |---|---|
-| `backend/src/config/activeTournament.js` | New tournament config block |
+| `backend/src/config/activeTournament.js` | New tournament config block (include `manualResultOverrides: []`) |
 | `backend/src/data/tournaments.js` | New registry entry |
 | `frontend/src/data/tournaments.js` | New registry entry |
 | `backend/src/data/seedDraws/{id}.json` | New draw file (Phase 2) |
@@ -228,3 +228,9 @@ Everything else (routes, components, data adapter, overlay) is reusable and does
 5. **Draw size mismatch**: A 96-draw Masters has 128 draw positions (64 pairs, 32 of which are byes). A 128-draw Grand Slam has 128 draw positions with 0 byes. Make sure `drawSize`, `seedsWithByes`, and `drawPositions` array length are consistent.
 
 6. **Round name mapping**: FlashScore uses labels like "1/64-finals", "1/32-finals" etc. If the draw shows 0 matches for a round, check the scraper task's round mapping is correct for the tournament format.
+
+7. **Walkovers — admin must confirm winner**: FlashScore shows walkover scores as "---", so the scraper cannot reliably detect who advanced. The scraper now leaves `winnerId` null for walkovers; the bracket marks the match `requiresAdminReview`. To resolve:
+   - Check `GET /api/admin/walkover-pending` (with `?secret=…` or Authorization Bearer) once a day during the tournament.
+   - For each pending entry, copy the `suggestedOverride` shape into `TOURNAMENT.manualResultOverrides` in `backend/src/config/activeTournament.js`, fill in the actual winner, push.
+   - The bracket will reflect the change on next backend restart (Railway redeploys automatically on push).
+   - Origin: 2026-05-09 Rome R64 — Machac withdrew so Medvedev advanced, but the scraper's player-order heuristic guessed Machac. Bracket showed Machac progressing into R32 until corrected via override. The override mechanism + `walkover-pending` endpoint exists so this can never go silent again.
