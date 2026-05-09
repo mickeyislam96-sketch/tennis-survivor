@@ -71,6 +71,27 @@ const TOURNAMENTS = {
       F:   '2026-05-17T11:00:00Z',  // Sun 17 May (final ~13:00 local)
     },
 
+
+    // Manual result overrides — applied AFTER scraper data, BEFORE bracket propagation.
+    // Use this for matches the scraper cannot reliably resolve:
+    //  • Walkovers (FlashScore shows score: '---', so winner cannot be guessed
+    //    from score; scraper now refuses to assert a winner).
+    //  • Disputed/incorrect scrapes that need a manual correction.
+    // History (2026-05-09 incident): Machac/Medvedev R64 — Machac withdrew so
+    // Medvedev advanced, but the scraper's walkover-winner heuristic defaulted
+    // to player1 (Machac) which was wrong. The bracket showed Machac
+    // progressing into R32. This override makes the truth explicit and
+    // testable.
+    manualResultOverrides: [
+      {
+        round: 'R64',
+        matchPlayers: ['Machac, Tomas', 'Medvedev, Daniil'],
+        winner: 'Medvedev, Daniil',
+        status: 'walkover',
+        note: 'Machac withdrew before R64 — Medvedev advances. Recorded 2026-05-09.',
+      },
+    ],
+
     // API provider config
     apiTennisTournamentKey: null,
     apiSeason: null,
@@ -122,6 +143,9 @@ const TOURNAMENTS = {
       F:   '2026-05-03T15:00:00Z',
     },
 
+
+    manualResultOverrides: [],
+
     apiTennisTournamentKey: null,
     apiSeason: null,
   },
@@ -143,6 +167,9 @@ const TOURNAMENTS = {
     lockTimeOverrides: {},
     windowOpensOverrides: {},
     roundDateFallbacks: {},
+
+    manualResultOverrides: [],
+
     apiTennisTournamentKey: null,
     apiSeason: null,
   },
