@@ -23,3 +23,5 @@
 - [Admin scope-token rollout](feedback_admin_scope_rollout.md) — Stage 2 contract: setting ADMIN_TOKEN_<SCOPE> automatically blocks master from that scope. Financial endpoints scoped first.
 - [DB-restore drill](project_db_restore_drill.md) — closes critical-gap #5. Quarterly GH Actions workflow + manual script. Asserts schema + row counts + referential integrity.
 - [Transition hardening 2026-05-08](feedback_transition_hardening_2026_05_08.md) — added smoke 3c+3d, transition Phase 8e+8f (free) / 8g+8h (paid), and brief Phase 1b checks 6+7 + 1c additions to prevent recurrence of today's two bug classes.
+- [Walkover requires admin override](feedback_walkover_admin_override.md) — scraper cannot reliably guess walkover/retired winners; manualResultOverrides + walkover-pending check + four prevention layers from session 38b.
+- [is_alive must sync from picks every cron tick](feedback_sync_group_members_from_picks.md) — autoProcessResults skips rounds when no NULL picks remain; reconciliation must be unconditional. session 38b syncGroupMembersFromPicks.
