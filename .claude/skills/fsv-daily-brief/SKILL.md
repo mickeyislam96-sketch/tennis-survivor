@@ -37,7 +37,8 @@ Run these in parallel where possible. Capture results to memory; you'll cite the
 4. **Staging health** — same against `https://tennis-survivor-staging.up.railway.app/api/health`. Flag if staging has drifted from prod in unexpected ways.
 5. **Recent CI runs** — fetch the last 5 GitHub Actions runs via API: `GET /repos/mickeyislam96-sketch/tennis-survivor/actions/runs?per_page=5`. Flag failures.
 6. **Pending email queue** — `curl -s https://tennis-survivor-production.up.railway.app/api/admin/pending-summary?secret=<ADMIN_SECRET>` (auth via secret in user prompt or skip silently if not provided).
-7. **Open issues from memory** — read `.claude/memory/project_critical_gaps.md` and check progress against each gap.
+7. **Walkover-pending check (CRITICAL during a tournament).** Hit `curl -s "https://tennis-survivor-production.up.railway.app/api/admin/walkover-pending?secret=<ADMIN_SECRET>"` if `ADMIN_SECRET` is available. This endpoint surfaces R64+ matches the scraper could not resolve (walkover/withdrawal with no score, missing fixtures, etc.) — the recurring failure mode in this product. If `ADMIN_SECRET` is not provided, skip the call but ALWAYS include a one-line reminder in the brief's "State of the world" section telling Mickey to hit this endpoint himself before the next round opens. Two consecutive sessions (38b Machac/Medvedev and 2026-05-10 van de Zandschulp/Rinderknech) needed manual `manualResultOverrides` entries that this endpoint would have surfaced. Treat any non-empty result here as a 🔴 critical finding.
+8. **Open issues from memory** — read `.claude/memory/project_critical_gaps.md` and check progress against each gap.
 
 ### Phase 1b — Data integrity check (CRITICAL)
 

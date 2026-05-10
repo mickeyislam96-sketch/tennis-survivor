@@ -90,6 +90,14 @@ const TOURNAMENTS = {
         status: 'walkover',
         note: 'Machac withdrew before R64 — Medvedev advances. Recorded 2026-05-09.',
       },
+      {
+        round: 'R64',
+        matchPlayers: ['van de Zandschulp, Botic', 'Rinderknech, Arthur'],
+        winner: 'van de Zandschulp, Botic',
+        loserDisplayName: 'Kovacevic, Aleksandar (LL)',
+        status: 'completed',
+        note: 'Rinderknech withdrew before R64; Kovacevic, Aleksandar entered as Lucky Loser and lost to van de Zandschulp. Recorded 2026-05-10. matchPlayers stays as the seed-draw slot name (Rinderknech) for stable matching; loserDisplayName rewrites the visible loser to the actual LL who played.',
+      },
     ],
 
     // API provider config
