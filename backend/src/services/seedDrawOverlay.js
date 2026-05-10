@@ -596,6 +596,22 @@ export function overlayFixtures(seedDraw, fixtures) {
         // The withdrawnPlayerId is the one who is NOT the winner
         target.withdrawnPlayerId = p1Match ? target.player2Id : target.player1Id;
       }
+      // Optional loser display rewrite. Use this when the seed-draw slot still
+      // names the original (withdrawn) seed but a Lucky Loser actually played
+      // and lost. The auto-replacement pre-pass only swaps R1 slots, so for
+      // R64+ withdrawals the LL's name never reaches the bracket without this.
+      // Example (Rome 2026 R64): Rinderknech withdrew, Kovacevic came in as LL
+      // and lost to van de Zandschulp. The slot name stays 'Rinderknech' for
+      // matchPlayers stability, but the displayed loser becomes Kovacevic.
+      if (ov.loserDisplayName) {
+        if (p1Match) {
+          target.player2OrigName = target.player2OrigName || target.player2Name;
+          target.player2Name = ov.loserDisplayName;
+        } else {
+          target.player1OrigName = target.player1OrigName || target.player1Name;
+          target.player1Name = ov.loserDisplayName;
+        }
+      }
       overridesApplied++;
       console.log(`[seedDrawOverlay] manual override applied (${round}): ${target.player1Name} vs ${target.player2Name} → winner ${target.winnerName}`);
     }
