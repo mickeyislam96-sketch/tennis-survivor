@@ -59,3 +59,30 @@ unreliable).
 overlay flagging + admin endpoint + validator) plus the regression test plus
 BLOCKING Phase 8.5 in both transition prompts. The endpoint guarantees no
 walkover can stay unresolved without showing up in the daily check.
+
+
+## Optional: loserDisplayName for LL replacements at R64+
+
+Override entries can include `loserDisplayName` to rewrite the loser
+slot's display name. Use this when a seed-bye player withdrew, an LL
+took their place, and the seed-draw JSON wasn't pre-emptively patched
+(see `feedback_seeded_withdrawal_with_bye.md` for the pre-emptive
+recipe). The bracket card then reads with the LL's name, not the
+withdrawn seed's. Original is preserved on `target.player[12]OrigName`.
+
+Example (Rome 2026 R64, 2026-05-10):
+
+```js
+{
+  round: 'R64',
+  matchPlayers: ['van de Zandschulp, Botic', 'Rinderknech, Arthur'],
+  winner: 'van de Zandschulp, Botic',
+  loserDisplayName: 'Kovacevic, Aleksandar (LL)',
+  status: 'completed',
+  note: 'Rinderknech withdrew before R64; Kovacevic in as Lucky Loser and lost.',
+}
+```
+
+Implemented in `backend/src/services/seedDrawOverlay.js` Step 1.5
+(override apply). Additive — only fires when the field is set, so
+existing overrides without it behave unchanged.

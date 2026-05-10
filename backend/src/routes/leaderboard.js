@@ -8,6 +8,37 @@ const ROUNDS = getRounds();
 // Statuses that indicate a match has a winner (normal completion, retirement, walkover)
 const DECIDED_STATUSES = new Set(['completed', 'retired', 'walkover']);
 
+// Leaderboard sort rule (Mickey, 2026-05-10):
+//   1. Alive members first, sorted by survivedRounds DESC
+//      (more rounds survived = higher).
+//   2. Then eliminated members, sorted by elimination recency DESC
+//      (most recent round = higher; e.g. R64 elim above R1 elim).
+//   3. Within ties (same survivedRounds, or same eliminatedRound),
+//      sort alphabetically by displayName ASC.
+// roundIndex() returns the position of a round in ROUNDS, or -Infinity if
+// missing/invalid — that pushes unknown rounds to the bottom of the
+// eliminated section rather than aliasing them to R1 (the previous
+// `|| 0` bug). DO NOT inline this — see backend/tests/smoke/leaderboard-sort.test.js.
+function roundIndex(round) {
+  if (!round) return -Infinity;
+  const i = ROUNDS.indexOf(round);
+  return i === -1 ? -Infinity : i;
+}
+function compareDisplayName(a, b) {
+  return String(a.displayName || '').localeCompare(String(b.displayName || ''), undefined, { sensitivity: 'base' });
+}
+export function sortLeaderboard(members) {
+  const alive = members.filter(m => m.isAlive).sort((a, b) => {
+    const d = b.survivedRounds - a.survivedRounds;
+    return d !== 0 ? d : compareDisplayName(a, b);
+  });
+  const eliminated = members.filter(m => !m.isAlive).sort((a, b) => {
+    const d = roundIndex(b.eliminatedRound) - roundIndex(a.eliminatedRound);
+    return d !== 0 ? d : compareDisplayName(a, b);
+  });
+  return { alive, eliminated };
+}
+
 export const leaderboardRouter = Router();
 
 function isUUID(str) {
@@ -207,12 +238,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         };
       });
 
-      const alive = members
-        .filter(m => m.isAlive)
-        .sort((a, b) => b.survivedRounds - a.survivedRounds);
-      const eliminated = members
-        .filter(m => !m.isAlive)
-        .sort((a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0));
+      const { alive, eliminated } = sortLeaderboard(members);
 
       // Winner detection:
       // 1. If exactly 1 survivor and 2+ entrants => that player won
@@ -269,10 +295,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     };
   });
 
-  const alive = members.filter(m => m.isAlive).sort((a, b) => b.survivedRounds - a.survivedRounds);
-  const eliminated = members.filter(m => !m.isAlive).sort(
-    (a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0)
-  );
+  const { alive, eliminated } = sortLeaderboard(members);
 
   res.json({
     group: { id: group.id, name: group.name, prizePoolCents: group.prizePoolCents },
