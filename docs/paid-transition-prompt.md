@@ -687,8 +687,33 @@ When count is 0, you're clean. When count > 0:
 
 **History:** 2026-05-09 Rome R64 — Machac withdrew so Medvedev advanced,
 but the scraper's pre-fix walkover heuristic guessed Machac. Bracket
-showed Machac progressing into R32 until corrected. The override
-mechanism + this check exists so this can never go silent again.
+showed Machac progressing into R32 until corrected. 2026-05-10 Rome R64 —
+Rinderknech withdrew before R64 with Kovacevic in as Lucky Loser; the
+auto-replacement pre-pass in `seedDrawOverlay` only handles R1 slot
+swaps, so for any seed-bye player who withdraws between R1 bye and R64
+the LL's name never reaches the bracket without a manual override. The
+override mechanism + this check exists so this can never go silent again.
+
+**Lucky Loser at R64+ recipe (paid-launch critical — single missed
+walkover in a paid pool is a refund liability).** When a seed-bye player
+withdraws and an LL replaces them, use the optional `loserDisplayName`
+field on the override so the bracket card reads with the LL's name, not
+the original seed:
+
+```js
+{
+  round: 'R64',                                  // round of the actual match
+  matchPlayers: ['Opponent, X', 'Withdrew, Y'],  // SEED-DRAW slot names (stable)
+  winner: 'Opponent, X',
+  loserDisplayName: 'LuckyLoser, Z (LL)',        // displayed loser name
+  status: 'completed',                           // they actually played
+  note: 'Withdrew, Y withdrew; LuckyLoser replaced and lost. <date>',
+}
+```
+
+`matchPlayers` keeps the seed-draw slot names so the matcher remains
+stable; `loserDisplayName` rewrites only the displayed name on the
+loser side. Original name is preserved on `target.player[12]OrigName`.
 
 
 ## PHASE 9 — Session-end protocol (MANDATORY)
