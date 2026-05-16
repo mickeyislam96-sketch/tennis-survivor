@@ -3,8 +3,15 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Cron: every hour at minute 0, between 10:00 and 21:00 UTC
-# (= 11:00-22:00 UK time during BST, April-October)
+# Cron: every hour at minute 0, between 08:00 and 21:00 UTC
+# (= 09:00-22:00 UK time during BST, April-October)
 #
-# For future tournaments, change to "*/15 10-21 * * *" for every 15 minutes.
-cronSchedule = "0 10-21 * * *"
+# Why 08:00 start (was 10:00, changed 2026-05-15): Roland Garros and other
+# major events start day-session matches at 11:00 Paris = 09:00 UTC. With
+# a 10:00 UTC first scrape there was a ~1h blind spot where live matches
+# still showed as `scheduled` in /api/health and the bracket. The 08:00
+# start gives one full scrape's worth of cushion before day-session start.
+#
+# For future tournaments where every-15-min freshness matters (paid
+# events, late-stage tie-breaks), promote to "*/15 8-21 * * *".
+cronSchedule = "0 8-21 * * *"
