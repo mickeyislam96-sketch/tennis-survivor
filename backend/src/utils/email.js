@@ -820,6 +820,74 @@ export function buildRoundResultHTML({ email, displayName, round, playerName, su
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// 5b. WINNER ANNOUNCEMENT — pool winner crowned (tournament completed)
+// Fires once a tournament's tour event finishes and a unique top survivor
+// emerges. Per Option B (Mickey, 2026-05-15) this is gated by
+// tournament.status === 'completed'. Queued for admin approval — Mickey
+// reviews each champion email before it goes out.
+//
+// Dedup key uses round='F' so this can't collide with the F round_result
+// email for the same user/group.
+// ═════════════════════════════════════════════════════════════════════════════
+
+export async function sendWinnerAnnouncementEmail({
+  userId, groupId, email, displayName,
+  tournamentName, tournamentShortName,
+  winningPickName, roundCount, memberCount, prizePoolCents,
+}) {
+  const groupUrl = `${APP_URL}/group/${groupId}`;
+  const subject = `🏆 You won the ${tournamentShortName} pool — Final Serve-ivor`;
+  const html = buildWinnerAnnouncementHTML({
+    email, displayName,
+    tournamentName, tournamentShortName,
+    winningPickName, roundCount, memberCount, prizePoolCents,
+    groupUrl,
+  });
+  return sendWithDedup({
+    userId, groupId, round: 'F',
+    emailType: 'winner_announcement',
+    to: email, subject, html,
+  });
+}
+
+export function buildWinnerAnnouncementHTML({
+  email, displayName,
+  tournamentName, tournamentShortName,
+  winningPickName, roundCount, memberCount, prizePoolCents,
+  groupUrl,
+}) {
+  const prizeText = prizePoolCents > 0
+    ? `The prize pot is yours: £${(prizePoolCents / 100).toFixed(2)}.`
+    : `Free pool, so no payout this time. You'll have first dibs on the next one.`;
+
+  const opponentLine = memberCount > 1
+    ? `Out of ${memberCount} entrants in the pool, only you were left standing when the dust settled. That is the whole game.`
+    : `Only one survivor when the dust settled, and that survivor was you.`;
+
+  const body = `
+    ${paragraph(`Hey <strong class="ink" style="color:${C.ink}">${displayName}</strong>, you outlasted everyone in the <strong class="ink" style="color:${C.ink}">${tournamentName}</strong> pool. Champion stuff.`, 32)}
+
+    ${card({ tone: 'gold', label: 'Your winning Final pick', value: winningPickName, kicker: `Survived all ${roundCount} rounds` })}
+
+    ${paragraph(`${opponentLine} ${prizeText}`, 8)}
+
+    ${cta(groupUrl, 'View the leaderboard', '→')}
+
+    ${sectionEyebrow("What's next")}
+
+    ${paragraph(`The next pool opens shortly. You'll get an email the moment picks are live, so you can defend the crown.`, 12, 8)}
+  `;
+
+  return wrapper({
+    eyebrow: 'Pool winner',
+    title: '🏆 You won',
+    subtitle: `${tournamentShortName} 2026`,
+    body,
+    footerEmail: email,
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // 6. WITHDRAWAL ALERT — picked player withdrew before match
 // Queued for admin approval.
 // ═════════════════════════════════════════════════════════════════════════════
