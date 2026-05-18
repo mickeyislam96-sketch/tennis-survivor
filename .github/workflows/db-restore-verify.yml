@@ -121,43 +121,50 @@ jobs:
         env:
           PGPASSWORD: test
         run: |
-          set -e
-          set -x   # debug: show every command so we can see which $PSQL call fails
-          PSQL="psql -h localhost -p 5432 -U postgres -d fsv_restore_test -t -A 2>&1"
+          # Single-psql-session approach: stable across pg client/server quirks
+          # and per-call connection oddities. ON_ERROR_STOP makes psql exit
+          # non-zero if any statement errors; -t -A produces unambiguous output.
+          set -euo pipefail
 
-          # Smoke test the connection up front with full error reporting
-          echo "=== Connection smoke ==="
-          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT current_user, current_database(), current_schema();" 2>&1 || true
-          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT relname, relkind FROM pg_class WHERE relname IN ('users','groups','picks','group_members') AND relnamespace = 'public'::regnamespace;" 2>&1 || true
-          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT COUNT(*) FROM public.users" 2>&1 || true
+          PG_OPTS="-h localhost -p 5432 -U postgres -d fsv_restore_test"
+
+          echo "=== Connection check ==="
+          psql $PG_OPTS -t -A -c "SELECT current_user, current_database();"
 
           echo
           echo "=== Schema check ==="
-          # Critical tables must exist
-          REQUIRED_TABLES="users groups group_members picks payment_orders admin_audit_log"
-          for t in $REQUIRED_TABLES; do
-            EXISTS=$($PSQL -c "SELECT to_regclass('public.${t}') IS NOT NULL")
-            if [ "$EXISTS" != "t" ]; then
-              echo "::error::Required table missing after restore: $t"
-              exit 1
-            fi
-            echo "  ✓ $t exists"
-          done
+          # All required tables in one query, one row per missing table.
+          MISSING=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 <<'SQL'
+SELECT t.name
+FROM (VALUES
+  ('users'), ('groups'), ('group_members'), ('picks'),
+  ('payment_orders'), ('admin_audit_log')
+) AS t(name)
+WHERE to_regclass('public.' || t.name) IS NULL;
+SQL
+          )
+          if [ -n "$MISSING" ]; then
+            echo "::error::Required tables missing after restore:"
+            echo "$MISSING"
+            exit 1
+          fi
+          echo "  ✓ all 6 required tables present"
 
           echo
           echo "=== Row counts ==="
-          # The production DB should have at least one user and one group.
-          # Empty would mean restore silently dropped data. Tiny would mean
-          # an early-tournament backup; we just require non-zero on users.
-          USERS=$($PSQL -c "SELECT COUNT(*) FROM public.users")
-          GROUPS=$($PSQL -c "SELECT COUNT(*) FROM public.groups")
-          PICKS=$($PSQL -c "SELECT COUNT(*) FROM public.picks")
-          MEMBERS=$($PSQL -c "SELECT COUNT(*) FROM public.group_members")
-          echo "  users:         $USERS"
-          echo "  groups:        $GROUPS"
-          echo "  group_members: $MEMBERS"
-          echo "  picks:         $PICKS"
+          # Single session, all counts in one round trip. Fully-qualified names
+          # so we don't depend on search_path (dump sets it to empty).
+          COUNTS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 <<'SQL'
+SELECT 'users='         || COUNT(*) FROM public.users;
+SELECT 'groups='        || COUNT(*) FROM public.groups;
+SELECT 'group_members=' || COUNT(*) FROM public.group_members;
+SELECT 'picks='         || COUNT(*) FROM public.picks;
+SQL
+          )
+          echo "$COUNTS"
 
+          USERS=$(echo "$COUNTS" | grep '^users=' | cut -d= -f2)
+          GROUPS=$(echo "$COUNTS" | grep '^groups=' | cut -d= -f2)
           if [ "$USERS" -lt 1 ]; then
             echo "::error::No users in restored DB — restore probably failed silently."
             exit 1
@@ -169,9 +176,7 @@ jobs:
 
           echo
           echo "=== Referential integrity spot check ==="
-          # Picks should reference real users and groups. Orphan rows would
-          # indicate a partial restore.
-          ORPHAN_PICKS=$($PSQL -c "SELECT COUNT(*) FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id)")
+          ORPHAN_PICKS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id);")
           if [ "$ORPHAN_PICKS" -gt 0 ]; then
             echo "::error::$ORPHAN_PICKS orphan picks (no matching user) — referential integrity broken."
             exit 1
