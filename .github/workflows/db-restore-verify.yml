@@ -121,11 +121,7 @@ jobs:
         env:
           PGPASSWORD: test
         run: |
-          # Single-psql-session approach: stable across pg client/server quirks
-          # and per-call connection oddities. ON_ERROR_STOP makes psql exit
-          # non-zero if any statement errors; -t -A produces unambiguous output.
           set -euo pipefail
-
           PG_OPTS="-h localhost -p 5432 -U postgres -d fsv_restore_test"
 
           echo "=== Connection check ==="
@@ -133,16 +129,7 @@ jobs:
 
           echo
           echo "=== Schema check ==="
-          # All required tables in one query, one row per missing table.
-          MISSING=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 <<'SQL'
-SELECT t.name
-FROM (VALUES
-  ('users'), ('groups'), ('group_members'), ('picks'),
-  ('payment_orders'), ('admin_audit_log')
-) AS t(name)
-WHERE to_regclass('public.' || t.name) IS NULL;
-SQL
-          )
+          MISSING=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT t.name FROM (VALUES ('users'),('groups'),('group_members'),('picks'),('payment_orders'),('admin_audit_log')) AS t(name) WHERE to_regclass('public.' || t.name) IS NULL;")
           if [ -n "$MISSING" ]; then
             echo "::error::Required tables missing after restore:"
             echo "$MISSING"
@@ -152,15 +139,7 @@ SQL
 
           echo
           echo "=== Row counts ==="
-          # Single session, all counts in one round trip. Fully-qualified names
-          # so we don't depend on search_path (dump sets it to empty).
-          COUNTS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 <<'SQL'
-SELECT 'users='         || COUNT(*) FROM public.users;
-SELECT 'groups='        || COUNT(*) FROM public.groups;
-SELECT 'group_members=' || COUNT(*) FROM public.group_members;
-SELECT 'picks='         || COUNT(*) FROM public.picks;
-SQL
-          )
+          COUNTS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT 'users='||COUNT(*) FROM public.users; SELECT 'groups='||COUNT(*) FROM public.groups; SELECT 'group_members='||COUNT(*) FROM public.group_members; SELECT 'picks='||COUNT(*) FROM public.picks;")
           echo "$COUNTS"
 
           USERS=$(echo "$COUNTS" | grep '^users=' | cut -d= -f2)
