@@ -888,6 +888,87 @@ export function buildWinnerAnnouncementHTML({
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// 5c. TOURNAMENT WRAP — previous tournament concluded, next one opens
+// Broadcast email queued for admin approval. Tells the user who won the
+// tour event, who won the pool, and tees up the next event.
+//
+// Dedup key uses round='wrap' so this doesn't collide with round_result.
+// One email per (user, group, type) — i.e. one per user per tournament
+// they were a member of.
+// ═════════════════════════════════════════════════════════════════════════════
+
+export async function sendTournamentWrapEmail({
+  userId, groupId, email, displayName,
+  previousTournamentName, previousTournamentShortName,
+  championName, scoreLine,
+  poolWinnerName, winningPickName,
+  nextTournamentName, nextTournamentShortName,
+  nextStartsLabel, nextEntryFeeLabel, nextPoolUrl,
+}) {
+  const subject = `${championName} won ${previousTournamentShortName}. ${nextTournamentShortName} opens ${nextStartsLabel}.`;
+  const html = buildTournamentWrapHTML({
+    email, displayName,
+    previousTournamentName, previousTournamentShortName,
+    championName, scoreLine,
+    poolWinnerName, winningPickName,
+    nextTournamentName, nextTournamentShortName,
+    nextStartsLabel, nextEntryFeeLabel, nextPoolUrl,
+  });
+  return sendWithDedup({
+    userId, groupId, round: 'wrap',
+    emailType: 'tournament_wrap',
+    to: email, subject, html,
+  });
+}
+
+export function buildTournamentWrapHTML({
+  email, displayName,
+  previousTournamentName, previousTournamentShortName,
+  championName, scoreLine,
+  poolWinnerName, winningPickName,
+  nextTournamentName, nextTournamentShortName,
+  nextStartsLabel, nextEntryFeeLabel, nextPoolUrl,
+}) {
+  const intro = displayName
+    ? `Hey <strong class="ink" style="color:${C.ink}">${displayName}</strong>, here is how ${previousTournamentShortName} closed out.`
+    : `Here is how ${previousTournamentShortName} closed out.`;
+
+  const headlineFact = scoreLine
+    ? `<strong class="ink" style="color:${C.ink}">${championName}</strong> won the ${previousTournamentShortName} Final ${scoreLine}.`
+    : `<strong class="ink" style="color:${C.ink}">${championName}</strong> won ${previousTournamentShortName}.`;
+
+  const poolFact = poolWinnerName && winningPickName
+    ? `<strong class="ink" style="color:${C.ink}">${poolWinnerName}</strong> won our pool by picking ${winningPickName} in the Final and surviving every round.`
+    : (poolWinnerName ? `<strong class="ink" style="color:${C.ink}">${poolWinnerName}</strong> won our pool.` : '');
+
+  const feeLine = nextEntryFeeLabel
+    ? `Entry is ${nextEntryFeeLabel}. Paid out to whoever lasts longest.`
+    : `Entry details going out shortly.`;
+
+  const body = `
+    ${paragraph(intro, 32)}
+
+    ${card({ tone: 'gold', label: `${previousTournamentShortName} 2026 — final`, value: `${championName} d. runner-up`, kicker: scoreLine || '' })}
+
+    ${paragraph(`${headlineFact} ${poolFact}`, 8)}
+
+    ${sectionEyebrow("What's next")}
+
+    ${paragraph(`<strong class="ink" style="color:${C.ink}">${nextTournamentName}</strong> opens ${nextStartsLabel}. ${feeLine}`, 12)}
+
+    ${cta(nextPoolUrl || `${APP_URL}/pools`, `Enter the ${nextTournamentShortName} pool`, '→')}
+  `;
+
+  return wrapper({
+    eyebrow: 'Tournament wrap',
+    title: `${previousTournamentShortName} is wrapped. ${nextTournamentShortName} is next.`,
+    subtitle: scoreLine ? `${championName} won ${scoreLine}` : null,
+    body,
+    footerEmail: email,
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // 6. WITHDRAWAL ALERT — picked player withdrew before match
 // Queued for admin approval.
 // ═════════════════════════════════════════════════════════════════════════════
