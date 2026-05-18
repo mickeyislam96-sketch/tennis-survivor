@@ -121,49 +121,10 @@ jobs:
         env:
           PGPASSWORD: test
         run: |
-          set -euo pipefail
-          PG_OPTS="-h localhost -p 5432 -U postgres -d fsv_restore_test"
-
-          echo "=== Connection check ==="
-          psql $PG_OPTS -t -A -c "SELECT current_user, current_database();"
-
-          echo
-          echo "=== Schema check ==="
-          MISSING=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT t.name FROM (VALUES ('users'),('groups'),('group_members'),('picks'),('payment_orders'),('admin_audit_log')) AS t(name) WHERE to_regclass('public.' || t.name) IS NULL;")
-          if [ -n "$MISSING" ]; then
-            echo "::error::Required tables missing after restore:"
-            echo "$MISSING"
-            exit 1
-          fi
-          echo "  ✓ all 6 required tables present"
-
-          echo
-          echo "=== Row counts ==="
-          COUNTS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT 'users='||COUNT(*) FROM public.users; SELECT 'groups='||COUNT(*) FROM public.groups; SELECT 'group_members='||COUNT(*) FROM public.group_members; SELECT 'picks='||COUNT(*) FROM public.picks;")
-          echo "$COUNTS"
-
-          USERS=$(echo "$COUNTS" | grep '^users=' | cut -d= -f2)
-          GROUPS=$(echo "$COUNTS" | grep '^groups=' | cut -d= -f2)
-          if [ "$USERS" -lt 1 ]; then
-            echo "::error::No users in restored DB — restore probably failed silently."
-            exit 1
-          fi
-          if [ "$GROUPS" -lt 1 ]; then
-            echo "::error::No groups in restored DB — restore probably failed silently."
-            exit 1
-          fi
-
-          echo
-          echo "=== Referential integrity spot check ==="
-          ORPHAN_PICKS=$(psql $PG_OPTS -t -A --set ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id);")
-          if [ "$ORPHAN_PICKS" -gt 0 ]; then
-            echo "::error::$ORPHAN_PICKS orphan picks (no matching user) — referential integrity broken."
-            exit 1
-          fi
-          echo "  ✓ no orphan picks"
-
-          echo
-          echo "✅ Restore verification passed. Backup is usable."
+          set -e
+          psql -h localhost -p 5432 -U postgres -d fsv_restore_test \
+            -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ DECLARE u INT; g INT; m INT; p INT; o INT; missing TEXT; BEGIN SELECT string_agg(t.name, ', ') INTO missing FROM (VALUES ('users'),('groups'),('group_members'),('picks'),('payment_orders'),('admin_audit_log')) AS t(name) WHERE to_regclass('public.' || t.name) IS NULL; IF missing IS NOT NULL THEN RAISE EXCEPTION 'Required tables missing after restore: %', missing; END IF; SELECT COUNT(*) INTO u FROM public.users; SELECT COUNT(*) INTO g FROM public.groups; SELECT COUNT(*) INTO m FROM public.group_members; SELECT COUNT(*) INTO p FROM public.picks; SELECT COUNT(*) INTO o FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id); RAISE NOTICE 'Row counts: users=%, groups=%, group_members=%, picks=%, orphan_picks=%', u, g, m, p, o; IF u < 1 THEN RAISE EXCEPTION 'No users in restored DB - restore probably failed silently'; END IF; IF g < 1 THEN RAISE EXCEPTION 'No groups in restored DB - restore probably failed silently'; END IF; IF o > 0 THEN RAISE EXCEPTION '% orphan picks (no matching user) - referential integrity broken', o; END IF; RAISE NOTICE 'Restore verification passed. Backup is usable.'; END\$\$;"
 
       - name: Open issue on failure
         if: failure()
