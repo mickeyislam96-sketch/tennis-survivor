@@ -142,10 +142,10 @@ jobs:
           # The production DB should have at least one user and one group.
           # Empty would mean restore silently dropped data. Tiny would mean
           # an early-tournament backup; we just require non-zero on users.
-          USERS=$($PSQL -c "SELECT COUNT(*) FROM users")
-          GROUPS=$($PSQL -c "SELECT COUNT(*) FROM groups")
-          PICKS=$($PSQL -c "SELECT COUNT(*) FROM picks")
-          MEMBERS=$($PSQL -c "SELECT COUNT(*) FROM group_members")
+          USERS=$($PSQL -c "SELECT COUNT(*) FROM public.users")
+          GROUPS=$($PSQL -c "SELECT COUNT(*) FROM public.groups")
+          PICKS=$($PSQL -c "SELECT COUNT(*) FROM public.picks")
+          MEMBERS=$($PSQL -c "SELECT COUNT(*) FROM public.group_members")
           echo "  users:         $USERS"
           echo "  groups:        $GROUPS"
           echo "  group_members: $MEMBERS"
@@ -164,7 +164,7 @@ jobs:
           echo "=== Referential integrity spot check ==="
           # Picks should reference real users and groups. Orphan rows would
           # indicate a partial restore.
-          ORPHAN_PICKS=$($PSQL -c "SELECT COUNT(*) FROM picks p WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = p.user_id)")
+          ORPHAN_PICKS=$($PSQL -c "SELECT COUNT(*) FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id)")
           if [ "$ORPHAN_PICKS" -gt 0 ]; then
             echo "::error::$ORPHAN_PICKS orphan picks (no matching user) — referential integrity broken."
             exit 1

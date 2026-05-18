@@ -71,10 +71,10 @@ done
 
 echo
 echo "=== Row counts ==="
-USERS=$($PSQL_T -c "SELECT COUNT(*) FROM users")
-GROUPS=$($PSQL_T -c "SELECT COUNT(*) FROM groups")
-MEMBERS=$($PSQL_T -c "SELECT COUNT(*) FROM group_members")
-PICKS=$($PSQL_T -c "SELECT COUNT(*) FROM picks")
+USERS=$($PSQL_T -c "SELECT COUNT(*) FROM public.users")
+GROUPS=$($PSQL_T -c "SELECT COUNT(*) FROM public.groups")
+MEMBERS=$($PSQL_T -c "SELECT COUNT(*) FROM public.group_members")
+PICKS=$($PSQL_T -c "SELECT COUNT(*) FROM public.picks")
 echo "  users:         $USERS"
 echo "  groups:        $GROUPS"
 echo "  group_members: $MEMBERS"
@@ -87,7 +87,7 @@ fi
 
 echo
 echo "=== Referential integrity spot check ==="
-ORPHAN_PICKS=$($PSQL_T -c "SELECT COUNT(*) FROM picks p WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = p.user_id)")
+ORPHAN_PICKS=$($PSQL_T -c "SELECT COUNT(*) FROM public.picks p WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = p.user_id)")
 if [ "$ORPHAN_PICKS" -gt 0 ]; then
   echo "  ✗ $ORPHAN_PICKS orphan picks — referential integrity broken." >&2
   exit 1
