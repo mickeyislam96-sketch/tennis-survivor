@@ -122,7 +122,14 @@ jobs:
           PGPASSWORD: test
         run: |
           set -e
-          PSQL="psql -h localhost -p 5432 -U postgres -d fsv_restore_test -t -A"
+          set -x   # debug: show every command so we can see which $PSQL call fails
+          PSQL="psql -h localhost -p 5432 -U postgres -d fsv_restore_test -t -A 2>&1"
+
+          # Smoke test the connection up front with full error reporting
+          echo "=== Connection smoke ==="
+          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT current_user, current_database(), current_schema();" 2>&1 || true
+          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT relname, relkind FROM pg_class WHERE relname IN ('users','groups','picks','group_members') AND relnamespace = 'public'::regnamespace;" 2>&1 || true
+          psql -h localhost -p 5432 -U postgres -d fsv_restore_test -c "SELECT COUNT(*) FROM public.users" 2>&1 || true
 
           echo
           echo "=== Schema check ==="
