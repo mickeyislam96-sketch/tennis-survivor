@@ -637,7 +637,7 @@ export function GroupHome() {
             lede={`You're in. The draw drops on ${drawDateFmt} — we'll open picks automatically.`}
             meta={
               <>
-                <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents || 0)} />
+                {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
                 <Stat size="sm" label="Registered" value={totalMembers} />
                 <Stat size="sm" label="Starts" value={fmtDate(tournament.startDate)} />
               </>
@@ -723,7 +723,7 @@ export function GroupHome() {
             lede="Tournament complete. Final standings below."
             meta={
               <>
-                <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents || 0)} />
+                {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
                 <Stat size="sm" label={winners.length === 1 ? 'Winner' : 'Winners'} value={winners.length || 0} />
                 <Stat size="sm" label="Entered" value={totalMembers} />
               </>
@@ -835,8 +835,8 @@ export function GroupHome() {
           }
           meta={
             <>
-              <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />
-              <Stat size="sm" label="Entry fee" value={fmtGBP(group.entryFeeCents)} />
+              {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
+              <Stat size="sm" label="Entry fee" value={group.entryFeeCents > 0 ? fmtGBP(group.entryFeeCents) : 'Free'} />
               {totalMembers > 0 && (
                 <Stat size="sm" label="Still in" value={<>{aliveMembers}<span className="gh-stat-total"> / {totalMembers}</span></>} />
               )}
