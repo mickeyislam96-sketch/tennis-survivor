@@ -66,7 +66,7 @@ export const TOURNAMENTS = [
     startDate: '2026-05-24',
     endDate: '2026-06-07',
     location: 'Paris, France',
-    surface: 'Clay',
+    surface: 'Clay (outdoor)',
     status: 'upcoming',
     drawDate: '2026-05-21',
     drawAvailable: true,

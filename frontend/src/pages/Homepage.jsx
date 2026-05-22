@@ -39,7 +39,7 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     title: 'Last one standing wins the pot',
-    body: 'Entry fees go into a single prize pot. The last one standing takes it all.',
+    body: 'The last one standing wins the pool. In paid pools, that win is the entire prize pot.',
   },
 ];
 
