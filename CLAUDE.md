@@ -1,6 +1,6 @@
 # Final Serve-ivor — CTO Agent Context
 
-> Last updated: 10 May 2026 (session 39 — daily brief execution: R64 Rinderknech walkover override + loserDisplayName field + walkover-pending baked into brief skill; leaderboard sort fix with sortLeaderboard() helper, alphabetical tiebreaker, regression test). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
+> Last updated: 22 May 2026 (session 40 — Roland Garros 2026 activated FREE: first Grand Slam this codebase has run; 128-draw modelled as R1-first-round not R128; paid plan reversed). See "Session-end protocol" at the bottom of this file — follow it at the end of every session.
 
 ---
 
@@ -438,7 +438,7 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 
 ---
 
-## Current tournament state (as of 5 May 2026)
+## Current tournament state (as of 22 May 2026)
 
 ### Monte Carlo 2026 (COMPLETE)
 - Result: Mark won from 12 entrants (lasted longest — eliminated in Final)
@@ -450,18 +450,22 @@ The mnt FUSE mount reflects Mickey's Mac filesystem. If Mickey doesn't `git pull
 - Real DB group: `a76829c9-b27c-4f6a-80c9-ae0437767c0a`
 - Entry: Free. R1 model: standard fixed deadline.
 
-### Rome 2026 (ACTIVE — R1 pick window open)
-- Tournament: Internazionali BNL d'Italia 2026
-- Status: `active` — R1 starts 6 May, pick window open until 09:00 UTC 6 May
-- Entry: Free (third free tournament before Roland Garros paid launch)
-- R1 model: Standard fixed deadline (`r1PerMatchLock: false`)
+### Rome 2026 (COMPLETE)
+- Result: pool winner "Casper The Freindly Ruud" (Sinner won the event). 6 entrants.
 - Real DB group: `de81ed56-6c30-483a-9d38-3c48201ab42e`
-- Invite code: `ROME-2026-POOL-bxxhnp`
-- Data source: FlashScore scraper (Railway cron service, hourly). Scraper env vars updated for Rome.
-- Active tournament config: `backend/src/config/activeTournament.js` (`ACTIVE_TOURNAMENT=rome-2026`)
-- Scraper service: Railway service ID `012860d6-07a0-48f1-8818-ccc4625188a0`
-- Seed draw: `backend/src/data/seedDraws/rome-2026.json` (128 positions, official ATP draw 05/05/2026)
-- Player headshots: 49/52 R1 players have photos; Cadenasso + Cina too low-ranked (show initials)
+- Entry: Free. R1 model: standard fixed deadline.
+
+### Roland Garros 2026 (ACTIVE — entry open, R1 locks 24 May)
+- Tournament: Roland-Garros 2026 (Grand Slam, 128 draw, clay). **First Grand Slam this codebase has run.**
+- Status: `upcoming` until main-draw R1 on 24 May, then `active`. Entry open now (free).
+- Entry: **FREE** — Mickey reversed the "first paid" plan on 22 May 2026.
+- R1 model: standard fixed deadline (`r1PerMatchLock: false`); R1 locks `2026-05-24T08:00:00Z`.
+- **Grand Slam round modelling (IMPORTANT):** rounds are `['R1','R64','R32','R16','QF','SF','F']` (NOT 'R128'), `drawSize:128`, `seedsWithByes:0`. The pick/lock code (`picks.js`, `tennisData.js`) and `roundLabels.js` hardcode 'R1' as the first round; 'R128' would break frontend labels + pick logic. 'R1' renders as "First Round" (128 players). Reuse this for Wimbledon/US Open.
+- Real DB group: `20440c2f-e1e1-4e4c-82fe-6efb9b525c8c`
+- Invite code: `ROLAND-GARROS-2026-P-H294FQ`
+- Active tournament config: `backend/src/config/activeTournament.js` (`ACTIVE_TOURNAMENT=roland-garros-2026`)
+- Scraper: `FLASHSCORE_URL=https://www.flashscore.co.uk/tennis/atp-singles/french-open/` (+ `/results/`), `TIMEZONE_OFFSET=2`. Scraper service ID `012860d6-07a0-48f1-8818-ccc4625188a0`.
+- Seed draw: `backend/src/data/seedDraws/roland-garros-2026.json` (128 positions, official main draw made 21 May 2026; 32 seeds; 17 "Qualifier N" placeholders pending qualifying through 23 May). Alcaraz (def. champ) withdrew (wrist).
 
 ### Email design system (rewritten 9 May 2026 — session 38c)
 All 8 transactional email templates + admin digest + support email in `backend/src/utils/email.js`. Full pattern doc: `.claude/memory/feedback_email_design_system.md`.
@@ -531,6 +535,7 @@ Full cross-platform audit completed. Mobile now matches web on all critical flow
 
 | Date | Summary |
 |---|---|
+| 22 May 2026 (session 40) | **Roland Garros 2026 activated — FREE (paid plan reversed).** First Grand Slam this codebase has run. Commit `2f97b69` to main: new `roland-garros-2026` block in `activeTournament.js`; both registries set free (`isPaid:false, entryFeeCents:0`, `drawAvailable:true`, `startDate:2026-05-24`); `seedDraws/roland-garros-2026.json` (official 128 main draw made 21 May; 32 seeds; 17 'Qualifier N' placeholders pending qualifying; Alcaraz withdrew). **Key modelling call:** modelled the Slam first round as `R1` (rounds `['R1','R64',...]`, `drawSize:128`, `seedsWithByes:0`), NOT `R128` as the playbook said — `roundLabels.js` has no R128 label and `picks.js`/`tennisData.js` hardcode `round === 'R1'`; R128 would break frontend + pick logic. `R1` displays as 'First Round' and reuses every proven Masters path. R1 = fixed deadline (Mickey's call) locking `2026-05-24T08:00Z`. Railway via Chrome: backend `ACTIVE_TOURNAMENT=roland-garros-2026`; scraper URLs -> `french-open` (DEFAULT_ROUND/TIMEZONE_OFFSET already R1/2), redeploy + Run now. Created free pool `20440c2f-...` (invite `ROLAND-GARROS-2026-P-H294FQ`). Verified live: bracket 128 players/127 matches (Sinner v Tabur -> Bonzi v Zverev), R1 deadline open, 111 pickable players all with `vs opponent`, homepage shows RG free + Enter CTA, bracket renders FIRST ROUND->R64->...->QF. **Token gotcha:** Mickey's `git remote set-url` glued the new PAT after `.git` (malformed URL, auth failed); recovered token from the path to push. New memory `project_roland_garros_grand_slam.md`. |
 | Prior sessions | Deployed Cloudflare Worker sofascore-proxy; accidentally removed TENNIS_API_KEY; restored key; confirmed 88–94 live fixtures returning; identified R64 picks pool bug; created CLAUDE.md. |
 | 20 Mar 2026 | Fixed R64 picks pool — `getAvailablePlayers()` now builds pool from R1 winners + seeded players in R64. Added real health check endpoint (`health.js`). Extended bracket viewer to start at R64. Fixed `Countdown` ReferenceError crashing the app. Added leaderboard pick column (Hidden/player name) and pick history modal. Added urgency banner when pick window closes within 24h. Added survivor progress meter to GroupHome. Added leaderboard reveals picks after lock. |
 | 21 Mar 2026 (session 1) | Fixed R32 pick window timing — corrected ROUND_DATES and ROUND_DATE_FALLBACK to Sun 22 Mar 19:00 UTC; added LOCKTIME_OVERRIDE for R32 at 18:00 UTC. Added `pendingPrevRound` feature — backend tags players with unresolved prev-round matches; frontend shows amber `⚠️ R64 result pending` badge on those players; added banner prompting user to make speculative pick. Fixed bug where `pendingPrevRound` was only computed in the main path — moved set computation before the `roundMatches` conditional so it works in the fallback path (when R32 draw not yet published). Generalised pending-round banner text to work for any round transition. |

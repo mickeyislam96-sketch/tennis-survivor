@@ -82,3 +82,7 @@ Mickey plans to scale FSV using AI agents as his entire team. Three-phase rollou
 - Manual result overrides needed for players with no API key
 - Bracket connector crash (hooks after early return — caused 3 white-screen incidents)
 - Stale group_members.is_alive from previous tournament persists into new tournament (Rome session: Rafa showed eliminated — fixed via admin reset-member endpoint)
+
+## Roland Garros 2026 — launched FREE (22 May 2026, session 40)
+
+RG activated as the 4th free tournament (paid plan reversed). First Grand Slam (128 draw) the codebase has run; modelled first round as `R1` not `R128`. Pool `20440c2f-...`, R1 locks 24 May. Paid launch deferred to a later event (Revolut bridge when it happens). See `project_roland_garros_grand_slam.md` and `project_paid_launch_decisions.md`.

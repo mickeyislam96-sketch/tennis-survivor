@@ -1,8 +1,9 @@
 # Memory Index
 
-- [Final Serve-ivor project context](project_tennis_survivor.md) — infra IDs, live URLs, env vars, repo paths. Rome active, Madrid complete.
+- [Final Serve-ivor project context](project_tennis_survivor.md) — infra IDs, live URLs, env vars, repo paths. Roland Garros active (free); MC/Madrid/Rome complete.
+- [Roland Garros + Grand Slam modelling](project_roland_garros_grand_slam.md) — model a Slam first round as "R1" NOT "R128" (code/labels hardcode R1); RG pool + facts; reuse for Wimbledon/US Open.
 - [Mickey — user profile](mickey.md) — non-technical founder, Mac user, AI agent team model, tennis-domain expert
-- [Paid launch decisions](project_paid_launch_decisions.md) — Rome free (active), RG first paid £10. Revolut Business bridge. Stripe rejected.
+- [Paid launch decisions](project_paid_launch_decisions.md) — Madrid/Rome/RG all FREE; RG paid plan shelved (reversed 22 May). Revolut bridge when paid. Stripe rejected.
 - [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments
 - [Roadmap](roadmap.md) — phase progress, payment processor status, mobile app status, AI ops model
 - [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover'])

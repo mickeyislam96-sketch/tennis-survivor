@@ -1,21 +1,20 @@
 ---
 name: Paid tournament launch decisions
-description: Three-phase roadmap — Madrid (free, complete), Rome (free, active), Roland Garros (first paid, £10). Revolut Business bridge, We Tranxact long-term.
+description: Madrid/Rome free and complete. Roland Garros 2026 is FREE too (Mickey reversed the paid plan 22 May 2026). Paid launch deferred to a later event. Revolut Business bridge still intended when paid.
 type: project
 originSessionId: bd42fd4c-21d9-46f8-ad10-aca3317a9571
 ---
-**Revised plan (15 Apr 2026):**
+**Free/paid history:**
 
-Phase 1: **Madrid** (22 Apr - ~4 May) — free, COMPLETE
-Phase 2: **Rome** (5-17 May) — free, ACTIVE, R1 in progress, DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`
-Phase 3: **Roland Garros** (18 May - 7 Jun) — FIRST PAID, £10 entry
+- **Madrid** (22 Apr - ~3 May) — free, COMPLETE (Rafa won).
+- **Rome** (5-17 May) — free, COMPLETE (pool winner "Casper The Freindly Ruud"; Sinner won the event). DB group `de81ed56-6c30-483a-9d38-3c48201ab42e`.
+- **Roland Garros** (24 May - 7 Jun) — **FREE** (paid plan reversed 22 May 2026). DB group `20440c2f-e1e1-4e4c-82fe-6efb9b525c8c`, invite `ROLAND-GARROS-2026-P-H294FQ`.
 
-**Payment approach changed:** Stripe rejected (gambling flag). QuadraPay also rejected. Now using **Revolut Business** as bridge solution (payment links, admin verification). We Tranxact for long-term automated payments.
+**Why:** On 22 May 2026 Mickey decided Roland Garros will NOT be paid — it launches free like the previous three. The "RG = first paid £10" plan is shelved (not cancelled); the first paid event will be a later tournament. Ship the flagship Slam fast and free rather than block launch on payment rails.
 
-**RG go-live plan:** Mickey creates Revolut Business account. I rework PaymentFlow to show Revolut payment link + admin verification flow. Semi-manual for 20-50 players. CLAUDE.md handoff needs updating in next session.
+**When paid does happen (still the plan):**
+- Processor: **Revolut Business** bridge (payment links + admin verification). Stripe rejected (gambling flag); QuadraPay rejected. We Tranxact for long-term automation.
+- Pricing intent: ~£10 entry, single pool, max 15% house fee. Revolut free plan ~£1,000/mo incoming (~100 players at £10).
+- Code: `isPaid`/`entryFeeCents` exist per-tournament in both registries (currently 0/false for RG). Payment routes + Stage-2 financial admin tokens (`ADMIN_TOKEN_FINANCIAL`) must be wired/rolled out before the first paid pool opens.
 
-**Pricing:** £10 entry, single pool. Max 15% house fee.
-
-**Revolut free plan limit:** £1,000/month incoming. Fine for 50 players at £10. Upgrade to Grow (£25/mo) if expecting 100+.
-
-**Why:** Ship fast with what works. Prove the model. Professionalise payments after.
+**Do NOT suggest Stripe** — rejected for gambling classification.
