@@ -9,6 +9,7 @@
 - [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover'])
 - [Draw cache + deadline bugs](feedback_draw_cache_and_deadlines.md) — cache must use stable timestamp; windowOpensOverrides must be read
 - [Critical-gaps audit](project_critical_gaps.md) — gaps #1, #2, #3 closed; gap #4 stage 2 + gap #5 still open before RG.
+- [Free-pool UI](feedback_free_pool_ui.md) — show 'Free' not '£0'; detect free via entryFeeCents===0 (betaFree flag is dead); hide pot UI when prizePoolCents===0.
 - [Invite-link case bug](feedback_invite_case_bug.md) — generation/lookup must agree on casing; use WHERE UPPER(col) = UPPER($1) defensively
 - [Tournament transition prompts](../../docs/transition-prompt.md) — paste at start of any free-tournament transition session
 - [Paid transition prompt](../../docs/paid-transition-prompt.md) — superset for paid events (Stripe/Revolut bridge, payment smoke, settlement)
