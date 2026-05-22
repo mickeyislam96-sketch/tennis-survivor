@@ -829,7 +829,7 @@ export function GroupHome() {
           }
           title={<>{group.name}</>}
           lede={
-            aliveMembers === 1
+            aliveMembers === 1 && totalMembers > 1
               ? 'Down to one — final stretch.'
               : 'Updated live as results come in.'
           }
