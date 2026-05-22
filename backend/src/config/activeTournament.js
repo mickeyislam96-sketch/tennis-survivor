@@ -8,10 +8,74 @@
  * Usage: import { TOURNAMENT } from '../config/activeTournament.js';
  */
 
-const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || 'rome-2026';
+const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || 'roland-garros-2026';
 
 // ── Tournament configs ───────────────────────────────────────────────────────
 const TOURNAMENTS = {
+  'roland-garros-2026': {
+    id: 'roland-garros-2026',
+    name: 'Roland-Garros',
+    shortName: 'Roland Garros',
+    year: 2026,
+    tourLevel: 'Grand Slam',
+    startDate: '2026-05-24',
+    endDate: '2026-06-07',
+    surface: 'Clay (outdoor)',
+    drawSize: 128,
+    seedsWithByes: 0,
+
+    // Round structure (128-draw Grand Slam — no byes; seeds play R1).
+    // The first round is modelled as 'R1' (NOT 'R128') so it reuses the proven
+    // R1 code paths in picks.js / tennisData.js and the existing roundLabels.
+    // 'R1' renders as "First Round" (128 players), 'R64' as "Round of 64", etc.
+    rounds: ['R1', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+    matchesPerRound: { R1: 64, R64: 32, R32: 16, R16: 8, QF: 4, SF: 2, F: 1 },
+
+    // R1 lock mode: false = standard fixed deadline (decision 22 May 2026 —
+    // simplest, proven path for the first Grand Slam this codebase has run).
+    r1PerMatchLock: false,
+
+    // Lock time overrides (1h before first match of each round).
+    // ⚠️  ESTIMATES — UPDATE once the order of play is confirmed for each round.
+    // Paris is CEST (UTC+2). RG day sessions start ~11:00 local (09:00 UTC).
+    lockTimeOverrides: {
+      R1:  '2026-05-24T08:00:00Z',  // Sun 24 May — 10:00 Paris (R1 plays 24-26 May)
+      R64: '2026-05-27T08:00:00Z',  // Wed 27 May — UPDATE once OOP confirmed
+      R32: '2026-05-29T08:00:00Z',  // Fri 29 May — UPDATE once OOP confirmed
+      R16: '2026-05-31T08:00:00Z',  // Sun 31 May — UPDATE once OOP confirmed
+      QF:  '2026-06-02T08:00:00Z',  // Tue 2 Jun — UPDATE once OOP confirmed
+      SF:  '2026-06-05T09:00:00Z',  // Fri 5 Jun — UPDATE once OOP confirmed
+      F:   '2026-06-07T11:00:00Z',  // Sun 7 Jun — final ~14:00 local (UPDATE)
+    },
+
+    // Window open overrides — when the pick window opens for each round
+    // (evening the previous round's last matches are played).
+    windowOpensOverrides: {
+      R64: '2026-05-26T17:00:00Z',  // Tue 26 May 6pm UK — end of R1
+      R32: '2026-05-28T17:00:00Z',  // Thu 28 May — end of R64
+      R16: '2026-05-30T17:00:00Z',  // Sat 30 May — end of R32
+      QF:  '2026-06-01T17:00:00Z',  // Mon 1 Jun — end of R16
+      SF:  '2026-06-03T17:00:00Z',  // Wed 3 Jun — end of QF
+      F:   '2026-06-05T17:00:00Z',  // Fri 5 Jun — end of SF
+    },
+
+    // Fallback round dates (used when live data has no start times).
+    roundDateFallbacks: {
+      R1:  '2026-05-24T09:00:00Z',
+      R64: '2026-05-27T09:00:00Z',
+      R32: '2026-05-29T09:00:00Z',
+      R16: '2026-05-31T09:00:00Z',
+      QF:  '2026-06-02T09:00:00Z',
+      SF:  '2026-06-05T09:00:00Z',
+      F:   '2026-06-07T11:00:00Z',
+    },
+
+    manualResultOverrides: [],
+
+    apiTennisTournamentKey: null,
+    apiSeason: null,
+  },
+
   'rome-2026': {
     id: 'rome-2026',
     name: 'Internazionali BNL d\'Italia',

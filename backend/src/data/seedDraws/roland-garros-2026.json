@@ -1,0 +1,952 @@
+{
+  "tournament": "roland-garros-2026",
+  "drawSize": 128,
+  "seedsWithByes": 0,
+  "rounds": [
+    "R1",
+    "R64",
+    "R32",
+    "R16",
+    "QF",
+    "SF",
+    "F"
+  ],
+  "matchesPerRound": {
+    "R1": 64,
+    "R64": 32,
+    "R32": 16,
+    "R16": 8,
+    "QF": 4,
+    "SF": 2,
+    "F": 1
+  },
+  "generatedAt": "2026-05-22T12:36:00Z",
+  "source": "Official Roland-Garros 2026 main draw (made 21 May 2026). Transcribed from Wikipedia draw 22 May 2026. 16 qualifier/LL slots unresolved at transcription (qualifying through 23 May) — represented as Qualifier placeholders, resolve via updateQualifiers/scraper.",
+  "seeds": {
+    "1": {
+      "name": "Sinner, Jannik",
+      "country": "ITA"
+    },
+    "30": {
+      "name": "Moutet, Corentin",
+      "country": "FRA"
+    },
+    "22": {
+      "name": "Rinderknech, Arthur",
+      "country": "FRA"
+    },
+    "14": {
+      "name": "Darderi, Luciano",
+      "country": "ITA"
+    },
+    "9": {
+      "name": "Bublik, Alexander",
+      "country": "KAZ"
+    },
+    "19": {
+      "name": "Tiafoe, Frances",
+      "country": "USA"
+    },
+    "29": {
+      "name": "Griekspoor, Tallon",
+      "country": "NED"
+    },
+    "5": {
+      "name": "Shelton, Ben",
+      "country": "USA"
+    },
+    "4": {
+      "name": "Auger-Aliassime, Felix",
+      "country": "CAN"
+    },
+    "31": {
+      "name": "Nakashima, Brandon",
+      "country": "USA"
+    },
+    "20": {
+      "name": "Norrie, Cameron",
+      "country": "GBR"
+    },
+    "16": {
+      "name": "Vacherot, Valentin",
+      "country": "MON"
+    },
+    "10": {
+      "name": "Cobolli, Flavio",
+      "country": "ITA"
+    },
+    "18": {
+      "name": "Tien, Learner",
+      "country": "USA"
+    },
+    "25": {
+      "name": "Cerundolo, Francisco",
+      "country": "ARG"
+    },
+    "6": {
+      "name": "Medvedev, Daniil",
+      "country": null
+    },
+    "8": {
+      "name": "de Minaur, Alex",
+      "country": "AUS"
+    },
+    "26": {
+      "name": "Mensik, Jakub",
+      "country": "CZE"
+    },
+    "23": {
+      "name": "Etcheverry, Tomas Martin",
+      "country": "ARG"
+    },
+    "11": {
+      "name": "Rublev, Andrey",
+      "country": null
+    },
+    "15": {
+      "name": "Ruud, Casper",
+      "country": "NOR"
+    },
+    "24": {
+      "name": "Paul, Tommy",
+      "country": "USA"
+    },
+    "28": {
+      "name": "Fonseca, Joao",
+      "country": "BRA"
+    },
+    "3": {
+      "name": "Djokovic, Novak",
+      "country": "SRB"
+    },
+    "7": {
+      "name": "Fritz, Taylor",
+      "country": "USA"
+    },
+    "27": {
+      "name": "Jodar, Rafael",
+      "country": "ESP"
+    },
+    "21": {
+      "name": "Davidovich Fokina, Alejandro",
+      "country": "ESP"
+    },
+    "12": {
+      "name": "Lehecka, Jiri",
+      "country": "CZE"
+    },
+    "13": {
+      "name": "Khachanov, Karen",
+      "country": null
+    },
+    "17": {
+      "name": "Fils, Arthur",
+      "country": "FRA"
+    },
+    "32": {
+      "name": "Humbert, Ugo",
+      "country": "FRA"
+    },
+    "2": {
+      "name": "Zverev, Alexander",
+      "country": "GER"
+    }
+  },
+  "drawPositions": [
+    {
+      "pos": 1,
+      "name": "Sinner, Jannik",
+      "seed": 1,
+      "country": "ITA"
+    },
+    {
+      "pos": 2,
+      "name": "Tabur, Clement",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 3,
+      "name": "Fearnley, Jacob",
+      "seed": null,
+      "country": "GBR"
+    },
+    {
+      "pos": 4,
+      "name": "Cerundolo, Juan Manuel",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 5,
+      "name": "Landaluce, Martin",
+      "seed": null,
+      "country": "ESP"
+    },
+    {
+      "pos": 6,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 7,
+      "name": "Kopriva, Vit",
+      "seed": null,
+      "country": "CZE"
+    },
+    {
+      "pos": 8,
+      "name": "Moutet, Corentin",
+      "seed": 30,
+      "country": "FRA"
+    },
+    {
+      "pos": 9,
+      "name": "Rinderknech, Arthur",
+      "seed": 22,
+      "country": "FRA"
+    },
+    {
+      "pos": 10,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 11,
+      "name": "Fucsovics, Marton",
+      "seed": null,
+      "country": "HUN"
+    },
+    {
+      "pos": 12,
+      "name": "Berrettini, Matteo",
+      "seed": null,
+      "country": "ITA"
+    },
+    {
+      "pos": 13,
+      "name": "Quinn, Ethan",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 14,
+      "name": "Comesana, Francisco",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 15,
+      "name": "Ofner, Sebastian",
+      "seed": null,
+      "country": "AUT"
+    },
+    {
+      "pos": 16,
+      "name": "Darderi, Luciano",
+      "seed": 14,
+      "country": "ITA"
+    },
+    {
+      "pos": 17,
+      "name": "Bublik, Alexander",
+      "seed": 9,
+      "country": "KAZ"
+    },
+    {
+      "pos": 18,
+      "name": "Struff, Jan-Lennard",
+      "seed": null,
+      "country": "GER"
+    },
+    {
+      "pos": 19,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 20,
+      "name": "Shapovalov, Denis",
+      "seed": null,
+      "country": "CAN"
+    },
+    {
+      "pos": 21,
+      "name": "Munar, Jaume",
+      "seed": null,
+      "country": "ESP"
+    },
+    {
+      "pos": 22,
+      "name": "Hurkacz, Hubert",
+      "seed": null,
+      "country": "POL"
+    },
+    {
+      "pos": 23,
+      "name": "Spizzirri, Eliot",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 24,
+      "name": "Tiafoe, Frances",
+      "seed": 19,
+      "country": "USA"
+    },
+    {
+      "pos": 25,
+      "name": "Griekspoor, Tallon",
+      "seed": 29,
+      "country": "NED"
+    },
+    {
+      "pos": 26,
+      "name": "Arnaldi, Matteo",
+      "seed": null,
+      "country": "ITA"
+    },
+    {
+      "pos": 27,
+      "name": "Muller, Alexandre",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 28,
+      "name": "Tsitsipas, Stefanos",
+      "seed": null,
+      "country": "GRE"
+    },
+    {
+      "pos": 29,
+      "name": "Collignon, Raphael",
+      "seed": null,
+      "country": "BEL"
+    },
+    {
+      "pos": 30,
+      "name": "Vukic, Aleksandar",
+      "seed": null,
+      "country": "AUS"
+    },
+    {
+      "pos": 31,
+      "name": "Merida Aguilar, Daniel",
+      "seed": null,
+      "country": "ESP"
+    },
+    {
+      "pos": 32,
+      "name": "Shelton, Ben",
+      "seed": 5,
+      "country": "USA"
+    },
+    {
+      "pos": 33,
+      "name": "Auger-Aliassime, Felix",
+      "seed": 4,
+      "country": "CAN"
+    },
+    {
+      "pos": 34,
+      "name": "Altmaier, Daniel",
+      "seed": null,
+      "country": "GER"
+    },
+    {
+      "pos": 35,
+      "name": "Baez, Sebastian",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 36,
+      "name": "Burruchaga, Roman Andres",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 37,
+      "name": "Van Assche, Luca",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 38,
+      "name": "Kypson, Patrick",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 39,
+      "name": "Bautista Agut, Roberto",
+      "seed": null,
+      "country": "ESP"
+    },
+    {
+      "pos": 40,
+      "name": "Nakashima, Brandon",
+      "seed": 31,
+      "country": "USA"
+    },
+    {
+      "pos": 41,
+      "name": "Norrie, Cameron",
+      "seed": 20,
+      "country": "GBR"
+    },
+    {
+      "pos": 42,
+      "name": "Vallejo, Daniel",
+      "seed": null,
+      "country": "PAR"
+    },
+    {
+      "pos": 43,
+      "name": "Cilic, Marin",
+      "seed": null,
+      "country": "CRO"
+    },
+    {
+      "pos": 44,
+      "name": "Kouame, Moise",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 45,
+      "name": "Tabilo, Alejandro",
+      "seed": null,
+      "country": "CHI"
+    },
+    {
+      "pos": 46,
+      "name": "Majchrzak, Kamil",
+      "seed": null,
+      "country": "POL"
+    },
+    {
+      "pos": 47,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 48,
+      "name": "Vacherot, Valentin",
+      "seed": 16,
+      "country": "MON"
+    },
+    {
+      "pos": 49,
+      "name": "Cobolli, Flavio",
+      "seed": 10,
+      "country": "ITA"
+    },
+    {
+      "pos": 50,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 51,
+      "name": "Wu, Yibing",
+      "seed": null,
+      "country": "CHN"
+    },
+    {
+      "pos": 52,
+      "name": "Giron, Marcos",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 53,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 54,
+      "name": "Zhang, Zhizhen",
+      "seed": null,
+      "country": "CHN",
+      "protectedRanking": true
+    },
+    {
+      "pos": 55,
+      "name": "Garin, Cristian",
+      "seed": null,
+      "country": "CHI"
+    },
+    {
+      "pos": 56,
+      "name": "Tien, Learner",
+      "seed": 18,
+      "country": "USA"
+    },
+    {
+      "pos": 57,
+      "name": "Cerundolo, Francisco",
+      "seed": 25,
+      "country": "ARG"
+    },
+    {
+      "pos": 58,
+      "name": "van de Zandschulp, Botic",
+      "seed": null,
+      "country": "NED"
+    },
+    {
+      "pos": 59,
+      "name": "Gaston, Hugo",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 60,
+      "name": "Monfils, Gael",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 61,
+      "name": "Popyrin, Alexei",
+      "seed": null,
+      "country": "AUS"
+    },
+    {
+      "pos": 62,
+      "name": "Svajda, Zachary",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 63,
+      "name": "Walton, Adam",
+      "seed": null,
+      "country": "AUS",
+      "wildcard": true
+    },
+    {
+      "pos": 64,
+      "name": "Medvedev, Daniil",
+      "seed": 6,
+      "country": null
+    },
+    {
+      "pos": 65,
+      "name": "de Minaur, Alex",
+      "seed": 8,
+      "country": "AUS"
+    },
+    {
+      "pos": 66,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 67,
+      "name": "Blockx, Alexander",
+      "seed": null,
+      "country": "BEL"
+    },
+    {
+      "pos": 68,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 69,
+      "name": "Navone, Mariano",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 70,
+      "name": "Brooksby, Jenson",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 71,
+      "name": "Droguet, Titouan",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 72,
+      "name": "Mensik, Jakub",
+      "seed": 26,
+      "country": "CZE"
+    },
+    {
+      "pos": 73,
+      "name": "Etcheverry, Tomas Martin",
+      "seed": 23,
+      "country": "ARG"
+    },
+    {
+      "pos": 74,
+      "name": "Borges, Nuno",
+      "seed": null,
+      "country": "POR"
+    },
+    {
+      "pos": 75,
+      "name": "Kecmanovic, Miomir",
+      "seed": null,
+      "country": "SRB"
+    },
+    {
+      "pos": 76,
+      "name": "Marozsan, Fabian",
+      "seed": null,
+      "country": "HUN"
+    },
+    {
+      "pos": 77,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 78,
+      "name": "Ugo Carabelli, Camilo",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 79,
+      "name": "Buse, Ignacio",
+      "seed": null,
+      "country": "PER"
+    },
+    {
+      "pos": 80,
+      "name": "Rublev, Andrey",
+      "seed": 11,
+      "country": null
+    },
+    {
+      "pos": 81,
+      "name": "Ruud, Casper",
+      "seed": 15,
+      "country": "NOR"
+    },
+    {
+      "pos": 82,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 83,
+      "name": "Medjedovic, Hamad",
+      "seed": null,
+      "country": "SRB"
+    },
+    {
+      "pos": 84,
+      "name": "Hanfmann, Yannick",
+      "seed": null,
+      "country": "GER"
+    },
+    {
+      "pos": 85,
+      "name": "Sonego, Lorenzo",
+      "seed": null,
+      "country": "ITA"
+    },
+    {
+      "pos": 86,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 87,
+      "name": "Hijikata, Rinky",
+      "seed": null,
+      "country": "AUS"
+    },
+    {
+      "pos": 88,
+      "name": "Paul, Tommy",
+      "seed": 24,
+      "country": "USA"
+    },
+    {
+      "pos": 89,
+      "name": "Fonseca, Joao",
+      "seed": 28,
+      "country": "BRA"
+    },
+    {
+      "pos": 90,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 91,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 92,
+      "name": "Prizmic, Dino",
+      "seed": null,
+      "country": "CRO"
+    },
+    {
+      "pos": 93,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 94,
+      "name": "Royer, Valentin",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 95,
+      "name": "Mpetshi Perricard, Giovanni",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 96,
+      "name": "Djokovic, Novak",
+      "seed": 3,
+      "country": "SRB"
+    },
+    {
+      "pos": 97,
+      "name": "Fritz, Taylor",
+      "seed": 7,
+      "country": "USA"
+    },
+    {
+      "pos": 98,
+      "name": "Basavareddy, Nishesh",
+      "seed": null,
+      "country": "USA",
+      "wildcard": true
+    },
+    {
+      "pos": 99,
+      "name": "Shevchenko, Alexander",
+      "seed": null,
+      "country": "KAZ"
+    },
+    {
+      "pos": 100,
+      "name": "Michelsen, Alex",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 101,
+      "name": "Duckworth, James",
+      "seed": null,
+      "country": "AUS"
+    },
+    {
+      "pos": 102,
+      "name": "Diallo, Gabriel",
+      "seed": null,
+      "country": "CAN"
+    },
+    {
+      "pos": 103,
+      "name": "Kovacevic, Aleksandar",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 104,
+      "name": "Jodar, Rafael",
+      "seed": 27,
+      "country": "ESP"
+    },
+    {
+      "pos": 105,
+      "name": "Davidovich Fokina, Alejandro",
+      "seed": 21,
+      "country": "ESP"
+    },
+    {
+      "pos": 106,
+      "name": "Dzumhur, Damir",
+      "seed": null,
+      "country": "BIH"
+    },
+    {
+      "pos": 107,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 108,
+      "name": "Tirante, Thiago Agustin",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 109,
+      "name": "Kokkinakis, Thanasi",
+      "seed": null,
+      "country": "AUS",
+      "protectedRanking": true
+    },
+    {
+      "pos": 110,
+      "name": "Atmane, Terence",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 111,
+      "name": "Carreno Busta, Pablo",
+      "seed": null,
+      "country": "ESP"
+    },
+    {
+      "pos": 112,
+      "name": "Lehecka, Jiri",
+      "seed": 12,
+      "country": "CZE"
+    },
+    {
+      "pos": 113,
+      "name": "Khachanov, Karen",
+      "seed": 13,
+      "country": null
+    },
+    {
+      "pos": 114,
+      "name": "Gea, Arthur",
+      "seed": null,
+      "country": "FRA",
+      "wildcard": true
+    },
+    {
+      "pos": 115,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 116,
+      "name": "Trungelliti, Marco",
+      "seed": null,
+      "country": "ARG"
+    },
+    {
+      "pos": 117,
+      "name": null,
+      "seed": "Q",
+      "country": null,
+      "qualifier": true
+    },
+    {
+      "pos": 118,
+      "name": "Opelka, Reilly",
+      "seed": null,
+      "country": "USA"
+    },
+    {
+      "pos": 119,
+      "name": "Wawrinka, Stan",
+      "seed": null,
+      "country": "SUI"
+    },
+    {
+      "pos": 120,
+      "name": "Fils, Arthur",
+      "seed": 17,
+      "country": "FRA"
+    },
+    {
+      "pos": 121,
+      "name": "Humbert, Ugo",
+      "seed": 32,
+      "country": "FRA"
+    },
+    {
+      "pos": 122,
+      "name": "Mannarino, Adrian",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 123,
+      "name": "Halys, Quentin",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 124,
+      "name": "Bellucci, Mattia",
+      "seed": null,
+      "country": "ITA"
+    },
+    {
+      "pos": 125,
+      "name": "Machac, Tomas",
+      "seed": null,
+      "country": "CZE"
+    },
+    {
+      "pos": 126,
+      "name": "Bergs, Zizou",
+      "seed": null,
+      "country": "BEL"
+    },
+    {
+      "pos": 127,
+      "name": "Bonzi, Benjamin",
+      "seed": null,
+      "country": "FRA"
+    },
+    {
+      "pos": 128,
+      "name": "Zverev, Alexander",
+      "seed": 2,
+      "country": "GER"
+    }
+  ]
+}
