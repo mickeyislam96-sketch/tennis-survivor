@@ -1,13 +1,15 @@
 # Memory Index
 
-- [Final Serve-ivor project context](project_tennis_survivor.md) — infra IDs, live URLs, env vars, repo paths. Rome active, Madrid complete.
+- [Final Serve-ivor project context](project_tennis_survivor.md) — infra IDs, live URLs, env vars, repo paths. Roland Garros active (free); MC/Madrid/Rome complete.
+- [Roland Garros + Grand Slam modelling](project_roland_garros_grand_slam.md) — model a Slam first round as "R1" NOT "R128" (code/labels hardcode R1); RG pool + facts; reuse for Wimbledon/US Open.
 - [Mickey — user profile](mickey.md) — non-technical founder, Mac user, AI agent team model, tennis-domain expert
-- [Paid launch decisions](project_paid_launch_decisions.md) — Rome free (active), RG first paid £10. Revolut Business bridge. Stripe rejected.
+- [Paid launch decisions](project_paid_launch_decisions.md) — Madrid/Rome/RG all FREE; RG paid plan shelved (reversed 22 May). Revolut bridge when paid. Stripe rejected.
 - [Tournament setup template](project_tournament_setup.md) — 16-step checklist for launching new tournaments
 - [Roadmap](roadmap.md) — phase progress, payment processor status, mobile app status, AI ops model
 - [DECIDED_STATUSES pattern](feedback_decided_statuses.md) — never check status==='completed' alone; use Set(['completed','retired','walkover'])
 - [Draw cache + deadline bugs](feedback_draw_cache_and_deadlines.md) — cache must use stable timestamp; windowOpensOverrides must be read
 - [Critical-gaps audit](project_critical_gaps.md) — gaps #1, #2, #3 closed; gap #4 stage 2 + gap #5 still open before RG.
+- [Free-pool UI](feedback_free_pool_ui.md) — show 'Free' not '£0'; detect free via entryFeeCents===0 (betaFree flag is dead); hide pot UI when prizePoolCents===0.
 - [Invite-link case bug](feedback_invite_case_bug.md) — generation/lookup must agree on casing; use WHERE UPPER(col) = UPPER($1) defensively
 - [Tournament transition prompts](../../docs/transition-prompt.md) — paste at start of any free-tournament transition session
 - [Paid transition prompt](../../docs/paid-transition-prompt.md) — superset for paid events (Stripe/Revolut bridge, payment smoke, settlement)
@@ -16,3 +18,14 @@
 - [fsv-daily-brief skill](reference_daily_brief_skill.md) — morning brief skill, what it does, when it triggers, hard rules, approval flow.
 - [Brief skill domain caveats](feedback_brief_domain_caveats.md) — suspended ≠ retired in tennis; (n-1) is correct survivor-pool denominator. Two landmines Mickey caught session 36.
 - [Seeded-player withdrawal with bye](feedback_seeded_withdrawal_with_bye.md) — auto-replacement only fires for R1; seeds with byes need manual seed-draw JSON update + player ID changes from rome-sN to rome-pPos
+- [Picks opponent enrichment](feedback_picks_opponent_enrichment.md) — every round path in picks.js getAvailablePlayers() must build opponentMap; R2+ silently skipped it for 7 weeks before PR #8
+- [Double-barrel surnames](feedback_double_barrel_surnames.md) — seed draw must store full surname (Merida Aguilar, not Merida) or surname-overlap matching has to fall back; covered by Pass 3b + unit tests
+- [Overlay startTime sanity check](feedback_overlay_starttime_sanity.md) — implausibility checks belong in seedDrawOverlay (single render-time gate), not in the scraper. PR #11/#14 history.
+- [/api/pools entryOpen](feedback_api_pools_entry_open.md) — backend is single source of truth for `is entry open?`; FE Homepage and GroupHome must read same flag, not re-derive from status.
+- [Admin scope-token rollout](feedback_admin_scope_rollout.md) — Stage 2 contract: setting ADMIN_TOKEN_<SCOPE> automatically blocks master from that scope. Financial endpoints scoped first.
+- [DB-restore drill](project_db_restore_drill.md) — closes critical-gap #5. Quarterly GH Actions workflow + manual script. Asserts schema + row counts + referential integrity.
+- [Transition hardening 2026-05-08](feedback_transition_hardening_2026_05_08.md) — added smoke 3c+3d, transition Phase 8e+8f (free) / 8g+8h (paid), and brief Phase 1b checks 6+7 + 1c additions to prevent recurrence of today's two bug classes.
+- [Walkover requires admin override](feedback_walkover_admin_override.md) — scraper cannot reliably guess walkover/retired winners; manualResultOverrides + walkover-pending check + four prevention layers from session 38b.
+- [is_alive must sync from picks every cron tick](feedback_sync_group_members_from_picks.md) — autoProcessResults skips rounds when no NULL picks remain; reconciliation must be unconditional. session 38b syncGroupMembersFromPicks.
+- [Email design system](feedback_email_design_system.md) — token-driven email architecture (LIGHT/DARK pairs + 6 component builders). Dark-mode contract, Outlook 365 [data-ogsc]/[data-ogsb] selectors, mobile breakpoint, system-font fallback chain. The pattern to follow when adding new email types. Session 38c (9 May 2026).
+- [Leaderboard sort rule](feedback_leaderboard_sort.md) — alive by survivedRounds DESC, eliminated by recency DESC, alphabetical tiebreaker. `sortLeaderboard()` helper + 7 regression tests. Replaces `|| 0` JS footgun.

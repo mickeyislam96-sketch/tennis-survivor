@@ -13,7 +13,7 @@ on:
   push:
     branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   smoke:
@@ -41,7 +41,7 @@ jobs:
           SMOKE_API: ${{ secrets.SMOKE_API || 'https://tennis-survivor-production.up.railway.app' }}
 
       - name: Run validator on rome-2026
-        run: node scripts/validate-tournament.mjs rome-2026
+        run: node scripts/validate-tournament.mjs roland-garros-2026
 
   integration:
     name: Integration (DB-backed)

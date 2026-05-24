@@ -70,7 +70,7 @@ export function JoinGroup() {
     const uName = currentUser?.displayName || user?.displayName || 'Player';
     if (!group || !uid) return;
 
-    if (group.entryFeeCents && group.entryFeeCents > 0 && !group.betaFree) {
+    if (group.entryFeeCents > 0) {
       setJoining(true);
       navigate(`/group/${group.id}/pay`);
       return;
@@ -129,6 +129,7 @@ export function JoinGroup() {
 
   const isMember = group.members?.some((m) => m.userId === userId);
   const memberCount = group.members?.length ?? 0;
+  const isFree = !(group.entryFeeCents > 0);
 
   return (
     <div className="jg-page">
@@ -138,7 +139,7 @@ export function JoinGroup() {
         showCourt
         eyebrow="YOU'VE BEEN INVITED"
         title={<>Join <em>{group.name}</em>.</>}
-        lede="One pick per round. Survive, or you're out. Last one standing takes the pot."
+        lede={isFree ? "One pick per round. Survive, or you're out. Last one standing wins." : "One pick per round. Survive, or you're out. Last one standing takes the pot."}
       />
 
       <Section tone="canvas" size="md">
@@ -147,14 +148,16 @@ export function JoinGroup() {
           <div className="jg-stats">
             <Stat
               label="Entry fee"
-              value={fmtGBP(group.entryFeeCents || 0)}
-              tone={group.betaFree ? 'accent' : 'default'}
+              value={isFree ? 'Free' : fmtGBP(group.entryFeeCents)}
+              tone={isFree ? 'accent' : 'default'}
             />
+            {!isFree && (
             <Stat
               label="Prize pool"
               value={fmtGBP(group.prizePoolCents || 0)}
               tone="primary"
             />
+            )}
             <Stat
               label="Players in"
               value={memberCount}
@@ -164,10 +167,10 @@ export function JoinGroup() {
           <ul className="jg-rules">
             <li>Pick one player per round. If they win, you survive.</li>
             <li>You can never pick the same player twice.</li>
-            <li>Last player standing takes the entire prize pot.</li>
+            <li>{isFree ? 'Last player standing wins the pool.' : 'Last player standing takes the entire prize pot.'}</li>
           </ul>
 
-          {group.betaFree && (
+          {isFree && (
             <div className="jg-beta-notice">
               <span className="jg-beta-icon" aria-hidden="true">🎁</span>
               <div>
@@ -268,9 +271,9 @@ export function JoinGroup() {
                   disabled={joining}
                   fullWidth
                 >
-                  {joining ? 'Joining…' : group.betaFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
+                  {joining ? 'Joining…' : isFree ? 'Join free →' : `Join for ${fmtGBP(group.entryFeeCents || 0)} →`}
                 </Button>
-                {!group.betaFree && (
+                {!isFree && (
                   <p className="jg-disclaimer">Entry fee is non-refundable once the tournament begins.</p>
                 )}
                 {error && <p className="jg-error">{error}</p>}

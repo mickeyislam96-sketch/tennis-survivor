@@ -10,6 +10,13 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The cleanup step calls github.rest.actions.deleteArtifact, which requires
+    # actions: write. The default GITHUB_TOKEN is read-only for the actions
+    # scope, so without this block the cleanup step 403s and fails the job
+    # even though the backup itself succeeded.
+    permissions:
+      contents: read
+      actions: write
 
     steps:
       - name: Install PostgreSQL 17 client

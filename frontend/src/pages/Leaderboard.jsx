@@ -8,6 +8,7 @@ import { Button } from '../ui/Button.jsx';
 import { PageSkeleton } from '../ui/Skeleton.jsx';
 import { ROUND_FULL as ROUND_LABELS } from '../data/roundLabels';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useModalExit } from '../hooks/useModalExit';
 import PlayerAvatar from '../ui/PlayerAvatar';
 import { avatarColour, initials } from '../utils/playerImage';
 import './Leaderboard.css';
@@ -21,6 +22,7 @@ function fmtGBP(cents) {
 
 // ── Pick History Modal (Timeline design) ─────────────────────
 function PickHistoryModal({ member, groupId, openRound, onClose }) {
+  const { requestClose, isClosing } = useModalExit(onClose);
   const [picks, setPicks] = useState(null);
   const [error, setError] = useState(false);
   const trapRef = useFocusTrap(true);
@@ -40,14 +42,14 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
 
   const handleBackdropKeyDown = (e) => {
     if (e.key === 'Escape') {
-      onClose();
+      requestClose();
     }
   };
 
   return (
     <div
-      className="ds-modal-backdrop"
-      onClick={onClose}
+      className={`ds-modal-backdrop${isClosing ? ' ds-modal--closing' : ''}`}
+      onClick={requestClose}
       onKeyDown={handleBackdropKeyDown}
       role="presentation"
     >
@@ -68,7 +70,7 @@ function PickHistoryModal({ member, groupId, openRound, onClose }) {
             >
               {ini}
             </span>
-            <button className="ph-tl-close" onClick={onClose} aria-label="Close">✕</button>
+            <button className="ph-tl-close" onClick={requestClose} aria-label="Close">✕</button>
           </div>
           <h3 id="pick-history-modal-title" className="ph-tl-name">{member.displayName}</h3>
           <p className="ph-tl-subtitle">

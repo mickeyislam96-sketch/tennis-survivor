@@ -104,6 +104,13 @@ Edit three files:
   - Set `windowOpensOverrides` for R64 onwards (typically 17:00 UTC
     the evening after the previous round locks).
   - Set `roundDateFallbacks` for every round.
+  - Initialise `manualResultOverrides: []` (empty array). You will populate
+    it during the tournament when walkovers/withdrawals happen. See
+    Phase 8.5 below + `docs/new-tournament-setup.md` gotcha #7.
+  - **Emails: nothing per-tournament.** Templates in
+    `backend/src/utils/email.js` are tournament-agnostic. New email types
+    follow the component pattern in
+    `.claude/memory/feedback_email_design_system.md`.
   - Change the default fallback at the bottom:
     `const ACTIVE_TOURNAMENT_ID = process.env.ACTIVE_TOURNAMENT || '{new-id}';`
 - `backend/src/data/tournaments.js`
@@ -296,6 +303,22 @@ The single most important phase. Run:
 ```bash
 cd /tmp/ts-new
 EXPECTED_TOURNAMENT={new-id} bash scripts/smoke.sh
+
+After the smoke passes, do ONE more visual check before announcing the
+launch. Open the pick screen for the active pool in an incognito window:
+
+  https://finalserveivor.com/group/<pool-uuid>/pick
+
+Every player row MUST show a `vs <opponent>` sub-line. Either:
+  - solid `vs <name>`         (opponent resolved)
+  - italic `vs <A> or <B>`    (opponent TBD — feeder match still in flight)
+
+If ANY rows are bare (just name + Pick button, no `vs ...`), the backend
+is not building `opponentMap` for the open round. This was the PR #8
+bug class (7 May 2026): R2+ branch in `picks.js` returned players with
+null `opponentName` AND null `opponentPossible`. Block the launch and
+investigate before continuing — `scripts/smoke.sh` step 3b should also
+be flagging it in CI.
 ```
 
 Expected: all 4 checks pass. The smoke test covers:
@@ -464,9 +487,121 @@ curl -s -o /dev/null -w "HTTP %{http_code}" -X POST "$API/api/picks" \
 
 Must return 403 (not 201). 6 May regression fix.
 
-If any of 8a–8d fails, do not announce the pool. Diagnose first.
+### 8e. Bracket startTimes match the tournament day (BLOCKING after R1)
+
+The 2026-05-08 brief flagged 23/32 R64 cards stamped with the previous
+day's date. Root cause was a scraper run late on day N seeing day N+1
+matches displayed time-only and defaulting the date to scrape time.
+Fixed by `seedDrawOverlay.js` dropping startTimes >6h in the past for
+scheduled matches (PR #11). After R1 has played at least once, verify:
+
+```bash
+curl -s "$API/api/draw/bracket?round=F" | python3 -c "
+import sys, json, datetime
+d = json.load(sys.stdin)
+now = datetime.datetime.utcnow()
+issues = []
+for m in d['matches']:
+    if m.get('status') == 'scheduled' and m.get('startTime'):
+        ts = datetime.datetime.fromisoformat(m['startTime'].replace('Z',''))
+        delta = (now - ts).total_seconds() / 3600
+        if delta > 6:
+            issues.append(f"{m['round']}: {m['player1Name']} v {m['player2Name']} — {m['startTime']} is {delta:.1f}h ago")
+if issues:
+    print('STALE STARTTIMES:')
+    for i in issues[:10]: print(' ', i)
+else:
+    print('OK — no stale startTimes on scheduled matches')
+"
+```
+
+Must print `OK`. Any stale-startTime issues mean the overlay sanity
+check has regressed OR you're hitting a new variant of the bug.
+
+### 8f. Homepage CTA matches /api/pools entryOpen (BLOCKING)
+
+The 2026-05-08 brief flagged a homepage card showing `LIVE` + `Enter free →`
+for a tournament whose R1 had locked 2 days earlier. Root cause was the
+homepage filtering on `tournament.status` only, not on `entryOpen`. Fixed
+by surfacing `entryOpen` from `/api/pools` (PR #12). Verify:
+
+```bash
+# Every pool must have entryOpen + entryClosedReason populated
+curl -s "$API/api/pools" | python3 -c "
+import sys, json
+pools = json.load(sys.stdin)
+for p in pools:
+    t = p.get('tournament') or {}
+    if 'entryOpen' not in p:
+        print(f"  ✗ {t.get('shortName','?')}: entryOpen missing")
+        sys.exit(1)
+    print(f"  ✓ {t.get('shortName','?')}: status={t.get('status')} entryOpen={p['entryOpen']} reason={p['entryClosedReason']}")
+"
+```
+
+Then visually:
+- If `entryOpen: false` for the active pool: homepage must show `LIVE NOW · Tournaments underway` section (not `OPEN NOW · Pools accepting entries`); card CTA must be `View leaderboard →` (not `Enter free →`); status pill reads `Live · entry closed`.
+- If `entryOpen: true`: homepage must show `OPEN NOW · Pools accepting entries` and an Enter CTA.
+
+If any of 8a–8f fails, do not announce the pool. Diagnose first.
 
 ---
+
+## PHASE 8.5 — Walkover-pending check (BLOCKING — daily during tournament)
+
+Walkovers cannot be resolved by the scraper (FlashScore shows score "---").
+After every round, check for unresolved walkovers and record the truth in
+`manualResultOverrides` before users notice.
+
+```bash
+# Replace ADMIN_SECRET with the prod secret.
+curl -s "https://tennis-survivor-production.up.railway.app/api/admin/walkover-pending?secret=$ADMIN_SECRET" | jq .
+```
+
+When count is 0, you're clean. When count > 0:
+
+1. For each entry, find the actual winner (ATP Tour news, FlashScore main
+   page, the player's own social — withdrawals usually have a public note).
+2. Add to `TOURNAMENT.manualResultOverrides` in
+   `backend/src/config/activeTournament.js` using the `suggestedOverride`
+   shape from the response. Replace the placeholder with the real winner.
+3. `node scripts/validate-tournament.mjs <id>` (validator step 6 will
+   verify your override is well-formed).
+4. Push. Backend redeploys.
+5. `/api/admin/walkover-pending` count should drop to 0.
+6. Visually verify `/group/<id>/draw` (bracket + list view): WALKOVER
+   badge present, correct player has the green checkmark, correct player
+   propagates to the next round box.
+
+**History:** 2026-05-09 Rome R64 — Machac withdrew so Medvedev advanced,
+but the scraper's pre-fix walkover heuristic guessed Machac. Bracket
+showed Machac progressing into R32 until corrected. 2026-05-10 Rome R64 —
+Rinderknech withdrew before R64 with Kovacevic in as Lucky Loser; the
+auto-replacement pre-pass in `seedDrawOverlay` only handles R1 slot
+swaps, so for any seed-bye player who withdraws between R1 bye and R64
+the LL's name never reaches the bracket without a manual override. The
+override mechanism + this check exists so this can never go silent again.
+
+**Lucky Loser at R64+ recipe.** When a seed-bye player withdraws and an
+LL replaces them, use the optional `loserDisplayName` field on the
+override so the bracket card reads with the LL's name, not the original
+seed:
+
+```js
+{
+  round: 'R64',                                  // round of the actual match
+  matchPlayers: ['Opponent, X', 'Withdrew, Y'],  // SEED-DRAW slot names (stable)
+  winner: 'Opponent, X',
+  loserDisplayName: 'LuckyLoser, Z (LL)',        // displayed loser name
+  status: 'completed',                           // they actually played
+  note: 'Withdrew, Y withdrew; LuckyLoser replaced and lost. <date>',
+}
+```
+
+`matchPlayers` keeps the seed-draw slot names so the matcher remains
+stable; `loserDisplayName` rewrites only the displayed name on the
+loser side. Original name is preserved on `target.player[12]OrigName`.
+
 
 ## PHASE 9 — Session-end protocol (MANDATORY)
 

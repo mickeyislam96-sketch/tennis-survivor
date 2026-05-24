@@ -177,8 +177,34 @@ export async function requireAdmin(req, res, scope = 'legacy') {
   }
 
   // 2. Fall back to the master ADMIN_SECRET.
+  //
+  // Important: if the requested scope has its own scoped token configured
+  // (ADMIN_TOKEN_<SCOPE> set in env), the master secret no longer grants
+  // that scope. This is how Stage 2 rollout works — adding ADMIN_TOKEN_FINANCIAL
+  // on Railway automatically restricts the master secret from refund/payout
+  // endpoints, no code redeploy needed.
+  //
+  // Scopes that don't have their own scoped token still accept the master
+  // (back-compat with all existing scripts: ops cron, email approval links,
+  // scrape triggers). This lets us roll out scopes incrementally.
   const master = getMasterSecret();
   if (master && provided === master) {
+    if (SCOPE_TOKENS[scope]) {
+      // Scope has its own token configured. Master is blocked.
+      await logAudit({
+        scope,
+        tokenName: 'master',
+        route,
+        method,
+        ip,
+        userAgent,
+        success: false,
+        reason: `master_blocked_by_scoped_token (scope=${scope})`,
+        bodySummary,
+      });
+      res.status(403).json({ error: 'Forbidden — this scope requires its scoped token' });
+      return null;
+    }
     await logAudit({ scope, tokenName: 'master', route, method, ip, userAgent, success: true, bodySummary });
     return 'master';
   }

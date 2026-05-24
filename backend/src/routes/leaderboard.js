@@ -2,11 +2,85 @@ import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { MOCK_MEMBERS, MOCK_PICKS, MOCK_GROUPS } from '../data/mockGroups.js';
 import { getRounds, getDeadlines, getDraw } from '../services/tennisData.js';
+import { getTournament } from '../data/tournaments.js';
 
 const ROUNDS = getRounds();
 
 // Statuses that indicate a match has a winner (normal completion, retirement, walkover)
 const DECIDED_STATUSES = new Set(['completed', 'retired', 'walkover']);
+
+/**
+ * Decide whether the pool has a winner.
+ *
+ * Product rule (Mickey, 2026-05-15 — Option B): a winner is only declared
+ * once the tournament's tour event has finished. Until then `hasWinner`
+ * stays false and no `isWinner` flag is set, even if one survivor remains.
+ *
+ *   - tournamentCompleted=false   => never declare a winner.
+ *   - tournamentCompleted=true    => sole survivor wins; otherwise the
+ *                                    player(s) with the most survivedRounds
+ *                                    win (tie => multiple winners).
+ *
+ * Pure function — exported so unit tests can pin this behaviour.
+ * Returns { hasWinner, winnerName, winners[] }. The caller is responsible
+ * for setting `isWinner: true` on the returned winners.
+ */
+export function detectWinner({ alive, eliminated, members, tournamentCompleted }) {
+  if (!tournamentCompleted) {
+    return { hasWinner: false, winnerName: null, winners: [] };
+  }
+  if (alive.length === 1 && members.length >= 2) {
+    return {
+      hasWinner: true,
+      winnerName: alive[0].displayName,
+      winners: [alive[0]],
+    };
+  }
+  if (alive.length === 0 && eliminated.length >= 2) {
+    const maxSurvived = eliminated[0].survivedRounds;
+    if (maxSurvived > 0) {
+      const winners = eliminated.filter(m => m.survivedRounds === maxSurvived);
+      return {
+        hasWinner: true,
+        winnerName: winners.map(w => w.displayName).join(', '),
+        winners,
+      };
+    }
+  }
+  return { hasWinner: false, winnerName: null, winners: [] };
+}
+
+
+// Leaderboard sort rule (Mickey, 2026-05-10):
+//   1. Alive members first, sorted by survivedRounds DESC
+//      (more rounds survived = higher).
+//   2. Then eliminated members, sorted by elimination recency DESC
+//      (most recent round = higher; e.g. R64 elim above R1 elim).
+//   3. Within ties (same survivedRounds, or same eliminatedRound),
+//      sort alphabetically by displayName ASC.
+// roundIndex() returns the position of a round in ROUNDS, or -Infinity if
+// missing/invalid — that pushes unknown rounds to the bottom of the
+// eliminated section rather than aliasing them to R1 (the previous
+// `|| 0` bug). DO NOT inline this — see backend/tests/smoke/leaderboard-sort.test.js.
+function roundIndex(round) {
+  if (!round) return -Infinity;
+  const i = ROUNDS.indexOf(round);
+  return i === -1 ? -Infinity : i;
+}
+function compareDisplayName(a, b) {
+  return String(a.displayName || '').localeCompare(String(b.displayName || ''), undefined, { sensitivity: 'base' });
+}
+export function sortLeaderboard(members) {
+  const alive = members.filter(m => m.isAlive).sort((a, b) => {
+    const d = b.survivedRounds - a.survivedRounds;
+    return d !== 0 ? d : compareDisplayName(a, b);
+  });
+  const eliminated = members.filter(m => !m.isAlive).sort((a, b) => {
+    const d = roundIndex(b.eliminatedRound) - roundIndex(a.eliminatedRound);
+    return d !== 0 ? d : compareDisplayName(a, b);
+  });
+  return { alive, eliminated };
+}
 
 export const leaderboardRouter = Router();
 
@@ -146,7 +220,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   if (isUUID(groupId)) {
     try {
       const groupResult = await pool.query(
-        `SELECT id::text, name, prize_pool_cents FROM groups WHERE id = $1`,
+        `SELECT id::text, name, prize_pool_cents, tournament_id FROM groups WHERE id = $1`,
         [groupId]
       );
       if (groupResult.rows.length === 0) {
@@ -207,33 +281,20 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         };
       });
 
-      const alive = members
-        .filter(m => m.isAlive)
-        .sort((a, b) => b.survivedRounds - a.survivedRounds);
-      const eliminated = members
-        .filter(m => !m.isAlive)
-        .sort((a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0));
+      const { alive, eliminated } = sortLeaderboard(members);
 
-      // Winner detection:
-      // 1. If exactly 1 survivor and 2+ entrants => that player won
-      // 2. If nobody alive but tournament completed => player(s) who survived
-      //    the most rounds win (last eliminated = winner)
-      let hasWinner = false;
-      let winnerName = null;
-      if (alive.length === 1 && members.length >= 2) {
-        hasWinner = true;
-        alive[0].isWinner = true;
-        winnerName = alive[0].displayName;
-      } else if (alive.length === 0 && eliminated.length >= 2) {
-        // Everyone eliminated — the person(s) who lasted longest win
-        const maxSurvived = eliminated[0].survivedRounds;
-        const winners = eliminated.filter(m => m.survivedRounds === maxSurvived);
-        if (maxSurvived > 0) {
-          hasWinner = true;
-          winners.forEach(w => { w.isWinner = true; });
-          winnerName = winners.map(w => w.displayName).join(', ');
-        }
-      }
+      // Winner detection (Mickey, 2026-05-15 — Option B):
+      // A winner is only declared once the tournament's tour event has
+      // finished (tournament.status === 'completed'). Until then, even a
+      // sole survivor is shown as 'alive (1 of N)' with no winner badge.
+      // Rule: prize money is only awarded for finishing the whole tournament.
+      // See morning brief 2026-05-15 + project_paid_launch_decisions.md.
+      const tournament = getTournament(g.tournament_id);
+      const tournamentCompleted = tournament?.status === 'completed';
+      const { hasWinner, winnerName, winners } = detectWinner({
+        alive, eliminated, members, tournamentCompleted,
+      });
+      winners.forEach(w => { w.isWinner = true; });
 
       return res.json({
         group: { id: g.id, name: g.name, prizePoolCents: g.prize_pool_cents },
@@ -269,10 +330,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     };
   });
 
-  const alive = members.filter(m => m.isAlive).sort((a, b) => b.survivedRounds - a.survivedRounds);
-  const eliminated = members.filter(m => !m.isAlive).sort(
-    (a, b) => (ROUNDS.indexOf(b.eliminatedRound) || 0) - (ROUNDS.indexOf(a.eliminatedRound) || 0)
-  );
+  const { alive, eliminated } = sortLeaderboard(members);
 
   res.json({
     group: { id: group.id, name: group.name, prizePoolCents: group.prizePoolCents },

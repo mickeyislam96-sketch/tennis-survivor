@@ -36,24 +36,34 @@ asked for the bigger-picture gaps. Five rated critical, in priority order:
    **Stage 2 still open**: roll out scoped tokens for financial actions
    (refunds, payouts, settlement) before RG R1 on 18 May.
 
-5. **DB backups unverified.** Daily pg_dump runs via GitHub Actions but
-   restore has never been tested. **Status: PARTIAL.** Backup workflow
-   live, restore verification still untested. Quarterly process to
-   establish.
+5. **DB backups + restore verified.** Daily pg_dump runs via GitHub
+   Actions; restore drill workflow shipped session 38 (PR #17,
+   `db-restore-verify.yml`). Quarterly cron + manual script
+   (`scripts/test-db-restore.sh`). First quarterly fire 1 Jul 2026.
+   **Status: DONE in code.** Manual smoke run pending so we don't wait
+   until July to discover a bug.
 
-**Final pre-RG queue (11 days to RG R1 as of end session 36):**
+**Final pre-RG queue (9 days to RG R1 as of end session 38b — 9 May 2026):**
 
-- Stage 2 admin tokens (gap #4 stage 2) — implement `ADMIN_TOKEN_FINANCIAL`,
-  gate refunds + payouts + settlement endpoints. Single new env var,
-  ~5-line route changes per endpoint.
-- DB-restore verification (gap #5) — pull latest pg_dump artifact,
-  restore to throwaway Docker Postgres, verify schema and row counts.
-  Quarterly cadence after first verification.
-- T2 from 7 May brief — suspended/retired/walkover match status fix.
-  Needs proper FlashScore-status reading rather than score inference.
-  Integration test required before merging.
+- **Mickey-side env-var rollout for Stage 2 admin tokens** (gap #4
+  stage 2). Code shipped session 38 PR #16 — once Mickey sets
+  `ADMIN_TOKEN_FINANCIAL` on Railway, master `ADMIN_SECRET` is
+  auto-blocked from financial endpoints. No code redeploy.
+- **First manual DB-restore smoke run** — pull latest pg_dump artifact,
+  run `scripts/test-db-restore.sh`, confirm schema + row counts.
+  Should be ≤30 minutes. After this, the quarterly workflow gives us
+  ongoing assurance.
+- **T2 / suspended-vs-retired status mapping** — partially addressed by
+  walkover handling shipped session 38b (scraper no longer guesses
+  walkover winners; retired requires strict majority on score).
+  Suspended status remains untreated — those matches resume later, no
+  winner declared. Brief skill domain caveat covers the lesson; code
+  change deferred to its own session.
+- **Walkover daily check during tournament** — operational, not a code
+  task. Run `GET /api/admin/walkover-pending` every morning; populate
+  `manualResultOverrides` for any non-zero count. Phase 8.5 in
+  transition prompts.
 
-**Suggested order:** DB-restore verification first (lowest risk, no
-code change), then Stage 2 admin tokens (touches payment paths but is
-additive — old behaviour preserved via back-compat), then T2 (medium
-blast, touches scraper status mapper).
+**Suggested order:** Stage 2 env var rollout (zero-code, immediate
+impact). Then DB-restore smoke (zero-code). Then T2 suspended-status
+mapping (own session, integration test required, low blast radius).

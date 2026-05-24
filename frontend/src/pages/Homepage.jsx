@@ -39,7 +39,7 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     title: 'Last one standing wins the pot',
-    body: 'Entry fees go into a single prize pot. The last one standing takes it all.',
+    body: 'The last one standing wins the pool. In paid pools, that win is the entire prize pot.',
   },
 ];
 
@@ -56,7 +56,7 @@ function PoolsGrid({ pools, emptyMsg, showDescription = true }) {
         const status = isCompleted
           ? { label: 'Completed', tone: 'neutral' }
           : isActive
-            ? { label: 'Live', tone: 'primary', dot: true }
+            ? { label: pool.entryOpen === false ? 'Live · entry closed' : 'Live', tone: 'primary', dot: true }
             : { label: 'Coming soon', tone: 'warning' };
 
         const meta = [];
@@ -89,13 +89,16 @@ function PoolsGrid({ pools, emptyMsg, showDescription = true }) {
           ? [t?.tourLevel, t?.location, t?.surface].filter(Boolean).join(' · ')
           : null;
 
+        const isEntryClosed = pool.entryOpen === false;
         const ctaLabel = isCompleted
           ? 'View results'
           : pool.isMember
             ? 'Open pool'
-            : isFree
-              ? 'Enter free'
-              : 'Enter';
+            : isEntryClosed
+              ? 'View leaderboard'
+              : isFree
+                ? 'Enter free'
+                : 'Enter';
 
         return (
           <Link key={pool.id} to={`/group/${pool.id}`} className="hp-pool-card-link">
@@ -110,6 +113,8 @@ function PoolsGrid({ pools, emptyMsg, showDescription = true }) {
                   <span>Winner: <strong style={{ color: 'var(--ds-gold-deep)' }}>{pool.winnerName}</strong></span>
                 ) : isActive && pool.aliveCount === 1 ? (
                   <span>One survivor left</span>
+                ) : isActive && isEntryClosed ? (
+                  <span>{pool.aliveCount}/{pool.memberCount} still in</span>
                 ) : !isActive && !isCompleted && pool.entryFeeCents === 0 ? (
                   <span>Free entry — sign up now</span>
                 ) : (
@@ -154,7 +159,7 @@ export function Homepage() {
       .finally(() => setLoading(false));
   }, [userId]);
 
-  const openPools = allPools
+  const eligiblePools = allPools
     .filter((p) => ['upcoming', 'active'].includes(p.tournament?.status))
     .sort((a, b) => {
       // Active tournaments first, then upcoming (sorted by start date)
@@ -164,8 +169,24 @@ export function Homepage() {
       if (aOrder !== bOrder) return aOrder - bOrder;
       return new Date(a.tournament?.startDate || 0) - new Date(b.tournament?.startDate || 0);
     });
+  // Pools accepting entries: backend's entryOpen flag is the source of truth.
+  // Falls back to the legacy "any active or upcoming" rule for older API
+  // responses that don't include the flag yet (defence against stale clients).
+  const openPools = eligiblePools.filter((p) =>
+    p.entryOpen === undefined ? true : p.entryOpen === true
+  );
+  // Active pools whose entry window has closed — show them in their own
+  // "Live now" section with a View CTA instead of Enter.
+  const liveClosedPools = eligiblePools.filter((p) =>
+    p.tournament?.status === 'active' && p.entryOpen === false
+  );
   const completedPools = allPools.filter((p) => p.tournament?.status === 'completed');
-  const featured = openPools[0];
+  // Hero featured: prefer a live-but-closed pool (so the hero links to the
+  // current event) if the open list has nothing live in it. Otherwise the
+  // first open pool wins.
+  const featured = openPools[0] || liveClosedPools[0];
+  const featuredIsLive = featured?.tournament?.status === 'active';
+  const featuredEntryOpen = featured?.entryOpen !== false;
 
   const handleJoin = async (e) => {
     e.preventDefault();
@@ -187,6 +208,11 @@ export function Homepage() {
   };
 
   // ── HERO ─────────────────────────────────────────────────────────────
+  const heroCtaVerb = featured?.isMember || featuredIsLive
+    ? 'View'
+    : featuredEntryOpen
+      ? 'Enter'
+      : 'View';
   const heroCta = featured ? (
     <>
       <Button
@@ -195,7 +221,7 @@ export function Homepage() {
         variant="gold"
         size="lg"
       >
-        {featured.isMember || featured.tournament?.status === 'active' ? 'View' : 'Enter'} {featured.tournament?.name} →
+        {heroCtaVerb} {featured.tournament?.name} →
       </Button>
       <Button as={Link} to="/how-to-play" variant="ghost" size="lg">
         How it works
@@ -207,12 +233,15 @@ export function Homepage() {
     </Button>
   );
 
+  const heroFeaturedLabel = featuredIsLive
+    ? 'Live now'
+    : 'Next tournament';
   const heroMeta = featured ? (
     <>
       <Stat
         size="sm"
         tone="gold"
-        label="Next tournament"
+        label={heroFeaturedLabel}
         value={featured.tournament?.name || ''}
       />
       <Stat
@@ -270,6 +299,18 @@ export function Homepage() {
               );
             })}
           </div>
+        </Section>
+      )}
+
+      {/* ── LIVE NOW (active, entry closed) ────────────────── */}
+      {!loading && liveClosedPools.length > 0 && (
+        <Section tone="canvas" size="lg">
+          <SectionHeader
+            eyebrow="LIVE NOW"
+            title={<>Tournaments <em>underway</em>.</>}
+            kicker="Entry has closed for these. Watch the survivors fight it out."
+          />
+          <PoolsGrid pools={liveClosedPools} emptyMsg="" />
         </Section>
       )}
 

@@ -3,8 +3,25 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Cron: every hour at minute 0, between 10:00 and 21:00 UTC
-# (= 11:00-22:00 UK time during BST, April-October)
+# Cron: every hour at minute 0, hours 08:00–23:00 UTC AND 00:00–02:00 UTC
+# (= 09:00 BST through 03:00 BST next morning — covers any UK-evening
+#  match that lands its result paperwork on FlashScore after midnight UK)
 #
-# For future tournaments, change to "*/15 10-21 * * *" for every 15 minutes.
-cronSchedule = "0 10-21 * * *"
+# Schedule evolution:
+#   2026-04-19 — 0 10-21 * * *  (initial 12h daytime window)
+#   2026-05-15 — 0 8-21 * * *   (PR #25: pull start earlier so the RG 09:00
+#                                UTC day-session start isn't blind for ~1h)
+#   2026-05-16 — 0 0-2,8-23 * * *  (this change: extend through evening +
+#                                   wraparound to 02:00 UTC next day. Rome
+#                                   QF-3 finished ~22:30 UTC yesterday and
+#                                   we want at least one scrape after any
+#                                   plausible late finish so retirements,
+#                                   walkovers and admin-posted scores are
+#                                   captured the same day.)
+#
+# Idle window is now 03:00–07:00 UTC (5h). No professional tennis runs
+# during this window for any tournament we care about.
+#
+# For future tournaments where every-15-min freshness matters (paid
+# events, late-stage tie-breaks), promote to "*/15 0-2,8-23 * * *".
+cronSchedule = "0 0-2,8-23 * * *"

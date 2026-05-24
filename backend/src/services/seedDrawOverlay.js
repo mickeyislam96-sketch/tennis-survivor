@@ -10,6 +10,9 @@
  * The result is the internal fixture format used by picks.js and the bracket viewer.
  */
 
+import { TOURNAMENT } from '../config/activeTournament.js';
+
+
 // ── Name normalisation ──────────────────────────────────────────────────────
 
 /**
@@ -129,6 +132,27 @@ function surnameSubsetMatch(partsA, partsB) {
 }
 
 /**
+ * Looser match: any shared surname token between the two sides.
+ * Handles double-barrel surnames where one source has only one half:
+ *   seed "Merida, Daniel"           parts: ["merida","daniel"]
+ *   scraper "Merida Aguilar D."     parts: ["merida","aguilar"]
+ *   subset fails (each side has 2 tokens, neither is a subset of the
+ *   other) but they share "merida" — same player.
+ *
+ * Looser than subsetMatch but still safe inside Pass 3 of matchOneFixture
+ * because Pass 3 requires BOTH sides of the fixture to match. A two-of-two
+ * confidence requirement combined with the round filter makes a false
+ * positive extremely unlikely (it would need two unrelated players who
+ * each share a surname token with the wrong side and play each other in
+ * the same round).
+ */
+function surnameAnyOverlap(partsA, partsB) {
+  if (partsA.length === 0 || partsB.length === 0) return false;
+  const setB = new Set(partsB);
+  return partsA.some(p => setB.has(p));
+}
+
+/**
  * Find the fixture that matches a seed draw match.
  * Uses the seed draw's player names to find the corresponding fixture.
  *
@@ -196,6 +220,8 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
   const sdP2Parts = surnameParts(seedMatch.player2Name);
 
   if (sdP1Parts.length > 0 && sdP2Parts.length > 0) {
+    // Pass 3a: strict subset on both sides (clean cases like
+    //          seed "Sinner, Jannik" ↔ scraper "Sinner J.")
     for (const fix of fixtures) {
       const fxP1Parts = surnameParts(fix.player1Name);
       const fxP2Parts = surnameParts(fix.player2Name);
@@ -208,6 +234,24 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
       // Try: seed p1 → fixture p2, seed p2 → fixture p1
       const p1to2 = surnameSubsetMatch(sdP1Parts, fxP2Parts);
       const p2to1 = surnameSubsetMatch(sdP2Parts, fxP1Parts);
+      if (p1to2 && p2to1) return fix;
+    }
+
+    // Pass 3b: looser shared-token match on both sides. Handles double-
+    // barrel surnames where seed and scraper disagree on which half is
+    // recorded (e.g. "Merida, Daniel" ↔ "Merida Aguilar D."). Still
+    // requires both sides of the fixture to match — round filter +
+    // both-sides constraint keep false positives away.
+    for (const fix of fixtures) {
+      const fxP1Parts = surnameParts(fix.player1Name);
+      const fxP2Parts = surnameParts(fix.player2Name);
+
+      const p1to1 = surnameAnyOverlap(sdP1Parts, fxP1Parts);
+      const p2to2 = surnameAnyOverlap(sdP2Parts, fxP2Parts);
+      if (p1to1 && p2to2) return fix;
+
+      const p1to2 = surnameAnyOverlap(sdP1Parts, fxP2Parts);
+      const p2to1 = surnameAnyOverlap(sdP2Parts, fxP1Parts);
       if (p1to2 && p2to1) return fix;
     }
   }
@@ -319,6 +363,27 @@ export function overlayFixtures(seedDraw, fixtures) {
     const withdrawnPlayer = updatedPlayers.find(p => p.id === withdrawnId);
     if (!withdrawnPlayer) continue;
 
+    // ── Qualifier placeholder resolution ────────────────────────────────
+    // If the seed-draw opponent is an unresolved qualifier placeholder, this
+    // fixture reveals the real qualifier's name. The qualifier is anchored by
+    // their KNOWN opponent (we found this seed match via knownPlayerId), so
+    // the other side of that opponent's live fixture is, by construction, the
+    // real qualifier — adopt the name so the normal round-by-round overlay can
+    // then match and propagate the result. Unlike a lucky-loser withdrawal,
+    // this needs NO cancelled fixture: the slot was always going to be filled
+    // by whoever came through qualifying. Without this, "Qualifier N" never
+    // surname-matches the scraper fixture and the match silently fails to
+    // settle (the 2026-05-24 RG R1 finding). This is contained to R1 qualifier
+    // slots and only ever overwrites a placeholder, never a named player.
+    if (withdrawnPlayer.isQualifier) {
+      const oldName = withdrawnPlayer.name;
+      withdrawnPlayer.name = rep.unknownPlayerName;
+      withdrawnPlayer.isQualifier = false;
+      withdrawnPlayer.resolvedFromFixture = true;
+      console.log(`[seedDrawOverlay] Qualifier resolved: "${oldName}" → "${rep.unknownPlayerName}" at ID ${withdrawnPlayer.id} (opponent ${rep.knownPlayerName})`);
+      continue;
+    }
+
     // Verify there's a cancelled fixture for the original matchup
     const hasCancelled = cancelledFixtures.some(cf => {
       const cf1Parts = surnameParts(cf.player1Name);
@@ -416,6 +481,13 @@ export function overlayFixtures(seedDraw, fixtures) {
           match.status = gsFixture.status;
         }
         if (gsFixture.winnerId || gsFixture.winnerName) {
+        if (gsFixture.status === 'walkover' && !gsFixture.winnerId) {
+          // Walkover with no scraper-confirmed winner: do NOT trust the
+          // scraper's winnerName guess. Leave the seed-draw match unresolved
+          // until a manual override is applied (Step 1.5 above) or the
+          // scraper sends a confirmed winnerId.
+          continue;
+        }
           // Match the scraper winner to our seed draw player IDs.
           // 3 strategies: exact normalised, fuzzy Levenshtein, surname subset.
           const winnerNorm = normaliseName(gsFixture.winnerName);
@@ -441,7 +513,33 @@ export function overlayFixtures(seedDraw, fixtures) {
           }
         }
         if (gsFixture.startTime) {
-          match.startTime = gsFixture.startTime;
+          // Sanity check: a scheduled match cannot have a startTime that's
+          // far in the past. The scraper occasionally emits stale dates when
+          // FlashScore shows time-only displays for next-day matches; this
+          // guard prevents the bracket from showing yesterday's date on
+          // today's R64 fixtures even if the scraper sends bad data.
+          //
+          // History: 2026-05-08 brief flagged 23/32 R64 cards with stale
+          // 2026-05-07 timestamps. Root cause was fixed in the scraper
+          // (parseStartTime now returns null without a date), but this check
+          // is defence in depth — a contract the overlay enforces regardless
+          // of provider quality.
+          const isDecided = DECIDED_STATUSES.has(gsFixture.status);
+          const isLive = gsFixture.status === 'live';
+          const startTs = new Date(gsFixture.startTime).getTime();
+          const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+
+          if (isDecided || isLive || startTs >= sixHoursAgo) {
+            match.startTime = gsFixture.startTime;
+          } else {
+            // Drop stale startTime. Match stays scheduled with no date,
+            // which the FE renders gracefully ("SCHEDULED" with no date).
+            console.warn(
+              `[seedDrawOverlay] dropping stale startTime ${gsFixture.startTime} ` +
+              `for ${match.round} ${match.player1Name} vs ${match.player2Name} ` +
+              `(status=${gsFixture.status})`
+            );
+          }
         }
         if (gsFixture.score) {
           match.score = gsFixture.score;
@@ -467,6 +565,86 @@ export function overlayFixtures(seedDraw, fixtures) {
           unmatched++;
           unmatchedMatches.push(`${match.player1Name} vs ${match.player2Name} (${match.round})`);
         }
+      }
+    }
+
+    // ── Step 1.5: Apply manual result overrides for this round ──────
+    // Walkovers (status='walkover' with no parseable score) cannot have their
+    // winner inferred reliably from FlashScore output. The scraper now leaves
+    // winnerId/winnerName null for walkovers; the truth must be recorded in
+    // TOURNAMENT.manualResultOverrides. Overrides also let admins fix incorrect
+    // scrapes without waiting for the next scraper pass.
+    //
+    // Each override entry shape (see backend/src/config/activeTournament.js):
+    //   { round, matchPlayers: [name, name], winner: name, status, note }
+    //
+    // The override matches by normalised player names so it survives small
+    // formatting variations between scraper output and seed-draw spelling.
+    const overrides = (TOURNAMENT?.manualResultOverrides || []).filter(o => o.round === round);
+    let overridesApplied = 0;
+    for (const ov of overrides) {
+      if (!Array.isArray(ov.matchPlayers) || ov.matchPlayers.length !== 2 || !ov.winner) {
+        console.warn('[seedDrawOverlay] manual override malformed, skipping:', JSON.stringify(ov));
+        continue;
+      }
+      const ovP1 = normaliseName(ov.matchPlayers[0]);
+      const ovP2 = normaliseName(ov.matchPlayers[1]);
+      const target = roundMatches.find(m => {
+        if (!m.player1Name || !m.player2Name) return false;
+        const p1 = normaliseName(m.player1Name);
+        const p2 = normaliseName(m.player2Name);
+        return (p1 === ovP1 && p2 === ovP2) || (p1 === ovP2 && p2 === ovP1);
+      });
+      if (!target) {
+        console.warn(`[seedDrawOverlay] override target not found in ${round}: ${ov.matchPlayers.join(' vs ')}`);
+        continue;
+      }
+      const winnerNorm = normaliseName(ov.winner);
+      const p1Match = winnerNorm === normaliseName(target.player1Name);
+      const p2Match = winnerNorm === normaliseName(target.player2Name);
+      if (!p1Match && !p2Match) {
+        console.error(`[seedDrawOverlay] override winner "${ov.winner}" matches neither ${target.player1Name} nor ${target.player2Name} — skipping`);
+        continue;
+      }
+      target.winnerId = p1Match ? target.player1Id : target.player2Id;
+      target.winnerName = p1Match ? target.player1Name : target.player2Name;
+      target.status = ov.status || target.status || 'walkover';
+      target.score = target.score || '---';
+      target.isManualOverride = true;
+      target.overrideNote = ov.note || null;
+      if (target.status === 'walkover') {
+        target.isWithdrawal = true;
+        // The withdrawnPlayerId is the one who is NOT the winner
+        target.withdrawnPlayerId = p1Match ? target.player2Id : target.player1Id;
+      }
+      // Optional loser display rewrite. Use this when the seed-draw slot still
+      // names the original (withdrawn) seed but a Lucky Loser actually played
+      // and lost. The auto-replacement pre-pass only swaps R1 slots, so for
+      // R64+ withdrawals the LL's name never reaches the bracket without this.
+      // Example (Rome 2026 R64): Rinderknech withdrew, Kovacevic came in as LL
+      // and lost to van de Zandschulp. The slot name stays 'Rinderknech' for
+      // matchPlayers stability, but the displayed loser becomes Kovacevic.
+      if (ov.loserDisplayName) {
+        if (p1Match) {
+          target.player2OrigName = target.player2OrigName || target.player2Name;
+          target.player2Name = ov.loserDisplayName;
+        } else {
+          target.player1OrigName = target.player1OrigName || target.player1Name;
+          target.player1Name = ov.loserDisplayName;
+        }
+      }
+      overridesApplied++;
+      console.log(`[seedDrawOverlay] manual override applied (${round}): ${target.player1Name} vs ${target.player2Name} → winner ${target.winnerName}`);
+    }
+
+    // ── Step 1.6: Flag unconfirmed walkovers (status=walkover, no winnerId) ──
+    // After scraper overlay + manual overrides, any match with status='walkover'
+    // but no winnerId is unresolved and must NOT propagate. We log loudly so
+    // ops monitor + admin endpoint can surface it.
+    for (const m of roundMatches) {
+      if ((m.status === 'walkover' || m.status === 'retired') && !m.winnerId && m.player1Name && m.player2Name) {
+        m.requiresAdminReview = true;
+        console.warn(`[seedDrawOverlay] UNCONFIRMED WALKOVER (${round}): ${m.player1Name} vs ${m.player2Name} — needs manualResultOverrides entry`);
       }
     }
 
@@ -532,7 +710,7 @@ export function overlayFixtures(seedDraw, fixtures) {
     ...patchedSeedDraw,
     players: finalPlayers,
     matches: updatedMatches,
-    dataSource: `seed_draw+scraper(${matched})`,
+    dataSource: `seed_draw+scraper(${matched})${updatedMatches.some(m => m.isManualOverride) ? '+overrides(' + updatedMatches.filter(m => m.isManualOverride).length + ')' : ''}${updatedMatches.some(m => m.requiresAdminReview) ? '+REVIEW(' + updatedMatches.filter(m => m.requiresAdminReview).length + ')' : ''}`,
     replacements: replacements.length > 0
       ? replacements.map(r => ({ replacement: r.unknownPlayerName, opposedBy: r.knownPlayerName }))
       : undefined,

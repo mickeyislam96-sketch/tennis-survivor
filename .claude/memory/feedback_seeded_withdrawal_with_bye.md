@@ -32,3 +32,46 @@ This is correct behaviour because `seedDrawLoader.js` derives IDs from each `dra
 6. When the LL's R64 fixture appears in scraper data ("Landaluce M. vs Cilic M."), the surname overlay matches it onto the seed draw R64 slot via subset matching ("landaluce" ⊂ ["landaluce","martin"]). No further intervention needed.
 
 **Reference incident:** Vacherot (seed 14) → Landaluce (LL) at Rome 2026, 6 May 2026. PR #7. Result-tracking confirmed working post-merge: bracket shows `Landaluce, Martin (rome-p48)` in R64 vs Cilic (placeholder for R1 winner); R64 surname overlay primed for when FlashScore creates the fixture.
+
+
+## Reactive option: loserDisplayName on manualResultOverride
+
+If the withdrawal slips through the pre-emptive check above (e.g. it
+happens between R1 picks closing and R64 starting, or simply isn't
+caught in time and the bracket is already serving wrong data), there's
+a smaller-blast-radius fix that doesn't touch the seed-draw JSON:
+add a `manualResultOverride` with the optional `loserDisplayName` field.
+
+```js
+{
+  round: 'R64',
+  matchPlayers: ['Opponent, X', 'Withdrew, Y'],     // SEED-DRAW slot names — stable
+  winner: 'Opponent, X',
+  loserDisplayName: 'LuckyLoser, Z (LL)',           // displayed loser name
+  status: 'completed',                               // they actually played
+  note: 'Withdrew, Y withdrew; LuckyLoser replaced and lost. <date>.',
+}
+```
+
+`matchPlayers` keeps the seed-draw slot names (so the override matcher
+remains stable). `loserDisplayName` rewrites only the loser slot's name
+in the bracket card. Original is preserved on `target.player[12]OrigName`
+for audit. Propagation to the next round uses the winner side, which is
+unchanged.
+
+**When to choose which:**
+
+| Detected when | Use |
+|---|---|
+| Before R1 picks open | Edit seed draw JSON (Vacherot/Landaluce recipe above). Auto-replacement handles the rest. |
+| After R1 picks close, before user picks involve the affected slot | Same — JSON edit. |
+| Live tournament, bracket already showing wrong data, time-critical | manualResultOverride + loserDisplayName. Doesn't touch picks or seed draw. |
+| Walkover with no LL replacement | Standard manualResultOverride (no loserDisplayName needed). |
+
+**Reference incident:** Rinderknech (seed) withdrew → Kovacevic (LL) →
+lost to van de Zandschulp. Rome 2026 R64, 2026-05-10. seedDraw JSON
+left untouched; manualResultOverride with loserDisplayName recorded the
+result. Bracket card now reads "van de Zandschulp d. Kovacevic, A. (LL)".
+PR #21. Auto-resolved a downstream Khachanov R32 fixture that was
+sitting unmatched (Khachanov had played and won 11:10 UTC; the slot just
+needed an opponent name to attach the scraper fixture).

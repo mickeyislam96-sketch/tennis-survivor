@@ -16,7 +16,7 @@ import { autoProcessResults, processRoundResults, eliminateNonPickers } from '..
 import { getDeadlines, setRuntimeLockOverride, clearRuntimeLockOverride, getRuntimeLockOverrides } from '../services/tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
 import { pool } from '../db/pool.js';
-import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendPendingEmailById, rejectPendingEmailById, sendWithdrawalEmail, sendDrawReleasedEmail } from '../utils/email.js';
+import { sendAdminDigest, getPendingEmailsSummary, sendPendingEmails, sendPendingEmailById, rejectPendingEmailById, sendWithdrawalEmail, sendDrawReleasedEmail, sendTournamentWrapEmail } from '../utils/email.js';
 import { setScrapedResults, getScraperCacheStatus } from '../services/scraperCache.js';
 import { checkSecret } from '../auth/adminAuth.js';
 
@@ -679,6 +679,131 @@ adminRouter.post('/send-new-tournament', async (req, res) => {
   res.status(501).json({ error: 'New tournament email template not yet implemented' });
 });
 
+// ── POST /api/admin/send-tournament-wrap ────────────────────────────────────
+// Broadcast a "<Previous tournament> is wrapped. <Next> is next." email to
+// every member of the previous tournament's pools. Idempotent via
+// sendWithDedup. Queues as 'pending' for explicit admin approval.
+//
+// Body:
+//   secret               — admin secret (required)
+//   previousTournament   — tournament id, e.g. "rome-2026" (required)
+//   nextTournament       — tournament id, e.g. "roland-garros-2026" (required)
+//   championName         — who won the tour event, e.g. "Sinner" (required)
+//   scoreLine            — final score, e.g. "6-4, 6-4" (optional)
+//   poolWinnerName       — who won our pool, e.g. "Casper" (optional)
+//   winningPickName      — what they picked, e.g. "Sinner, Jannik" (optional)
+//   nextStartsLabel      — when the next tournament begins, e.g. "tomorrow" (optional, default 'soon')
+//   nextEntryFeeLabel    — entry fee label, e.g. "£10" (optional)
+//   dryRun               — if true, return the recipient count without queueing (optional)
+adminRouter.post('/send-tournament-wrap', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+
+  const {
+    previousTournament, nextTournament,
+    championName, scoreLine,
+    poolWinnerName, winningPickName,
+    nextStartsLabel, nextEntryFeeLabel,
+    dryRun,
+  } = req.body || {};
+
+  if (!previousTournament || !nextTournament || !championName) {
+    return res.status(400).json({
+      error: 'previousTournament, nextTournament and championName are required',
+    });
+  }
+
+  // Resolve tournament metadata from the registry
+  const { getTournament } = await import('../data/tournaments.js');
+  const prev = getTournament(previousTournament);
+  const next = getTournament(nextTournament);
+  if (!prev) return res.status(400).json({ error: `Unknown previousTournament: ${previousTournament}` });
+  if (!next) return res.status(400).json({ error: `Unknown nextTournament: ${nextTournament}` });
+
+  try {
+    // Recipients: every distinct (user, group) pair in any group of the
+    // previous tournament. One row per (user, group) — sendWithDedup
+    // dedups on (user_id, group_id, round, email_type) so multiple-group
+    // users get one email per group, which is the desired behaviour
+    // (each group's leaderboard URL is different).
+    const { rows: members } = await pool.query(
+      `SELECT DISTINCT u.id::text AS user_id,
+                       u.email,
+                       u.display_name,
+                       g.id::text  AS group_id,
+                       g.name      AS group_name
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+         JOIN groups g ON g.id = gm.group_id
+        WHERE g.tournament_id = $1
+          AND u.email IS NOT NULL
+        ORDER BY u.email`,
+      [prev.id]
+    );
+
+    if (members.length === 0) {
+      return res.json({
+        ok: true,
+        message: `No members found in ${prev.id}`,
+        count: 0, queued: 0, skipped: 0,
+      });
+    }
+
+    if (dryRun) {
+      return res.json({
+        ok: true, dryRun: true,
+        previousTournament: prev.id,
+        nextTournament: next.id,
+        recipientCount: members.length,
+        recipients: members.map(m => ({ email: m.email, group: m.group_name })),
+      });
+    }
+
+    const nextPoolUrl = `${process.env.FRONTEND_URL || 'https://finalserveivor.com'}/pools`;
+    let queued = 0;
+    let skipped = 0;
+
+    for (const m of members) {
+      try {
+        const result = await sendTournamentWrapEmail({
+          userId: m.user_id,
+          groupId: m.group_id,
+          email: m.email,
+          displayName: m.display_name,
+          previousTournamentName: prev.name,
+          previousTournamentShortName: prev.shortName,
+          championName,
+          scoreLine: scoreLine || '',
+          poolWinnerName: poolWinnerName || '',
+          winningPickName: winningPickName || '',
+          nextTournamentName: next.name,
+          nextTournamentShortName: next.shortName,
+          nextStartsLabel: nextStartsLabel || 'soon',
+          nextEntryFeeLabel: nextEntryFeeLabel || '',
+          nextPoolUrl,
+        });
+        if (result.queued) queued++;
+        else skipped++;
+      } catch (err) {
+        console.error(`[admin] send-tournament-wrap: failed for ${m.email}:`, err.message);
+        skipped++;
+      }
+    }
+
+    console.log(`[admin] send-tournament-wrap: ${prev.id} -> ${next.id}: queued=${queued} skipped=${skipped} total=${members.length}`);
+    res.json({
+      ok: true,
+      previousTournament: prev.id,
+      nextTournament: next.id,
+      total: members.length,
+      queued, skipped,
+      message: `Tournament wrap emails queued: ${queued} new, ${skipped} already queued`,
+    });
+  } catch (err) {
+    console.error('[admin] send-tournament-wrap error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── POST /api/admin/scrape-results ──────────────────────────────────────────
 // Receive scraped match results from the local FlashScore scraper.
 // Body: { secret, fixtures: [...], scrapedAt: "ISO string" }
@@ -927,6 +1052,55 @@ adminRouter.get('/scraper-fixtures', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/admin/walkover-pending ───────────────────────────────────────────
+// Lists every match in the current tournament's bracket where status is
+// walkover or retired but no winnerId has been confirmed (not by scraper, not
+// by manualResultOverrides). Use this every morning during a tournament — any
+// rows returned here are matches that will not propagate correctly until you
+// add a manualResultOverrides entry to backend/src/config/activeTournament.js
+// (or correct the scraper data).
+//
+// Origin: 2026-05-09 Machac/Medvedev R64 incident — scraper guessed walkover
+// winner from player order, got it wrong, bracket showed Machac progressing.
+// Fix: scraper no longer guesses; admin records truth via overrides; this
+// endpoint surfaces anything still pending so it can't go silent.
+adminRouter.get('/walkover-pending', async (req, res) => {
+  if (!await checkSecret(req, res)) return;
+  try {
+    const { getDraw } = await import('../services/tennisData.js');
+    const draw = await getDraw();
+    const pending = (draw.matches || [])
+      .filter(m => (m.status === 'walkover' || m.status === 'retired') && !m.winnerId)
+      .map(m => ({
+        round: m.round,
+        player1Name: m.player1Name,
+        player2Name: m.player2Name,
+        status: m.status,
+        startTime: m.startTime,
+        score: m.score,
+        suggestedOverride: {
+          round: m.round,
+          matchPlayers: [m.player1Name, m.player2Name],
+          winner: '<<choose: ' + m.player1Name + ' OR ' + m.player2Name + '>>',
+          status: m.status,
+          note: 'Recorded YYYY-MM-DD: <reason>',
+        },
+      }));
+    res.json({
+      ok: true,
+      tournament: TOURNAMENT.id,
+      count: pending.length,
+      pending,
+      hint: pending.length === 0
+        ? 'No pending walkovers. ✅'
+        : 'For each entry, copy `suggestedOverride` (replace placeholder) into TOURNAMENT.manualResultOverrides in backend/src/config/activeTournament.js, fill in the winner, push, and verify via /api/draw/bracket.',
+    });
+  } catch (err) {
+    console.error('[admin] walkover-pending error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

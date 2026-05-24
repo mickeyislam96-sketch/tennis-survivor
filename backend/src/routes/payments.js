@@ -216,11 +216,18 @@ paymentsRouter.post('/webhook/:processor', async (req, res) => {
 });
 
 // ── Admin auth — delegated to the central module so every call is audited ───
-import { checkSecret as checkAdminAuth } from '../auth/adminAuth.js';
+import { checkSecret as checkAdminAuth, requireAdmin } from '../auth/adminAuth.js';
+
+// All payment admin endpoints are scope=financial. Setting ADMIN_TOKEN_FINANCIAL
+// in env restricts these to that token only — the master ADMIN_SECRET is
+// blocked by adminAuth.js's master_blocked_by_scoped_token check.
+async function requireFinancialAdmin(req, res) {
+  return (await requireAdmin(req, res, 'financial')) !== null;
+}
 
 // ── Admin: list all payment orders ──────────────────────────────────────────
 paymentsRouter.get('/admin/list', async (req, res) => {
-  if (!await checkAdminAuth(req, res)) return;
+  if (!await requireFinancialAdmin(req, res)) return;
 
   try {
     const result = await pool.query(`
@@ -241,7 +248,7 @@ paymentsRouter.get('/admin/list', async (req, res) => {
 
 // ── Admin: revenue summary ──────────────────────────────────────────────────
 paymentsRouter.get('/admin/revenue', async (req, res) => {
-  if (!await checkAdminAuth(req, res)) return;
+  if (!await requireFinancialAdmin(req, res)) return;
 
   try {
     const result = await pool.query(`
@@ -264,7 +271,7 @@ paymentsRouter.get('/admin/revenue', async (req, res) => {
 
 // ── Admin: refund a specific order ──────────────────────────────────────────
 paymentsRouter.post('/admin/refund', async (req, res) => {
-  if (!await checkAdminAuth(req, res)) return;
+  if (!await requireFinancialAdmin(req, res)) return;
   const { orderId } = req.body;
   if (!orderId) return res.status(400).json({ error: 'orderId required' });
 

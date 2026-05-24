@@ -1,21 +1,49 @@
 # Final Serve-ivor — Roadmap & Launch Strategy
 
-## Critical fixes (kicked off 5 May 2026)
+## Critical fixes (kicked off 5 May 2026 — all 5 closed in code by 9 May 2026)
 
 After Rome launch settled, audited bigger-picture gaps. Five rated
 critical, queued in priority order. See
 `.claude/memory/project_critical_gaps.md` for the full audit.
 
-1. Alerting on `/api/health` (UptimeRobot) — quick win, do first.
-2. Backend integration test suite — ~20 tests covering invite,
-   payment, picks, leaderboard. Two days.
-3. Staging environment via Railway branch deploy. Half a day.
-4. ADMIN_SECRET rotation to scoped tokens with audit log. Before RG.
-5. DB-restore verification. Quarterly.
+1. ~~Alerting on `/api/health` (UptimeRobot)~~ DONE 7 May (session 36).
+   Prod + staging on 5-min interval, email alerts confirmed firing.
+2. ~~Backend integration test suite~~ DONE 5 May (session 35). Smoke +
+   integration jobs in CI on every push and PR.
+3. ~~Staging environment via Railway branch deploy~~ DONE 7 May
+   (session 36). `tennis-survivor-staging.up.railway.app`, isolated
+   Postgres, Vercel preview URL.
+4. **Stage 2 admin-token rollout — code DONE 8 May (session 38 PR #16)**;
+   Mickey-side: set `ADMIN_TOKEN_FINANCIAL` on Railway. Master
+   `ADMIN_SECRET` is auto-blocked from financial endpoints once that
+   env var exists. No code redeploy.
+5. ~~DB-restore verification~~ Code DONE 8 May (session 38 PR #17).
+   Quarterly cron + `scripts/test-db-restore.sh`. Manual smoke run
+   pending (≤30min) so we don't wait until July to discover a bug.
 
-Target: items 1-4 in the 4-day window between Rome F (17 May) and
-RG R1 (18 May). All four must be done before the first paid pool
-opens.
+**Mickey-side queue before RG R1 (18 May):** set
+`ADMIN_TOKEN_FINANCIAL` on Railway, run a manual DB-restore smoke
+test, run the daily walkover-pending check throughout Rome (Phase 8.5
+in transition prompts).
+
+## Email redesign (session 38c — 9 May 2026)
+
+`backend/src/utils/email.js` rewritten as Direction A: same brand
+(emerald + gold + Outfit/Fraunces/JetBrains Mono), but cross-client
+correct. Dark-mode safe (Apple Mail iOS auto-inversion no longer
+mangles the white card or gold pill). Mobile breakpoint at 480px.
+System-font fallback chain extended for Apple Mail iOS where Google
+Fonts get stripped. Court-bg PNG removed; CSS-only line pattern in
+its place. Welcome trimmed to 2 sections + CTA. Admin digest
+collapsed to 3-column table.
+
+Pattern doc: `.claude/memory/feedback_email_design_system.md`.
+
+**For paid tournaments needing new email types** (payment receipt,
+refund notification, payout claim): follow the same recipe —
+component builders + LIGHT/DARK tokens + the dark-mode CSS-class
+contract. The system handles correctness automatically; only the
+body composition needs to be written.
 
 ## Three-phase approach
 1. **Madrid Open** (22 Apr - ~4 May 2026): Free entry, COMPLETE. Stability trial.
@@ -54,3 +82,7 @@ Mickey plans to scale FSV using AI agents as his entire team. Three-phase rollou
 - Manual result overrides needed for players with no API key
 - Bracket connector crash (hooks after early return — caused 3 white-screen incidents)
 - Stale group_members.is_alive from previous tournament persists into new tournament (Rome session: Rafa showed eliminated — fixed via admin reset-member endpoint)
+
+## Roland Garros 2026 — launched FREE (22 May 2026, session 40)
+
+RG activated as the 4th free tournament (paid plan reversed). First Grand Slam (128 draw) the codebase has run; modelled first round as `R1` not `R128`. Pool `20440c2f-...`, R1 locks 24 May. Paid launch deferred to a later event (Revolut bridge when it happens). See `project_roland_garros_grand_slam.md` and `project_paid_launch_decisions.md`.

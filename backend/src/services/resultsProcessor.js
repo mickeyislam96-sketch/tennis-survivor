@@ -6,7 +6,9 @@
 import { pool } from '../db/pool.js';
 import { getDraw, getDeadlines } from './tennisData.js';
 import { TOURNAMENT, ROUNDS } from '../config/tournament.js';
-import { sendRoundResultEmail } from '../utils/email.js';
+import { sendRoundResultEmail, sendWinnerAnnouncementEmail } from '../utils/email.js';
+import { getAllTournaments } from '../data/tournaments.js';
+import { detectWinner } from '../routes/leaderboard.js';
 import { logOps } from './opsMonitor.js';
 /**
  * A match is "decided" if it has a winner, regardless of how it ended.
@@ -121,8 +123,143 @@ export async function autoProcessResults() {
     summary.push(result);
   }
 
+  // Defence in depth: even if no rounds had NULL picks, sync any
+  // already-resolved picks whose member is_alive flag drifted. Cheap.
+  const synced = await syncGroupMembersFromPicks();
+  if (synced > 0) {
+    summary.push({ round: 'sync', eliminated: synced });
+  }
+
+  // Defence-in-depth: any tournament that has flipped to status=completed
+  // gets a winner-announcement email queued for its unique survivor. Idempotent
+  // — sendWithDedup ensures one email per (user, group, round, type).
+  try {
+    const { queued } = await processCompletedTournaments();
+    if (queued > 0) summary.push({ winnerEmailsQueued: queued });
+  } catch (err) {
+    console.error('[results] processCompletedTournaments error:', err.message);
+  }
+
   if (summary.length === 0) console.log('[results] Nothing to process.');
   return summary;
+}
+
+/**
+ * Queue winner-announcement emails for any tournament that has just been
+ * marked completed and has a unique winner.
+ *
+ * Per Option B (Mickey, 2026-05-15) winner detection is gated by
+ * tournament.status === 'completed'. Tournament status is date-driven via
+ * computeStatus() — flips at end-of-endDate UTC — so this function naturally
+ * fires on the first cron tick after the tournament ends.
+ *
+ * Restricted to tournaments ending within the last 7 days so older completed
+ * events don't get retroactive emails. Idempotent via emails_sent UNIQUE.
+ *
+ * Returns { queued } — number of new emails queued this run.
+ */
+export async function processCompletedTournaments() {
+  const FRESH_WINDOW_DAYS = 7;
+  const cutoffMs = Date.now() - FRESH_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  let queued = 0;
+
+  for (const t of getAllTournaments()) {
+    if (t.status !== 'completed') continue;
+    const endTs = new Date(t.endDate).getTime();
+    if (Number.isNaN(endTs) || endTs < cutoffMs) continue;
+
+    const { rows: groups } = await pool.query(
+      `SELECT id, prize_pool_cents FROM groups WHERE tournament_id = $1`,
+      [t.id]
+    );
+    if (groups.length === 0) continue;
+
+    for (const g of groups) {
+      const { rows: members } = await pool.query(
+        `SELECT gm.user_id, gm.is_alive, gm.eliminated_round,
+                u.display_name, u.email,
+                (SELECT COUNT(*)::int FROM picks p
+                  WHERE p.user_id = gm.user_id
+                    AND p.group_id = gm.group_id
+                    AND p.survived = true) AS survived_rounds
+           FROM group_members gm
+           JOIN users u ON u.id = gm.user_id
+          WHERE gm.group_id = $1`,
+        [g.id]
+      );
+      if (members.length < 2) continue;
+
+      const decorated = members.map(m => ({
+        userId: m.user_id,
+        displayName: m.display_name,
+        email: m.email,
+        isAlive: m.is_alive,
+        eliminatedRound: m.eliminated_round,
+        survivedRounds: Number(m.survived_rounds) || 0,
+      }));
+
+      const alive = decorated.filter(m => m.isAlive)
+        .sort((a, b) => b.survivedRounds - a.survivedRounds);
+      const eliminated = decorated.filter(m => !m.isAlive)
+        .sort((a, b) => b.survivedRounds - a.survivedRounds);
+
+      const { hasWinner, winners } = detectWinner({
+        alive, eliminated, members: decorated, tournamentCompleted: true,
+      });
+      if (!hasWinner || winners.length !== 1) continue;
+
+      const winner = winners[0];
+      if (!winner.email) {
+        console.warn(`[winner-email] Skip: winner has no email | group=${g.id}`);
+        continue;
+      }
+
+      // Find their best representative pick — prefer F, fall back to deepest
+      // round survived. Matches the spirit of "your winning pick that crowned you".
+      const { rows: pickRows } = await pool.query(
+        `SELECT player_name, round FROM picks
+          WHERE user_id = $1 AND group_id = $2 AND survived = true
+          ORDER BY CASE round
+            WHEN 'F'   THEN 0
+            WHEN 'SF'  THEN 1
+            WHEN 'QF'  THEN 2
+            WHEN 'R16' THEN 3
+            WHEN 'R32' THEN 4
+            WHEN 'R64' THEN 5
+            WHEN 'R1'  THEN 6
+            ELSE 99 END
+          LIMIT 1`,
+        [winner.userId, g.id]
+      );
+      const winningPickName = pickRows[0]?.player_name || 'your final pick';
+
+      try {
+        const result = await sendWinnerAnnouncementEmail({
+          userId: winner.userId,
+          groupId: g.id,
+          email: winner.email,
+          displayName: winner.displayName,
+          tournamentName: t.name,
+          tournamentShortName: t.shortName,
+          winningPickName,
+          roundCount: winner.survivedRounds,
+          memberCount: decorated.length,
+          prizePoolCents: g.prize_pool_cents || 0,
+        });
+        if (result.queued) {
+          queued++;
+          console.log(`[winner-email] Queued for ${winner.email} | tournament=${t.id} | group=${g.id}`);
+        }
+      } catch (err) {
+        console.error(`[winner-email] Failed for ${winner.email}: ${err.message}`);
+      }
+    }
+  }
+
+  if (queued > 0) {
+    await logOps('results', 'winner_announced', { queued });
+  }
+  return { queued };
 }
 
 /**
@@ -162,6 +299,50 @@ export async function eliminateNonPickers(round) {
   );
   console.log(`[results] ${round}: ${result.rowCount} non-pickers eliminated`);
   return result.rowCount;
+}
+
+/**
+ * Sync group_members.is_alive from picks.survived.
+ *
+ * History (2026-05-09 incident — see CLAUDE.md session 38):
+ * processRoundResults updates picks.survived AND group_members.is_alive in
+ * the same call. But autoProcessResults SKIPS rounds where the NULL-pick
+ * count is zero. So once every member's current-round pick is resolved,
+ * the round is skipped — leaving any group_member whose pick lost but
+ * whose is_alive flag wasn't flipped (e.g. due to ordering, retries, or
+ * manual reset-member calls) permanently mis-marked as alive.
+ *
+ * The Rome 2026 R64 case: Rafa picked de Minaur, who lost; pick.survived
+ * went to false but is_alive stayed true. /api/leaderboard reported the
+ * stale state; /api/pools.aliveCount disagreed with the leaderboard.
+ *
+ * This function runs every cron tick. Idempotent — if there's nothing to
+ * sync, it's a single SELECT that returns zero. Cheap insurance.
+ */
+export async function syncGroupMembersFromPicks() {
+  try {
+    const result = await pool.query(
+      `UPDATE group_members gm
+          SET is_alive = false,
+              eliminated_round = COALESCE(gm.eliminated_round, p.round)
+         FROM picks p
+         JOIN groups g ON g.id = p.group_id
+        WHERE p.survived = false
+          AND p.user_id  = gm.user_id
+          AND p.group_id = gm.group_id
+          AND gm.is_alive = true
+          AND g.tournament_id = $1`,
+      [TOURNAMENT.id]
+    );
+    if (result.rowCount > 0) {
+      console.log(`[results] syncGroupMembersFromPicks: flipped ${result.rowCount} member(s) to is_alive=false`);
+      await logOps('results', 'sync_alive', { eliminated: result.rowCount });
+    }
+    return result.rowCount;
+  } catch (err) {
+    console.error('[results] syncGroupMembersFromPicks error:', err.message);
+    return 0;
+  }
 }
 
 /**

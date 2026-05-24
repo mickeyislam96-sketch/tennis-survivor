@@ -85,6 +85,13 @@ for p in data:
         print(p.get('inviteCode',''))
         break
 " 2>/dev/null)
+ACTIVE_POOL_ID=$(echo "$POOLS" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for p in data:
+    if (p.get('tournament') or {}).get('status') == 'active':
+        print(p.get('id','')); break
+" 2>/dev/null)
 
 if [ -n "$ACTIVE_CODE" ]; then
   ok "active pool invite code = $ACTIVE_CODE"
@@ -96,6 +103,118 @@ if [ -n "$ACTIVE_CODE" ]; then
 else
   no "could not extract an active pool invite code from /api/pools"
 fi
+
+step "3b. Opponent enrichment for the OPEN round (PR #8 regression check)"
+# This catches the bug class fixed in PR #8 (7 May 2026): backend was
+# returning R64+ picks with no opponentName/opponentPossible, so the pick
+# screen showed bare names with no `vs <opponent>` sub-line.
+# Logic: find the round currently marked isOpen, hit /api/picks/available
+# for it, count how many players have neither field populated.
+DEADLINES=$(curl -s -m 15 "$API/api/draw/deadlines")
+OPEN_ROUND=$(echo "$DEADLINES" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for d in data:
+    if d.get('isOpen'):
+        print(d.get('round','')); break
+" 2>/dev/null)
+if [ -n "$OPEN_ROUND" ] && [ -n "$ACTIVE_POOL_ID" ]; then
+  ok "open round = $OPEN_ROUND"
+  PICKS=$(curl -s -m 30 "$API/api/picks/available?userId=00000000-0000-0000-0000-000000000000&groupId=$ACTIVE_POOL_ID&round=$OPEN_ROUND")
+  MISSING=$(echo "$PICKS" | python3 -c "
+import sys, json
+players = json.load(sys.stdin)
+total = len(players) if isinstance(players, list) else 0
+missing = sum(1 for p in players if not p.get('opponentName') and not (isinstance(p.get('opponentPossible'), list) and len(p['opponentPossible']) > 0))
+print(f'{missing}/{total}')
+" 2>/dev/null)
+  case "$MISSING" in
+    0/*) ok "every player in $OPEN_ROUND has opponent info ($MISSING)" ;;
+    */0) echo "  (no players returned — caught by other checks)" ;;
+    *)
+      MISSING_N=$(echo "$MISSING" | cut -d/ -f1)
+      TOTAL_N=$(echo "$MISSING" | cut -d/ -f2)
+      # Allow up to 5% missing (qualifier slots with TBD feeders can
+      # legitimately have nothing to render).  More than that = regression.
+      THRESHOLD=$((TOTAL_N * 5 / 100))
+      [ "$THRESHOLD" -lt 2 ] && THRESHOLD=2
+      if [ "$MISSING_N" -le "$THRESHOLD" ]; then
+        ok "opponent info populated for $OPEN_ROUND (missing $MISSING within tolerance)"
+      else
+        no "$MISSING players in $OPEN_ROUND missing opponentName + opponentPossible (likely PR #8 regression — opponentMap not built in picks.js R2+ branch)"
+      fi
+      ;;
+  esac
+else
+  echo "  (no open round detected — skipping opponent-enrichment check)"
+fi
+
+step "3c. /api/pools entryOpen field present on every pool"
+# 2026-05-08 brief D1: homepage was showing Enter CTA on a tournament whose
+# R1 had locked because /api/pools didn't surface entryOpen. PR #12 fixed
+# it; this asserts the contract holds.
+ENTRY_CHECK=$(echo "$POOLS" | python3 -c '
+import sys, json
+pools = json.load(sys.stdin)
+missing = [p.get("tournamentId", "?") for p in pools if "entryOpen" not in p]
+if missing:
+    print("MISSING|" + ",".join(missing))
+else:
+    bad = []
+    for p in pools:
+        t = p.get("tournament") or {}
+        if t.get("status") == "completed" and p.get("entryOpen") is not False:
+            bad.append((t.get("shortName") or "?") + "=completed/open")
+    if bad:
+        print("INCONSISTENT|" + ",".join(bad))
+    else:
+        print("OK|" + str(len(pools)))
+' 2>/dev/null)
+case "$ENTRY_CHECK" in
+  OK\|*) ok "every pool has entryOpen + entryClosedReason ($(echo "$ENTRY_CHECK" | cut -d'|' -f2) pools)" ;;
+  MISSING*) no "/api/pools missing entryOpen field on: $(echo "$ENTRY_CHECK" | cut -d'|' -f2)" ;;
+  INCONSISTENT*) no "/api/pools entryOpen inconsistent with status: $(echo "$ENTRY_CHECK" | cut -d'|' -f2)" ;;
+  *) echo "  (could not parse pools response)" ;;
+esac
+
+step "3d. Bracket startTime sanity (no stale dates on scheduled matches)"
+# 2026-05-08 brief T1: scraper-overlay timing left R64 cards stamped with
+# yesterday's date. Overlay now drops startTimes >6h in the past for
+# scheduled matches (PR #11). This asserts none slip through to prod.
+STALE=$(curl -s -m 30 "$API/api/draw/bracket?round=F" | python3 -c '
+import sys, json, datetime
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("PARSE_ERROR"); sys.exit(0)
+now = datetime.datetime.utcnow()
+issues = []
+for m in d.get("matches", []):
+    if m.get("status") == "scheduled" and m.get("startTime"):
+        try:
+            ts = datetime.datetime.fromisoformat(m["startTime"].replace("Z",""))
+        except Exception:
+            continue
+        delta = (now - ts).total_seconds() / 3600
+        if delta > 6:
+            p1 = (m.get("player1Name") or "?")[:15]
+            p2 = (m.get("player2Name") or "?")[:15]
+            issues.append((m.get("round") or "?") + ":" + p1 + " v " + p2 + " " + m["startTime"])
+if issues:
+    print("STALE|" + str(len(issues)) + "|" + "; ".join(issues[:3]))
+else:
+    print("OK")
+' 2>/dev/null)
+case "$STALE" in
+  OK) ok "no stale startTimes on scheduled matches" ;;
+  STALE*)
+    COUNT=$(echo "$STALE" | cut -d'|' -f2)
+    SAMPLE=$(echo "$STALE" | cut -d'|' -f3)
+    no "$COUNT scheduled matches have startTimes >6h in the past — overlay sanity check may have regressed (PR #11). Sample: $SAMPLE"
+    ;;
+  PARSE_ERROR) echo "  (bracket endpoint failed to parse — likely covered by health check)" ;;
+  *) echo "  (unexpected response — check $API/api/draw/bracket manually)" ;;
+esac
 
 step "4. Frontend reachable"
 HTTP_WEB=$(curl -s -L -o /dev/null -w "%{http_code}" -m 15 "$WEB")

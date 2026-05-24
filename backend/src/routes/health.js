@@ -95,13 +95,25 @@ healthRouter.get('/', async (_req, res) => {
   // ── 3c. Scraper freshness guard ────────────────────────────────────────────
   // Fail health check (allOk=false → 503) if the scraper cache is stale
   // during the active scraping window. Outside the window we don't fail —
-  // the scraper is on a 10–21 UTC hourly schedule, so an overnight gap of
+  // the scraper is on a 08-02 UTC hourly schedule (with a 03-07 UTC idle
   // up to 13 hours is normal. We only alarm when scrapes go missing while
   // they're meant to be running. UptimeRobot pings every 5 min and won't
   // fire on transient sub-minute gaps right at the top of the hour.
-  const STALE_THRESHOLD_S = 4 * 60 * 60;     // 4 hours
+  // Threshold rationale: scrapes run hourly (08-23 + 00-02 UTC). One missed run
+  // takes the cache to ~75 min old. Two missed runs to ~135 min. Setting
+  // the alarm at 90 min means we catch a single missed scrape within ~5 min
+  // (UptimeRobot ping cadence) without false-alarming on a single delayed
+  // run. Outside active hours the threshold doesn't matter — the
+  // 'idle_window' branch keeps allOk true regardless of cacheAge.
+  //
+  // History: 2026-05-08 brief flagged the previous 4h threshold as too
+  // forgiving — a silent first-scrape failure of the day wouldn't have
+  // paged until 14:00 UTC. New threshold pages it within 11:30 UTC.
+  const STALE_THRESHOLD_S = 90 * 60;         // 90 minutes during active hours
   const utcHour = new Date().getUTCHours();
-  const inActiveWindow = utcHour >= 10 && utcHour < 21;
+  // Active scraping window matches scraper/railway.toml cronSchedule.
+  // 0 0-2,8-23 * * *  =>  hours 0,1,2 + 8-23 active; 3-7 idle.
+  const inActiveWindow = utcHour <= 2 || (utcHour >= 8 && utcHour <= 23);
   const cache = checks.scraper_cache;
 
   if (cache?.hasMemoryCache && typeof cache.cacheAge === 'number') {
@@ -111,14 +123,14 @@ healthRouter.get('/', async (_req, res) => {
         cacheAgeSeconds:  cache.cacheAge,
         thresholdSeconds: STALE_THRESHOLD_S,
         scrapedAt:        cache.scrapedAt,
-        detail:           `Scraper cache is ${Math.round(cache.cacheAge / 60)}min old during active scraping window (10–21 UTC).`,
+        detail:           `Scraper cache is ${Math.round(cache.cacheAge / 60)}min old during active scraping window (08–02 UTC).`,
       };
       allOk = false;
     } else if (cache.cacheAge > STALE_THRESHOLD_S) {
       checks.scraper_freshness = {
         status:          'idle_window',
         cacheAgeSeconds: cache.cacheAge,
-        note:            'Outside active scraping hours (21–10 UTC) — overnight gap is expected.',
+        note:            'Outside active scraping hours (03–07 UTC) — short idle window before resume at 08:00.',
       };
     } else {
       checks.scraper_freshness = {

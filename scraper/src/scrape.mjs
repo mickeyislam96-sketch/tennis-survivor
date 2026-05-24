@@ -119,8 +119,39 @@ function playerIdFromName(name) {
 
 // ── Parse time string to ISO 8601 ──────────────────────────────────────────
 
-function parseStartTime(timeStr, dateStr) {
+function parseStartTime(timeStr, dateStr, status) {
+  // FlashScore convention: when a match is scheduled for today (the day the
+  // page was viewed) it shows just a time like "14:00". Matches on any other
+  // day show the date too (e.g. "08.05. 14:00").
+  //
+  // The scraper runs from a Railway cron that doesn't know what FlashScore is
+  // calling "today". For matches displayed today-relative we optimistically
+  // stamp with the scraper's current UTC date. The downstream seedDrawOverlay
+  // applies a sanity check (drops startTime values >6h in the past for
+  // scheduled matches), so a late-evening scrape that sees tomorrow's order
+  // of play as time-only entries doesn't actually leak wrong data into the
+  // bracket — the stamped time gets dropped at overlay time.
+  //
+  // History: 2026-05-08 morning brief flagged 23/32 R64 matches stamped with
+  // 2026-05-07 timestamps because a previous-day evening scrape had stamped
+  // tomorrow's matches with that day's date. The fix sits in the overlay
+  // (single source of truth on what gets shown), letting the scraper stay
+  // simple and not lose information for the much more common case of
+  // matches displayed time-only on the same day they play.
   if (!timeStr && !dateStr) return null;
+
+  // For COMPLETED/walkover/retired matches we will NOT default-stamp today
+  // when FlashScore has no date in the row. Result: cards render with no
+  // date rather than today's date pretending a match played 3 days ago
+  // happened today. Skipping today-default for non-decided statuses (live,
+  // scheduled) preserves the time-only display flow that the scraper relies
+  // on for same-day OOP scrapes.
+  // History: 2026-05-08 + 2026-05-09 — every R1 finished card stamped
+  // today's date even though R1 played 3 days earlier.
+  const DECIDED = new Set(['completed', 'walkover', 'retired']);
+  if (DECIDED.has((status || '').toLowerCase()) && !dateStr) {
+    return null;
+  }
 
   const now = new Date();
   let day = now.getUTCDate();
@@ -128,12 +159,35 @@ function parseStartTime(timeStr, dateStr) {
   let year = now.getUTCFullYear();
 
   if (dateStr) {
-    const parts = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
-    if (parts) {
-      day = parseInt(parts[1], 10);
-      month = parseInt(parts[2], 10);
-      year = parseInt(parts[3], 10);
+    // FlashScore typically renders dates as "DD.MM." for the current season
+    // (no year) or "DD.MM.YY" / "DD.MM.YYYY" for older entries. The original
+    // regex only matched the 3-component form, which silently fell through
+    // to today's date for the much more common 2-component form. That
+    // shipped the 2026-05-09 R1-stamped-today bug.
+    const partsFull = dateStr.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+    const partsNoYear = !partsFull && dateStr.match(/(\d{1,2})[./](\d{1,2})\.?(?!\d)/);
+    if (partsFull) {
+      day = parseInt(partsFull[1], 10);
+      month = parseInt(partsFull[2], 10);
+      year = parseInt(partsFull[3], 10);
       if (year < 100) year += 2000;
+    } else if (partsNoYear) {
+      day = parseInt(partsNoYear[1], 10);
+      month = parseInt(partsNoYear[2], 10);
+      // Year inference: prefer the year that makes the date no more than
+      // ~6 months in the past. Tournaments roll over Dec→Jan once a year;
+      // a "06.01." date scraped on 2026-12-30 belongs to 2027, not 2026.
+      const candidate = new Date(Date.UTC(year, month - 1, day));
+      const diffMs = candidate.getTime() - now.getTime();
+      const sixMonthsMs = 183 * 24 * 60 * 60 * 1000;
+      if (diffMs > sixMonthsMs) year -= 1;          // candidate is too far in the future → previous year
+      else if (diffMs < -sixMonthsMs) year += 1;    // candidate is too far in the past → next year
+    } else if (DECIDED.has((status || '').toLowerCase())) {
+      // Defence in depth: a DECIDED match that has a dateStr we cannot
+      // parse should NOT inherit today's date — that's the same bug class
+      // as the missing-dateStr branch above. Return null and let the FE
+      // render "—" for the date.
+      return null;
     }
   }
 
@@ -439,7 +493,7 @@ function transformToFixtures(rawMatches) {
     const matchId = m.fsMatchId ? `fs-${m.fsMatchId}` : generateMatchId(round, p1Name, p2Name);
 
     const status = normalizeStatus(m.statusText, m.hasScore);
-    const startTime = parseStartTime(m.timeText, m.dateText);
+    const startTime = parseStartTime(m.timeText, m.dateText, status);
 
     // Winner detection from set scores
     let winnerId = null;
@@ -461,10 +515,23 @@ function transformToFixtures(rawMatches) {
       else if (p2Sets > p1Sets) { winnerId = p2Id; winnerName = p2Name; }
     }
 
-    // Walkover/retirement: winner is the opponent of the retired/walkover player
+    // Walkover/retirement winner detection.
+    //
+    // WALKOVER: the score on FlashScore is just '---' (no digits). It is not
+    // safe to infer the winner from player ordering — that bug shipped on
+    // 2026-05-09 (Rome R64: Machac withdrew so Medvedev advanced, but the
+    // scraper guessed Machac and the bracket showed him progressing into R32).
+    // We now leave winnerId/winnerName null for walkovers; admins record the
+    // truth in TOURNAMENT.manualResultOverrides (config/activeTournament.js)
+    // and the seedDrawOverlay applies it before propagation.
+    //
+    // RETIRED: the loser is whoever stopped — but FlashScore shows the partial
+    // score with the retiring player typically behind. We use the score-leader
+    // heuristic but only when there's a clear majority (strictly more sets,
+    // not a tie). On a tie we leave winnerId null and let the admin confirm.
     const isWalkover = status === 'walkover';
     const isRetired = status === 'retired';
-    if ((isWalkover || isRetired) && m.score) {
+    if (isRetired && m.score) {
       const sets = m.score.split(',').map(s => s.trim());
       let p1Sets = 0;
       let p2Sets = 0;
@@ -475,14 +542,16 @@ function transformToFixtures(rawMatches) {
           else if (parseInt(parts[2]) > parseInt(parts[1])) p2Sets++;
         }
       }
-      if (p1Sets >= p2Sets) { winnerId = p1Id; winnerName = p1Name; }
-      else { winnerId = p2Id; winnerName = p2Name; }
+      if (p1Sets > p2Sets) { winnerId = p1Id; winnerName = p1Name; }
+      else if (p2Sets > p1Sets) { winnerId = p2Id; winnerName = p2Name; }
+      // tie → leave null
     }
+    // For walkovers we leave winnerId/winnerName null intentionally.
 
     const isWithdrawal = isWalkover;
-    const withdrawnPlayerId = isWalkover && winnerId
-      ? (winnerId === p1Id ? p2Id : p1Id)
-      : null;
+    // Scraper genuinely doesn't know which player withdrew; admin override
+    // sets withdrawnPlayerId at the overlay layer.
+    const withdrawnPlayerId = null;
 
     return {
       matchId,

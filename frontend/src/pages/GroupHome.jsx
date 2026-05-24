@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useModalExit } from '../hooks/useModalExit';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../App';
 import { getTournament, getAllTournaments } from '../data/tournaments';
@@ -170,6 +171,7 @@ function SurvivorMeter({ alive, total }) {
 
 // ── Auth modal (pool-scoped) ──────────────────────────────────
 function AuthModal({ onClose, onSuccess, poolName, register, login }) {
+  const { requestClose, isClosing } = useModalExit(onClose);
   const [mode, setMode] = useState('register');
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -202,14 +204,17 @@ function AuthModal({ onClose, onSuccess, poolName, register, login }) {
   };
 
   return (
-    <div className="ds-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className={`ds-modal-backdrop${isClosing ? ' ds-modal--closing' : ''}`}
+      onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
+    >
       <div className="ds-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <header className="ds-modal-header">
           <span className="ds-modal-eyebrow">JOIN · {poolName}</span>
           <h2 className="ds-modal-title">
             {mode === 'register' ? 'Create your account' : 'Welcome back'}
           </h2>
-          <button className="ds-modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="ds-modal-close" onClick={requestClose} aria-label="Close">✕</button>
         </header>
 
         <div className="ds-modal-body">
@@ -632,7 +637,7 @@ export function GroupHome() {
             lede={`You're in. The draw drops on ${drawDateFmt} — we'll open picks automatically.`}
             meta={
               <>
-                <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents || 0)} />
+                {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
                 <Stat size="sm" label="Registered" value={totalMembers} />
                 <Stat size="sm" label="Starts" value={fmtDate(tournament.startDate)} />
               </>
@@ -718,7 +723,7 @@ export function GroupHome() {
             lede="Tournament complete. Final standings below."
             meta={
               <>
-                <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents || 0)} />
+                {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
                 <Stat size="sm" label={winners.length === 1 ? 'Winner' : 'Winners'} value={winners.length || 0} />
                 <Stat size="sm" label="Entered" value={totalMembers} />
               </>
@@ -824,14 +829,14 @@ export function GroupHome() {
           }
           title={<>{group.name}</>}
           lede={
-            aliveMembers === 1
+            aliveMembers === 1 && totalMembers > 1
               ? 'Down to one — final stretch.'
               : 'Updated live as results come in.'
           }
           meta={
             <>
-              <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />
-              <Stat size="sm" label="Entry fee" value={fmtGBP(group.entryFeeCents)} />
+              {group.prizePoolCents > 0 && <Stat size="sm" tone="gold" label="Prize pool" value={fmtGBP(group.prizePoolCents)} />}
+              <Stat size="sm" label="Entry fee" value={group.entryFeeCents > 0 ? fmtGBP(group.entryFeeCents) : 'Free'} />
               {totalMembers > 0 && (
                 <Stat size="sm" label="Still in" value={<>{aliveMembers}<span className="gh-stat-total"> / {totalMembers}</span></>} />
               )}
