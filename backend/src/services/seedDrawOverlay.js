@@ -363,6 +363,27 @@ export function overlayFixtures(seedDraw, fixtures) {
     const withdrawnPlayer = updatedPlayers.find(p => p.id === withdrawnId);
     if (!withdrawnPlayer) continue;
 
+    // ── Qualifier placeholder resolution ────────────────────────────────
+    // If the seed-draw opponent is an unresolved qualifier placeholder, this
+    // fixture reveals the real qualifier's name. The qualifier is anchored by
+    // their KNOWN opponent (we found this seed match via knownPlayerId), so
+    // the other side of that opponent's live fixture is, by construction, the
+    // real qualifier — adopt the name so the normal round-by-round overlay can
+    // then match and propagate the result. Unlike a lucky-loser withdrawal,
+    // this needs NO cancelled fixture: the slot was always going to be filled
+    // by whoever came through qualifying. Without this, "Qualifier N" never
+    // surname-matches the scraper fixture and the match silently fails to
+    // settle (the 2026-05-24 RG R1 finding). This is contained to R1 qualifier
+    // slots and only ever overwrites a placeholder, never a named player.
+    if (withdrawnPlayer.isQualifier) {
+      const oldName = withdrawnPlayer.name;
+      withdrawnPlayer.name = rep.unknownPlayerName;
+      withdrawnPlayer.isQualifier = false;
+      withdrawnPlayer.resolvedFromFixture = true;
+      console.log(`[seedDrawOverlay] Qualifier resolved: "${oldName}" → "${rep.unknownPlayerName}" at ID ${withdrawnPlayer.id} (opponent ${rep.knownPlayerName})`);
+      continue;
+    }
+
     // Verify there's a cancelled fixture for the original matchup
     const hasCancelled = cancelledFixtures.some(cf => {
       const cf1Parts = surnameParts(cf.player1Name);
