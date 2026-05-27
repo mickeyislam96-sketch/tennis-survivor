@@ -263,19 +263,29 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
           ? (picks.find(p => p.round === currentRound) || null)
           : null;
 
+        // Single source of truth for this member's alive state. When a member
+        // has graded picks, the live grade wins; otherwise fall back to the DB
+        // flag. CRITICAL: when the member is alive, NEVER carry over a stale
+        // DB eliminatedRound/eliminatingPick. A prior tournament (or a since-
+        // corrected contaminated result) can leave group_members.eliminated_round
+        // populated while the member is actually alive — surfacing that produced
+        // a row that was simultaneously "ALIVE" and "eliminated by X".
+        // (2026-05-26 brief: Rafa showed isAlive + eliminatingPick=Fritz while
+        // Fritz's R1 match was still scheduled.)
+        const effectiveIsAlive = picks.length > 0 ? isAlive : m.isAlive;
+        const effectiveElimRound = effectiveIsAlive ? null : (eliminatedRound || m.eliminatedRound);
         return {
           ...m,
           picksCount: picks.length,
           survivedRounds,
-          eliminatedRound: eliminatedRound || m.eliminatedRound,
-          isAlive: picks.length > 0 ? isAlive : m.isAlive,
+          eliminatedRound: effectiveElimRound,
+          isAlive: effectiveIsAlive,
           // Expose the pick only when the round is fully locked
           currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
           // For eliminated members: show which pick got them knocked out
           eliminatingPick: (() => {
-            const elimRound = eliminatedRound || m.eliminatedRound;
-            if (!elimRound) return null;
-            const elimPick = picks.find(p => p.round === elimRound);
+            if (!effectiveElimRound) return null;
+            const elimPick = picks.find(p => p.round === effectiveElimRound);
             return elimPick ? elimPick.playerName : null;
           })(),
         };
@@ -320,12 +330,13 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
     const picks = MOCK_PICKS.filter(p => p.userId === m.userId && p.groupId === groupId);
     const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
     const currentPick = currentRound ? (picks.find(p => p.round === currentRound) || null) : null;
+    const effectiveIsAlive = picks.length > 0 ? isAlive : m.isAlive;
     return {
       ...m,
       picksCount: picks.length,
       survivedRounds,
-      eliminatedRound: eliminatedRound || m.eliminatedRound,
-      isAlive: picks.length > 0 ? isAlive : m.isAlive,
+      eliminatedRound: effectiveIsAlive ? null : (eliminatedRound || m.eliminatedRound),
+      isAlive: effectiveIsAlive,
       currentRoundPick: (roundIsLocked && currentPick) ? currentPick.playerName : null,
     };
   });

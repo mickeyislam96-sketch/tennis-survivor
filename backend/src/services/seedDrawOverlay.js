@@ -268,8 +268,79 @@ function findFixtureMatch(seedMatch, lookup, fixtures) {
  * @param {object[]} fixtures — internal fixture format (from FlashScore scraper or any provider)
  * @returns {object} — updated seed draw with live statuses, scores, and start times
  */
+// ── Wrong-event date guard ──────────────────────────────────────────────────
+//
+// Reject any scraped fixture whose start date falls outside the active
+// tournament's window. This is the durable defence against the recurring
+// failure mode where the scraper is pointed at the wrong (e.g. just-completed)
+// tournament and posts a full set of stale fixtures. Name collisions between
+// draws would otherwise let a handful of those foreign results overlay onto
+// this draw.
+//
+// History: 2026-05-26 brief found Rome 2026 results (start times on 07 May)
+// contaminating the Roland-Garros R1 bracket because Blockx and Tirante appear
+// in both draws. The existing stale-startTime check only fires on `scheduled`
+// matches, so cross-event `completed` fixtures slipped straight through and
+// were applied as real wins (one pool member was falsely credited a survived
+// round). This window guard runs before any matching and catches them
+// regardless of status.
+//
+// Buffer (days) around the published window allows for qualifying rounds,
+// time-zone skew, and FlashScore's occasional next-day stamping.
+const WINDOW_BUFFER_BEFORE_DAYS = 5;
+const WINDOW_BUFFER_AFTER_DAYS = 2;
+
+function tournamentWindow() {
+  const start = TOURNAMENT.startDate ? Date.parse(TOURNAMENT.startDate + 'T00:00:00Z') : NaN;
+  const end = TOURNAMENT.endDate ? Date.parse(TOURNAMENT.endDate + 'T23:59:59Z') : NaN;
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return {
+    min: start - WINDOW_BUFFER_BEFORE_DAYS * 24 * 60 * 60 * 1000,
+    max: end + WINDOW_BUFFER_AFTER_DAYS * 24 * 60 * 60 * 1000,
+  };
+}
+
+/**
+ * Drop fixtures whose startTime is clearly outside the active tournament's
+ * date window. Fixtures with no/unparseable startTime are KEPT (we can't
+ * date-check them, and over-rejecting would lose legitimate results) — those
+ * still rely on name matching, which only matches players in this draw.
+ */
+export function filterFixturesToTournamentWindow(fixtures) {
+  const win = tournamentWindow();
+  if (!win || !fixtures?.length) return fixtures || [];
+  const kept = [];
+  let dropped = 0;
+  for (const fix of fixtures) {
+    const ts = fix.startTime ? Date.parse(fix.startTime) : NaN;
+    if (!Number.isNaN(ts) && (ts < win.min || ts > win.max)) {
+      dropped++;
+      continue;
+    }
+    kept.push(fix);
+  }
+  if (dropped > 0) {
+    console.warn(
+      `[seedDrawOverlay] wrong-event guard dropped ${dropped}/${fixtures.length} ` +
+      `fixture(s) dated outside ${TOURNAMENT.id} window ` +
+      `[${TOURNAMENT.startDate}..${TOURNAMENT.endDate}]. ` +
+      `This usually means the scraper is pointed at the wrong tournament — ` +
+      `check FLASHSCORE_URL / RESULTS_URL on the Railway scraper service.`
+    );
+  }
+  return kept;
+}
+
 export function overlayFixtures(seedDraw, fixtures) {
   if (!fixtures?.length) return seedDraw;
+
+  // Reject fixtures from a different event before any matching. Gated on the
+  // seed draw belonging to the active tournament so that tests and historical
+  // bracket views (which use other tournament ids) are unaffected.
+  if (seedDraw && seedDraw.tournament === TOURNAMENT.id) {
+    fixtures = filterFixturesToTournamentWindow(fixtures);
+    if (!fixtures.length) return seedDraw;
+  }
 
   // ── Pre-pass: Detect withdrawal replacements (lucky losers) ──────────
   // When a player withdraws before their match, FlashScore shows:
