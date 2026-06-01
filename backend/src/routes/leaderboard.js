@@ -151,26 +151,57 @@ function buildGrader(draw) {
  *
  * Returns { survivedRounds, eliminatedRound, isAlive }
  */
-function gradeMember(picks, grade) {
+function gradeMember(picks, grade, lockedRounds) {
   let survivedRounds = 0;
   let eliminatedRound = null;
   let isAlive = true;
 
-  // Process picks in round order so we get the right eliminatedRound
-  const ordered = [...picks].sort(
-    (a, b) => ROUNDS.indexOf(a.round) - ROUNDS.indexOf(b.round)
-  );
+  const pickByRound = {};
+  for (const p of picks) pickByRound[p.round] = p;
 
-  for (const pick of ordered) {
-    const result = grade(pick.playerId || pick.player_id, pick.round, pick.playerName || pick.player_name);
-    if (result === true) {
-      survivedRounds++;
-    } else if (result === false) {
-      isAlive = false;
-      eliminatedRound = pick.round;
-      break; // once eliminated, stop counting
+  if (Array.isArray(lockedRounds)) {
+    // Authoritative path: walk every LOCKED round in order. To stay alive a
+    // member must have a SURVIVING pick for each locked round. Missing a pick
+    // for a locked round eliminates them there (non-picker rule); a losing
+    // pick eliminates them there too. Computed purely from picks + live draw +
+    // lock state, so it enforces the non-picker rule while still ignoring
+    // stale DB elimination data (the reason the DB flag isn't trusted here).
+    for (const round of lockedRounds) {
+      const pick = pickByRound[round];
+      if (!pick) {
+        isAlive = false;
+        eliminatedRound = round; // never picked this locked round
+        break;
+      }
+      const result = grade(pick.playerId || pick.player_id, round, pick.playerName || pick.player_name);
+      if (result === true) {
+        survivedRounds++;
+      } else if (result === false) {
+        isAlive = false;
+        eliminatedRound = round;
+        break;
+      } else {
+        // Result still pending for this locked round — leave alive and stop;
+        // a later round can't be survived until this one resolves.
+        break;
+      }
     }
-    // null = pending, leave as-is
+  } else {
+    // Fallback (deadlines unavailable): grade only the picks that exist, in
+    // round order. Can't enforce the non-picker rule without the lock list.
+    const ordered = [...picks].sort(
+      (a, b) => ROUNDS.indexOf(a.round) - ROUNDS.indexOf(b.round)
+    );
+    for (const pick of ordered) {
+      const result = grade(pick.playerId || pick.player_id, pick.round, pick.playerName || pick.player_name);
+      if (result === true) {
+        survivedRounds++;
+      } else if (result === false) {
+        isAlive = false;
+        eliminatedRound = pick.round;
+        break;
+      }
+    }
   }
 
   return { survivedRounds, eliminatedRound, isAlive };
@@ -186,8 +217,13 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
   let currentRound = null;
   let roundIsLocked = false;
   let openRound = null; // the currently open round (picks hidden in modal)
+  // Ordered list of rounds whose pick window has LOCKED. Passed to gradeMember
+  // so it can enforce the non-picker rule. Stays null if deadlines can't be
+  // fetched, which makes gradeMember fall back to grading existing picks only.
+  let lockedRoundList = null;
   try {
     const deadlines = await getDeadlines();
+    lockedRoundList = ROUNDS.filter((r) => deadlines.some((d) => d.round === r && d.isLocked));
     // Find the latest locked round using the known round order (not date sorting).
     // ROUNDS is ordered R1 → R64 → R32 → ... → F, so the last locked entry
     // in round-order is the one whose picks should be displayed.
@@ -256,7 +292,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         const picks = picksByUser[m.userId] || [];
 
         // Grade picks using live draw data
-        const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
+        const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade, lockedRoundList);
 
         // Current round pick (for the "this round's pick" column)
         const currentPick = currentRound
@@ -272,7 +308,7 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
         // a row that was simultaneously "ALIVE" and "eliminated by X".
         // (2026-05-26 brief: Rafa showed isAlive + eliminatingPick=Fritz while
         // Fritz's R1 match was still scheduled.)
-        const effectiveIsAlive = picks.length > 0 ? isAlive : m.isAlive;
+        const effectiveIsAlive = (lockedRoundList !== null) ? isAlive : (picks.length > 0 ? isAlive : m.isAlive);
         const effectiveElimRound = effectiveIsAlive ? null : (eliminatedRound || m.eliminatedRound);
         return {
           ...m,
@@ -328,9 +364,9 @@ leaderboardRouter.get('/:groupId', async (req, res) => {
 
   const members = MOCK_MEMBERS.filter(m => m.groupId === groupId).map(m => {
     const picks = MOCK_PICKS.filter(p => p.userId === m.userId && p.groupId === groupId);
-    const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade);
+    const { survivedRounds, eliminatedRound, isAlive } = gradeMember(picks, grade, lockedRoundList);
     const currentPick = currentRound ? (picks.find(p => p.round === currentRound) || null) : null;
-    const effectiveIsAlive = picks.length > 0 ? isAlive : m.isAlive;
+    const effectiveIsAlive = (lockedRoundList !== null) ? isAlive : (picks.length > 0 ? isAlive : m.isAlive);
     return {
       ...m,
       picksCount: picks.length,
