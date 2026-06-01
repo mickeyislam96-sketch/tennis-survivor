@@ -70,7 +70,22 @@ const TOURNAMENTS = {
       F:   '2026-06-07T11:00:00Z',
     },
 
-    manualResultOverrides: [],
+    manualResultOverrides: [
+      {
+        round: 'R64',
+        matchPlayers: ['Tabilo, Alejandro', 'Vacherot, Valentin'],
+        winner: 'Tabilo, Alejandro',
+        status: 'walkover',
+        note: 'Recorded 2026-06-01: Vacherot withdrew (walkover); Tabilo advanced (confirmed by his completed R32 vs Kouame).',
+      },
+      {
+        round: 'R64',
+        matchPlayers: ['de Minaur, Alex', 'Blockx, Alexander'],
+        winner: 'de Minaur, Alex',
+        status: 'walkover',
+        note: 'Recorded 2026-06-01: Blockx withdrew (walkover); de Minaur advanced (confirmed by his completed R32 vs Mensik).',
+      },
+    ],
 
     apiTennisTournamentKey: null,
     apiSeason: null,
