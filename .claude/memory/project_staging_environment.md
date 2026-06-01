@@ -23,14 +23,14 @@ type: project
 ## Important properties
 
 - Staging Postgres is **separate** from prod. Empty by default. Reference variable `${{Postgres.DATABASE_URL}}` in the backend service auto-resolves per environment.
-- Staging scraper service is duplicated from prod and deploys from `staging` branch. It will scrape FlashScore and post to staging backend.
+- Staging scraper service is duplicated from prod and deploys from `staging` branch. **CAUTION (corrected 1 Jun 2026):** when first cloned it was NOT posting to staging — it kept prod's `BACKEND_URL` + prod's `ADMIN_SECRET` and Rome FlashScore URLs, so it scraped Rome and wrote to PRODUCTION every hour, corrupting RG data. Fixed: repointed `BACKEND_URL`→staging backend and URLs→french-open. See [[feedback_staging_scraper_poisons_prod]]. It still holds the prod ADMIN_SECRET — rotate prod's secret to fully close the hole.
 - The 48-hour-grace-period orphan project `pleasing-appreciation` was deleted today — that was the source of daily build-failure emails.
 
 ## Outstanding cleanups (do these before relying on staging)
 
 1. **FRONTEND_URL on Railway staging is still prod URL.** Change to the Vercel staging preview URL or CORS will reject staging-frontend → staging-backend calls.
 2. **`.github/workflows/tests.yml` only triggers on `main`.** Add `staging` to the branches list so PRs targeting staging run CI.
-3. **Consider pausing the staging scraper** to save Railway compute. Staging is for code testing, not scraper testing. Disable cron or set deploy paused on the `valiant-forgiveness` service in the staging environment.
+3. **Staging scraper repointed 1 Jun 2026** (`BACKEND_URL`→staging, URLs→french-open) so it can no longer write to prod. Still worth pausing it to save compute and to remove the prod `ADMIN_SECRET` from a non-prod service. Better: rotate prod `ADMIN_SECRET` + give staging its own.
 
 ## Why the cost is acceptable
 

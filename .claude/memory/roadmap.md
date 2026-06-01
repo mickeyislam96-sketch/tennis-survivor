@@ -47,8 +47,8 @@ body composition needs to be written.
 
 ## Three-phase approach
 1. **Madrid Open** (22 Apr - ~4 May 2026): Free entry, COMPLETE. Stability trial.
-2. **Rome Masters** (5-17 May): Free, ACTIVE (R1 in progress as of 5 May). Target: mobile app launch.
-3. **Roland Garros** (18 May - 7 Jun): FIRST PAID tournament. Entry fee £10.
+2. **Rome Masters** (5-17 May): Free, COMPLETE. Pool winner "Casper The Freindly Ruud" (Sinner won the event).
+3. **Roland Garros** (24 May - 7 Jun): FREE (paid plan reversed 22 May — see line below + project_paid_launch_decisions.md). ACTIVE; at QF stage as of 1 Jun, 1 still in.
 
 ## Payment processing
 - **Stripe is prohibited** for skill-based prize games (ToS explicitly bans it, accounts have been frozen)

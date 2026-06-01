@@ -4,7 +4,7 @@ description: Full technical context for the Final Serve-ivor tennis survivor gam
 type: project
 originSessionId: b7e848b7-b642-43e4-a5e5-5e49e2c370e9
 ---
-**Product:** Final Serve-ivor — tennis survivor fantasy game. Players pick one ATP player per round, eliminated if their pick loses. Live at https://finalserveivor.com. Monte Carlo 2026 complete (Mark won). Madrid Open 2026 complete (finished ~4 May). Roland Garros 2026 ACTIVE (activated 22 May 2026, FREE, R1 main draw locks 24 May 08:00 UTC, DB group `20440c2f-e1e1-4e4c-82fe-6efb9b525c8c`, invite `ROLAND-GARROS-2026-P-H294FQ`; first Grand Slam — see project_roland_garros_grand_slam.md). Rome 2026 complete. All 12 R1 qualifier slots resolved 5 May post-Q3 from ATP Tour archive (commit `4708e5b`).
+**Product:** Final Serve-ivor — tennis survivor fantasy game. Players pick one ATP player per round, eliminated if their pick loses. Live at https://finalserveivor.com. Monte Carlo 2026 complete (Mark won). Madrid Open 2026 complete (finished ~4 May). Roland Garros 2026 ACTIVE (FREE; at QF stage as of 1 Jun 2026 — QF opens 1 Jun 17:00 UTC; 1 still in: Servena Williams, sole survivor; DB group `20440c2f-e1e1-4e4c-82fe-6efb9b525c8c`, invite `ROLAND-GARROS-2026-P-H294FQ`; first Grand Slam — see project_roland_garros_grand_slam.md). Rome 2026 complete. All 12 R1 qualifier slots resolved 5 May post-Q3 from ATP Tour archive (commit `4708e5b`).
 
 **Stack:**
 - Frontend: React + Vite → Vercel (auto-deploys from GitHub main)

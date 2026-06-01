@@ -86,3 +86,10 @@ Example (Rome 2026 R64, 2026-05-10):
 Implemented in `backend/src/services/seedDrawOverlay.js` Step 1.5
 (override apply). Additive — only fires when the field is set, so
 existing overrides without it behave unchanged.
+**RG 2026 R64 walkovers (1 Jun 2026, session 42):** two unconfirmed walkovers
+(`+REVIEW(2)`) — Tabilo/Vacherot and de Minaur/Blockx. Determined winners the
+reliable way: the survivor appears in the NEXT round's fixtures (Tabilo played
+R32 vs Kouame; de Minaur played R32 vs Mensik). Recorded both in
+TOURNAMENT.manualResultOverrides (winners Tabilo, de Minaur). Confirming a
+walkover winner by "who shows up in the next round" is the go-to when the
+withdrawal isn't otherwise documented.

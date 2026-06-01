@@ -14,7 +14,7 @@
 - [Tournament transition prompts](../../docs/transition-prompt.md) — paste at start of any free-tournament transition session
 - [Paid transition prompt](../../docs/paid-transition-prompt.md) — superset for paid events (Stripe/Revolut bridge, payment smoke, settlement)
 - [Admin auth pattern](feedback_admin_auth_pattern.md) — always use requireAdmin from adminAuth.js; never hand-roll ADMIN_SECRET checks
-- [Staging environment](project_staging_environment.md) — staging URLs, workflow contract, outstanding cleanups (FRONTEND_URL, CI trigger, scraper). Shipped 7 May 2026.
+- [Staging environment](project_staging_environment.md) — staging URLs, workflow contract, cleanups. NOTE: staging scraper was misconfigured to write to PROD (fixed 1 Jun). Shipped 7 May 2026.
 - [fsv-daily-brief skill](reference_daily_brief_skill.md) — morning brief skill, what it does, when it triggers, hard rules, approval flow.
 - [Brief skill domain caveats](feedback_brief_domain_caveats.md) — suspended ≠ retired in tennis; (n-1) is correct survivor-pool denominator. Two landmines Mickey caught session 36.
 - [Seeded-player withdrawal with bye](feedback_seeded_withdrawal_with_bye.md) — auto-replacement only fires for R1; seeds with byes need manual seed-draw JSON update + player ID changes from rome-sN to rome-pPos
@@ -29,3 +29,4 @@
 - [is_alive must sync from picks every cron tick](feedback_sync_group_members_from_picks.md) — autoProcessResults skips rounds when no NULL picks remain; reconciliation must be unconditional. session 38b syncGroupMembersFromPicks.
 - [Email design system](feedback_email_design_system.md) — token-driven email architecture (LIGHT/DARK pairs + 6 component builders). Dark-mode contract, Outlook 365 [data-ogsc]/[data-ogsb] selectors, mobile breakpoint, system-font fallback chain. The pattern to follow when adding new email types. Session 38c (9 May 2026).
 - [Leaderboard sort rule](feedback_leaderboard_sort.md) — alive by survivedRounds DESC, eliminated by recency DESC, alphabetical tiebreaker. `sortLeaderboard()` helper + 7 regression tests. Replaces `|| 0` JS footgun.
+- [Staging scraper poisoned prod](feedback_staging_scraper_poisons_prod.md) — 1 Jun outage: staging scraper scraped Rome + POSTed to PROD backend with prod ADMIN_SECRET, clobbering RG hourly. Repoint every non-prod scraper's BACKEND_URL; raw-adapter-high + bracket-seed_draw = wrong-event in cache.
