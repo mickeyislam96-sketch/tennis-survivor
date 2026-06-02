@@ -100,6 +100,13 @@ const TOURNAMENTS = {
         status: 'completed',
         note: 'Recorded 2026-06-02: scraper is missing this R1 fixture entirely, so it never overlaid and Cobolli R64 opponent (Wu) stayed null, breaking the Cobolli/Svajda branch. Wu won, confirmed by his completed R64 vs Cobolli.',
       },
+      {
+        round: 'R64',
+        matchPlayers: ['Cobolli, Flavio', 'Wu, Yibing'],
+        winner: 'Cobolli, Flavio',
+        status: 'completed',
+        note: 'Recorded 2026-06-02: once Wu propagated into this R64 slot (via the R1 override above), the scraper fixture still failed to assign a winner because the 2-char surname Wu does not pass surname-subset matching. Forcing Cobolli (scraper winner) here cascades the rest of the branch (R32 vs Tien, R16 vs Svajda) via normal matching, eliminating Svajda and completing QF AA vs Cobolli.',
+      },
     ],
 
     apiTennisTournamentKey: null,
