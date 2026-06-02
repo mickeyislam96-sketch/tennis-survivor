@@ -224,14 +224,17 @@ export function PickScreen() {
       .finally(() => setSubmitting(false));
   };
 
+  // A player is "already used" if their ID OR their full name matches a pick
+  // from another round. Match on the WHOLE normalised name (mirrors the backend
+  // POST /api/picks check) — NOT a parsed surname. Names are stored
+  // "Surname, Firstname"; an earlier version did split(' ').pop() which actually
+  // returned the FIRST name, so "Blockx, Alexander" and "Zverev, Alexander"
+  // collided on "Alexander" and Zverev was wrongly blocked for anyone who had
+  // used Blockx. Whole-name + ID matching has no first-name or surname collisions
+  // and keeps the UI in lockstep with what the server will accept.
   const usedIds = new Set(allPicks.map((p) => p.playerId).filter(Boolean));
-  const usedLastNames = new Set(
-    allPicks
-      .map((p) => {
-        const parts = (p.playerName || '').trim().split(' ');
-        return parts[parts.length - 1].toLowerCase();
-      })
-      .filter(Boolean)
+  const usedNames = new Set(
+    allPicks.map((p) => (p.playerName || '').toLowerCase().trim()).filter(Boolean)
   );
 
   const filtered = available.filter((p) => {
@@ -554,10 +557,9 @@ export function PickScreen() {
             <div className="ps-player-cards">
               {filtered.slice(0, 80).map((player) => {
                 const name = (player.name || '').toLowerCase().trim();
-                const lastName = name.split(' ').pop();
                 const isCurrentPick = player.id === myPickThisRound?.playerId;
                 const usedInOtherRound = !isCurrentPick &&
-                  (usedIds.has(player.id) || (lastName && usedLastNames.has(lastName)));
+                  (usedIds.has(player.id) || (name && usedNames.has(name)));
                 const isTopSeed = player.seed && player.seed <= 8;
 
                 const cardClass = [
