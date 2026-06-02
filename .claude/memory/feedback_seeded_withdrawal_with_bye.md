@@ -75,3 +75,11 @@ result. Bracket card now reads "van de Zandschulp d. Kovacevic, A. (LL)".
 PR #21. Auto-resolved a downstream Khachanov R32 fixture that was
 sitting unmatched (Khachanov had played and won 11:10 UTC; the slot just
 needed an opponent name to attach the scraper fixture).
+---
+
+**Related (2 Jun 2026):** the same auto-replacement gap also bites **R1**
+pre-tournament withdrawals in no-bye Grand Slam draws — the replacement LL has
+no cancelled fixture either, so the R1 match never resolves and the gap
+cascades up the bracket. See [[feedback_overlay_propagation_cascade]] for the
+RG case (Fils→De Jong seed edit + van Assche/Wu/Cobolli overrides) and the
+diagnosis/fix recipe.
