@@ -141,7 +141,9 @@
     },
     "17": {
       "name": "Fils, Arthur",
-      "country": "FRA"
+      "country": "FRA",
+      "withdrawn": true,
+      "replacedBy": "De Jong, Jesper (LL)"
     },
     "32": {
       "name": "Humbert, Ugo",
@@ -896,9 +898,10 @@
     },
     {
       "pos": 120,
-      "name": "Fils, Arthur",
-      "seed": 17,
-      "country": "FRA"
+      "name": "De Jong, Jesper",
+      "seed": null,
+      "country": "NED",
+      "isLuckyLoser": true
     },
     {
       "pos": 121,

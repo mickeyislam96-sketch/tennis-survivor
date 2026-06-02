@@ -85,6 +85,21 @@ const TOURNAMENTS = {
         status: 'walkover',
         note: 'Recorded 2026-06-01: Blockx withdrew (walkover); de Minaur advanced (confirmed by his completed R32 vs Mensik).',
       },
+      {
+        round: 'R1',
+        matchPlayers: ['Van Assche, Luca', 'Kypson, Patrick'],
+        winner: 'Van Assche, Luca',
+        status: 'completed',
+        loserDisplayName: 'Gaubas, Vilius (LL)',
+        note: 'Recorded 2026-06-02: Kypson withdrew pre-tournament; LL Gaubas played and lost to van Assche. The scraper opponent name (Gaubas) did not match the seed-draw slot (Kypson), so the R1 result never overlaid and propagation broke up the branch (R64 van Assche/Nakashima -> R32 AA -> R16 Tabilo). van Assche advanced then lost R64 to Nakashima.',
+      },
+      {
+        round: 'R1',
+        matchPlayers: ['Wu, Yibing', 'Giron, Marcos'],
+        winner: 'Wu, Yibing',
+        status: 'completed',
+        note: 'Recorded 2026-06-02: scraper is missing this R1 fixture entirely, so it never overlaid and Cobolli R64 opponent (Wu) stayed null, breaking the Cobolli/Svajda branch. Wu won, confirmed by his completed R64 vs Cobolli.',
+      },
     ],
 
     apiTennisTournamentKey: null,
