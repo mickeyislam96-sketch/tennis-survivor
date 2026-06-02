@@ -43,7 +43,7 @@ const TOURNAMENTS = {
       R64: '2026-05-27T08:00:00Z',  // Wed 27 May — UPDATE once OOP confirmed
       R32: '2026-05-29T08:00:00Z',  // Fri 29 May — UPDATE once OOP confirmed
       R16: '2026-05-31T08:00:00Z',  // Sun 31 May — UPDATE once OOP confirmed
-      QF:  '2026-06-02T08:00:00Z',  // Tue 2 Jun — UPDATE once OOP confirmed
+      QF:  '2026-06-02T11:00:00Z',  // Tue 2 Jun 12:00 BST — reopened (was 08:00 estimate; QF matches start 3 Jun). Mickey extended window so Servena could re-pick after the name-collision bug fix.
       SF:  '2026-06-05T09:00:00Z',  // Fri 5 Jun — UPDATE once OOP confirmed
       F:   '2026-06-07T11:00:00Z',  // Sun 7 Jun — final ~14:00 local (UPDATE)
     },
