@@ -40,6 +40,8 @@ Runs at `http://localhost:5173`. Proxies `/api` to the backend.
 
 Set `TENNIS_API_KEY` and `ACTIVE_TOURNAMENT=monte-carlo-2026` in `backend/.env`. The app will use [API-Tennis](https://api-tennis.com) for live draw and results. Without these, it uses the built-in Monte Carlo mock draw (56 players).
 
+Optionally, set `LIVETENNIS_API_KEY` to add [Live Tennis API](https://livetennisapi.com) as one more fallback in the `dataAdapter` chain, so a quota exhaustion or outage on one source doesn't take the draw down. It sits last and is skipped entirely when the key is unset; `TENNIS_DATA_PROVIDER=livetennis` tries it first.
+
 ## Core features
 
 | Feature | Description |
