@@ -8,6 +8,7 @@
  *   'scraper'     — FlashScore scraper (preferred)
  *   'api-tennis'  — API-Tennis (legacy, fallback)
  *   'sofascore'   — Sofascore scraping (free, unreliable on cloud IPs)
+ *   'livetennis'  — Live Tennis API (opt-in, needs LIVETENNIS_API_KEY)
  *   'mock'        — Local mock data (development only)
  *
  * All providers must return data in the internal fixture format (see below).
@@ -123,6 +124,21 @@ async function fetchSofascore(config) {
   }
 }
 
+// ── Live Tennis API adapter ──────────────────────────────────────────────────
+// Opt-in: no LIVETENNIS_API_KEY means fetchLiveTennisFixtures() returns null
+// straight away and the chain carries on to the next provider unchanged.
+async function fetchLiveTennis(_config) {
+  try {
+    const { fetchLiveTennisFixtures } = await import('./livetennisAdapter.js');
+    const fixtures = await fetchLiveTennisFixtures();
+    if (!fixtures || fixtures.length === 0) return null;
+    return fixtures;
+  } catch (e) {
+    console.warn('[dataAdapter] Live Tennis adapter failed:', e.message);
+    return null;
+  }
+}
+
 // ── Round normalisation (API-Tennis specific — kept for bridge adapter) ───────
 const API_TENNIS_ROUND_MAP = {
   '1/64-finals': 'R1', '1/32-finals': 'R64', '1/16-finals': 'R32',
@@ -162,10 +178,14 @@ async function fetchScraper(_config) {
 
 // ── Main fetch function ──────────────────────────────────────────────────────
 // Tries providers in priority order. Returns internal fixture array or empty.
+// 'livetennis' sits last so the existing order is untouched: it is only
+// reached when scraper, API-Tennis and Sofascore have all come back empty,
+// unless TENNIS_DATA_PROVIDER names it explicitly.
 const PROVIDER_CHAIN = [
   { name: 'scraper',    fn: fetchScraper },
   { name: 'api-tennis', fn: fetchApiTennis },
   { name: 'sofascore',  fn: fetchSofascore },
+  { name: 'livetennis', fn: fetchLiveTennis },
 ];
 
 /**
